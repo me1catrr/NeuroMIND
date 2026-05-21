@@ -480,6 +480,110 @@ function _save_segmentation_results(
         CSV.write(joinpath(export_dir, "channel_coverage.csv"), cov_df)
         _log(log_io, "  Guardado: channel_coverage.csv ($(rec.meta.n_channels) canales)")
     end
+
+    # 4–6) Ficheros específicos de rechazo de artefactos
+    if !isempty(qr)
+        _save_ar_results(qr, cfg, export_dir, ts, dur_s,
+                         n_total, n_valid, n_rejected, log_io)
+    end
+end
+
+# ─── Guardado de resultados de rechazo de artefactos ──────────
+
+function _save_ar_results(
+    qr::DataFrame,              # informe completo pre-AR (todos los epochs)
+    cfg::PipelineConfig,
+    export_dir::String,
+    ts::String,
+    dur_s::Float64,
+    n_total::Int,
+    n_valid::Int,
+    n_rejected::Int,
+    log_io::IO
+)
+    ar_cfg     = cfg.artifact_rejection
+    amp_thresh = Float64(get(ar_cfg, "amplitude_threshold_uv", 100.0))
+    grad_thresh= Float64(get(ar_cfg, "gradient_threshold_uv",   50.0))
+    ret_pct    = round(100.0 * n_valid / max(n_total, 1), digits=1)
+
+    rej_mask   = qr.status .== "rejected"
+    rej_df     = qr[rej_mask, :]
+    n_rej_amp  = count(==("amplitude"), qr.rejection_reason)
+    n_rej_grad = count(==("gradient"),  qr.rejection_reason)
+
+    # ── Estadísticas P2P ─────────────────────────────────────────────────────
+    p2p_vals = hasproperty(qr, :p2p_uv) ? Float64.(qr.p2p_uv) : Float64[]
+    p2p_mean = isempty(p2p_vals) ? 0.0 : round(mean(p2p_vals),  digits=2)
+    p2p_std  = isempty(p2p_vals) ? 0.0 : round(std(p2p_vals),   digits=2)
+    p2p_max  = isempty(p2p_vals) ? 0.0 : round(maximum(p2p_vals), digits=2)
+    p2p_thresh_2sd = round(p2p_mean + 2.0 * p2p_std, digits=2)
+
+    # Histograma P2P (20 bins)
+    p2p_hist_json = ""
+    if !isempty(p2p_vals) && p2p_max > 0
+        bin_w   = p2p_max / 20.0
+        hist_c  = zeros(Int, 20)
+        for v in p2p_vals
+            b = min(floor(Int, v / bin_w), 19)
+            hist_c[b+1] += 1
+        end
+        p2p_hist_json = join(
+            ["[$(round((i-1)*bin_w, digits=1)),$(hist_c[i])]" for i in 1:20], ",")
+    end
+
+    # ── Tabla de canales más afectados ───────────────────────────────────────
+    ch_bad = Dict{String, @NamedTuple{n::Int, amp::Int, grad::Int}}()
+    if hasproperty(qr, :worst_channel)
+        for row in eachrow(rej_df)
+            ch   = string(row.worst_channel)
+            prev = get(ch_bad, ch, (n=0, amp=0, grad=0))
+            na   = string(row.rejection_reason) == "amplitude" ? prev.amp + 1 : prev.amp
+            ng   = string(row.rejection_reason) == "gradient"  ? prev.grad + 1 : prev.grad
+            ch_bad[ch] = (n=prev.n + 1, amp=na, grad=ng)
+        end
+    end
+    ch_rows_sorted = sort(collect(ch_bad); by=x->x[2].n, rev=true)
+    ca_df = isempty(ch_rows_sorted) ? DataFrame() :
+        DataFrame(
+            channel     = [r[1]  for r in ch_rows_sorted],
+            n_bad       = [r[2].n   for r in ch_rows_sorted],
+            pct_bad     = [round(100.0 * r[2].n / max(n_total,1), digits=1) for r in ch_rows_sorted],
+            main_reason = [r[2].amp >= r[2].grad ? "amplitude" : "gradient" for r in ch_rows_sorted],
+        )
+
+    # ── 4) artifact_rejection_summary.json ───────────────────────────────────
+    open(joinpath(export_dir, "artifact_rejection_summary.json"), "w") do f
+        write(f, """{
+  "n_total": $(n_total),
+  "n_valid": $(n_valid),
+  "n_rejected": $(n_rejected),
+  "retention_pct": $(ret_pct),
+  "n_rejected_amplitude": $(n_rej_amp),
+  "n_rejected_gradient": $(n_rej_grad),
+  "amp_threshold_uv": $(amp_thresh),
+  "grad_threshold_uv": $(grad_thresh),
+  "p2p_mean_uv": $(p2p_mean),
+  "p2p_std_uv": $(p2p_std),
+  "p2p_max_uv": $(p2p_max),
+  "p2p_thresh_2sd": $(p2p_thresh_2sd),
+  "p2p_histogram": [$(p2p_hist_json)],
+  "timestamp": "$(ts)",
+  "duration_s": $(dur_s)
+}""")
+    end
+    _log(log_io, "  Guardado: artifact_rejection_summary.json")
+
+    # ── 5) rejected_segments.csv ──────────────────────────────────────────────
+    if !isempty(rej_df)
+        CSV.write(joinpath(export_dir, "rejected_segments.csv"), rej_df)
+        _log(log_io, "  Guardado: rejected_segments.csv ($(nrow(rej_df)) rechazados)")
+    end
+
+    # ── 6) channel_artifact_summary.csv ──────────────────────────────────────
+    if !isempty(ca_df)
+        CSV.write(joinpath(export_dir, "channel_artifact_summary.csv"), ca_df)
+        _log(log_io, "  Guardado: channel_artifact_summary.csv")
+    end
 end
 
 function _save_all_results(

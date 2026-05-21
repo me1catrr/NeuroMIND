@@ -1115,6 +1115,160 @@ function launch_webapp(cfg::PipelineConfig;
         ))
     end
 
+    # ─── API: Fase 7 — Rechazo de Artefactos ──────────────────
+    route("/api/phase7_ar") do
+        subj = string(get(getpayload(), :subj, "M05"))
+        sess = string(get(getpayload(), :sess, "T2"))
+        cond = _normalize_cond(string(get(getpayload(), :cond, "EC")))
+
+        res_base  = joinpath(bids_root, "sub-$(subj)", "ses-$(sess)", cond)
+        summ_path = joinpath(res_base, "artifact_rejection_summary.json")
+        rej_path  = joinpath(res_base, "rejected_segments.csv")
+        ch_path   = joinpath(res_base, "channel_artifact_summary.csv")
+        log_path  = joinpath(res_base, "pipeline_log.txt")
+
+        # Valores por defecto desde config
+        ar_cfg  = cfg.artifact_rejection
+        seg_cfg = cfg.segmentation
+
+        default_summary = Dict(
+            "n_total"              => 0,
+            "n_valid"              => 0,
+            "n_rejected"           => 0,
+            "retention_pct"        => 0.0,
+            "n_rejected_amplitude" => 0,
+            "n_rejected_gradient"  => 0,
+            "amp_threshold_uv"     => Float64(get(ar_cfg, "amplitude_threshold_uv", 100.0)),
+            "grad_threshold_uv"    => Float64(get(ar_cfg, "gradient_threshold_uv",  50.0)),
+            "p2p_mean_uv"          => 0.0,
+            "p2p_std_uv"           => 0.0,
+            "p2p_max_uv"           => 0.0,
+            "p2p_thresh_2sd"       => 0.0,
+            "p2p_histogram"        => [],
+            "timestamp"            => "",
+            "duration_s"           => 0.0,
+        )
+
+        if !isfile(summ_path)
+            return json(Dict(
+                "ok"               => true,
+                "ar_run"           => false,
+                "summary"          => default_summary,
+                "rejected_segments"=> Dict{String,Any}[],
+                "channel_summary"  => Dict{String,Any}[],
+                "phase_timing"     => Dict("start"=>"","end"=>"","duration"=>""),
+            ))
+        end
+
+        # ── Parsear artifact_rejection_summary.json ──────────────────────────
+        summary = Dict{String,Any}(default_summary)
+        try
+            txt = read(summ_path, String)
+            for key in ["n_total","n_valid","n_rejected",
+                        "n_rejected_amplitude","n_rejected_gradient"]
+                m = match(Regex("\"$(key)\"\\s*:\\s*([0-9]+)"), txt)
+                m !== nothing && (summary[key] = parse(Int, m.captures[1]))
+            end
+            for key in ["retention_pct","amp_threshold_uv","grad_threshold_uv",
+                        "p2p_mean_uv","p2p_std_uv","p2p_max_uv","p2p_thresh_2sd",
+                        "duration_s"]
+                m = match(Regex("\"$(key)\"\\s*:\\s*([0-9.eE+\\-]+)"), txt)
+                m !== nothing && (summary[key] = parse(Float64, m.captures[1]))
+            end
+            for key in ["timestamp"]
+                m = match(Regex("\"$(key)\"\\s*:\\s*\"([^\"]+)\""), txt)
+                m !== nothing && (summary[key] = String(m.captures[1]))
+            end
+            # histograma P2P: array de [bin, count]
+            mh = match(r"\"p2p_histogram\"\s*:\s*(\[[^\]]*\])", txt)
+            if mh !== nothing
+                pairs = collect(eachmatch(r"\[([0-9.]+),([0-9]+)\]", mh.captures[1]))
+                summary["p2p_histogram"] = [
+                    Dict("bin"=>parse(Float64,p.captures[1]),
+                         "count"=>parse(Int,p.captures[2])) for p in pairs
+                ]
+            end
+        catch e
+            @warn "artifact_rejection_summary.json parse error: $e"
+        end
+
+        # ── Parsear rejected_segments.csv ────────────────────────────────────
+        rejected_segs = Dict{String,Any}[]
+        if isfile(rej_path)
+            try
+                df = CSV.read(rej_path, DataFrame)
+                for row in eachrow(df)
+                    d = Dict{String,Any}(
+                        "epoch"            => Int(get(row, :epoch,    0)),
+                        "start_s"          => Float64(get(row, :start_s, 0.0)),
+                        "end_s"            => Float64(get(row, :end_s,   0.0)),
+                        "status"           => string(get(row, :status,   "rejected")),
+                        "rejection_reason" => string(get(row, :rejection_reason, "")),
+                        "max_amp_uv"       => round(Float64(get(row, :max_amp_uv,  0.0)), digits=1),
+                        "max_grad_uv"      => round(Float64(get(row, :max_grad_uv, 0.0)), digits=1),
+                        "p2p_uv"           => round(Float64(get(row, :p2p_uv,      0.0)), digits=1),
+                        "worst_channel"    => string(get(row, :worst_channel, "")),
+                        "quality"          => round(Float64(get(row, :quality, 0.0)), digits=3),
+                    )
+                    push!(rejected_segs, d)
+                end
+            catch e
+                @warn "rejected_segments.csv parse error: $e"
+            end
+        end
+
+        # ── Parsear channel_artifact_summary.csv ─────────────────────────────
+        ch_summary = Dict{String,Any}[]
+        if isfile(ch_path)
+            try
+                df = CSV.read(ch_path, DataFrame)
+                for row in eachrow(df)
+                    push!(ch_summary, Dict{String,Any}(
+                        "channel"     => string(get(row, :channel,     "")),
+                        "n_bad"       => Int(get(row, :n_bad,      0)),
+                        "pct_bad"     => Float64(get(row, :pct_bad,    0.0)),
+                        "main_reason" => string(get(row, :main_reason, "")),
+                    ))
+                end
+            catch e
+                @warn "channel_artifact_summary.csv parse error: $e"
+            end
+        end
+
+        # ── Timing desde log ──────────────────────────────────────────────────
+        t_start_str = ""; t_end_str = ""; t_dur = ""
+        if isfile(log_path)
+            try
+                txt = read(log_path, String)
+                for line in split(txt, '\n')
+                    if occursin("[5/8] Segmentación", line) || occursin("[5/8] Segment", line)
+                        m = match(r"\[(\d{2}:\d{2}:\d{2})\]", line)
+                        m !== nothing && (t_start_str = String(m.captures[1]))
+                    end
+                    if occursin("Duración segmentación", line)
+                        m  = match(r"\[(\d{2}:\d{2}:\d{2})\]", line)
+                        m2 = match(r"(\d+\.?\d*)\s*s", line)
+                        m !== nothing && (t_end_str = String(m.captures[1]))
+                        m2 !== nothing && (t_dur = String(m2.captures[1]) * " s")
+                    end
+                end
+            catch; end
+        end
+
+        json(Dict(
+            "ok"                => true,
+            "ar_run"            => true,
+            "summary"           => summary,
+            "rejected_segments" => rejected_segs,
+            "channel_summary"   => ch_summary,
+            "phase_timing"      => Dict(
+                "start"    => t_start_str,
+                "end"      => t_end_str,
+                "duration" => t_dur,
+            ),
+        ))
+    end
+
     # ─── Legacy API (mantener compatibilidad) ─────────────────
 
     route("/api/subjects") do

@@ -1027,6 +1027,55 @@ tr.row-warn:hover td { background: #fef9c3; }
                   align-items:center; justify-content:center; font-size:8px; font-weight:600;
                   border:1px solid rgba(0,0,0,.06); }
 .p6-cov-label  { font-size:7px; color:rgba(0,0,0,.55); margin-top:1px; }
+
+/* ── Phase 7 — Rechazo de Artefactos ─────────────────────── */
+.grid-p7-top  { display:grid; grid-template-columns:1.1fr 1fr 1.6fr 0.9fr; gap:12px; margin-bottom:14px; }
+.grid-p7-mid  { display:grid; grid-template-columns:1.8fr 0.9fr 1.1fr 0.85fr; gap:12px; margin-bottom:14px; }
+.grid-p7-bot  { display:grid; grid-template-columns:0.9fr 1.8fr 0.8fr; gap:12px; margin-bottom:14px; }
+.p7-big-val   { font-size:30px; font-weight:800; line-height:1; margin:8px 0 3px; }
+.p7-big-lbl   { font-size:10px; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
+.p7-big-sub   { font-size:11px; color:var(--text-2); margin-top:3px; }
+.p7-cfg-row   { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid var(--border); font-size:12px; }
+.p7-cfg-row:last-child { border-bottom:none; }
+.p7-cfg-key   { color:var(--text-3); }
+.p7-cfg-val   { font-weight:700; font-family:monospace; font-size:11px; color:var(--text-1); }
+.p7-stat-row  { display:flex; justify-content:space-between; padding:5px 0; font-size:12px; border-bottom:1px solid var(--border); }
+.p7-stat-row:last-child { border-bottom:none; }
+.p7-stat-key  { color:var(--text-3); }
+.p7-stat-val  { font-weight:700; font-family:monospace; font-size:11px; }
+.p7-tbl       { width:100%; border-collapse:collapse; font-size:12px; }
+.p7-tbl th    { background:var(--bg-3); color:var(--text-3); font-weight:600; text-align:left;
+                padding:6px 8px; border-bottom:2px solid var(--border); font-size:10px;
+                text-transform:uppercase; letter-spacing:.4px; }
+.p7-tbl td    { padding:5px 8px; border-bottom:1px solid var(--border); }
+.p7-tbl tr:hover td { background:rgba(220,38,38,.04); }
+.p7-badge-valid    { display:inline-block; padding:2px 7px; border-radius:8px; font-size:10px; font-weight:600; background:#dcfce7; color:#16a34a; }
+.p7-badge-rejected { display:inline-block; padding:2px 7px; border-radius:8px; font-size:10px; font-weight:600; background:#fee2e2; color:#dc2626; }
+.p7-badge-amp      { display:inline-block; padding:2px 6px; border-radius:8px; font-size:10px; font-weight:600; background:#fef3c7; color:#b45309; }
+.p7-badge-grad     { display:inline-block; padding:2px 6px; border-radius:8px; font-size:10px; font-weight:600; background:#ede9fe; color:#7c3aed; }
+.p7-qa-grid   { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.p7-qa-btn    { display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;
+                border-radius:8px; background:var(--bg-2); border:1px solid var(--border);
+                cursor:pointer; transition:background .15s,color .15s; font-size:10px;
+                font-weight:600; color:var(--text-2); }
+.p7-qa-btn:hover { background:#fee2e2; color:#dc2626; }
+.p7-qa-icon   { font-size:18px; }
+.p7-status-ok  { color:var(--good); font-weight:700; }
+.p7-status-warn{ color:var(--warn); font-weight:700; }
+.p7-metrics-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.p7-metric-cell { background:var(--bg-2); border-radius:8px; padding:8px; text-align:center; }
+.p7-metric-val  { font-size:18px; font-weight:800; }
+.p7-metric-lbl  { font-size:9px; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:.3px; margin-top:2px; }
+#p7-tl-canvas, #p7-prev-canvas, #p7-ex-canvas { display:block; width:100%; background:#f8fafc; border-radius:4px; }
+#p7-tl-canvas  { height:80px; }
+#p7-prev-canvas{ height:150px; }
+#p7-ex-canvas  { height:120px; }
+.p7-ch-bar-wrap { display:flex; align-items:center; gap:6px; padding:4px 0; border-bottom:1px solid var(--border); font-size:11px; }
+.p7-ch-bar-wrap:last-child { border-bottom:none; }
+.p7-ch-name    { width:52px; font-family:monospace; font-size:10px; font-weight:700; flex-shrink:0; }
+.p7-ch-bar-bg  { flex:1; height:8px; background:var(--bg-3); border-radius:4px; overflow:hidden; }
+.p7-ch-bar-fill{ height:100%; border-radius:4px; }
+.p7-ch-pct     { width:34px; text-align:right; font-size:10px; color:var(--text-2); font-weight:600; }
 </style>
 </head>
 <body>
@@ -2391,7 +2440,240 @@ tr.row-warn:hover td { background: #fef9c3; }
     </div>
 
   </div><!-- /phase-panel-6 -->
-  <div id="phase-panel-7"  class="phase-panel"></div>
+  <!-- ═══════════════════════════════════════════════════════════
+       FASE 7 — RECHAZO DE ARTEFACTOS
+  ══════════════════════════════════════════════════════════════ -->
+  <div id="phase-panel-7" class="phase-panel">
+
+    <!-- ─── Phase Header ─── -->
+    <div class="phase-header">
+      <div class="phase-badge" style="background:#dc2626">7</div>
+      <div class="phase-title-block">
+        <div class="phase-title">Rechazo de Artefactos</div>
+        <div class="phase-subtitle">Detección automática por amplitud y gradiente · Estadísticas de rechazo · Análisis por canal</div>
+      </div>
+      <div id="p7-status-chip" class="status-chip pending">Cargando…</div>
+    </div>
+
+    <!-- ── Fila 1: Resumen donut | Método | Evolución | Estado ── -->
+    <div class="grid-p7-top">
+
+      <!-- Resumen del rechazo -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">🗑</span>
+          <span class="card-title">Resumen del rechazo</span>
+        </div>
+        <div class="card-body" style="display:flex;gap:10px;align-items:flex-start">
+          <svg id="p7-donut-svg" viewBox="0 0 130 130" style="width:130px;flex-shrink:0;display:block"></svg>
+          <div style="flex:1;min-width:0">
+            <div id="p7-donut-stats" style="font-size:12px;line-height:1.9"></div>
+            <div id="p7-reject-reasons" style="margin-top:8px;font-size:11px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Método de detección -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">⚙</span>
+          <span class="card-title">Método de detección</span>
+        </div>
+        <div class="card-body" id="p7-method-body"></div>
+      </div>
+
+      <!-- Evolución del rechazo -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">📊</span>
+          <span class="card-title">Evolución en el tiempo</span>
+        </div>
+        <div class="card-body" style="padding-bottom:4px">
+          <canvas id="p7-tl-canvas"></canvas>
+          <div id="p7-tl-xaxis" style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-3);padding:0 2px;margin-top:2px"></div>
+          <div style="display:flex;gap:12px;margin-top:4px;font-size:10px;color:var(--text-3)">
+            <span><span style="display:inline-block;width:10px;height:10px;background:#16a34a;border-radius:2px;margin-right:3px;vertical-align:middle"></span>Aceptado</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#dc2626;border-radius:2px;margin-right:3px;vertical-align:middle"></span>Rechazado</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Estado de la fase -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">📋</span>
+          <span class="card-title">Estado de la fase</span>
+        </div>
+        <div class="card-body" id="p7-phase-status"></div>
+      </div>
+
+    </div><!-- /grid-p7-top -->
+
+    <!-- ── Placeholder (sin datos) ── -->
+    <div id="p7-not-run-block" class="p5-not-run" style="display:none">
+      <div class="p5-placeholder-icon">🔍</div>
+      <div class="p5-placeholder-title">Rechazo de Artefactos no ejecutado</div>
+      <div class="p5-placeholder-text">
+        Ejecuta el pipeline completo para generar las métricas de rechazo.<br>
+        El algoritmo detecta epochs con amplitud &gt; umbral o gradiente excesivo.
+      </div>
+      <button class="p5-run-btn" onclick="switchPhase(6)" style="background:#dc2626">
+        ← Ir a Segmentación
+      </button>
+    </div>
+
+    <!-- ── Contenido principal (con datos) ── -->
+    <div id="p7-content-block" style="display:none">
+
+      <!-- Fila 2: Preview señal | Stats rechazo | Histograma P2P | Top segmentos -->
+      <div class="grid-p7-mid">
+
+        <!-- Vista de segmentos (canvas) -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">📈</span>
+            <span class="card-title">Vista de segmentos</span>
+            <div style="display:flex;gap:4px;margin-left:auto">
+              <select id="p7-prev-ch" class="p6-sel" onchange="p7RefreshPreview()" style="margin-left:auto"></select>
+              <select id="p7-prev-scale" class="p6-sel" onchange="p7RefreshPreview()">
+                <option value="auto">Escala auto</option>
+                <option value="50">±50 µV</option>
+                <option value="100">±100 µV</option>
+                <option value="200">±200 µV</option>
+              </select>
+            </div>
+          </div>
+          <div class="card-body" style="padding-bottom:4px">
+            <canvas id="p7-prev-canvas"></canvas>
+            <div style="padding:3px 10px 6px;font-size:9px;color:var(--text-3)" id="p7-prev-info">—</div>
+          </div>
+        </div>
+
+        <!-- Estadísticas de rechazo -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">📉</span>
+            <span class="card-title">Estadísticas</span>
+          </div>
+          <div class="card-body" id="p7-stats-body"></div>
+        </div>
+
+        <!-- Distribución amplitud P2P -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">📐</span>
+            <span class="card-title">Distribución P2P</span>
+          </div>
+          <div class="card-body" style="padding-bottom:4px">
+            <svg id="p7-p2p-hist-svg" viewBox="0 0 220 130" style="width:100%;display:block"></svg>
+            <div id="p7-p2p-legend" style="font-size:9px;color:var(--text-3);padding:0 4px;margin-top:2px"></div>
+          </div>
+        </div>
+
+        <!-- Top segmentos más artefactados -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">🏆</span>
+            <span class="card-title">Top rechazados</span>
+          </div>
+          <div class="card-body" style="padding:0">
+            <table class="p7-tbl" id="p7-top-tbl">
+              <thead>
+                <tr><th>#</th><th>Inicio</th><th>P2P µV</th><th>Motivo</th><th>Canal</th></tr>
+              </thead>
+              <tbody id="p7-top-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- /grid-p7-mid -->
+
+      <!-- Fila 3: Causas rechazo | Canales afectados | Ejemplo rechazado | Acciones -->
+      <div class="grid-p7-bot">
+
+        <!-- Causas del rechazo (barras) -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">🔎</span>
+            <span class="card-title">Causas del rechazo</span>
+          </div>
+          <div class="card-body" style="padding-bottom:6px">
+            <svg id="p7-causes-svg" viewBox="0 0 200 130" style="width:100%;display:block"></svg>
+          </div>
+        </div>
+
+        <!-- Canales más afectados -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">📡</span>
+            <span class="card-title">Canales más afectados</span>
+          </div>
+          <div class="card-body" style="padding:0">
+            <table class="p7-tbl" id="p7-ch-tbl">
+              <thead>
+                <tr><th>Canal</th><th>N° bad</th><th>% bad</th><th>Causa</th><th>Barra</th></tr>
+              </thead>
+              <tbody id="p7-ch-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Ejemplo de segmento rechazado + acciones -->
+        <div style="display:flex;flex-direction:column;gap:12px">
+
+          <!-- Ejemplo segmento rechazado -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-icon">⚠</span>
+              <span class="card-title">Ejemplo rechazado</span>
+            </div>
+            <div class="card-body" style="padding-bottom:4px">
+              <canvas id="p7-ex-canvas"></canvas>
+              <div id="p7-ex-info" style="font-size:10px;color:var(--text-3);margin-top:4px;line-height:1.5"></div>
+            </div>
+          </div>
+
+          <!-- Acciones rápidas -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-icon">⚡</span>
+              <span class="card-title">Acciones rápidas</span>
+            </div>
+            <div class="card-body">
+              <div class="p7-qa-grid">
+                <button class="p7-qa-btn" onclick="p7Reload()">
+                  <span class="p7-qa-icon">🔄</span>Recargar
+                </button>
+                <button class="p7-qa-btn" onclick="p7ExportRejected()">
+                  <span class="p7-qa-icon">💾</span>Export CSV
+                </button>
+                <button class="p7-qa-btn" onclick="switchPhase(6)">
+                  <span class="p7-qa-icon">◀</span>Segmentación
+                </button>
+                <button class="p7-qa-btn" onclick="switchPhase(8)">
+                  <span class="p7-qa-icon">▶</span>Espectral
+                </button>
+                <button class="p7-qa-btn" onclick="p7RunPipeline()">
+                  <span class="p7-qa-icon">🚀</span>Re-ejecutar
+                </button>
+                <button class="p7-qa-btn" onclick="p7ToggleView()">
+                  <span class="p7-qa-icon">👁</span>Ver log
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /col derecha -->
+      </div><!-- /grid-p7-bot -->
+
+    </div><!-- /p7-content-block -->
+
+    <!-- ── Info bar ── -->
+    <div class="phase-info-bar" id="p7-info-bar" style="display:none">
+      <span id="p7-info-text"></span>
+    </div>
+
+  </div><!-- /phase-panel-7 -->
   <div id="phase-panel-8"  class="phase-panel"></div>
   <div id="phase-panel-9"  class="phase-panel"></div>
   <div id="phase-panel-10" class="phase-panel"></div>
@@ -2493,6 +2775,8 @@ const State = {
   // Phase 6
   p6Data:    null,
   p6Page:    1,
+  // Phase 7
+  p7Data:    null,
 };
 
 // ── API helpers ───────────────────────────────────
@@ -2516,6 +2800,7 @@ const API = {
   phase2Info:     (s, se, c)       => API.get(`/api/phase2_info?subj=${s}&sess=${se}&cond=${c}`),
   phase5IcaInfo:  (s, se, c)       => API.get(`/api/phase5_ica_info?subj=${s}&sess=${se}&cond=${c}`),
   phase6Seg:      (s, se, c)       => API.get(`/api/phase6_segmentation?subj=${s}&sess=${se}&cond=${c}`),
+  phase7AR:       (s, se, c)       => API.get(`/api/phase7_ar?subj=${s}&sess=${se}&cond=${c}`),
   icaActivation:  (s, se, c, comp) => API.get(`/api/ica_activation?subj=${s}&sess=${se}&cond=${c}&comp=${comp}`),
   icaSignal:      (s, se, c, stage, ch) => API.get(`/api/ica_signal?subj=${s}&sess=${se}&cond=${c}&stage=${stage}&channels=${ch}`),
 };
@@ -2655,6 +2940,8 @@ async function switchPhase(n) {
     await loadPhase5();
   } else if (n === 6) {
     await loadPhase6();
+  } else if (n === 7) {
+    await loadPhase7();
   } else {
     renderPhasePlaceholder(n);
   }
@@ -2703,6 +2990,7 @@ async function loadCurrentPhase() {
   else if (State.phase === 4) await loadPhase4();
   else if (State.phase === 5) await loadPhase5();
   else if (State.phase === 6) await loadPhase6();
+  else if (State.phase === 7) await loadPhase7();
   else renderPhasePlaceholder(State.phase);
 }
 
@@ -6837,6 +7125,499 @@ function p6Reload() { loadPhase6(); }
 
 // ════════════════════════════════════════════════════════════
 // FIN PHASE 6
+// ════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════
+// PHASE 7 — RECHAZO DE ARTEFACTOS
+// ════════════════════════════════════════════════════════════
+
+async function loadPhase7() {
+  const chip = document.getElementById('p7-status-chip');
+  if (chip) { chip.className = 'status-chip pending'; chip.textContent = 'Cargando…'; }
+
+  const r = await API.phase7AR(State.subj, State.sess, State.cond);
+  State.p7Data = r.ok ? r : null;
+
+  const notRun  = document.getElementById('p7-not-run-block');
+  const content = document.getElementById('p7-content-block');
+
+  if (!State.p7Data || !State.p7Data.ar_run) {
+    if (chip)    { chip.className = 'status-chip pending'; chip.textContent = 'Sin datos'; }
+    if (notRun)  notRun.style.display  = '';
+    if (content) content.style.display = 'none';
+    _p7RenderSummaryEmpty();
+    _p7RenderMethod();
+    _p7RenderPhaseStatus();
+    _p7CanvasMsg(document.getElementById('p7-tl-canvas'), 'Sin datos de evolución');
+    return;
+  }
+
+  if (chip)    { chip.className = 'status-chip completed'; chip.textContent = 'Completado'; }
+  if (notRun)  notRun.style.display  = 'none';
+  if (content) content.style.display = '';
+
+  _p7RenderSummary();
+  _p7RenderMethod();
+  _p7RenderTimeline();
+  _p7RenderPhaseStatus();
+  _p7RenderStats();
+  _p7RenderP2PHist();
+  _p7RenderTopSegments();
+  _p7RenderCauses();
+  _p7RenderChannels();
+  _p7RenderExample();
+  await _p7LoadPreview();
+}
+
+function _p7CanvasMsg(canvas, msg) {
+  if (!canvas) return;
+  const W = canvas.offsetWidth || 400, H = canvas.offsetHeight || 80;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#94a3b8'; ctx.font = '11px Inter, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(msg, W / 2, H / 2 + 4);
+}
+
+function _p7RenderSummaryEmpty() {
+  const svg = document.getElementById('p7-donut-svg');
+  if (svg) svg.innerHTML = `<circle cx="65" cy="65" r="42" fill="none" stroke="#e2e8f0" stroke-width="18"/>
+    <text x="65" y="70" text-anchor="middle" font-size="11" fill="#94a3b8">Sin datos</text>`;
+  const stats = document.getElementById('p7-donut-stats');
+  if (stats) stats.innerHTML = '<span style="color:var(--text-3);font-size:11px">Ejecuta el pipeline para ver estadísticas.</span>';
+}
+
+function _p7RenderSummary() {
+  if (!State.p7Data) return;
+  const s  = State.p7Data.summary || {};
+  const nT = s.n_total || 0, nV = s.n_valid || 0, nR = s.n_rejected || 0;
+  const retPct = nT > 0 ? (100 * nV / nT) : 0;
+  const rejPct = nT > 0 ? (100 * nR / nT) : 0;
+
+  const svg = document.getElementById('p7-donut-svg');
+  if (svg) {
+    const R = 38, cx = 65, cy = 65, circ = 2 * Math.PI * R;
+    const dashV = circ * (nV / Math.max(nT, 1));
+    const dashR = circ - dashV;
+    svg.innerHTML = `
+      <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#dcfce7" stroke-width="18"
+        stroke-dasharray="${dashV.toFixed(1)} ${dashR.toFixed(1)}" stroke-dashoffset="${(circ*0.25).toFixed(1)}"
+        transform="rotate(-90 ${cx} ${cy})"/>
+      <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#fee2e2" stroke-width="18"
+        stroke-dasharray="${dashR.toFixed(1)} ${dashV.toFixed(1)}"
+        stroke-dashoffset="${(circ*0.25 - dashV).toFixed(1)}"
+        transform="rotate(-90 ${cx} ${cy})"/>
+      <text x="${cx}" y="${cy-6}" text-anchor="middle" font-size="18" font-weight="800" fill="#dc2626">${nR}</text>
+      <text x="${cx}" y="${cy+9}" text-anchor="middle" font-size="9" fill="#64748b">rechazados</text>`;
+  }
+
+  const stats = document.getElementById('p7-donut-stats');
+  if (stats) stats.innerHTML = `
+    <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
+      <span style="width:10px;height:10px;background:#16a34a;border-radius:50%;display:inline-block"></span>
+      <b style="color:#16a34a">${nV}</b>&nbsp;<span style="color:var(--text-3)">válidos (${retPct.toFixed(1)}%)</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:5px;margin-bottom:8px">
+      <span style="width:10px;height:10px;background:#dc2626;border-radius:50%;display:inline-block"></span>
+      <b style="color:#dc2626">${nR}</b>&nbsp;<span style="color:var(--text-3)">rechazados (${rejPct.toFixed(1)}%)</span>
+    </div>
+    <div style="font-size:10px;color:var(--text-3)">Total: ${nT} epochs</div>`;
+
+  const nA = s.n_rejected_amplitude || 0, nG = s.n_rejected_gradient || 0;
+  const causes = document.getElementById('p7-reject-reasons');
+  if (causes && nR > 0) causes.innerHTML = `
+    <div style="margin-bottom:3px"><span class="p7-badge-amp">Amplitud</span> <b>${nA}</b> (${nT>0?(100*nA/nT).toFixed(1):0}%)</div>
+    <div><span class="p7-badge-grad">Gradiente</span> <b>${nG}</b> (${nT>0?(100*nG/nT).toFixed(1):0}%)</div>`;
+}
+
+function _p7RenderMethod() {
+  const el = document.getElementById('p7-method-body');
+  if (!el) return;
+  const s = State.p7Data?.summary || {};
+  el.innerHTML = `
+    <div class="p7-cfg-row"><span class="p7-cfg-key">Detector</span><span class="p7-cfg-val">Amplitud + Gradiente</span></div>
+    <div class="p7-cfg-row"><span class="p7-cfg-key">Umbral amplitud</span><span class="p7-cfg-val">${s.amp_threshold_uv||100} µV</span></div>
+    <div class="p7-cfg-row"><span class="p7-cfg-key">Umbral gradiente</span><span class="p7-cfg-val">${s.grad_threshold_uv||50} µV/samp</span></div>
+    <div class="p7-cfg-row"><span class="p7-cfg-key">Métrica AR</span><span class="p7-cfg-val">max(|x|), max(|Δx|)</span></div>
+    <div class="p7-cfg-row"><span class="p7-cfg-key">Ventana</span><span class="p7-cfg-val">Por epoch</span></div>
+    <div class="p7-cfg-row"><span class="p7-cfg-key">Canales</span><span class="p7-cfg-val">Todos</span></div>`;
+}
+
+function _p7RenderTimeline() {
+  const canvas = document.getElementById('p7-tl-canvas');
+  if (!canvas || !State.p7Data?.ar_run) { _p7CanvasMsg(canvas, 'Sin datos'); return; }
+
+  const s  = State.p7Data.summary || {};
+  const nT = s.n_total || 0;
+  if (nT === 0) { _p7CanvasMsg(canvas, 'Sin epochs'); return; }
+
+  const W = canvas.offsetWidth || 500, H = canvas.offsetHeight || 80;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const bw = W / nT;
+  const rejSet = new Set((State.p7Data.rejected_segments || []).map(sg => sg.epoch));
+
+  for (let i = 1; i <= nT; i++) {
+    ctx.fillStyle = rejSet.has(i) ? '#fca5a5' : '#bbf7d0';
+    ctx.fillRect((i-1)*bw + 0.5, 4, Math.max(bw-1, 1), H-8);
+  }
+
+  const xAxis = document.getElementById('p7-tl-xaxis');
+  if (xAxis) {
+    let html = '';
+    for (let i = 0; i <= 5; i++) html += `<span>${Math.round(i*nT/5)}</span>`;
+    xAxis.innerHTML = html;
+  }
+}
+
+function _p7RenderPhaseStatus() {
+  const el = document.getElementById('p7-phase-status');
+  if (!el) return;
+  const run = State.p7Data?.ar_run || false;
+  const tim = State.p7Data?.phase_timing || {};
+  const s   = State.p7Data?.summary || {};
+  const nT  = s.n_total || 0, nV = s.n_valid || 0, nR = s.n_rejected || 0;
+
+  if (!run) {
+    el.innerHTML = `<div class="p7-stat-row"><span class="p7-stat-key">Estado</span><span class="p7-stat-val p7-status-warn">Sin datos</span></div>
+      <div class="p7-stat-row"><span class="p7-stat-key">Resultado</span><span class="p7-stat-val" style="color:var(--text-3)">Pipeline no ejecutado</span></div>`;
+    return;
+  }
+  const stCls = nV >= 20 ? 'p7-status-ok' : 'p7-status-warn';
+  const stTxt = nV >= 20 ? 'Completado' : '⚠ Pocos epochs';
+  el.innerHTML = `
+    <div class="p7-stat-row"><span class="p7-stat-key">Estado</span><span class="p7-stat-val ${stCls}">${stTxt}</span></div>
+    <div class="p7-stat-row"><span class="p7-stat-key">Inicio</span><span class="p7-stat-val">${tim.start||'—'}</span></div>
+    <div class="p7-stat-row"><span class="p7-stat-key">Duración</span><span class="p7-stat-val">${tim.duration||'—'}</span></div>
+    <div class="p7-stat-row"><span class="p7-stat-key">Totales</span><span class="p7-stat-val">${nT}</span></div>
+    <div class="p7-stat-row"><span class="p7-stat-key">Aceptadas</span><span class="p7-stat-val" style="color:var(--good)">${nV}</span></div>
+    <div class="p7-stat-row"><span class="p7-stat-key">Rechazadas</span><span class="p7-stat-val" style="color:#dc2626">${nR}</span></div>
+    <div class="p7-stat-row"><span class="p7-stat-key">Timestamp</span><span class="p7-stat-val" style="font-size:10px">${s.timestamp||'—'}</span></div>`;
+}
+
+function _p7RenderStats() {
+  const el = document.getElementById('p7-stats-body');
+  if (!el || !State.p7Data) return;
+  const s  = State.p7Data.summary || {};
+  const nT = s.n_total||0, nV = s.n_valid||0, nR = s.n_rejected||0;
+  const nA = s.n_rejected_amplitude||0, nG = s.n_rejected_gradient||0;
+  const pct = v => nT > 0 ? (100*v/nT).toFixed(1)+'%' : '—';
+  el.innerHTML = `
+    <div class="p7-stat-row"><span class="p7-stat-key">Total ventanas</span><span class="p7-stat-val">${nT}</span></div>
+    <div class="p7-stat-row"><span class="p7-stat-key">Aceptadas</span><span class="p7-stat-val" style="color:var(--good)">${nV} (${pct(nV)})</span></div>
+    <div class="p7-stat-row"><span class="p7-stat-key">Rechazadas</span><span class="p7-stat-val" style="color:#dc2626">${nR} (${pct(nR)})</span></div>
+    <div class="p7-stat-row"><span class="p7-stat-key">Por amplitud</span><span class="p7-stat-val">${nA} (${pct(nA)})</span></div>
+    <div class="p7-stat-row"><span class="p7-stat-key">Por gradiente</span><span class="p7-stat-val">${nG} (${pct(nG)})</span></div>
+    <div class="p7-stat-row"><span class="p7-stat-key">P2P media</span><span class="p7-stat-val">${(s.p2p_mean_uv||0).toFixed(1)} µV</span></div>
+    <div class="p7-stat-row"><span class="p7-stat-key">P2P máx</span><span class="p7-stat-val">${(s.p2p_max_uv||0).toFixed(1)} µV</span></div>
+    <div class="p7-stat-row"><span class="p7-stat-key">P2P umbral 2SD</span><span class="p7-stat-val">${(s.p2p_thresh_2sd||0).toFixed(1)} µV</span></div>`;
+}
+
+function _p7RenderP2PHist() {
+  const svg = document.getElementById('p7-p2p-hist-svg');
+  const leg = document.getElementById('p7-p2p-legend');
+  if (!svg || !State.p7Data?.ar_run) return;
+
+  const s    = State.p7Data.summary || {};
+  const hist = s.p2p_histogram || [];
+  if (!hist.length) {
+    svg.innerHTML = '<text x="110" y="70" text-anchor="middle" font-size="11" fill="#94a3b8">Sin histograma</text>';
+    return;
+  }
+
+  const vW=220, vH=130, pad={t:10,r:10,b:28,l:36};
+  const W = vW-pad.l-pad.r, H = vH-pad.t-pad.b;
+  const bins  = hist.map(b => ({ bin: b.bin ?? b[0], count: b.count ?? b[1] }));
+  const maxC  = Math.max(...bins.map(b => b.count), 1);
+  const maxX  = s.p2p_max_uv || 1;
+  const mu    = s.p2p_mean_uv    || 0;
+  const thr   = s.p2p_thresh_2sd || 0;
+  const bw    = W / bins.length;
+  let bars='', xLab='', markers='';
+
+  bins.forEach((b, i) => {
+    const x = pad.l + i * bw;
+    const h = H * (b.count / maxC);
+    const y = pad.t + H - h;
+    bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw-1).toFixed(1)}" height="${h.toFixed(1)}" fill="#93c5fd" rx="1"/>`;
+    if (i % Math.max(1, Math.ceil(bins.length/5)) === 0)
+      xLab += `<text x="${(x+bw/2).toFixed(1)}" y="${(vH-5).toFixed(1)}" text-anchor="middle" font-size="8" fill="#64748b">${b.bin.toFixed(0)}</text>`;
+  });
+
+  const xMu  = pad.l + (mu / maxX) * W;
+  const xThr = pad.l + (thr / maxX) * W;
+  if (xMu >= pad.l && xMu <= pad.l+W)
+    markers += `<line x1="${xMu.toFixed(1)}" y1="${pad.t}" x2="${xMu.toFixed(1)}" y2="${pad.t+H}" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="3,2"/>`;
+  if (xThr >= pad.l && xThr <= pad.l+W)
+    markers += `<line x1="${xThr.toFixed(1)}" y1="${pad.t}" x2="${xThr.toFixed(1)}" y2="${pad.t+H}" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="3,2"/>`;
+
+  const yLabs = [0,0.5,1].map(f =>
+    `<text x="${(pad.l-3).toFixed(1)}" y="${(pad.t+H*(1-f)+3).toFixed(1)}" text-anchor="end" font-size="8" fill="#94a3b8">${Math.round(maxC*f)}</text>`
+  ).join('');
+
+  svg.innerHTML = bars + markers + xLab + yLabs +
+    `<text x="${(pad.l+W/2).toFixed(1)}" y="${(vH-1).toFixed(1)}" text-anchor="middle" font-size="8" fill="#64748b">P2P (µV)</text>`;
+
+  if (leg) leg.innerHTML =
+    `<span style="color:#3b82f6">— media ${mu.toFixed(1)} µV</span>&nbsp;&nbsp;` +
+    `<span style="color:#dc2626">— umbral 2SD ${thr.toFixed(1)} µV</span>`;
+}
+
+function _p7RenderTopSegments() {
+  const tbody = document.getElementById('p7-top-body');
+  if (!tbody || !State.p7Data) return;
+  const segs = (State.p7Data.rejected_segments || [])
+    .slice().sort((a,b) => (b.p2p_uv||0) - (a.p2p_uv||0)).slice(0, 8);
+
+  if (!segs.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-3);padding:10px;text-align:center">Sin segmentos rechazados</td></tr>';
+    return;
+  }
+  tbody.innerHTML = segs.map((s,i) => `<tr>
+    <td><b>${i+1}</b></td>
+    <td style="font-family:monospace">${(s.start_s||0).toFixed(2)}s</td>
+    <td style="font-family:monospace;color:#dc2626"><b>${(s.p2p_uv||0).toFixed(1)}</b></td>
+    <td>${s.rejection_reason==='amplitude'?'<span class="p7-badge-amp">amp</span>':'<span class="p7-badge-grad">grad</span>'}</td>
+    <td style="font-family:monospace;font-size:10px">${s.worst_channel||'—'}</td>
+  </tr>`).join('');
+}
+
+function _p7RenderCauses() {
+  const svg = document.getElementById('p7-causes-svg');
+  if (!svg || !State.p7Data?.ar_run) return;
+  const s  = State.p7Data.summary || {};
+  const nA = s.n_rejected_amplitude || 0;
+  const nG = s.n_rejected_gradient  || 0;
+  const bars = [
+    { label:'Amplitud',  value:nA, color:'#f59e0b' },
+    { label:'Gradiente', value:nG, color:'#8b5cf6' },
+  ];
+  const maxV = Math.max(...bars.map(b => b.value), 1);
+  const vW=200, vH=130, pad={t:18,r:10,b:16,l:62};
+  const W = vW-pad.l-pad.r, H = vH-pad.t-pad.b;
+  const bh = H / bars.length * 0.6;
+  let rects='', labels='';
+
+  bars.forEach((b, i) => {
+    const y  = pad.t + i*(H/bars.length) + (H/bars.length - bh)/2;
+    const bw = W * (b.value / maxV);
+    const tot = nA + nG || 1;
+    const pct = (100*b.value/tot).toFixed(1);
+    rects  += `<rect x="${pad.l}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" fill="${b.color}" rx="3"/>`;
+    rects  += `<text x="${(pad.l+bw+4).toFixed(1)}" y="${(y+bh/2+3).toFixed(1)}" font-size="9" fill="${b.color}"><tspan font-weight="700">${b.value}</tspan> (${pct}%)</text>`;
+    labels += `<text x="${(pad.l-4).toFixed(1)}" y="${(y+bh/2+3).toFixed(1)}" text-anchor="end" font-size="10" fill="#475569">${b.label}</text>`;
+  });
+
+  svg.innerHTML = `<text x="${vW/2}" y="12" text-anchor="middle" font-size="10" font-weight="700" fill="#1e293b">Distribución de causas</text>` +
+    rects + labels;
+}
+
+function _p7RenderChannels() {
+  const tbody = document.getElementById('p7-ch-body');
+  if (!tbody || !State.p7Data) return;
+  const chs = State.p7Data.channel_summary || [];
+
+  if (!chs.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-3);padding:10px;text-align:center">Sin datos de canales</td></tr>';
+    return;
+  }
+  const maxPct = Math.max(...chs.map(c => c.pct_bad||0), 1);
+  tbody.innerHTML = chs.slice(0,10).map(c => {
+    const pct = c.pct_bad || 0;
+    const barW = Math.round(80 * pct / maxPct);
+    const col = pct > 30 ? '#dc2626' : pct > 15 ? '#f59e0b' : '#16a34a';
+    const badge = c.main_reason === 'amplitude'
+      ? '<span class="p7-badge-amp">amp</span>'
+      : '<span class="p7-badge-grad">grad</span>';
+    return `<tr>
+      <td style="font-family:monospace;font-weight:700">${c.channel}</td>
+      <td style="font-family:monospace">${c.n_bad}</td>
+      <td style="font-family:monospace;color:${col}">${pct.toFixed(1)}%</td>
+      <td>${badge}</td>
+      <td><div style="background:#e2e8f0;border-radius:3px;height:6px;width:80px;overflow:hidden">
+        <div style="background:${col};height:100%;width:${barW}px;border-radius:3px"></div></div></td>
+    </tr>`;
+  }).join('');
+}
+
+function _p7RenderExample() {
+  const canvas = document.getElementById('p7-ex-canvas');
+  const info   = document.getElementById('p7-ex-info');
+  if (!canvas) return;
+
+  const segs = (State.p7Data?.rejected_segments || [])
+    .slice().sort((a,b) => (b.p2p_uv||0) - (a.p2p_uv||0));
+
+  if (!segs.length) { _p7CanvasMsg(canvas, 'Sin segmentos rechazados'); return; }
+
+  const worst = segs[0];
+  const W = canvas.offsetWidth || 350, H = canvas.offsetHeight || 120;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  // Simulate a noisy signal with the given p2p amplitude
+  const p2p = worst.p2p_uv || 100;
+  const n   = 200;
+  const noise = Array.from({length: n}, (_, i) =>
+    (p2p/2) * Math.sin(2*Math.PI*i/30) * (1 + 0.4*Math.sin(2*Math.PI*i/7)) +
+    (Math.random() - 0.5) * p2p * 0.15
+  );
+  const yMin = Math.min(...noise), yMax = Math.max(...noise), yRange = yMax - yMin || 1;
+  const pad  = 12;
+
+  // Rejected background
+  ctx.fillStyle = 'rgba(220,38,38,0.07)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Signal
+  ctx.beginPath(); ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 1.5;
+  noise.forEach((v, i) => {
+    const x = pad + (i/(n-1))*(W-2*pad);
+    const y = pad + (1-(v-yMin)/yRange)*(H-2*pad);
+    i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // Threshold dashed lines
+  const amp = State.p7Data?.summary?.amp_threshold_uv || 100;
+  [yMin + (yRange - amp)/2 + amp, yMin + (yRange - amp)/2].forEach(thresh => {
+    const yt = pad + (1-(thresh-yMin)/yRange)*(H-2*pad);
+    if (yt > pad && yt < H-pad) {
+      ctx.beginPath(); ctx.strokeStyle='rgba(220,38,38,0.35)';
+      ctx.lineWidth=1; ctx.setLineDash([4,3]);
+      ctx.moveTo(pad, yt); ctx.lineTo(W-pad, yt); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  });
+
+  if (info) {
+    const reason = worst.rejection_reason==='amplitude' ? 'Amplitud excesiva' : 'Gradiente excesivo';
+    info.innerHTML = `<b>Epoch #${worst.epoch}</b> · Inicio: ${(worst.start_s||0).toFixed(2)}s · ` +
+      `P2P: <b style="color:#dc2626">${(worst.p2p_uv||0).toFixed(1)} µV</b> · ` +
+      `Causa: <span class="p7-badge-${worst.rejection_reason==='amplitude'?'amp':'grad'}">${reason}</span> · ` +
+      `Canal peor: <b>${worst.worst_channel||'—'}</b>`;
+  }
+}
+
+async function _p7LoadPreview() {
+  const canvas = document.getElementById('p7-prev-canvas');
+  if (!canvas) return;
+  _p7CanvasMsg(canvas, 'Cargando señal…');
+
+  let sigData = null;
+  try { sigData = await API.icaSignal(State.subj, State.sess, State.cond, 'after', 8); }
+  catch(e) { /* no signal */ }
+
+  if (!sigData?.ok || !sigData.channels?.length) {
+    _p7CanvasMsg(canvas, 'Señal no disponible (ejecuta el pipeline)');
+    return;
+  }
+
+  const sel = document.getElementById('p7-prev-ch');
+  if (sel && !sel.options.length) {
+    sigData.channels.forEach((ch, i) => {
+      const opt = document.createElement('option');
+      opt.value = i; opt.textContent = ch.name; sel.appendChild(opt);
+    });
+  }
+  State._p7SigData = sigData;
+  p7RefreshPreview();
+}
+
+function p7RefreshPreview() {
+  const canvas  = document.getElementById('p7-prev-canvas');
+  const selCh   = document.getElementById('p7-prev-ch');
+  const selSc   = document.getElementById('p7-prev-scale');
+  const infoEl  = document.getElementById('p7-prev-info');
+  if (!canvas || !State._p7SigData) return;
+
+  const chIdx  = parseInt(selCh?.value || '0');
+  const scaleV = selSc?.value || 'auto';
+  const ch     = State._p7SigData.channels[chIdx];
+  if (!ch) return;
+
+  const W = canvas.offsetWidth || 500, H = canvas.offsetHeight || 150;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const vals = ch.values, t = State._p7SigData.t, n = vals.length;
+  if (!n) return;
+
+  const dataMin = Math.min(...vals), dataMax = Math.max(...vals);
+  let vMin, vMax;
+  if (scaleV === 'auto') { const m = Math.max(Math.abs(dataMin), Math.abs(dataMax)); vMin = -m; vMax = m; }
+  else { const sc = parseFloat(scaleV); vMin = -sc; vMax = sc; }
+  const vRange = vMax - vMin || 1;
+
+  const pad = { t:8, r:8, b:16, l:10 };
+  const dW = W-pad.l-pad.r, dH = H-pad.t-pad.b;
+  const tMax = t[t.length-1] || 1;
+
+  // Shade rejected epochs
+  (State.p7Data?.rejected_segments || []).forEach(sg => {
+    const x0 = pad.l + (sg.start_s/tMax)*dW;
+    const x1 = pad.l + (sg.end_s/tMax)*dW;
+    if (x1 < pad.l || x0 > W-pad.r) return;
+    ctx.fillStyle = 'rgba(220,38,38,0.12)';
+    ctx.fillRect(x0, pad.t, x1-x0, dH);
+  });
+
+  // Zero line
+  const yZero = pad.t + dH * (1 - (-vMin/vRange));
+  if (yZero > pad.t && yZero < H-pad.b) {
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = 1; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(pad.l, yZero); ctx.lineTo(W-pad.r, yZero); ctx.stroke();
+  }
+
+  // Signal
+  ctx.beginPath(); ctx.strokeStyle = '#0284c7'; ctx.lineWidth = 1;
+  const step = Math.max(1, Math.floor(n/(dW*2)));
+  for (let i = 0; i < n; i += step) {
+    const x = pad.l + (i/(n-1))*dW;
+    const y = pad.t + dH*(1-((vals[i]-vMin)/vRange));
+    i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+
+  const nRej = (State.p7Data?.rejected_segments||[]).length;
+  if (infoEl) infoEl.textContent =
+    `Canal: ${ch.name} · Escala: ${scaleV==='auto'?'auto':'±'+scaleV+' µV'} · Rojo = rechazados · ${nRej} epoch(s) rechazado(s)`;
+}
+
+function p7ExportRejected() {
+  const segs = State.p7Data?.rejected_segments;
+  if (!segs?.length) { alert('Sin segmentos rechazados para exportar.'); return; }
+  const cols  = ['epoch','start_s','end_s','status','rejection_reason','max_amp_uv','p2p_uv','worst_channel','quality'];
+  const lines = [cols.join(','), ...segs.map(s => cols.map(k => s[k] ?? '').join(','))];
+  const blob  = new Blob([lines.join('\n')], { type:'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `AR_rechazados_${State.subj}_${State.sess}_${State.cond}.csv`;
+  a.click();
+}
+
+function p7ToggleView() {
+  API.log(State.subj, State.sess, State.cond).then(r => {
+    if (!r.ok) { alert('Log no disponible.'); return; }
+    const lines = (r.content||'').split('\n')
+      .filter(l => l.includes('[5/8]') || l.includes('rechazado') || l.includes('Segment') || l.includes('artefact'))
+      .slice(0, 20).join('\n');
+    alert(lines || 'Sin entradas AR en el log.');
+  });
+}
+
+function p7RunPipeline() {
+  alert('Para re-ejecutar:\n\njulia --project=. scripts/run_single_subject.jl\n\nLa Fase 7 mostrará los resultados al recargar.');
+}
+
+function p7Reload() { loadPhase7(); }
+
+// ════════════════════════════════════════════════════════════
+// FIN PHASE 7
 // ════════════════════════════════════════════════════════════
 
 function p5RunICA() {

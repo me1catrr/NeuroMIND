@@ -92,9 +92,11 @@ end
 
 Calcula métricas de calidad para TODOS los epochs (pre-AR).
 Columnas: epoch, start_s, end_s, duration_s, quality, status,
-          rejection_reason, max_amp_uv, max_grad_uv.
+          rejection_reason, max_amp_uv, max_grad_uv, worst_channel, p2p_uv.
 
 quality ∈ [0, 1] = clamp(1 − 0.5 × max(amp/thresh, grad/thresh), 0, 1)
+worst_channel  = canal con mayor amplitud máxima absoluta en el epoch.
+p2p_uv         = pico a pico global (max − min) a través de todos los canales.
 """
 function compute_epoch_quality_report(epochs::EpochSet, cfg::PipelineConfig)::DataFrame
     ar          = cfg.artifact_rejection
@@ -104,20 +106,27 @@ function compute_epoch_quality_report(epochs::EpochSet, cfg::PipelineConfig)::Da
     overlap     = Float64(get(cfg.segmentation, "epoch_overlap", 0.0))
     step_s      = epoch_s * (1.0 - overlap)
     n_ch, n_samp, n_ep = size(epochs.data)
+    ch_names = epochs.meta.channel_names
 
-    epoch_v   = Int[];    start_v  = Float64[]; end_v   = Float64[]
-    quality_v = Float64[]; status_v = String[];  reason_v = String[]
-    amp_v     = Float64[]; grad_v   = Float64[]
+    epoch_v    = Int[];    start_v   = Float64[]; end_v    = Float64[]
+    quality_v  = Float64[]; status_v  = String[];  reason_v = String[]
+    amp_v      = Float64[]; grad_v    = Float64[]
+    worst_ch_v = String[];  p2p_v     = Float64[]
 
     @inbounds for ep in 1:n_ep
         ma = 0.0; mg = 0.0; reason = ""; bad = false
+        worst_ch_idx = 1
+        ep_min = Inf; ep_max = -Inf
         for ch in 1:n_ch
             seg = @view epochs.data[ch, :, ep]
             v   = maximum(abs.(seg))
-            ma  = v > ma ? v : ma
+            if v > ma; ma = v; worst_ch_idx = ch; end
             if v > amp_thresh && !bad
                 reason = "amplitude"; bad = true
             end
+            ch_min = minimum(seg); ch_max = maximum(seg)
+            ch_min < ep_min && (ep_min = ch_min)
+            ch_max > ep_max && (ep_max = ch_max)
             if n_samp > 1
                 dv = maximum(abs.(diff(seg)))
                 mg = dv > mg ? dv : mg
@@ -128,14 +137,19 @@ function compute_epoch_quality_report(epochs::EpochSet, cfg::PipelineConfig)::Da
         end
         q  = clamp(1.0 - 0.5 * max(ma / amp_thresh, mg / (grad_thresh > 0 ? grad_thresh : 1.0)), 0.0, 1.0)
         t0 = round((ep - 1) * step_s, digits=3)
-        push!(epoch_v,   ep)
-        push!(start_v,   t0)
-        push!(end_v,     round(t0 + epoch_s, digits=3))
-        push!(quality_v, round(q, digits=4))
-        push!(status_v,  bad ? "rejected" : "valid")
-        push!(reason_v,  reason)
-        push!(amp_v,     round(ma, digits=2))
-        push!(grad_v,    round(mg, digits=2))
+        p2p = isinf(ep_min) ? 0.0 : round(ep_max - ep_min, digits=2)
+        worst_name = (worst_ch_idx <= length(ch_names)) ?
+                     ch_names[worst_ch_idx] : "CH$(worst_ch_idx)"
+        push!(epoch_v,    ep)
+        push!(start_v,    t0)
+        push!(end_v,      round(t0 + epoch_s, digits=3))
+        push!(quality_v,  round(q, digits=4))
+        push!(status_v,   bad ? "rejected" : "valid")
+        push!(reason_v,   reason)
+        push!(amp_v,      round(ma, digits=2))
+        push!(grad_v,     round(mg, digits=2))
+        push!(worst_ch_v, worst_name)
+        push!(p2p_v,      p2p)
     end
 
     return DataFrame(
@@ -148,6 +162,8 @@ function compute_epoch_quality_report(epochs::EpochSet, cfg::PipelineConfig)::Da
         rejection_reason = reason_v,
         max_amp_uv       = amp_v,
         max_grad_uv      = grad_v,
+        worst_channel    = worst_ch_v,
+        p2p_uv           = p2p_v,
     )
 end
 
