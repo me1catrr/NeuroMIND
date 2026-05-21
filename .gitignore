@@ -7,6 +7,7 @@
 /data/
 /results/
 /Javier_results/
+/NeuroMIND/
 
 # Por si aparecen copias en otras rutas
 **/data/**
@@ -64,4 +65,3 @@ Thumbs.db
 **/*token*
 **/*apikey*
 **/*api_key*
-
