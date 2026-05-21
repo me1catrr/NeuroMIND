@@ -1,0 +1,29 @@
+# NeuroMIND — Synthetic subject registry template
+#
+# This file is safe to version: all entries are placeholders.
+# Keep real participant registries, clinical variables, and visit metadata in a
+# local ignored file or in a controlled data store outside Git.
+
+[[subjects]]
+id       = "SYN_MS_001"
+group    = "MS"
+sessions = ["T1", "T2"]
+
+[subjects.clinical]
+EDSS = "not_recorded"
+disease_duration_y = "not_recorded"
+medication = "not_recorded"
+fatigue_score = "not_recorded"
+cognition_score = "not_recorded"
+
+[[subjects]]
+id       = "SYN_CONTROL_001"
+group    = "Control"
+sessions = ["T1"]
+
+[subjects.clinical]
+EDSS = 0.0
+disease_duration_y = 0
+medication = "not_recorded"
+fatigue_score = "not_recorded"
+cognition_score = "not_recorded"

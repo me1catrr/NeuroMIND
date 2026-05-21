@@ -1,0 +1,61 @@
+# =========================
+# NeuroMIND
+# Git ignore (Julia + EEG privacy)
+# =========================
+
+# --- Sensitive EEG data and generated derivatives ---
+/data/
+/results/
+/reports/
+/exports/
+
+# Keep empty directory placeholders if they are added intentionally.
+!/data/.gitkeep
+!/results/.gitkeep
+
+# --- Local app/editor state ---
+.claude/
+.cursor/
+.vscode/
+
+# --- Julia artifacts and local caches ---
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+*.ji
+*.so
+*.dylib
+*.dll
+*.pdb
+*.o
+*.a
+.julia/
+
+# --- Logs, temporary files, notebooks state ---
+*.log
+*.tmp
+*.temp
+*.swp
+*~
+.cache/
+tmp/
+temp/
+__pycache__/
+.ipynb_checkpoints/
+**/pluto_export/**
+**/pluto_state/**
+**/.pluto/**
+
+# --- OS files ---
+.DS_Store
+._*
+Thumbs.db
+
+# --- Secrets and credentials ---
+.env
+.env.*
+**/*secret*
+**/*secrets*
+**/*token*
+**/*apikey*
+**/*api_key*

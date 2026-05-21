@@ -1,0 +1,76 @@
+# NeuroMIND — Configuración para análisis de UN solo sujeto
+# Primer caso funcional: sub-M05, ses-T2, tarea eyesclosed
+#
+# Uso: julia --project=. scripts/run_single_subject.jl
+
+# ─── Identificación del sujeto ────────────────────────────────
+[subject]
+subject_id = "auto"      # "auto" = primer sujeto detectado en data/BIDS/raw/
+session_id = "T2"        # Sesión a procesar
+task       = "eyesclosed"
+run        = 1
+
+# ─── Parámetros de grabación ──────────────────────────────────
+[recording]
+sampling_rate = 500.0    # Hz (leído de metadata si está disponible)
+
+# ─── Filtrado ─────────────────────────────────────────────────
+[filtering]
+highpass_hz      = 0.5
+lowpass_hz       = 48.0
+notch_hz         = 50.0
+notch_bw_hz      = 2.0
+bandreject_lo    = 100.0
+bandreject_hi    = 120.0
+filter_order     = 4
+
+# ─── Segmentación ─────────────────────────────────────────────
+[segmentation]
+segment_length_seconds = 2.0    # 2s × 500Hz = 1000 muestras por segmento
+overlap_seconds        = 0.0    # Sin solapamiento
+min_segments           = 10     # Mínimo para análisis válido
+
+# ─── Rechazo de artefactos ────────────────────────────────────
+[artifact_rejection]
+amplitude_threshold_uv = 100.0
+gradient_threshold_uv  = 50.0
+enabled                = true
+
+# ─── Análisis espectral ───────────────────────────────────────
+[spectral]
+nfft       = 1024
+window_pct = 10.0
+
+# ─── Bandas de frecuencia ─────────────────────────────────────
+[bands]
+DELTA     = [0.5,  4.0]
+THETA     = [4.0,  8.0]
+ALPHA     = [7.8, 11.7]
+BETA_LOW  = [12.0, 15.0]
+BETA_MID  = [15.0, 18.0]
+BETA_HIGH = [18.0, 30.0]
+GAMMA     = [30.0, 50.0]
+
+# ─── Conectividad ─────────────────────────────────────────────
+[connectivity]
+filter_order = 8
+use_csd      = false     # CSD OPCIONAL — false por defecto para primer caso
+
+# ─── Control de calidad ───────────────────────────────────────
+[qc]
+bad_channel_zscore_threshold = 3.0
+
+# ─── Rutas ────────────────────────────────────────────────────
+[paths]
+bids_root = "data/BIDS"
+results   = "results"
+
+# ─── Salida ───────────────────────────────────────────────────
+[output]
+figure_format = "png"
+figure_dpi    = 150
+
+# ─── Dashboard ────────────────────────────────────────────────
+[dashboard]
+port         = 8080
+open_browser = true
