@@ -795,7 +795,7 @@ function launch_webapp(cfg::PipelineConfig;
             "n_components" => n_comp_cfg,
             "method"       => uppercase(method_cfg),
             "algorithm"    => "PCA whitening + FastICA",
-            "library"      => "MultivariateStats.jl",
+            "library"      => "LinearAlgebra (Julia puro)",
             "max_iter"     => 500,
             "tol"          => 1e-5,
             "seed"         => 42,
@@ -846,9 +846,11 @@ function launch_webapp(cfg::PipelineConfig;
         run_ts  = ""; run_dur = 0.0
         if isfile(summ_path)
             try
-                raw    = JSON3.read(read(summ_path, String))
-                run_ts = string(get(raw, :timestamp,  ""))
-                run_dur= Float64(get(raw, :duration_s, 0.0))
+                txt   = read(summ_path, String)
+                m_ts  = match(r"\"timestamp\"\s*:\s*\"([^\"]+)\"", txt)
+                m_dur = match(r"\"duration_s\"\s*:\s*([0-9.eE+\-]+)", txt)
+                if m_ts  !== nothing; run_ts  = String(m_ts.captures[1]); end
+                if m_dur !== nothing; run_dur = parse(Float64, m_dur.captures[1]); end
             catch; end
         end
 

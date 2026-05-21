@@ -5608,7 +5608,7 @@ function renderP5IcaConfig() {
   const rows = [
     ['Método',         cfg.method        || 'FastICA'],
     ['Algoritmo',      cfg.algorithm     || 'PCA + FastICA'],
-    ['Librería',       cfg.library       || 'MultivariateStats.jl'],
+    ['Librería',       cfg.library       || 'LinearAlgebra (Julia puro)'],
     ['N° componentes', String(cfg.n_components || 30)],
     ['Max iteraciones',String(cfg.max_iter    || 500)],
     ['Tolerancia',     String(cfg.tol          || '1e-5')],
