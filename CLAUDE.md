@@ -2,7 +2,7 @@
 
 > Este archivo es leído automáticamente por Claude Code al inicio de cada sesión.
 > Contiene todo el contexto necesario para trabajar en el proyecto desde cualquier ordenador.
-> **Mantenerlo actualizado es prioritario.** Última actualización: 2026-05-21.
+> **Mantenerlo actualizado es prioritario.** Última actualización: 2026-05-21 (Phase 7 completa).
 
 ---
 
@@ -100,8 +100,8 @@ Paneles 6–12: placeholder vacío (próximos a implementar).
 | 3 | QC inicial | ✓ |
 | 4 | Preprocessing / Filtrado | ✓ |
 | 5 | ICA | ✓ |
-| 6 | Segmentación | placeholder |
-| 7 | Rechazo artefactos | placeholder |
+| 6 | Segmentación | ✓ |
+| 7 | Rechazo artefactos | ✓ |
 | 8 | Análisis espectral | placeholder |
 | 9 | Conectividad wPLI | placeholder |
 | 10 | Surrogates / Inferencia | placeholder |
@@ -222,15 +222,23 @@ git push -u origin <rama>
 ### Implementado y funcionando
 - [x] Pipeline 8 pasos completo con ICA
 - [x] FastICA puro Julia (sin MultivariateStats)
-- [x] Dashboard paneles 0–5
+- [x] Dashboard paneles 0–7
 - [x] API routes: `/api/phase5_ica_info`, `/api/ica_activation`, `/api/ica_signal`
-- [x] Guardado de 5 ficheros ICA (components, summary, activations, before, after)
+- [x] API route: `/api/phase6_segmentation` → segmentation_summary.json, segments_table.csv, channel_coverage.csv
+- [x] API route: `/api/phase7_ar` → artifact_rejection_summary.json, rejected_segments.csv, channel_artifact_summary.csv
+- [x] `compute_epoch_quality_report` con worst_channel + p2p_uv
+- [x] `_save_ar_results` en pipeline → 3 ficheros AR
 - [x] README.md completo
 - [x] `.gitignore` estricto
 - [x] `gh` CLI configurado
+- [x] CLAUDE.md / AGENTS.md / .cursorrules para multi-herramienta
+
+### PRs activos
+- PR #1: `feat/phase6-segmentation` — abierto, pendiente merge a main
+- PR #2: `feat/phase7-artifact-rejection` — abierto, pendiente merge a main
 
 ### Pendiente / próximo
-- [ ] Dashboard paneles 6–12 (segmentación → exportación)
+- [ ] Dashboard paneles 8–12 (espectral → exportación)
 - [ ] Modo reproducibilidad `EEG_Julia` (CSD + mismos parámetros de filtrado)
 - [ ] Clasificación automática de componentes ICA (ocular/muscular/cardíaco)
 - [ ] Segunda corrección de baseline post-ICA (`baseline_2st`)
