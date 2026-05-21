@@ -6,6 +6,23 @@
 
 ---
 
+## 0. Identidad del desarrollador
+
+| Campo | Valor |
+|-------|-------|
+| **Nombre** | Rafael Castro Triguero |
+| **Email** | me1catrr@uco.es |
+| **GitHub** | https://github.com/me1catrr |
+| **Repo** | https://github.com/me1catrr/NeuroMIND |
+
+```bash
+# Ejecutar en cualquier ordenador nuevo antes del primer commit:
+git config --global user.name "Rafael Castro Triguero"
+git config --global user.email "me1catrr@uco.es"
+```
+
+---
+
 ## 1. Identidad del proyecto
 
 **NeuroMIND** es un framework de análisis EEG para estudio de conectividad funcional en
