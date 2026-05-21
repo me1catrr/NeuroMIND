@@ -49,13 +49,14 @@ function load_ss_config(path::String)::PipelineConfig
         ),
         Dict{String,Any}("fs" => Float64(get(rec, "sampling_rate", 500.0))),
         Dict{String,Any}(
-            "highpass_hz"   => Float64(get(filt, "highpass_hz",   0.5)),
-            "lowpass_hz"    => Float64(get(filt, "lowpass_hz",   48.0)),
-            "notch_hz"      => Float64(get(filt, "notch_hz",     50.0)),
-            "notch_bw_hz"   => Float64(get(filt, "notch_bw_hz",   2.0)),
-            "bandreject_lo" => Float64(get(filt, "bandreject_lo", 100.0)),
-            "bandreject_hi" => Float64(get(filt, "bandreject_hi", 120.0)),
-            "filter_order"  => Int(get(filt,    "filter_order",     4)),
+            "profile"       => String(get(filt, "profile",        "default")),
+            "highpass_hz"   => Float64(get(filt, "highpass_hz",     0.5)),
+            "lowpass_hz"    => Float64(get(filt, "lowpass_hz",    150.0)),
+            "notch_hz"      => Float64(get(filt, "notch_hz",       50.0)),
+            "notch_bw_hz"   => Float64(get(filt, "notch_bw_hz",    1.0)),
+            "bandreject_lo" => Float64(get(filt, "bandreject_lo",  99.5)),
+            "bandreject_hi" => Float64(get(filt, "bandreject_hi", 100.5)),
+            "filter_order"  => Int(get(filt,     "filter_order",     4)),
         ),
         Dict{String,Any}(
             "epoch_length_s" => seg_len_s,
@@ -274,7 +275,11 @@ function run_single_subject_pipeline(config_path::String)
     println("[3/8] Filtrado...")
     _log(log_io, "\n[3/8] Filtrado")
     rec_filt = filter_recording(rec, cfg)
-    _log(log_io, "  HP=$(cfg.filtering["highpass_hz"])Hz | LP=$(cfg.filtering["lowpass_hz"])Hz | Notch=$(cfg.filtering["notch_hz"])Hz")
+    _filt_profile = get(cfg.filtering, "profile", "default")
+    _log(log_io, "  Perfil: $(_filt_profile)")
+    for step in describe_filter_chain(cfg)
+        _log(log_io, "    [$(step.step)] $(step.name) $(step.freq)  ord=$(step.order)  método=$(step.method)")
+    end
 
     # ── ICA: antes de segmentar (señal continua filtrada) ─────
     println("[4/8] ICA (separación de fuentes)...")

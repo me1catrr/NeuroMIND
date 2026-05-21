@@ -7,6 +7,7 @@ Pkg.activate(joinpath(@__DIR__, ".."))
 using Test
 using NeuroMIND
 using Statistics
+using LinearAlgebra: diag
 
 # ─── Fixtures ─────────────────────────────────────────────────
 
@@ -26,10 +27,11 @@ function mock_config()
         # recording
         Dict{String,Any}("fs" => 500.0, "conditions" => ["EO", "EC"],
                          "n_channels" => 32, "reference" => "average"),
-        # filtering
-        Dict{String,Any}("highpass_hz" => 0.5, "lowpass_hz" => 48.0,
-                         "notch_hz" => 50.0, "notch_bw_hz" => 2.0,
-                         "bandreject_lo" => 100.0, "bandreject_hi" => 120.0,
+        # filtering — parámetros EEG_Julia
+        Dict{String,Any}("profile" => "eeg_julia",
+                         "highpass_hz" => 0.5, "lowpass_hz" => 150.0,
+                         "notch_hz" => 50.0, "notch_bw_hz" => 1.0,
+                         "bandreject_lo" => 99.5, "bandreject_hi" => 100.5,
                          "filter_order" => 4),
         # segmentation
         Dict{String,Any}("epoch_length_s" => 1.0, "epoch_overlap" => 0.0,
@@ -124,11 +126,67 @@ end
     rec_notch = apply_notch(rec, 50.0)
     @test size(rec_notch.data) == size(rec.data)
 
-    rec_br = apply_bandreject(rec, 100.0, 120.0)
+    rec_br = apply_bandreject(rec, 99.5, 100.5)
     @test size(rec_br.data) == size(rec.data)
 
     rec_filt = filter_recording(rec, cfg)
     @test size(rec_filt.data) == size(rec.data)
+end
+
+# ─── Tests de perfil de filtrado EEG_Julia ───────────────────
+
+@testset "FilteringProfile" begin
+    cfg = mock_config()   # profile = "eeg_julia"
+    rec = mock_recording()
+
+    # filter_recording conserva dimensiones con perfil eeg_julia
+    rec_filt = filter_recording(rec, cfg)
+    @test size(rec_filt.data) == size(rec.data)
+    @test rec_filt.meta.fs == rec.meta.fs
+
+    # describe_filter_chain devuelve la cadena correcta para eeg_julia
+    chain = describe_filter_chain(cfg)
+    @test length(chain) == 4            # Notch → BR → HP → LP
+    names = [s.name for s in chain]
+    @test names[1] == "Notch"
+    @test names[2] == "Bandreject"
+    @test names[3] == "High-pass"
+    @test names[4] == "Low-pass"
+
+    # Notch y Bandreject deben usar filt (causal)
+    @test chain[1].method == "filt"
+    @test chain[2].method == "filt"
+
+    # HP y LP deben usar filtfilt (zero-phase)
+    @test chain[3].method == "filtfilt"
+    @test chain[4].method == "filtfilt"
+
+    # Los parámetros deben coincidir con la config
+    @test chain[3].order == 4
+    @test chain[4].order == 4
+
+    # Perfil "default" produce cadena HP→LP→Notch→BR, todos filtfilt
+    cfg_def = PipelineConfig(
+        cfg.project, cfg.study, cfg.paths, cfg.recording,
+        Dict{String,Any}("profile" => "default",
+                         "highpass_hz" => 0.5, "lowpass_hz" => 48.0,
+                         "notch_hz" => 50.0, "notch_bw_hz" => 2.0,
+                         "bandreject_lo" => 100.0, "bandreject_hi" => 120.0,
+                         "filter_order" => 4),
+        cfg.segmentation, cfg.baseline, cfg.artifact_rejection,
+        cfg.ica, cfg.spectral, cfg.bands, cfg.connectivity,
+        cfg.surrogates, cfg.graph, cfg.clinical, cfg.longitudinal,
+        cfg.statistics, cfg.export_cfg, cfg.root
+    )
+    chain_def = describe_filter_chain(cfg_def)
+    names_def = [s.name for s in chain_def]
+    @test names_def[1] == "High-pass"
+    @test names_def[2] == "Low-pass"
+    @test all(s.method == "filtfilt" for s in chain_def)
+
+    # filter_recording con perfil default también conserva dimensiones
+    rec_def = filter_recording(rec, cfg_def)
+    @test size(rec_def.data) == size(rec.data)
 end
 
 # ─── Tests de segmentación ────────────────────────────────────
@@ -163,8 +221,10 @@ end
     ep  = apply_baseline(ep, cfg)
 
     sp = compute_psd(ep, cfg)
+    # nfft = max(config_nfft, n_samples_epoch) = max(256, 500) = 500 → 251 bins
+    expected_bins = max(cfg.spectral["nfft"], n_samples_epoch(ep)) ÷ 2 + 1
     @test size(sp.psd, 1) == 10
-    @test size(sp.psd, 2) == 256÷2+1
+    @test size(sp.psd, 2) == expected_bins
     @test all(sp.psd .>= 0.0)
     @test haskey(sp.band_power, "ALPHA")
     @test all(sp.band_power["ALPHA"] .>= 0.0)
@@ -245,8 +305,12 @@ end
     cfg = mock_config()
     @test haskey(cfg.bands, "ALPHA")
     @test cfg.bands["ALPHA"] == (7.8, 11.7)
-    @test cfg.filtering["highpass_hz"] == 0.5
-    @test cfg.filtering["bandreject_lo"] == 100.0
+    @test cfg.filtering["highpass_hz"]    == 0.5
+    @test cfg.filtering["lowpass_hz"]     == 150.0
+    @test cfg.filtering["notch_bw_hz"]    == 1.0
+    @test cfg.filtering["bandreject_lo"]  == 99.5
+    @test cfg.filtering["bandreject_hi"]  == 100.5
+    @test cfg.filtering["profile"]        == "eeg_julia"
     @test cfg.statistics["fdr_q"] == 0.05
     @test haskey(cfg.study, "n_ms_t1")
     @test cfg.study["n_ms_t1"] == 44

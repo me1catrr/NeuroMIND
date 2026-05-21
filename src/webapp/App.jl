@@ -61,22 +61,35 @@ function launch_webapp(cfg::PipelineConfig;
     # ─── Helpers internos (Phase 4) ──────────────────────────
 
     function _apply_filter_chain(sig::Vector{Float64}, fs::Float64)::Vector{Float64}
-        f   = cfg.filtering
-        nyq = fs / 2.0
-        ord = Int(get(f, "filter_order", 4))
-        hp  = Float64(get(f, "highpass_hz",    0.5))
-        lp  = Float64(get(f, "lowpass_hz",    48.0))
-        nz  = Float64(get(f, "notch_hz",      50.0))
-        nbw = Float64(get(f, "notch_bw_hz",    2.0))
-        lo  = Float64(get(f, "bandreject_lo", 0.0))
-        hi  = Float64(get(f, "bandreject_hi", 0.0))
-        out = copy(sig)
-        out = filtfilt(digitalfilter(Highpass(hp/nyq), Butterworth(ord)), out)
-        out = filtfilt(digitalfilter(Lowpass(lp/nyq),  Butterworth(ord)), out)
-        nz > 0 && (out = filtfilt(digitalfilter(
-            Bandstop((nz - nbw/2)/nyq, (nz + nbw/2)/nyq), Butterworth(2)), out))
-        lo > 0 && hi > lo && (out = filtfilt(digitalfilter(
-            Bandstop(lo/nyq, hi/nyq), Butterworth(ord)), out))
+        f       = cfg.filtering
+        nyq     = fs / 2.0
+        profile = get(f, "profile", "default")
+        ord     = Int(get(f, "filter_order", 4))
+        hp      = Float64(get(f, "highpass_hz",    0.5))
+        lp      = Float64(get(f, "lowpass_hz",   150.0))
+        nz      = Float64(get(f, "notch_hz",      50.0))
+        nbw     = Float64(get(f, "notch_bw_hz",    1.0))
+        lo      = Float64(get(f, "bandreject_lo", 99.5))
+        hi      = Float64(get(f, "bandreject_hi",100.5))
+        out     = copy(sig)
+
+        if profile == "eeg_julia"
+            # EEG_Julia: Notch(filt) → Bandreject(filt) → HP(filtfilt) → LP(filtfilt)
+            nz > 0 && (out = filt(digitalfilter(
+                Bandstop((nz-nbw/2)/nyq, (nz+nbw/2)/nyq), Butterworth(ord)), out))
+            lo > 0 && hi > lo && (out = filt(digitalfilter(
+                Bandstop(lo/nyq, hi/nyq), Butterworth(ord)), out))
+            out = filtfilt(digitalfilter(Highpass(hp/nyq), Butterworth(ord)), out)
+            out = filtfilt(digitalfilter(Lowpass(lp/nyq),  Butterworth(ord)), out)
+        else
+            # Default: HP(filtfilt) → LP(filtfilt) → Notch(filtfilt) → Bandreject(filtfilt)
+            out = filtfilt(digitalfilter(Highpass(hp/nyq), Butterworth(ord)), out)
+            out = filtfilt(digitalfilter(Lowpass(lp/nyq),  Butterworth(ord)), out)
+            nz > 0 && (out = filtfilt(digitalfilter(
+                Bandstop((nz-nbw/2)/nyq, (nz+nbw/2)/nyq), Butterworth(ord)), out))
+            lo > 0 && hi > lo && (out = filtfilt(digitalfilter(
+                Bandstop(lo/nyq, hi/nyq), Butterworth(ord)), out))
+        end
         return out
     end
 
@@ -121,29 +134,38 @@ function launch_webapp(cfg::PipelineConfig;
 
     # ─── API: configuración de filtros ────────────────────────
     route("/api/filter_config") do
-        flt = cfg.filtering
-        hp  = Float64(get(flt, "highpass_hz",    0.5))
-        lp  = Float64(get(flt, "lowpass_hz",    48.0))
-        nz  = Float64(get(flt, "notch_hz",      50.0))
-        nbw = Float64(get(flt, "notch_bw_hz",    2.0))
-        lo  = Float64(get(flt, "bandreject_lo", 100.0))
-        hi  = Float64(get(flt, "bandreject_hi", 120.0))
-        ord = Int(get(flt, "filter_order", 4))
-        filters = [
-            Dict("name"=>"High-pass",    "type"=>"Butterworth",
-                 "freq"=>"$(hp) Hz",                    "order"=>ord, "applied"=>true),
-            Dict("name"=>"Low-pass",     "type"=>"Butterworth",
-                 "freq"=>"$(lp) Hz",                    "order"=>ord, "applied"=>true),
-            Dict("name"=>"Notch 50 Hz",  "type"=>"IIR Notch",
-                 "freq"=>"$(nz-nbw/2) – $(nz+nbw/2) Hz","order"=>2,   "applied"=>nz>0),
-            Dict("name"=>"Notch 100 Hz", "type"=>"IIR Notch",
-                 "freq"=>"$(lo) – $(hi) Hz",            "order"=>ord, "applied"=>lo>0&&hi>lo),
-        ]
-        json(Dict("ok"=>true, "filters"=>filters,
-                  "highpass_hz"=>hp, "lowpass_hz"=>lp,
-                  "notch_hz"=>nz,   "notch_bw_hz"=>nbw,
-                  "bandreject_lo"=>lo, "bandreject_hi"=>hi,
-                  "filter_order"=>ord))
+        flt     = cfg.filtering
+        profile = get(flt, "profile", "default")
+        hp      = Float64(get(flt, "highpass_hz",    0.5))
+        lp      = Float64(get(flt, "lowpass_hz",   150.0))
+        nz      = Float64(get(flt, "notch_hz",      50.0))
+        nbw     = Float64(get(flt, "notch_bw_hz",    1.0))
+        lo      = Float64(get(flt, "bandreject_lo",  99.5))
+        hi      = Float64(get(flt, "bandreject_hi", 100.5))
+        ord     = Int(get(flt, "filter_order", 4))
+
+        # Cadena real según perfil (usa la misma lógica que filter_recording)
+        chain = describe_filter_chain(cfg)
+        filters = [Dict(
+            "step"    => s.step,
+            "name"    => s.name,
+            "type"    => "Butterworth",
+            "freq"    => s.freq,
+            "order"   => s.order,
+            "method"  => s.method,
+            "applied" => true,
+        ) for s in chain]
+
+        json(Dict("ok"=>true,
+                  "profile"        => profile,
+                  "filters"        => filters,
+                  "highpass_hz"    => hp,
+                  "lowpass_hz"     => lp,
+                  "notch_hz"       => nz,
+                  "notch_bw_hz"    => nbw,
+                  "bandreject_lo"  => lo,
+                  "bandreject_hi"  => hi,
+                  "filter_order"   => ord))
     end
 
     # ─── API: señal cruda + filtrada de un canal ──────────────

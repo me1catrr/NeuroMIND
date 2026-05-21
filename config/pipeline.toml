@@ -33,14 +33,17 @@ montage          = "10-20"
 ground           = "Fpz"
 
 [filtering]
-# Protocolo BrainVision Analyzer (confirmado en BRAIN.pdf diapositiva pipeline)
-highpass_hz      = 0.5          # Filtro paso alto
-lowpass_hz       = 48.0         # Filtro paso bajo (< Nyquist 250 Hz)
-notch_hz         = 50.0         # Notch red eléctrica (Europa 50 Hz)
-notch_bw_hz      = 2.0          # Ancho de banda del notch
-bandreject_lo    = 100.0        # Band-reject inferior
-bandreject_hi    = 120.0        # Band-reject superior
-filter_order     = 4            # Orden Butterworth para pre-procesado
+# Reproducibilidad EEG_Julia (refs: EEG_Julia/src/Preprocessing/filtering.jl,
+#                                    EEG_Julia/config/default_config.jl)
+# Cadena: Notch(filt,50Hz,bw1Hz) → Bandreject(filt,100Hz,bw1Hz) → HP(filtfilt,0.5Hz) → LP(filtfilt,150Hz)
+profile          = "eeg_julia"
+highpass_hz      = 0.5          # EEG_Julia Highpass_cutoff (filtfilt, order_design=4)
+lowpass_hz       = 150.0        # EEG_Julia Lowpass_cutoff  (filtfilt, order_design=4)
+notch_hz         = 50.0         # EEG_Julia Notch_cutoff    (filt, order=4)
+notch_bw_hz      = 1.0          # EEG_Julia Notch_width=1.0 → 49.5–50.5 Hz
+bandreject_lo    = 99.5         # EEG_Julia Bandreject_freq=100, bw=1.0 → 99.5–100.5 Hz
+bandreject_hi    = 100.5        # EEG_Julia (mismo)
+filter_order     = 4            # EEG_Julia: todos los filtros usan order=4
 
 [segmentation]
 epoch_length_s   = 1.0          # 1 segundo = 500 muestras a 500 Hz

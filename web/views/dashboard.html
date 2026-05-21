@@ -1816,7 +1816,7 @@ tr.row-warn:hover td { background: #fef9c3; }
         <div class="phase-badge-lg">4</div>
         <div>
           <div class="phase-title">4. PREPROCESSING / FILTRADO</div>
-          <div class="phase-subtitle">Cadena de filtros digitales · Butterworth HP → LP → Notch</div>
+          <div class="phase-subtitle" id="p4-chain-subtitle">Cadena de filtros digitales · Butterworth</div>
         </div>
       </div>
       <div id="phase4-status-chip" class="status-chip pending">Cargando…</div>
@@ -5389,14 +5389,29 @@ function renderPhase4FilterTable(cfg) {
   const applied = cfg.filters.filter(f => f.applied);
   badge.textContent = applied.length + ' filtros';
 
+  // Update subtitle with actual chain order
+  const subtitle = document.getElementById('p4-chain-subtitle');
+  if (subtitle) {
+    const profile = cfg.profile || 'default';
+    const order   = applied.map(f => f.name).join(' → ');
+    subtitle.textContent = `Cadena: ${order} · Perfil: ${profile}`;
+  }
+
+  const methodBadge = m =>
+    m === 'filt'
+      ? '<span style="background:#fef3c7;color:#b45309;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:600">filt (causal)</span>'
+      : '<span style="background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:600">filtfilt (0-phase)</span>';
+
   const rows = cfg.filters.map(f => {
     const cls = f.applied ? 'badge-good' : 'badge-warn';
     const lbl = f.applied ? 'Activo' : 'Inactivo';
     return `<tr class="${f.applied ? '' : 'row-warn'}">
+      <td style="font-weight:700;color:#475569">${f.step ?? ''}</td>
       <td><strong>${f.name}</strong></td>
       <td>${f.type}</td>
       <td class="mono">${f.freq}</td>
       <td style="text-align:center">Ord.&nbsp;${f.order}</td>
+      <td>${methodBadge(f.method)}</td>
       <td><span class="badge ${cls}">${lbl}</span></td>
     </tr>`;
   }).join('');
@@ -5404,7 +5419,7 @@ function renderPhase4FilterTable(cfg) {
   wrap.innerHTML = `
     <table>
       <thead><tr>
-        <th>Filtro</th><th>Tipo</th><th>Frecuencia</th><th>Orden</th><th>Estado</th>
+        <th>#</th><th>Filtro</th><th>Tipo</th><th>Frecuencia</th><th>Orden</th><th>Método</th><th>Estado</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -5414,13 +5429,39 @@ function renderPhase4FilterTable(cfg) {
 function renderPhase4SignalParams(cfg) {
   const el = document.getElementById('p4-signal-params');
   if (!cfg) { el.innerHTML = placeholder('Config no disponible.'); return; }
+
+  // Resumen de método(s) a partir de la cadena real de filtros
+  let methodLabel = 'Butterworth filtfilt';
+  if (cfg.filters && cfg.filters.length) {
+    const methods = [...new Set(cfg.filters.map(f => f.method))];
+    if (methods.length === 1) {
+      const m = methods[0];
+      methodLabel = m === 'filt'
+        ? '<span style="color:#b45309;font-weight:600">filt (causal)</span>'
+        : '<span style="color:#2563eb;font-weight:600">filtfilt (0-phase)</span>';
+    } else {
+      // Mixto: eeg_julia usa filt para Notch/BR y filtfilt para HP/LP
+      methodLabel = '<span style="color:#b45309;font-weight:600">filt</span>'
+                  + ' <span style="color:#6b7280;font-size:10px">(Notch/BR)</span>'
+                  + ' · <span style="color:#2563eb;font-weight:600">filtfilt</span>'
+                  + ' <span style="color:#6b7280;font-size:10px">(HP/LP)</span>';
+    }
+  }
+
+  // Etiqueta de perfil con color
+  const profile = cfg.profile || 'default';
+  const profileLabel = profile === 'eeg_julia'
+    ? '<span style="background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:700">eeg_julia</span>'
+    : '<span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:4px;font-size:11px">' + profile + '</span>';
+
   el.innerHTML = infoRows([
-    ['HP cut-off',   cfg.highpass_hz.toFixed(1),  'Hz'],
-    ['LP cut-off',   cfg.lowpass_hz.toFixed(1),   'Hz'],
-    ['Notch',        cfg.notch_hz.toFixed(0),      'Hz'],
-    ['BW Notch',     cfg.notch_bw_hz.toFixed(1),   'Hz'],
-    ['Orden filtro', String(cfg.filter_order),     ''],
-    ['Método',       'Butterworth filtfilt',       ''],
+    ['Perfil',       profileLabel,                      ''],
+    ['HP cut-off',   cfg.highpass_hz.toFixed(1),        'Hz'],
+    ['LP cut-off',   cfg.lowpass_hz.toFixed(1),         'Hz'],
+    ['Notch',        cfg.notch_hz.toFixed(0),           'Hz'],
+    ['BW Notch',     cfg.notch_bw_hz.toFixed(1),        'Hz'],
+    ['Orden filtro', String(cfg.filter_order),          ''],
+    ['Método',       methodLabel,                       ''],
   ]);
 }
 

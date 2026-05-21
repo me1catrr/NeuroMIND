@@ -15,14 +15,18 @@ run        = 1
 sampling_rate = 500.0    # Hz (leído de metadata si está disponible)
 
 # ─── Filtrado ─────────────────────────────────────────────────
+# profile = "eeg_julia"  → orden y parámetros idénticos a EEG_Julia/src/Preprocessing/filtering.jl
+#   Cadena: Notch(filt) → Bandreject(filt) → Highpass(filtfilt) → Lowpass(filtfilt)
+# profile = "default"    → orden legacy: Highpass(filtfilt) → Lowpass(filtfilt) → Notch(filtfilt) → Bandreject(filtfilt)
 [filtering]
-highpass_hz      = 0.5
-lowpass_hz       = 48.0
-notch_hz         = 50.0
-notch_bw_hz      = 2.0
-bandreject_lo    = 100.0
-bandreject_hi    = 120.0
-filter_order     = 4
+profile          = "eeg_julia"
+highpass_hz      = 0.5          # EEG_Julia: Highpass_cutoff = 0.5, order_design = 4
+lowpass_hz       = 150.0        # EEG_Julia: Lowpass_cutoff = 150, order_design = 4
+notch_hz         = 50.0         # EEG_Julia: Notch_cutoff = 50, order = 4
+notch_bw_hz      = 1.0          # EEG_Julia: Notch_width = 1.0  (→ 49.5–50.5 Hz)
+bandreject_lo    = 99.5         # EEG_Julia: Bandreject_freq=100, bw=1.0 → 99.5–100.5 Hz
+bandreject_hi    = 100.5        # EEG_Julia: mismo
+filter_order     = 4            # EEG_Julia: Notch_order=4, Bandreject_order=4, HP/LP order_design=4
 
 # ─── Segmentación ─────────────────────────────────────────────
 [segmentation]

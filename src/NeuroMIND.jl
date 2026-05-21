@@ -26,7 +26,7 @@ export PipelineConfig, RecordingMeta, EEGRecording, EpochSet
 export ICAResult, SpectralResult, ConnectivityMatrix, SurrogateResult
 export GraphMetrics, Session, Subject, GroupAnalysis, LongitudinalAnalysis
 export ClinicalData, StatResult
-export n_channels, n_samples, n_epochs, duration
+export n_channels, n_samples, n_epochs, n_samples_epoch, duration
 
 # ─── I/O y configuración ──────────────────────────────────────
 include("io/Config.jl")
@@ -42,7 +42,7 @@ export compute_channel_stats, flag_bad_channels, qc_report
 # ─── Preprocessing ────────────────────────────────────────────
 include("preprocessing/Filtering.jl")
 export apply_highpass, apply_lowpass, apply_notch, apply_bandpass
-export apply_bandreject, filter_recording
+export apply_bandreject, filter_recording, describe_filter_chain
 
 # ─── ICA ──────────────────────────────────────────────────────
 include("ica/ICACore.jl")
