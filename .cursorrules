@@ -1,0 +1,116 @@
+# NeuroMIND — Cursor Rules
+# Proyecto: Framework EEG Julia para conectividad funcional en Esclerosis Múltiple
+# Repo: https://github.com/me1catrr/NeuroMIND
+# Desarrollador: Rafael Castro Triguero (me1catrr@uco.es)
+# Última actualización: 2026-05-21
+
+## Lenguaje y entorno
+
+- Lenguaje principal: **Julia 1.9+** (no Python, no R, no Jupyter)
+- Package manager: `Pkg` con `Project.toml` / `Manifest.toml`
+- Dashboard: **Genie.jl** (web local, no GitHub Pages, no Node.js)
+- Tests: `julia --project=. tests/runtests.jl`
+- Sintaxis check: `julia --project=. -e 'include("src/NeuroMIND.jl"); println("OK")'`
+
+## Arquitectura del proyecto
+
+```
+src/NeuroMIND.jl              ← entry point, lista de includes en orden
+src/types.jl                  ← todos los tipos del framework
+src/SingleSubjectPipeline.jl  ← pipeline 8 pasos (NO tocar orden ICA→Segmentación)
+src/ica/ICACore.jl            ← FastICA puro Julia (LinearAlgebra + Random)
+src/webapp/App.jl             ← Genie server + API routes
+web/views/dashboard.html      ← SPA completa (~6300 líneas, no dividir en archivos)
+config/single_subject.toml    ← parámetros configurables
+```
+
+## Reglas científicas — CRÍTICO
+
+- **ICA siempre en señal continua filtrada, ANTES de segmentar.** El orden del pipeline
+  es: Filtrado [3/8] → ICA [4/8] → Segmentación [5/8]. No alterar.
+- **No cambiar lógica de ICA, wPLI, PSD o filtrado** sin comparar contra `../EEG_Julia/`.
+- **No usar MultivariateStats**: ICA implementado en puro Julia en `src/ica/ICACore.jl`.
+- **CSD es opcional** (`use_csd = false` por defecto). No activar sin justificación.
+- La mixing matrix usa `pinv()` (no `inv()`) porque n_comp < n_channels.
+- Varianza por componente: `||A[:,i]||² × var(S[i,:]) / total_var`.
+
+## Reglas de código Julia
+
+- Usar `filtfilt` (fase cero) para todos los filtros digitales.
+- Los tipos son inmutables (`struct`, no `mutable struct`) salvo necesidad explícita.
+- Nuevas funciones públicas deben tener docstring `""" ... """`.
+- No usar `global` dentro de funciones.
+- Preferir `@warn` sobre `println` para mensajes de error no fatales.
+- No importar paquetes no declarados en `Project.toml`.
+
+## Dashboard — reglas de edición
+
+- `web/views/dashboard.html` es una SPA monolítica. **No dividir en múltiples archivos.**
+- Paneles implementados: 0, 1, 2, 3, 4, 5. Paneles 6–12: placeholders.
+- Canvas para series temporales y butterfly plots (API Canvas 2D).
+- SVG para espectros y donuts (generados en JavaScript inline).
+- Al editar, leer solo la sección relevante (buscar por ID o función JS).
+- Colores de fase: ICA usa `#7c3aed` (violeta).
+
+## Reglas Git — NUNCA
+
+```
+❌ git add data/          — señales EEG reales
+❌ git add results/       — derivados por sujeto
+❌ git add .claude/       — estado interno de Claude Code
+❌ git add .DS_Store      — metadatos macOS
+❌ git push --force main  — destructivo en rama principal
+❌ commitear directamente en main (salvo cambios triviales)
+```
+
+## Reglas Git — SIEMPRE
+
+```bash
+# Antes de cualquier commit:
+git status --short
+
+# Verificación de seguridad antes de push:
+git ls-files | grep -E '(^data/|^results/|\.DS_Store$|^\.claude/)'
+# → debe devolver NADA
+
+# Rama de trabajo:
+git checkout -b feat/<nombre-descriptivo>
+
+# Identidad en ordenador nuevo:
+git config --global user.name "Rafael Castro Triguero"
+git config --global user.email "me1catrr@uco.es"
+```
+
+## Estructura de resultados (solo local, nunca al repo)
+
+```
+results/subjects/sub-{id}/ses-{sess}/{task}/
+├── ica_components.csv      ← índice, varianza_pct, tipo, rechazado
+├── ica_summary.json        ← n_comp, n_rej, varianza_retenida, timestamp, duration_s
+├── ica_activations.csv     ← t_s, IC1..IC30 (primeros 10s)
+├── ica_signal_before.csv   ← señal filtrada pre-ICA (primeros 10s)
+├── ica_signal_after.csv    ← señal limpiada post-ICA (primeros 10s)
+├── psd_by_channel.csv
+├── band_power_summary.csv
+├── wpli_{band}.csv
+└── pipeline_log.txt
+```
+
+## Bandas de frecuencia
+
+```
+δ  0.5–4 Hz   θ  4–8 Hz    α  7.8–11.7 Hz
+β_low 12–15   β_mid 15–18  β_high 18–30   γ 30–50 Hz
+```
+
+## Dependencias (Project.toml)
+
+Presentes: `Base64, CSV, CairoMakie, DSP, DataFrames, Dates, FFTW,
+Genie, LinearAlgebra, Random, Serialization, Statistics, StatsBase, TOML`
+
+Ausentes (no añadir sin discutir): `MultivariateStats, JSON3, Pluto, PyCall`
+
+## Contexto completo
+
+Ver `CLAUDE.md` y `AGENTS.md` en este directorio para contexto científico detallado,
+estado del proyecto y backlog completo.

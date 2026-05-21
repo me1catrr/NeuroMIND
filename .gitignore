@@ -13,10 +13,15 @@
 !/data/.gitkeep
 !/results/.gitkeep
 
-# --- Local app/editor state ---
+# --- Local app/editor state (estado interno; los ficheros de reglas sí se trackean) ---
+# Claude Code  → .claude/ ignorado; CLAUDE.md trackeado ✓
+# Cursor       → .cursor/ ignorado (chat/logs internos); .cursorrules trackeado ✓
+# Codex CLI    → sin estado local de proyecto; AGENTS.md trackeado ✓
+# Warp         → estado global en ~/.warp/, nada en el proyecto
 .claude/
 .cursor/
 .vscode/
+.codex/
 
 # --- Julia artifacts and local caches ---
 *.jl.cov
