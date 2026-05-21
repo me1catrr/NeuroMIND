@@ -86,3 +86,94 @@ function reject_artifacts(epochs::EpochSet, cfg::PipelineConfig)::EpochSet
     clean = epochs.data[:, :, kept]
     return EpochSet(epochs.meta, clean, epochs.epoch_length_s, n_valid, rejected)
 end
+
+"""
+    compute_epoch_quality_report(epochs, cfg) -> DataFrame
+
+Calcula métricas de calidad para TODOS los epochs (pre-AR).
+Columnas: epoch, start_s, end_s, duration_s, quality, status,
+          rejection_reason, max_amp_uv, max_grad_uv.
+
+quality ∈ [0, 1] = clamp(1 − 0.5 × max(amp/thresh, grad/thresh), 0, 1)
+"""
+function compute_epoch_quality_report(epochs::EpochSet, cfg::PipelineConfig)::DataFrame
+    ar          = cfg.artifact_rejection
+    amp_thresh  = Float64(get(ar, "amplitude_threshold_uv", 100.0))
+    grad_thresh = Float64(get(ar, "gradient_threshold_uv",  50.0))
+    epoch_s     = epochs.epoch_length_s
+    overlap     = Float64(get(cfg.segmentation, "epoch_overlap", 0.0))
+    step_s      = epoch_s * (1.0 - overlap)
+    n_ch, n_samp, n_ep = size(epochs.data)
+
+    epoch_v   = Int[];    start_v  = Float64[]; end_v   = Float64[]
+    quality_v = Float64[]; status_v = String[];  reason_v = String[]
+    amp_v     = Float64[]; grad_v   = Float64[]
+
+    @inbounds for ep in 1:n_ep
+        ma = 0.0; mg = 0.0; reason = ""; bad = false
+        for ch in 1:n_ch
+            seg = @view epochs.data[ch, :, ep]
+            v   = maximum(abs.(seg))
+            ma  = v > ma ? v : ma
+            if v > amp_thresh && !bad
+                reason = "amplitude"; bad = true
+            end
+            if n_samp > 1
+                dv = maximum(abs.(diff(seg)))
+                mg = dv > mg ? dv : mg
+                if dv > grad_thresh && !bad
+                    reason = "gradient"; bad = true
+                end
+            end
+        end
+        q  = clamp(1.0 - 0.5 * max(ma / amp_thresh, mg / (grad_thresh > 0 ? grad_thresh : 1.0)), 0.0, 1.0)
+        t0 = round((ep - 1) * step_s, digits=3)
+        push!(epoch_v,   ep)
+        push!(start_v,   t0)
+        push!(end_v,     round(t0 + epoch_s, digits=3))
+        push!(quality_v, round(q, digits=4))
+        push!(status_v,  bad ? "rejected" : "valid")
+        push!(reason_v,  reason)
+        push!(amp_v,     round(ma, digits=2))
+        push!(grad_v,    round(mg, digits=2))
+    end
+
+    return DataFrame(
+        epoch            = epoch_v,
+        start_s          = start_v,
+        end_s            = end_v,
+        duration_s       = fill(epoch_s, n_ep),
+        quality          = quality_v,
+        status           = status_v,
+        rejection_reason = reason_v,
+        max_amp_uv       = amp_v,
+        max_grad_uv      = grad_v,
+    )
+end
+
+"""
+    compute_channel_coverage(epochs, cfg) -> DataFrame
+
+Proporción de épocas (%) en que cada canal pasa los umbrales de AR.
+"""
+function compute_channel_coverage(epochs::EpochSet, cfg::PipelineConfig)::DataFrame
+    ar          = cfg.artifact_rejection
+    amp_thresh  = Float64(get(ar, "amplitude_threshold_uv", 100.0))
+    grad_thresh = Float64(get(ar, "gradient_threshold_uv",  50.0))
+    n_ch, n_samp, n_ep = size(epochs.data)
+    ch_names = epochs.meta.channel_names
+
+    pct = Float64[]
+    @inbounds for ch in 1:n_ch
+        ok = 0
+        for ep in 1:n_ep
+            seg = @view epochs.data[ch, :, ep]
+            if maximum(abs.(seg)) ≤ amp_thresh &&
+               (n_samp ≤ 1 || maximum(abs.(diff(seg))) ≤ grad_thresh)
+                ok += 1
+            end
+        end
+        push!(pct, round(100.0 * ok / n_ep, digits=1))
+    end
+    return DataFrame(channel = ch_names, coverage_pct = pct)
+end

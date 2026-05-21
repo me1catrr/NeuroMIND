@@ -983,6 +983,50 @@ tr.row-warn:hover td { background: #fef9c3; }
 .p5-comp-sel { padding:4px 8px; border:1px solid var(--border); border-radius:6px; font-size:11px; background:var(--bg-1); cursor:pointer; }
 .p5-legend-item { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-2); margin-bottom:5px; }
 .p5-legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+/* ── Phase 6 — Segmentación ─────────────────────────────── */
+.grid-p6-top  { display:grid; grid-template-columns:0.95fr 0.95fr 1.7fr 0.9fr; gap:12px; margin-bottom:14px; }
+.grid-p6-mid  { display:grid; grid-template-columns:1.9fr 1fr 1.1fr 0.85fr; gap:12px; margin-bottom:14px; }
+.grid-p6-bot  { display:grid; grid-template-columns:0.85fr 2.1fr 0.72fr; gap:12px; margin-bottom:14px; }
+.p6-big-val   { font-size:30px; font-weight:800; line-height:1; margin:8px 0 3px; }
+.p6-big-lbl   { font-size:10px; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
+.p6-big-sub   { font-size:11px; color:var(--text-2); margin-top:3px; }
+.p6-cfg-row   { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid var(--border); font-size:12px; }
+.p6-cfg-row:last-child { border-bottom:none; }
+.p6-cfg-key   { color:var(--text-3); }
+.p6-cfg-val   { font-weight:700; font-family:monospace; font-size:11px; color:var(--text-1); }
+.p6-stat-row  { display:flex; justify-content:space-between; padding:5px 0; font-size:12px; border-bottom:1px solid var(--border); }
+.p6-stat-row:last-child { border-bottom:none; }
+.p6-stat-key  { color:var(--text-3); }
+.p6-stat-val  { font-weight:700; font-family:monospace; font-size:11px; }
+.p6-tbl       { width:100%; border-collapse:collapse; font-size:12px; }
+.p6-tbl th    { background:var(--bg-3); color:var(--text-3); font-weight:600; text-align:left;
+                 padding:6px 8px; position:sticky; top:0; z-index:1; white-space:nowrap; }
+.p6-tbl td    { padding:5px 8px; border-bottom:1px solid var(--border); }
+.p6-tbl tr:hover td { background:rgba(2,132,199,.04); }
+.p6-badge-valid    { display:inline-block; padding:2px 7px; border-radius:8px; font-size:10px; font-weight:600; background:#dcfce7; color:#16a34a; }
+.p6-badge-rejected { display:inline-block; padding:2px 7px; border-radius:8px; font-size:10px; font-weight:600; background:#fee2e2; color:#dc2626; }
+.p6-qa-grid   { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.p6-qa-btn    { display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;
+                 background:var(--bg-2); border:1px solid var(--border); border-radius:8px;
+                 cursor:pointer; font-size:11px; font-weight:600; color:var(--text-2);
+                 transition:.15s; text-align:center; line-height:1.3; }
+.p6-qa-btn:hover { background:#e0f2fe; color:#0284c7; }
+.p6-qa-icon   { font-size:18px; }
+.p6-status-ok  { color:var(--good); font-weight:700; }
+.p6-status-warn{ color:var(--warn); font-weight:700; }
+.p6-metrics-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.p6-metric-cell { background:var(--bg-2); border-radius:8px; padding:8px; text-align:center; }
+.p6-metric-val  { font-size:18px; font-weight:800; }
+.p6-metric-lbl  { font-size:9px; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:.3px; margin-top:2px; }
+#p6-tl-canvas, #p6-prev-canvas { display:block; width:100%; background:#f8fafc; border-radius:4px; }
+#p6-tl-canvas  { height:80px; }
+#p6-prev-canvas{ height:150px; }
+.p6-sel        { padding:4px 8px; border:1px solid var(--border); border-radius:6px; font-size:11px; background:var(--bg-1); cursor:pointer; }
+.p6-cov-grid   { display:flex; flex-wrap:wrap; gap:4px; padding:4px 0; }
+.p6-cov-cell   { width:44px; height:38px; border-radius:5px; display:flex; flex-direction:column;
+                  align-items:center; justify-content:center; font-size:8px; font-weight:600;
+                  border:1px solid rgba(0,0,0,.06); }
+.p6-cov-label  { font-size:7px; color:rgba(0,0,0,.55); margin-top:1px; }
 </style>
 </head>
 <body>
@@ -2126,7 +2170,227 @@ tr.row-warn:hover td { background: #fef9c3; }
     </div>
 
   </div><!-- /phase-panel-5 -->
-  <div id="phase-panel-6"  class="phase-panel"></div>
+  <!-- ══════════════════════════════════════════════════════════
+       PHASE 6 — SEGMENTACIÓN
+  ══════════════════════════════════════════════════════════ -->
+  <div id="phase-panel-6" class="phase-panel">
+
+    <!-- Header -->
+    <div class="phase-header">
+      <div class="phase-header-left">
+        <div class="phase-badge-lg" style="background:#0284c7">6</div>
+        <div>
+          <div class="phase-title">6. Segmentación — División de la señal en épocas (epochs)</div>
+          <div class="phase-subtitle">Ventaneo temporal · Corrección de baseline · Rechazo de artefactos</div>
+        </div>
+      </div>
+      <div id="p6-status-chip" class="status-chip pending">Cargando…</div>
+    </div>
+
+    <!-- Fila 1: Parámetros | Resumen | Timeline | Estado -->
+    <div class="grid-p6-top">
+
+      <!-- Parámetros de segmentación -->
+      <div class="card">
+        <div class="card-header">Parámetros de segmentación</div>
+        <div class="card-body" id="p6-params-body">
+          <div class="spinner"><div class="spin-circle"></div></div>
+        </div>
+      </div>
+
+      <!-- Resumen -->
+      <div class="card">
+        <div class="card-header">Resumen de segmentación</div>
+        <div class="card-body" style="padding:8px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+            <div style="text-align:center;background:var(--bg-2);border-radius:6px;padding:8px">
+              <div class="p6-big-val" id="p6-n-total" style="color:#0284c7">—</div>
+              <div class="p6-big-lbl">Generadas</div>
+            </div>
+            <div style="text-align:center;background:var(--bg-2);border-radius:6px;padding:8px">
+              <div class="p6-big-val" id="p6-n-valid" style="color:var(--good)">—</div>
+              <div class="p6-big-lbl">Válidas</div>
+            </div>
+          </div>
+          <div style="text-align:center;background:var(--bg-2);border-radius:6px;padding:8px;margin-bottom:6px">
+            <div class="p6-big-val" id="p6-retention" style="font-size:22px;color:var(--good)">—%</div>
+            <div class="p6-big-lbl">Índice de retención</div>
+          </div>
+          <div id="p6-summary-msg" style="font-size:11px;color:var(--text-3);padding:4px 2px;line-height:1.5"></div>
+        </div>
+      </div>
+
+      <!-- Distribución temporal -->
+      <div class="card" style="overflow:hidden">
+        <div class="card-header">
+          Distribución temporal de épocas
+          <div style="display:flex;align-items:center;gap:10px;font-size:10px;font-weight:400;color:var(--text-3)">
+            <span><span style="display:inline-block;width:10px;height:8px;background:#3b82f6;border-radius:2px;margin-right:3px"></span>Válida</span>
+            <span><span style="display:inline-block;width:10px;height:8px;background:#f97316;border-radius:2px;margin-right:3px"></span>Rechazada</span>
+          </div>
+        </div>
+        <div style="padding:8px 10px 4px">
+          <canvas id="p6-tl-canvas"></canvas>
+          <div id="p6-tl-xaxis" style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-3);padding:0 2px;margin-top:2px"></div>
+        </div>
+      </div>
+
+      <!-- Estado de la fase -->
+      <div class="card">
+        <div class="card-header">Estado de la fase</div>
+        <div class="card-body" id="p6-phase-status">
+          <div class="spinner"><div class="spin-circle"></div></div>
+        </div>
+      </div>
+    </div><!-- /grid-p6-top -->
+
+    <!-- Placeholder si no hay datos -->
+    <div id="p6-not-run-block" class="p5-not-run" style="display:none">
+      <div class="p5-not-run-icon">✂️</div>
+      <div class="p5-not-run-title">Segmentación aún no ejecutada</div>
+      <div class="p5-not-run-sub">
+        Ejecuta el pipeline para dividir la señal EEG en épocas y ver los resultados detallados.
+      </div>
+      <button class="p5-run-btn" onclick="p6RunPipeline()">▶ Ejecutar pipeline</button>
+      <div style="font-size:11px;color:var(--text-3);margin-top:4px">
+        Requiere señal filtrada (Fase 4) · época 2 s · rechazo por amplitud/gradiente
+      </div>
+    </div>
+
+    <!-- Contenido principal (visible cuando seg_run=true) -->
+    <div id="p6-content-block" style="display:none">
+
+      <!-- Fila 2: Preview | Donut calidad | Histograma | Stats duración -->
+      <div class="grid-p6-mid">
+
+        <!-- Vista previa de épocas -->
+        <div class="card" style="overflow:hidden">
+          <div class="card-header" style="flex-wrap:wrap;gap:6px">
+            Vista previa de épocas
+            <span style="font-size:10px;color:var(--text-3);font-weight:400">primeros 10 s</span>
+            <select id="p6-prev-ch" class="p6-sel" onchange="p6RefreshPreview()" style="margin-left:auto"></select>
+            <select id="p6-prev-scale" class="p6-sel" onchange="p6RefreshPreview()">
+              <option value="auto">Auto</option>
+              <option value="50">±50 µV</option>
+              <option value="100">±100 µV</option>
+              <option value="200">±200 µV</option>
+            </select>
+          </div>
+          <canvas id="p6-prev-canvas"></canvas>
+          <div style="padding:3px 10px 6px;font-size:9px;color:var(--text-3)" id="p6-prev-info">—</div>
+        </div>
+
+        <!-- Calidad de épocas — donut -->
+        <div class="card">
+          <div class="card-header">Calidad de épocas</div>
+          <div class="card-body" style="padding:8px">
+            <svg id="p6-donut-svg" viewBox="0 0 180 130" style="width:100%;display:block"></svg>
+            <div id="p6-reject-reasons" style="margin-top:6px"></div>
+          </div>
+        </div>
+
+        <!-- Histograma de calidad -->
+        <div class="card">
+          <div class="card-header">Índices de calidad por época</div>
+          <div class="card-body" style="padding:6px">
+            <svg id="p6-hist-svg" viewBox="0 0 220 130" style="width:100%;display:block"></svg>
+            <div id="p6-hist-stats" class="p6-metrics-row" style="margin-top:6px"></div>
+          </div>
+        </div>
+
+        <!-- Estadísticas de duración -->
+        <div class="card">
+          <div class="card-header">Estadísticas de duración</div>
+          <div class="card-body" id="p6-dur-stats">
+            <div class="spinner"><div class="spin-circle"></div></div>
+          </div>
+        </div>
+      </div><!-- /grid-p6-mid -->
+
+      <!-- Fila 3: Cobertura | Tabla segmentos | Acciones rápidas -->
+      <div class="grid-p6-bot">
+
+        <!-- Cobertura temporal por canal -->
+        <div class="card">
+          <div class="card-header">Cobertura por canal</div>
+          <div class="card-body" style="padding:8px">
+            <div id="p6-cov-summary" style="font-size:11px;color:var(--text-2);margin-bottom:6px"></div>
+            <div id="p6-cov-grid" class="p6-cov-grid"></div>
+          </div>
+        </div>
+
+        <!-- Tabla de segmentos -->
+        <div class="card">
+          <div class="card-header" style="flex-wrap:wrap;gap:8px">
+            Tabla de segmentos
+            <span class="header-badge" id="p6-seg-count">—</span>
+            <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+              <span style="font-size:11px;color:var(--text-3)">Mostrar</span>
+              <select id="p6-tbl-size" class="p6-sel" onchange="p6RenderTable(1)">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+              </select>
+              <input id="p6-tbl-search" type="text" placeholder="Buscar…"
+                style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;width:120px"
+                oninput="p6RenderTable(1)">
+            </div>
+          </div>
+          <div style="max-height:300px;overflow-y:auto">
+            <table class="p6-tbl">
+              <thead>
+                <tr>
+                  <th>Índice</th><th>Inicio (s)</th><th>Fin (s)</th>
+                  <th>Dur. (s)</th><th>Calidad</th><th>Estado</th><th>Motivo</th>
+                </tr>
+              </thead>
+              <tbody id="p6-tbl-body"></tbody>
+            </table>
+          </div>
+          <!-- Paginación -->
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-top:1px solid var(--border);font-size:11px">
+            <span id="p6-tbl-info" style="color:var(--text-3)">—</span>
+            <div style="display:flex;gap:4px" id="p6-tbl-pages"></div>
+          </div>
+        </div>
+
+        <!-- Acciones rápidas -->
+        <div class="card">
+          <div class="card-header">Acciones rápidas</div>
+          <div class="card-body" style="padding:8px">
+            <div class="p6-qa-grid">
+              <button class="p6-qa-btn" onclick="switchPhase(5)">
+                <span class="p6-qa-icon">🧠</span>Ver ICA<br><span style="font-weight:400;font-size:9px">(Fase 5)</span>
+              </button>
+              <button class="p6-qa-btn" onclick="switchPhase(7)">
+                <span class="p6-qa-icon">🛡</span>Rechazo AR<br><span style="font-weight:400;font-size:9px">(Fase 7)</span>
+              </button>
+              <button class="p6-qa-btn" onclick="p6ExportSegments()">
+                <span class="p6-qa-icon">⬇</span>Exportar CSV<br><span style="font-weight:400;font-size:9px">segmentos</span>
+              </button>
+              <button class="p6-qa-btn" onclick="p6Reload()">
+                <span class="p6-qa-icon">🔄</span>Recargar<br><span style="font-weight:400;font-size:9px">datos</span>
+              </button>
+              <button class="p6-qa-btn" onclick="switchPhase(8)">
+                <span class="p6-qa-icon">📊</span>Espectral<br><span style="font-weight:400;font-size:9px">(Fase 8)</span>
+              </button>
+              <button class="p6-qa-btn" onclick="p6RunPipeline()">
+                <span class="p6-qa-icon">▶</span>Reprocesar<br><span style="font-weight:400;font-size:9px">pipeline</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div><!-- /grid-p6-bot -->
+
+    </div><!-- /p6-content-block -->
+
+    <!-- Info bar -->
+    <div class="interp-bar" id="p6-info-bar">
+      <span class="interp-icon">ℹ️</span>
+      <span id="p6-info-text">Cargando datos de segmentación…</span>
+    </div>
+
+  </div><!-- /phase-panel-6 -->
   <div id="phase-panel-7"  class="phase-panel"></div>
   <div id="phase-panel-8"  class="phase-panel"></div>
   <div id="phase-panel-9"  class="phase-panel"></div>
@@ -2226,6 +2490,9 @@ const State = {
   // Phase 5
   p5Info:    null,
   p5CompIdx: 1,
+  // Phase 6
+  p6Data:    null,
+  p6Page:    1,
 };
 
 // ── API helpers ───────────────────────────────────
@@ -2248,6 +2515,7 @@ const API = {
   bandPower:      (s, se, c)       => API.get(`/api/bids/band_power?subj=${s}&sess=${se}&cond=${c}`),
   phase2Info:     (s, se, c)       => API.get(`/api/phase2_info?subj=${s}&sess=${se}&cond=${c}`),
   phase5IcaInfo:  (s, se, c)       => API.get(`/api/phase5_ica_info?subj=${s}&sess=${se}&cond=${c}`),
+  phase6Seg:      (s, se, c)       => API.get(`/api/phase6_segmentation?subj=${s}&sess=${se}&cond=${c}`),
   icaActivation:  (s, se, c, comp) => API.get(`/api/ica_activation?subj=${s}&sess=${se}&cond=${c}&comp=${comp}`),
   icaSignal:      (s, se, c, stage, ch) => API.get(`/api/ica_signal?subj=${s}&sess=${se}&cond=${c}&stage=${stage}&channels=${ch}`),
 };
@@ -2385,6 +2653,8 @@ async function switchPhase(n) {
     await loadPhase4();
   } else if (n === 5) {
     await loadPhase5();
+  } else if (n === 6) {
+    await loadPhase6();
   } else {
     renderPhasePlaceholder(n);
   }
@@ -2432,6 +2702,7 @@ async function loadCurrentPhase() {
   else if (State.phase === 3) await loadPhase3();
   else if (State.phase === 4) await loadPhase4();
   else if (State.phase === 5) await loadPhase5();
+  else if (State.phase === 6) await loadPhase6();
   else renderPhasePlaceholder(State.phase);
 }
 
@@ -6019,6 +6290,554 @@ function _p5TypeLabel(type) {
   if (!t || t === 'unknown')                                             return '? Desconocido';
   return type;
 }
+
+// ════════════════════════════════════════════════════════════
+// PHASE 6 — SEGMENTACIÓN
+// ════════════════════════════════════════════════════════════
+
+async function loadPhase6() {
+  const chip = document.getElementById('p6-status-chip');
+  if (chip) { chip.className = 'status-chip pending'; chip.textContent = 'Cargando…'; }
+
+  const r = await API.phase6Seg(State.subj, State.sess, State.cond);
+  State.p6Data = r.ok ? r : null;
+
+  _p6RenderParams();
+  _p6RenderPhaseStatus();
+
+  const notRun  = document.getElementById('p6-not-run-block');
+  const content = document.getElementById('p6-content-block');
+
+  if (!State.p6Data || !State.p6Data.seg_run) {
+    if (notRun)  notRun.style.display  = 'flex';
+    if (content) content.style.display = 'none';
+    if (chip) { chip.className = 'status-chip pending'; chip.textContent = 'Pendiente'; }
+    const bar = document.getElementById('p6-info-text');
+    if (bar) bar.textContent = 'Segmentación no ejecutada · Ejecuta el pipeline para ver resultados.';
+    _p6RenderSummaryEmpty();
+    return;
+  }
+
+  if (notRun)  notRun.style.display  = 'none';
+  if (content) content.style.display = '';
+
+  _p6RenderSummary();
+  _p6RenderTimeline();
+  _p6RenderDonut();
+  _p6RenderHistogram();
+  _p6RenderDurStats();
+  _p6RenderChannelCoverage();
+  p6RenderTable(1);
+  await _p6LoadPreview();
+
+  const summ = State.p6Data.summary || {};
+  const ret  = summ.retention_pct || 0;
+  if (chip) {
+    chip.className  = ret >= 90 ? 'status-chip good' : 'status-chip warn';
+    chip.textContent = `✓ ${summ.n_valid || 0}/${summ.n_total || 0} épocas · ${ret}% retención`;
+  }
+  const bar = document.getElementById('p6-info-text');
+  if (bar) bar.textContent =
+    `La señal se ha segmentado en épocas de ${summ.epoch_length_s || 0} s. ` +
+    `${summ.n_valid || 0} de ${summ.n_total || 0} épocas (${ret}%) marcadas como válidas.`;
+}
+
+function _p6RenderSummaryEmpty() {
+  ['p6-n-total','p6-n-valid'].forEach(id => {
+    const e = document.getElementById(id); if (e) e.textContent = '—';
+  });
+  const re = document.getElementById('p6-retention'); if (re) re.textContent = '—%';
+  const ms = document.getElementById('p6-summary-msg'); if (ms) ms.textContent = 'Pendiente de ejecución del pipeline.';
+}
+
+function _p6RenderSummary() {
+  const summ = State.p6Data.summary || {};
+  const _t   = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  _t('p6-n-total',   String(summ.n_total || 0));
+  _t('p6-n-valid',   String(summ.n_valid || 0));
+  _t('p6-retention', `${summ.retention_pct || 0}%`);
+  const msg = document.getElementById('p6-summary-msg');
+  if (msg) {
+    const ok = (summ.retention_pct || 0) >= 90;
+    msg.innerHTML = ok
+      ? `<span class="p6-status-ok">✓ Segmentación completada correctamente</span><br>` +
+        `Se generaron ${summ.n_total} épocas de ${summ.epoch_length_s} s con ${summ.overlap_pct}% de solapamiento.`
+      : `<span class="p6-status-warn">⚠ Retención baja (${summ.retention_pct}%)</span><br>` +
+        `Revisar umbrales de rechazo de artefactos.`;
+  }
+}
+
+function _p6RenderParams() {
+  const el = document.getElementById('p6-params-body');
+  if (!el) return;
+  if (!State.p6Data) { el.innerHTML = '<div class="spinner"><div class="spin-circle"></div></div>'; return; }
+  const s = State.p6Data.summary || {};
+  const rows = [
+    ['Longitud de época',   `${s.epoch_length_s ?? '—'} s`],
+    ['Solapamiento',        `${s.overlap_pct ?? 0}% (${s.overlap_s ?? 0} s)`],
+    ['Paso (step)',         `${s.step_s ?? '—'} s`],
+    ['Referencia temporal', s.baseline_method ? `Inicio de época (${s.baseline_method})` : '—'],
+    ['Canales utilizados',  s.n_channels ?? '—'],
+    ['Señal de entrada',    s.signal_input ?? '—'],
+    ['Fs (muestreo)',       `${s.fs ?? '—'} Hz`],
+    ['Muestras por época',  s.samples_per_epoch ?? '—'],
+  ];
+  el.innerHTML = rows.map(([k, v]) =>
+    `<div class="p6-cfg-row"><span class="p6-cfg-key">${k}</span><span class="p6-cfg-val">${v}</span></div>`
+  ).join('');
+}
+
+function _p6RenderPhaseStatus() {
+  const el = document.getElementById('p6-phase-status');
+  if (!el) return;
+  if (!State.p6Data) { el.innerHTML = '<div class="spinner"><div class="spin-circle"></div></div>'; return; }
+  const run = State.p6Data.seg_run || false;
+  const tim = State.p6Data.phase_timing || {};
+  const s   = State.p6Data.summary || {};
+  el.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="p2-status-check">
+        <span class="p2-check-icon">${run ? '✅' : '⏳'}</span>
+        <span class="p2-check-label">Estado: <strong>${run ? 'Completado' : 'Pendiente'}</strong></span>
+      </div>
+      <div class="p2-status-check">
+        <span class="p2-check-icon">🕐</span>
+        <span class="p2-check-label">Inicio: <strong>${tim.start || '—'}</strong></span>
+      </div>
+      <div class="p2-status-check">
+        <span class="p2-check-icon">🕑</span>
+        <span class="p2-check-label">Fin: <strong>${tim.end || '—'}</strong></span>
+      </div>
+      <div class="p2-status-check">
+        <span class="p2-check-icon">⏱</span>
+        <span class="p2-check-label">Duración: <strong>${tim.duration || '—'}</strong></span>
+      </div>
+      ${run ? `<div style="margin-top:4px;padding-top:6px;border-top:1px solid var(--border)">
+        <a href="#" onclick="event.preventDefault()" style="font-size:11px;color:#0284c7">📋 Ver log de la fase</a>
+      </div>` : ''}
+    </div>`;
+}
+
+function _p6RenderTimeline() {
+  const canvas = document.getElementById('p6-tl-canvas');
+  if (!canvas) return;
+  const segs = State.p6Data?.segments || [];
+  if (!segs.length) {
+    canvas.width = canvas.offsetWidth || 500; canvas.height = 80;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#94a3b8'; ctx.font = '11px Inter,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Sin datos', canvas.width / 2, 44);
+    return;
+  }
+  const W = canvas.offsetWidth || 500, H = 80;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, W, H);
+
+  const padT = 6, padB = 18, padL = 4, padR = 4;
+  const w = W - padL - padR, h = H - padT - padB;
+
+  const maxT = segs[segs.length - 1]?.end_s || 1;
+  const barW = Math.max(1, w / segs.length);
+
+  for (const seg of segs) {
+    const x = padL + (seg.start_s / maxT) * w;
+    const bw = Math.max(0.8, barW);
+    ctx.fillStyle = seg.status === 'valid' ? '#3b82f6' : '#f97316';
+    ctx.globalAlpha = 0.75;
+    ctx.fillRect(x, padT, bw, h);
+  }
+  ctx.globalAlpha = 1;
+
+  // eje X (minutos)
+  const xAxisEl = document.getElementById('p6-tl-xaxis');
+  if (xAxisEl) {
+    const maxMin = maxT / 60;
+    const nTicks = Math.min(6, Math.ceil(maxMin));
+    let html = '';
+    for (let i = 0; i <= nTicks; i++) {
+      const pct = (i / nTicks * 100).toFixed(1);
+      const label = (i / nTicks * maxMin).toFixed(1);
+      html += `<span style="position:relative;left:0">${label}</span>`;
+    }
+    xAxisEl.innerHTML = html;
+  }
+}
+
+function _p6RenderDonut() {
+  const svg = document.getElementById('p6-donut-svg');
+  if (!svg) return;
+  const summ = State.p6Data?.summary || {};
+  const nValid = summ.n_valid || 0;
+  const nRej   = summ.n_rejected || 0;
+  const total  = nValid + nRej || 1;
+  const fValid = nValid / total;
+  const cx = 70, cy = 65, r = 52, ri = 32;
+  const ang = fValid * 2 * Math.PI;
+  const aStart = -Math.PI / 2;
+
+  function arc(f, r1, r2, aS, aE, lf) {
+    const x1 = cx + r1 * Math.cos(aS), y1 = cy + r1 * Math.sin(aS);
+    const x2 = cx + r1 * Math.cos(aE), y2 = cy + r1 * Math.sin(aE);
+    const xi1= cx + r2 * Math.cos(aS), yi1= cy + r2 * Math.sin(aS);
+    const xi2= cx + r2 * Math.cos(aE), yi2= cy + r2 * Math.sin(aE);
+    return `<path d="M ${xi1} ${yi1} L ${x1} ${y1} A ${r1} ${r1} 0 ${lf} 1 ${x2} ${y2} L ${xi2} ${yi2} A ${r2} ${r2} 0 ${lf} 0 ${xi1} ${yi1} Z" fill="${f}" opacity="0.88"/>`;
+  }
+  let paths = '';
+  paths += fValid > 0 ? arc('#22c55e', r, ri, aStart, aStart + ang, ang > Math.PI ? 1 : 0) : '';
+  paths += nRej > 0  ? arc('#f97316', r, ri, aStart + ang, aStart + 2*Math.PI, (1-fValid)*2*Math.PI > Math.PI ? 1 : 0) : '';
+  paths += `<text x="${cx}" y="${cy-4}"  text-anchor="middle" font-size="14" font-weight="800" fill="#1e293b">${nValid}</text>`;
+  paths += `<text x="${cx}" y="${cy+9}" text-anchor="middle" font-size="7"  fill="#94a3b8">VÁLIDAS</text>`;
+
+  // leyenda derecha
+  const leg = `
+    <rect x="132" y="28" width="8" height="8" rx="2" fill="#22c55e"/>
+    <text x="144" y="36" font-size="9" fill="#1e293b" font-weight="600">Válidas</text>
+    <text x="144" y="46" font-size="8" fill="#64748b">${nValid} (${(fValid*100).toFixed(1)}%)</text>
+    <rect x="132" y="58" width="8" height="8" rx="2" fill="#f97316"/>
+    <text x="144" y="66" font-size="9" fill="#1e293b" font-weight="600">Rechazadas</text>
+    <text x="144" y="76" font-size="8" fill="#64748b">${nRej} (${((1-fValid)*100).toFixed(1)}%)</text>`;
+  svg.innerHTML = paths + leg;
+
+  // Motivos de rechazo
+  const reasonEl = document.getElementById('p6-reject-reasons');
+  if (reasonEl) {
+    const nAmp  = summ.n_rejected_amplitude || 0;
+    const nGrad = summ.n_rejected_gradient  || 0;
+    if (nRej === 0) {
+      reasonEl.innerHTML = '<div style="color:var(--good);font-size:11px">✓ Sin rechazos</div>';
+    } else {
+      reasonEl.innerHTML = `
+        <table style="width:100%;font-size:11px;border-collapse:collapse">
+          <tr style="color:var(--text-3)"><th style="text-align:left;font-weight:600;padding-bottom:3px">Motivo</th><th style="text-align:right">Nº</th><th style="text-align:right">%</th></tr>
+          ${nAmp  > 0 ? `<tr><td>Amplitud alta</td><td style="text-align:right">${nAmp}</td><td style="text-align:right">${(nAmp/total*100).toFixed(1)}%</td></tr>` : ''}
+          ${nGrad > 0 ? `<tr><td>Gradiente alto</td><td style="text-align:right">${nGrad}</td><td style="text-align:right">${(nGrad/total*100).toFixed(1)}%</td></tr>` : ''}
+          <tr style="border-top:1px solid var(--border);font-weight:700"><td>Total</td><td style="text-align:right">${nRej}</td><td style="text-align:right">${(nRej/total*100).toFixed(1)}%</td></tr>
+        </table>`;
+    }
+  }
+}
+
+function _p6RenderHistogram() {
+  const svg = document.getElementById('p6-hist-svg');
+  if (!svg) return;
+  const summ = State.p6Data?.summary || {};
+  const hist = summ.quality_histogram || [];
+  if (!hist.length) { svg.innerHTML = '<text x="110" y="65" text-anchor="middle" fill="#94a3b8" font-size="11">Sin datos</text>'; return; }
+
+  const W = 220, H = 130, padL = 28, padR = 6, padT = 8, padB = 22;
+  const w = W - padL - padR, h = H - padT - padB;
+  const maxC = Math.max(...hist.map(b => b.count), 1);
+  const barW = w / hist.length;
+  const thresh = summ.quality_threshold ?? 0.5;
+
+  let bars = '', labels = '';
+  hist.forEach((b, i) => {
+    const bh = (b.count / maxC) * h;
+    const x  = padL + i * barW;
+    const col = b.bin >= thresh ? '#3b82f6' : '#f97316';
+    bars += `<rect x="${(x+1).toFixed(1)}" y="${(padT + h - bh).toFixed(1)}" width="${(barW-2).toFixed(1)}" height="${bh.toFixed(1)}" fill="${col}" opacity="0.8" rx="1"/>`;
+    if (i % 2 === 0) labels += `<text x="${(x + barW/2).toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="7" fill="#94a3b8">${b.bin.toFixed(1)}</text>`;
+  });
+  // línea de umbral
+  const xThr = padL + thresh * w;
+  const threshLine = `<line x1="${xThr.toFixed(1)}" y1="${padT}" x2="${xThr.toFixed(1)}" y2="${padT+h}" stroke="#dc2626" stroke-width="1" stroke-dasharray="3,2"/>
+    <text x="${(xThr+2).toFixed(1)}" y="${padT+9}" font-size="7" fill="#dc2626">Umbral</text>`;
+  // eje Y
+  let yAxis = '';
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + h - (i/4)*h;
+    yAxis += `<text x="${padL-3}" y="${(y+3).toFixed(1)}" font-size="6" fill="#94a3b8" text-anchor="end">${Math.round(i/4*maxC)}</text>`;
+    yAxis += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="#e2e8f0" stroke-width="0.5"/>`;
+  }
+
+  svg.innerHTML = yAxis + bars + threshLine + labels +
+    `<text x="${padL}" y="${padT+9}" font-size="7" fill="#94a3b8">N</text>` +
+    `<text x="${W/2}" y="${H}" text-anchor="middle" font-size="7" fill="#94a3b8">Índice de calidad (0-1)</text>`;
+
+  // stats debajo
+  const statsEl = document.getElementById('p6-hist-stats');
+  if (statsEl) {
+    const qm = summ.quality_mean?.toFixed(3) ?? '—';
+    const qmed = summ.quality_median?.toFixed(3) ?? '—';
+    statsEl.innerHTML = `
+      <div class="p6-metric-cell"><div class="p6-metric-val" style="color:#3b82f6">${qm}</div><div class="p6-metric-lbl">Media</div></div>
+      <div class="p6-metric-cell"><div class="p6-metric-val" style="color:#0284c7">${qmed}</div><div class="p6-metric-lbl">Mediana</div></div>
+      <div class="p6-metric-cell"><div class="p6-metric-val" style="color:#dc2626">${thresh}</div><div class="p6-metric-lbl">Umbral</div></div>`;
+  }
+}
+
+function _p6RenderDurStats() {
+  const el = document.getElementById('p6-dur-stats');
+  if (!el) return;
+  const s = State.p6Data?.summary || {};
+  const rows = [
+    ['Duración por época',    `${s.epoch_length_s ?? '—'} s`],
+    ['Duración solapamiento', `${s.overlap_s ?? 0} s`],
+    ['Paso entre épocas',     `${s.step_s ?? '—'} s`],
+    ['Nº muestras por época', s.samples_per_epoch ?? '—'],
+    ['Fs (frecuencia muest.)',`${s.fs ?? '—'} Hz`],
+    ['Duración total señal',  `${s.signal_duration_s ?? '—'} s`],
+  ];
+  el.innerHTML = rows.map(([k, v]) =>
+    `<div class="p6-stat-row"><span class="p6-stat-key">${k}</span><span class="p6-stat-val">${v}</span></div>`
+  ).join('') +
+  (s.fs && s.epoch_length_s
+    ? `<div style="font-size:10px;color:var(--text-3);margin-top:6px;line-height:1.5">
+        Con Fs = ${s.fs} Hz, cada época contiene ${s.samples_per_epoch} muestras.
+       </div>` : '');
+}
+
+function _p6RenderChannelCoverage() {
+  const covEl  = document.getElementById('p6-cov-grid');
+  const sumEl  = document.getElementById('p6-cov-summary');
+  const cov    = State.p6Data?.channel_coverage || [];
+  const s      = State.p6Data?.summary || {};
+  if (sumEl) {
+    sumEl.innerHTML = cov.length
+      ? `Promedio global: <strong>${s.coverage_mean_pct ?? '—'}%</strong> &nbsp;|&nbsp; ` +
+        `Mínimo canal: <strong>${s.coverage_min_pct ?? '—'}%</strong> &nbsp;|&nbsp; ` +
+        `Máximo canal: <strong>${s.coverage_max_pct ?? '—'}%</strong>`
+      : 'Sin datos de cobertura.';
+  }
+  if (!covEl) return;
+  if (!cov.length) {
+    covEl.innerHTML = '<span style="color:var(--text-3);font-size:11px">Sin datos</span>';
+    return;
+  }
+  // Color: verde (100%) → naranja (80%) → rojo (<70%)
+  function covColor(pct) {
+    if (pct >= 95) return { bg: '#dcfce7', fg: '#166534' };
+    if (pct >= 90) return { bg: '#d1fae5', fg: '#065f46' };
+    if (pct >= 80) return { bg: '#fef9c3', fg: '#854d0e' };
+    if (pct >= 70) return { bg: '#fed7aa', fg: '#9a3412' };
+    return { bg: '#fee2e2', fg: '#991b1b' };
+  }
+  covEl.innerHTML = cov.map(ch => {
+    const { bg, fg } = covColor(ch.coverage_pct);
+    return `<div class="p6-cov-cell" style="background:${bg};color:${fg}" title="${ch.channel}: ${ch.coverage_pct}%">
+      <span style="font-size:8px;font-weight:700">${ch.coverage_pct}%</span>
+      <span class="p6-cov-label">${ch.channel}</span>
+    </div>`;
+  }).join('');
+}
+
+async function _p6LoadPreview() {
+  const canvas = document.getElementById('p6-prev-canvas');
+  if (!canvas) return;
+  _p6CanvasMsg(canvas, 'Cargando señal…');
+
+  // Intentar señal ICA-after primero, luego before
+  let sigR = await API.icaSignal(State.subj, State.sess, State.cond, 'after', 10);
+  if (!sigR.ok) sigR = await API.icaSignal(State.subj, State.sess, State.cond, 'before', 10);
+
+  if (!sigR.ok || !sigR.channels?.length) {
+    _p6CanvasMsg(canvas, 'Sin datos de señal · ejecuta el pipeline');
+    return;
+  }
+
+  // Llenar selector de canales
+  const sel = document.getElementById('p6-prev-ch');
+  if (sel && !sel.options.length) {
+    sel.innerHTML = sigR.channels.map((ch, i) =>
+      `<option value="${i}">${ch.name}</option>`).join('');
+  }
+
+  State._p6SigData = sigR;
+  _p6DrawPreview();
+}
+
+function p6RefreshPreview() { _p6DrawPreview(); }
+
+function _p6DrawPreview() {
+  const canvas = document.getElementById('p6-prev-canvas');
+  if (!canvas) return;
+  const sigR = State._p6SigData;
+  if (!sigR) return;
+
+  const chIdx  = parseInt(document.getElementById('p6-prev-ch')?.value || '0');
+  const scaleV = document.getElementById('p6-prev-scale')?.value || 'auto';
+  const ch     = sigR.channels[chIdx];
+  if (!ch) return;
+
+  const W = canvas.offsetWidth || 500, H = 150;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, W, H);
+
+  const vals  = ch.values;
+  const t     = sigR.t;
+  const n     = vals.length;
+  if (!n) return;
+
+  const padT = 10, padB = 18, padL = 38, padR = 6;
+  const w = W - padL - padR, h = H - padT - padB;
+
+  // Escala
+  let vmax, vmin;
+  if (scaleV === 'auto') {
+    vmax = Math.max(...vals); vmin = Math.min(...vals);
+  } else {
+    const sv = parseFloat(scaleV);
+    vmax = sv; vmin = -sv;
+  }
+  const vrange = (vmax - vmin) || 1;
+
+  // Epoch boundaries
+  const summ   = State.p6Data?.summary || {};
+  const step_s = summ.step_s || 2;
+  const ep_s   = summ.epoch_length_s || 2;
+  const tMax   = t[t.length - 1] || 10;
+  const xScale = w / (n - 1);
+  const yScale = h / vrange;
+
+  // Dibujar regiones de épocas alternadas
+  let ep = 0;
+  for (let ts = 0; ts < tMax; ts += step_s, ep++) {
+    const x1 = padL + (ts / tMax) * w;
+    const x2 = padL + (Math.min(ts + ep_s, tMax) / tMax) * w;
+    ctx.fillStyle = ep % 2 === 0 ? 'rgba(59,130,246,.05)' : 'rgba(59,130,246,.1)';
+    ctx.fillRect(x1, padT, x2 - x1, h);
+    // línea de inicio de época
+    ctx.strokeStyle = 'rgba(59,130,246,.3)'; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(x1, padT); ctx.lineTo(x1, padT + h); ctx.stroke();
+  }
+
+  // Línea cero
+  const y0 = padT + (vmax / vrange) * h;
+  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(padL, y0); ctx.lineTo(W - padR, y0); ctx.stroke();
+
+  // Señal
+  ctx.strokeStyle = '#0284c7'; ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = padL + i * xScale;
+    const y = padT + (vmax - vals[i]) * yScale;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Etiquetas eje Y
+  ctx.fillStyle = '#94a3b8'; ctx.font = '8px Inter,sans-serif'; ctx.textAlign = 'right';
+  ctx.fillText(`${vmax.toFixed(0)} µV`, padL - 3, padT + 9);
+  ctx.fillText(`${vmin.toFixed(0)} µV`, padL - 3, padT + h);
+  ctx.fillText('0', padL - 3, y0 + 3);
+  // Eje X
+  ctx.textAlign = 'center';
+  for (let i = 0; i <= 5; i++) {
+    const tx = padL + (i/5) * w;
+    const tv = ((i/5) * tMax).toFixed(1);
+    ctx.fillText(`${tv}s`, tx, H - 5);
+  }
+
+  const infoEl = document.getElementById('p6-prev-info');
+  if (infoEl) infoEl.textContent = `Canal: ${ch.name} · Épocas de ${ep_s}s · ${ep} ventanas en los primeros ${tMax.toFixed(1)}s`;
+}
+
+function _p6CanvasMsg(canvas, msg) {
+  if (!canvas) return;
+  canvas.width  = canvas.offsetWidth || 500;
+  canvas.height = canvas.offsetHeight || 150;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#94a3b8'; ctx.font = '11px Inter,sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(msg, canvas.width / 2, canvas.height / 2);
+}
+
+function p6RenderTable(page) {
+  State.p6Page = page || 1;
+  const tbody  = document.getElementById('p6-tbl-body');
+  const badge  = document.getElementById('p6-seg-count');
+  const infoEl = document.getElementById('p6-tbl-info');
+  const pagesEl= document.getElementById('p6-tbl-pages');
+  if (!tbody) return;
+
+  const allSegs = State.p6Data?.segments || [];
+  const search  = (document.getElementById('p6-tbl-search')?.value || '').toLowerCase();
+  const pageSize= parseInt(document.getElementById('p6-tbl-size')?.value || '10');
+
+  const filtered = search
+    ? allSegs.filter(s => s.status.includes(search) || (s.rejection_reason||'').includes(search) || String(s.epoch).includes(search))
+    : allSegs;
+
+  if (badge) badge.textContent = String(allSegs.length);
+
+  const total  = filtered.length;
+  const nPages = Math.max(1, Math.ceil(total / pageSize));
+  const p      = Math.min(Math.max(1, State.p6Page), nPages);
+  const from   = (p - 1) * pageSize;
+  const slice  = filtered.slice(from, from + pageSize);
+
+  if (infoEl) infoEl.textContent = total
+    ? `Mostrando ${from+1} a ${Math.min(from+pageSize, total)} de ${total} registros`
+    : 'Sin resultados';
+
+  if (!slice.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:16px">Sin segmentos</td></tr>';
+  } else {
+    tbody.innerHTML = slice.map(s => {
+      const qPct = (s.quality * 100).toFixed(0);
+      const qCol = s.quality >= 0.7 ? '#16a34a' : s.quality >= 0.5 ? '#d97706' : '#dc2626';
+      const badge= s.status === 'valid'
+        ? '<span class="p6-badge-valid">✓ Válida</span>'
+        : '<span class="p6-badge-rejected">✗ Rechazada</span>';
+      const reason = s.rejection_reason
+        ? (s.rejection_reason === 'amplitude' ? 'Amplitud alta' : 'Gradiente alto')
+        : '—';
+      return `<tr>
+        <td style="font-weight:700;color:#0284c7">${s.epoch}</td>
+        <td>${s.start_s.toFixed(2)}</td>
+        <td>${s.end_s.toFixed(2)}</td>
+        <td>${s.duration_s.toFixed(2)}</td>
+        <td><span style="font-weight:700;color:${qCol}">${s.quality.toFixed(3)}</span></td>
+        <td>${badge}</td>
+        <td style="color:var(--text-3);font-size:11px">${reason}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Paginación
+  if (pagesEl) {
+    const maxBtn = 7;
+    let html = '';
+    const btnStyle = (active) =>
+      `style="padding:3px 8px;border:1px solid var(--border);border-radius:4px;font-size:11px;cursor:pointer;${active ? 'background:#0284c7;color:#fff;border-color:#0284c7' : 'background:var(--bg-1)'}"`;
+    if (p > 1) html += `<button ${btnStyle(false)} onclick="p6RenderTable(${p-1})">‹</button>`;
+    const start = Math.max(1, p - Math.floor(maxBtn/2));
+    const end   = Math.min(nPages, start + maxBtn - 1);
+    for (let i = start; i <= end; i++)
+      html += `<button ${btnStyle(i === p)} onclick="p6RenderTable(${i})">${i}</button>`;
+    if (p < nPages) html += `<button ${btnStyle(false)} onclick="p6RenderTable(${p+1})">›</button>`;
+    pagesEl.innerHTML = html;
+  }
+}
+
+function p6ExportSegments() {
+  const segs = State.p6Data?.segments;
+  if (!segs?.length) { alert('Sin datos de segmentos para exportar.'); return; }
+  const header = 'epoch,start_s,end_s,duration_s,quality,status,rejection_reason\n';
+  const rows = segs.map(s =>
+    `${s.epoch},${s.start_s},${s.end_s},${s.duration_s},${s.quality},${s.status},${s.rejection_reason||''}`
+  ).join('\n');
+  const blob = new Blob([header + rows], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `segments_${State.subj}_${State.sess}_${State.cond}.csv`;
+  a.click();
+}
+
+function p6RunPipeline() {
+  alert('Para ejecutar el pipeline:\n\njulia --project=. scripts/run_single_subject.jl\n\nLa Fase 6 mostrará los resultados al recargar.');
+}
+
+function p6Reload() { loadPhase6(); }
+
+// ════════════════════════════════════════════════════════════
+// FIN PHASE 6
+// ════════════════════════════════════════════════════════════
 
 function p5RunICA() {
   alert(

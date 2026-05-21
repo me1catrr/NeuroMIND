@@ -935,6 +935,186 @@ function launch_webapp(cfg::PipelineConfig;
         json(Dict("ok"=>true, "t"=>t_vec, "channels"=>channels))
     end
 
+    # ─── API: Fase 6 — Segmentación ───────────────────────────
+    route("/api/phase6_segmentation") do
+        subj = string(get(getpayload(), :subj, "M05"))
+        sess = string(get(getpayload(), :sess, "T2"))
+        cond = _normalize_cond(string(get(getpayload(), :cond, "EC")))
+
+        res_base  = joinpath(bids_root, "sub-$(subj)", "ses-$(sess)", cond)
+        summ_path = joinpath(res_base, "segmentation_summary.json")
+        segs_path = joinpath(res_base, "segments_table.csv")
+        cov_path  = joinpath(res_base, "channel_coverage.csv")
+        log_path  = joinpath(res_base, "pipeline_log.txt")
+
+        # Valores por defecto desde config
+        seg_cfg = cfg.segmentation
+        ar_cfg  = cfg.artifact_rejection
+        epoch_s  = Float64(get(seg_cfg, "epoch_length_s", 2.0))
+        overlap_f= Float64(get(seg_cfg, "epoch_overlap",  0.0))
+        overlap_s= round(epoch_s * overlap_f, digits=3)
+        step_s   = round(epoch_s * (1.0 - overlap_f), digits=3)
+        fs_cfg   = Float64(get(cfg.recording, "fs", 500.0))
+        samp_ep  = round(Int, epoch_s * fs_cfg)
+
+        default_summary = Dict(
+            "n_total"              => 0,
+            "n_valid"              => 0,
+            "n_rejected"           => 0,
+            "retention_pct"        => 0.0,
+            "epoch_length_s"       => epoch_s,
+            "overlap_s"            => overlap_s,
+            "overlap_pct"          => round(overlap_f * 100, digits=1),
+            "step_s"               => step_s,
+            "n_channels"           => 0,
+            "fs"                   => fs_cfg,
+            "samples_per_epoch"    => samp_ep,
+            "signal_duration_s"    => 0.0,
+            "signal_input"         => "filtrada",
+            "amp_threshold_uv"     => Float64(get(ar_cfg, "amplitude_threshold_uv", 100.0)),
+            "grad_threshold_uv"    => Float64(get(ar_cfg, "gradient_threshold_uv",  50.0)),
+            "baseline_method"      => "mean",
+            "n_rejected_amplitude" => 0,
+            "n_rejected_gradient"  => 0,
+            "quality_mean"         => 0.0,
+            "quality_median"       => 0.0,
+            "quality_threshold"    => 0.5,
+            "quality_histogram"    => [],
+            "coverage_mean_pct"    => 0.0,
+            "coverage_min_pct"     => 0.0,
+            "coverage_max_pct"     => 0.0,
+            "timestamp"            => "",
+            "duration_s"           => 0.0,
+        )
+
+        if !isfile(summ_path)
+            return json(Dict(
+                "ok"          => true,
+                "seg_run"     => false,
+                "summary"     => default_summary,
+                "segments"    => Dict{String,Any}[],
+                "channel_coverage" => Dict{String,Any}[],
+                "phase_timing"=> Dict("start"=>"","end"=>"","duration"=>""),
+            ))
+        end
+
+        # ── Parsear segmentation_summary.json ──────────────────
+        summary = Dict{String,Any}(default_summary)
+        try
+            txt = read(summ_path, String)
+            for (key, T) in [
+                ("n_total",Int), ("n_valid",Int), ("n_rejected",Int),
+                ("n_channels",Int), ("samples_per_epoch",Int),
+                ("n_rejected_amplitude",Int), ("n_rejected_gradient",Int),
+            ]
+                m = match(Regex("\"$(key)\"\\s*:\\s*([0-9]+)"), txt)
+                m !== nothing && (summary[key] = parse(Int, m.captures[1]))
+            end
+            for (key, T) in [
+                ("retention_pct",Float64), ("epoch_length_s",Float64),
+                ("overlap_s",Float64), ("overlap_pct",Float64), ("step_s",Float64),
+                ("fs",Float64), ("signal_duration_s",Float64),
+                ("amp_threshold_uv",Float64), ("grad_threshold_uv",Float64),
+                ("quality_mean",Float64), ("quality_median",Float64),
+                ("quality_threshold",Float64), ("coverage_mean_pct",Float64),
+                ("coverage_min_pct",Float64), ("coverage_max_pct",Float64),
+                ("duration_s",Float64),
+            ]
+                m = match(Regex("\"$(key)\"\\s*:\\s*([0-9.eE+\\-]+)"), txt)
+                m !== nothing && (summary[key] = parse(Float64, m.captures[1]))
+            end
+            for key in ["signal_input","baseline_method","timestamp"]
+                m = match(Regex("\"$(key)\"\\s*:\\s*\"([^\"]+)\""), txt)
+                m !== nothing && (summary[key] = String(m.captures[1]))
+            end
+            # histograma: array de [bin, count]
+            mh = match(r"\"quality_histogram\"\s*:\s*(\[[^\]]*\])", txt)
+            if mh !== nothing
+                raw_hist = mh.captures[1]
+                pairs = collect(eachmatch(r"\[([0-9.]+),([0-9]+)\]", raw_hist))
+                summary["quality_histogram"] = [
+                    Dict("bin"=>parse(Float64,p.captures[1]),
+                         "count"=>parse(Int,p.captures[2])) for p in pairs
+                ]
+            end
+        catch e
+            @warn "segmentation_summary.json parse error: $e"
+        end
+
+        # ── Parsear segments_table.csv ──────────────────────────
+        segments = Dict{String,Any}[]
+        if isfile(segs_path)
+            try
+                df = CSV.read(segs_path, DataFrame)
+                for row in eachrow(df)
+                    push!(segments, Dict{String,Any}(
+                        "epoch"            => Int(row.epoch),
+                        "start_s"          => Float64(row.start_s),
+                        "end_s"            => Float64(row.end_s),
+                        "duration_s"       => Float64(row.duration_s),
+                        "quality"          => round(Float64(row.quality), digits=3),
+                        "status"           => string(row.status),
+                        "rejection_reason" => string(get(row, :rejection_reason, "")),
+                        "max_amp_uv"       => round(Float64(get(row, :max_amp_uv, 0.0)), digits=1),
+                        "max_grad_uv"      => round(Float64(get(row, :max_grad_uv, 0.0)), digits=1),
+                    ))
+                end
+            catch e
+                @warn "segments_table.csv parse error: $e"
+            end
+        end
+
+        # ── Parsear channel_coverage.csv ────────────────────────
+        ch_coverage = Dict{String,Any}[]
+        if isfile(cov_path)
+            try
+                df = CSV.read(cov_path, DataFrame)
+                for row in eachrow(df)
+                    push!(ch_coverage, Dict{String,Any}(
+                        "channel"      => string(row.channel),
+                        "coverage_pct" => Float64(row.coverage_pct),
+                    ))
+                end
+            catch e
+                @warn "channel_coverage.csv parse error: $e"
+            end
+        end
+
+        # ── Timing desde log ────────────────────────────────────
+        t_start_str = ""; t_end_str = ""; t_dur = ""
+        if isfile(log_path)
+            try
+                txt = read(log_path, String)
+                lines = split(txt, '\n')
+                for line in lines
+                    if occursin("[5/8] Segmentación", line) || occursin("[5/8] Segment", line)
+                        m = match(r"\[(\d{2}:\d{2}:\d{2})\]", line)
+                        m !== nothing && (t_start_str = String(m.captures[1]))
+                    end
+                    if occursin("Duración segmentación", line)
+                        m  = match(r"\[(\d{2}:\d{2}:\d{2})\]", line)
+                        m2 = match(r"(\d+\.?\d*)\s*s", line)
+                        m !== nothing && (t_end_str = String(m.captures[1]))
+                        m2 !== nothing && (t_dur = String(m2.captures[1]) * " s")
+                    end
+                end
+            catch; end
+        end
+
+        json(Dict(
+            "ok"             => true,
+            "seg_run"        => true,
+            "summary"        => summary,
+            "segments"       => segments,
+            "channel_coverage" => ch_coverage,
+            "phase_timing"   => Dict(
+                "start"    => t_start_str,
+                "end"      => t_end_str,
+                "duration" => t_dur,
+            ),
+        ))
+    end
+
     # ─── Legacy API (mantener compatibilidad) ─────────────────
 
     route("/api/subjects") do

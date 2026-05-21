@@ -312,13 +312,18 @@ function run_single_subject_pipeline(config_path::String)
     # ── Segmentación sobre señal limpiada (o filtrada si sin ICA) ──
     println("[5/8] Segmentación y rechazo de artefactos...")
     _log(log_io, "\n[5/8] Segmentación")
+    t_seg      = now()
     epochs_raw = segment_recording(rec_ica, cfg)
-    epochs     = apply_baseline(epochs_raw, cfg)
-    epochs     = reject_artifacts(epochs, cfg)
+    epochs_bl  = apply_baseline(epochs_raw, cfg)   # todos los epochs, baseline corregido
+    epochs     = reject_artifacts(epochs_bl, cfg)  # solo epochs válidos
     n_total    = n_epochs(epochs_raw)
     n_valid    = epochs.n_valid
     n_rejected = length(epochs.rejected_idx)
+    seg_dur    = round(Dates.value(now() - t_seg) / 1000, digits=1)
     _log(log_io, "  Segmentos totales: $(n_total) | Válidos: $(n_valid) | Rechazados: $(n_rejected) ($(round(100*n_rejected/n_total, digits=1))%)")
+    _log(log_io, "  Duración segmentación: $(seg_dur) s")
+    seg_signal_label = (ica_result !== nothing && !isempty(ica_result.rejected_components)) ? "ICA-limpiada" : "filtrada"
+    _save_segmentation_results(epochs_bl, epochs, rec_ica, cfg, export_dir, t_seg, log_io, seg_signal_label)
 
     # ── 8. Análisis espectral ─────────────────────────────────
     println("[6/8] Análisis espectral (PSD)...")
@@ -367,6 +372,115 @@ function run_single_subject_pipeline(config_path::String)
 end
 
 # ─── Guardado de resultados ───────────────────────────────────
+
+function _save_segmentation_results(
+    epochs_bl::EpochSet,       # todos los epochs (pre-AR), baseline corregido
+    epochs::EpochSet,          # solo válidos (post-AR)
+    rec::EEGRecording,         # señal de entrada a la segmentación
+    cfg::PipelineConfig,
+    export_dir::String,
+    t_start::DateTime,
+    log_io::IO,
+    signal_input::String = "filtrada"
+)
+    n_total   = size(epochs_bl.data, 3)
+    n_valid   = epochs.n_valid
+    n_rejected = length(epochs.rejected_idx)
+    ret_pct   = round(100.0 * n_valid / max(n_total, 1), digits=1)
+    fs        = rec.meta.fs
+    epoch_s   = epochs_bl.epoch_length_s
+    overlap_f = Float64(get(cfg.segmentation, "epoch_overlap", 0.0))
+    overlap_s = round(epoch_s * overlap_f, digits=3)
+    step_s    = round(epoch_s * (1.0 - overlap_f), digits=3)
+    samp_ep   = round(Int, epoch_s * fs)
+    sig_dur   = round(n_samples(rec) / fs, digits=2)
+    amp_thr   = Float64(get(cfg.artifact_rejection, "amplitude_threshold_uv", 100.0))
+    grad_thr  = Float64(get(cfg.artifact_rejection, "gradient_threshold_uv",  50.0))
+    bl_method = String(get(cfg.baseline, "method", "mean"))
+    ts        = Dates.format(now(), "yyyy-mm-ddTHH:MM:SS")
+    dur_s     = round(Dates.value(now() - t_start) / 1000, digits=1)
+
+    # ── Informe de calidad por época ──────────────────────────────────────────
+    qr = try
+        compute_epoch_quality_report(epochs_bl, cfg)
+    catch e
+        @warn "compute_epoch_quality_report falló: $e"
+        DataFrame()
+    end
+
+    n_rej_amp  = isempty(qr) ? 0 : count(==("amplitude"), qr.rejection_reason)
+    n_rej_grad = isempty(qr) ? 0 : count(==("gradient"),  qr.rejection_reason)
+    q_vals     = isempty(qr) ? Float64[] : Float64.(qr.quality)
+    q_mean     = isempty(q_vals) ? 0.0 : round(mean(q_vals), digits=3)
+    q_median   = isempty(q_vals) ? 0.0 : round(median(q_vals), digits=3)
+
+    # Histograma de calidad (10 bins × 0.1)
+    hist_counts = zeros(Int, 10)
+    for q in q_vals
+        b = min(floor(Int, q * 10), 9)
+        hist_counts[b+1] += 1
+    end
+    hist_json = join(["[$(round((i-1)*0.1, digits=1)),$(hist_counts[i])]" for i in 1:10], ",")
+
+    # ── Cobertura por canal ───────────────────────────────────────────────────
+    cov_df = try
+        compute_channel_coverage(epochs_bl, cfg)
+    catch e
+        @warn "compute_channel_coverage falló: $e"
+        DataFrame()
+    end
+    cov_mean = isempty(cov_df) ? 0.0 : round(mean(cov_df.coverage_pct), digits=1)
+    cov_min  = isempty(cov_df) ? 0.0 : round(minimum(cov_df.coverage_pct), digits=1)
+    cov_max  = isempty(cov_df) ? 0.0 : round(maximum(cov_df.coverage_pct), digits=1)
+
+    # ── Guardado de ficheros ──────────────────────────────────────────────────
+
+    # 1) segmentation_summary.json
+    open(joinpath(export_dir, "segmentation_summary.json"), "w") do f
+        write(f, """{
+  "n_total": $(n_total),
+  "n_valid": $(n_valid),
+  "n_rejected": $(n_rejected),
+  "retention_pct": $(ret_pct),
+  "epoch_length_s": $(epoch_s),
+  "overlap_s": $(overlap_s),
+  "overlap_pct": $(round(overlap_f*100, digits=1)),
+  "step_s": $(step_s),
+  "n_channels": $(rec.meta.n_channels),
+  "fs": $(fs),
+  "samples_per_epoch": $(samp_ep),
+  "signal_duration_s": $(sig_dur),
+  "signal_input": "$(signal_input)",
+  "amp_threshold_uv": $(amp_thr),
+  "grad_threshold_uv": $(grad_thr),
+  "baseline_method": "$(bl_method)",
+  "n_rejected_amplitude": $(n_rej_amp),
+  "n_rejected_gradient": $(n_rej_grad),
+  "quality_mean": $(q_mean),
+  "quality_median": $(q_median),
+  "quality_threshold": 0.5,
+  "quality_histogram": [$(hist_json)],
+  "coverage_mean_pct": $(cov_mean),
+  "coverage_min_pct": $(cov_min),
+  "coverage_max_pct": $(cov_max),
+  "timestamp": "$(ts)",
+  "duration_s": $(dur_s)
+}""")
+    end
+    _log(log_io, "  Guardado: segmentation_summary.json")
+
+    # 2) segments_table.csv
+    if !isempty(qr)
+        CSV.write(joinpath(export_dir, "segments_table.csv"), qr)
+        _log(log_io, "  Guardado: segments_table.csv ($(n_total) épocas)")
+    end
+
+    # 3) channel_coverage.csv
+    if !isempty(cov_df)
+        CSV.write(joinpath(export_dir, "channel_coverage.csv"), cov_df)
+        _log(log_io, "  Guardado: channel_coverage.csv ($(rec.meta.n_channels) canales)")
+    end
+end
 
 function _save_all_results(
     rec::EEGRecording, rec_filt::EEGRecording,
