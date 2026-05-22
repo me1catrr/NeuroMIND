@@ -1016,7 +1016,7 @@ function launch_webapp(cfg::PipelineConfig;
                 # Buscar topomap correspondiente
                 topo_name = "ica_topomap_$(lpad(ic_idx, 3, '0')).png"
                 topo_url  = isfile(joinpath(figs_dir, topo_name)) ?
-                            "/results/figures/sub-$(subj)/ses-$(sess)/$(cond)/$(topo_name)" : ""
+                            "/api/ica_topomap?subj=$(subj)&sess=$(sess)&cond=$(cond)&file=$(topo_name)" : ""
                 push!(components, Dict{String,Any}(
                     "index"        => ic_idx,
                     "label"        => string(get(row, :label, "IC")),
@@ -1143,6 +1143,27 @@ function launch_webapp(cfg::PipelineConfig;
         cols  = [n for n in names(df) if n != "t_s"][1:min(n_ch, ncol(df)-1)]
         channels = [Dict("name"=>c, "values"=>Float64.(df[!, c])) for c in cols]
         json(Dict("ok"=>true, "t"=>t_vec, "channels"=>channels))
+    end
+
+    # ─── API: Imagen de topomap ICA (base64 JSON) ────────────
+    route("/api/ica_topomap") do
+        subj = string(get(getpayload(), :subj, "M05"))
+        sess = string(get(getpayload(), :sess, "T2"))
+        cond = _normalize_cond(string(get(getpayload(), :cond, "EC")))
+        file = string(get(getpayload(), :file, ""))
+
+        # Validación de seguridad: solo ica_topomap_NNN.png
+        if !occursin(r"^ica_topomap_\d{3}\.png$", file)
+            return json(Dict("ok"=>false, "error"=>"invalid filename"))
+        end
+
+        path = joinpath(bids_root, "sub-$(subj)", "ses-$(sess)", cond, "figures", file)
+        if !isfile(path)
+            return json(Dict("ok"=>false, "error"=>"not found"))
+        end
+
+        b64 = Base64.base64encode(read(path))
+        json(Dict("ok"=>true, "src"=>"data:image/png;base64,$(b64)"))
     end
 
     # ─── API: Features de clasificación ICA ──────────────────

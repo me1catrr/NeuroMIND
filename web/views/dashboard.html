@@ -2943,6 +2943,7 @@ const API = {
   phase2Info:     (s, se, c)       => API.get(`/api/phase2_info?subj=${s}&sess=${se}&cond=${c}`),
   phase5IcaInfo:  (s, se, c)       => API.get(`/api/phase5_ica_info?subj=${s}&sess=${se}&cond=${c}`),
   icaFeatures:    (s, se, c)       => API.get(`/api/ica_features?subj=${s}&sess=${se}&cond=${c}`),
+  icaTopomap:     (s, se, c, f)   => API.get(`/api/ica_topomap?subj=${s}&sess=${se}&cond=${c}&file=${f}`),
   phase6Seg:      (s, se, c)       => API.get(`/api/phase6_segmentation?subj=${s}&sess=${se}&cond=${c}`),
   phase7AR:       (s, se, c)       => API.get(`/api/phase7_ar?subj=${s}&sess=${se}&cond=${c}`),
   icaActivation:  (s, se, c, comp) => API.get(`/api/ica_activation?subj=${s}&sess=${se}&cond=${c}&comp=${comp}`),
@@ -7090,28 +7091,32 @@ function renderP5TopoGrid() {
   _p5RenderTopoPage(comps);
 }
 
-function _p5RenderTopoPage(comps) {
+async function _p5RenderTopoPage(comps) {
   comps = comps || State.p5Info?.components || [];
   const withTopo = comps.filter(c => c.topomap_url);
   const { page, perPage } = _p5TopoState;
   const totalPages = Math.ceil(withTopo.length / perPage);
   const slice = withTopo.slice(page * perPage, (page + 1) * perPage);
 
-  const grid  = document.getElementById('p5-topo-grid');
-  const pager = document.getElementById('p5-topo-pager');
+  const grid    = document.getElementById('p5-topo-grid');
+  const pager   = document.getElementById('p5-topo-pager');
   const pageLbl = document.getElementById('p5-topo-page-lbl');
   const prevBtn = document.getElementById('p5-topo-prev');
   const nextBtn = document.getElementById('p5-topo-next');
 
   if (!grid) return;
 
-  grid.innerHTML = slice.map(c => {
+  // Render cells with spinner placeholders first
+  grid.innerHTML = slice.map((c, i) => {
     const tagCls = _p5TagClass(c.type);
     const lbl    = _p5TypeLabel(c.type);
-    return `<div class="p5-topo-cell" title="IC ${c.index} · ${lbl}">
-      <img class="p5-topo-img" src="${c.topomap_url}" alt="IC ${c.index} topomap"
-           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-      <div class="p5-topo-ph" style="display:none"><span style="font-size:18px;opacity:.3">🗺</span><span>Sin imagen</span></div>
+    return `<div class="p5-topo-cell" title="IC ${c.index} · ${lbl}" id="p5-topo-cell-${i}">
+      <div class="p5-topo-ph" id="p5-topo-ph-${i}" style="display:flex">
+        <div class="spin-circle" style="width:20px;height:20px;border-width:2px"></div>
+      </div>
+      <img class="p5-topo-img" id="p5-topo-img-${i}" src="" alt="IC ${c.index} topomap"
+           style="display:none"
+           onerror="this.style.display='none';document.getElementById('p5-topo-ph-${i}').innerHTML='<span style=\\'font-size:18px;opacity:.3\\'>🗺</span><span>Sin imagen</span>';document.getElementById('p5-topo-ph-${i}').style.display='flex'">
       <div class="p5-topo-lbl">IC ${String(c.index).padStart(3,'0')}</div>
       <span class="p5-tag ${tagCls} p5-topo-sub">${lbl}</span>
       <div class="p5-topo-sub">${(c.variance_pct ?? 0).toFixed(2)}%${c.rejected ? ' · ✗' : ''}</div>
@@ -7126,6 +7131,29 @@ function _p5RenderTopoPage(comps) {
   } else {
     if (pager) pager.style.display = 'none';
   }
+
+  // Lazy-load images in parallel via /api/ica_topomap (returns base64 JSON)
+  await Promise.all(slice.map(async (c, i) => {
+    const img = document.getElementById(`p5-topo-img-${i}`);
+    const ph  = document.getElementById(`p5-topo-ph-${i}`);
+    if (!img || !c.topomap_url) return;
+    try {
+      // Extract filename from the route URL
+      const urlParams = new URLSearchParams(c.topomap_url.split('?')[1] || '');
+      const file = urlParams.get('file') || '';
+      if (!file) return;
+      const r = await API.icaTopomap(State.subj, State.sess, State.cond, file);
+      if (r.ok && r.src) {
+        img.src = r.src;
+        img.style.display = '';
+        if (ph) ph.style.display = 'none';
+      } else {
+        if (ph) ph.innerHTML = '<span style="font-size:18px;opacity:.3">🗺</span><span>Sin imagen</span>';
+      }
+    } catch (e) {
+      if (ph) ph.innerHTML = '<span style="font-size:18px;opacity:.3">🗺</span><span>Error</span>';
+    }
+  }));
 }
 
 function p5TopoPage(delta) {
