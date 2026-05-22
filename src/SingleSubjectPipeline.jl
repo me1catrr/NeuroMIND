@@ -886,7 +886,7 @@ function _save_ica_results(
     n_topo = 0
     figs_dir = joinpath(export_dir, "figures")
     mkpath(figs_dir)
-    if rec_before.meta.ch_pos !== nothing
+    if rec_before.meta.channel_positions !== nothing
         n_topo = _save_ica_topomaps(ica, rec_before, figs_dir, log_io)
     else
         _log(log_io, "  Topomaps: sin posiciones de electrodos, omitido")
@@ -949,7 +949,7 @@ function _save_ica_topomaps(
     figs_dir::String,
     log_io::IO
 )::Int
-    ch_pos   = rec.meta.ch_pos
+    ch_pos   = rec.meta.channel_positions
     ch_names = rec.meta.channel_names
     n_comp   = size(ica.mixing_matrix, 2)
     n_saved  = 0
