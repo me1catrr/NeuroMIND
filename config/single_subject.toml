@@ -112,6 +112,18 @@ results   = "results"
 figure_format = "png"
 figure_dpi    = 150
 
+# ─── Surrogates / Inferencia estadística ─────────────────────
+# enabled = true  → ejecuta inferencia por phase randomization tras wPLI
+# enabled = false → omite el paso (por defecto; computacionalmente intensivo)
+# Recomendado: n_surrogates ≥ 200 por banda para distribución nula estable
+[surrogates]
+enabled      = false         # cambiar a true para activar inferencia
+n_surrogates = 200           # número de permutaciones de fase por banda
+method       = "phase_shuffle"  # único método disponible actualmente
+alpha        = 0.05          # nivel de significancia
+fdr_method   = "bh"          # corrección FDR: "bh" (Benjamini-Hochberg) o "bonferroni"
+seed         = 42            # semilla para reproducibilidad
+
 # ─── Dashboard ────────────────────────────────────────────────
 [dashboard]
 port         = 8080

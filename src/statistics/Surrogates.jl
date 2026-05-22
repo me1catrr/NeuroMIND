@@ -19,6 +19,7 @@ function surrogate_test(
     n_sur       = get(sur_cfg, "n_surrogates", 200)
     alpha       = get(sur_cfg, "alpha", 0.05)
     method      = get(sur_cfg, "method", "phase_shuffle")
+    seed_v      = Int(get(sur_cfg, "seed", 42))
 
     haskey(conn.matrices, band) || error("Banda '$band' no encontrada")
     W_obs = conn.matrices[band]
@@ -28,11 +29,14 @@ function surrogate_test(
     fs       = epochs.meta.fs
     order    = get(cfg.connectivity, "filter_order", 8)
 
+    # RNG reproducible por sujeto/banda
+    rng = MersenneTwister(seed_v + hash(band) % 10000)
+
     # Distribución nula: wPLI de surrogates
     W_null = zeros(Float64, n_ch, n_ch, n_sur)
 
     for k in 1:n_sur
-        epochs_sur = _phase_shuffle_epochs(epochs, f1, f2, fs, order)
+        epochs_sur = _phase_shuffle_epochs(epochs, f1, f2, fs, order, rng)
         W_null[:, :, k] = _fast_wpli_band(epochs_sur, fs, f1, f2, order, n_ch, n_samp, n_seg)
     end
 
@@ -65,7 +69,8 @@ end
 function _phase_shuffle_epochs(
     epochs::EpochSet,
     f1::Real, f2::Real,
-    fs::Real, order::Int
+    fs::Real, order::Int,
+    rng::AbstractRNG = Random.GLOBAL_RNG
 )::Array{Float64,3}
 
     n_ch, n_samp, n_seg = size(epochs.data)
@@ -74,11 +79,10 @@ function _phase_shuffle_epochs(
     bp  = digitalfilter(Bandpass(f1/nyq, f2/nyq), Butterworth(order))
 
     @inbounds for seg in 1:n_seg
-        # Generar desplazamiento de fase aleatorio (mismo para todos los canales → preserva estructura)
-        phase_shift = rand() * 2π
+        # Desplazamiento de fase uniforme (mismo para todos los canales → preserva estructura)
+        phase_shift = rand(rng) * 2π
         for ch in 1:n_ch
             xf = filtfilt(bp, @view epochs.data[ch, :, seg])
-            N  = length(xf)
             X  = fft(xf)
             X .*= exp.(1im .* phase_shift)
             out[ch, :, seg] = real.(ifft(X))
