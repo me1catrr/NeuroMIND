@@ -117,7 +117,7 @@ figure_dpi    = 150
 # enabled = false → omite el paso (por defecto; computacionalmente intensivo)
 # Recomendado: n_surrogates ≥ 200 por banda para distribución nula estable
 [surrogates]
-enabled      = false         # cambiar a true para activar inferencia
+enabled      = true         # cambiar a true para activar inferencia
 n_surrogates = 200           # número de permutaciones de fase por banda
 method       = "phase_shuffle"  # único método disponible actualmente
 alpha        = 0.05          # nivel de significancia

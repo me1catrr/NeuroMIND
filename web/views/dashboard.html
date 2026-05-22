@@ -1291,6 +1291,37 @@ tr.row-warn:hover td { background: #fef9c3; }
 .p10-qc-val    { font-size:11px; font-family:monospace; color:var(--text-2); }
 .p10-hist-svg  { display:block; width:100%; overflow:visible; }
 .p10-sig-pill  { display:inline-block; padding:1px 6px; border-radius:8px; font-size:10px; font-weight:700; }
+
+/* ── Phase 13 — Evaluación Transversal ─────────────────────── */
+.p13-accent      { color: #0891b2; }
+.grid-p13-top    { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px; }
+.grid-p13-mats   { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:14px; }
+.grid-p13-mid    { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+.p13-band-tab    { padding:4px 12px; border-radius:16px; font-size:11px; font-weight:600; cursor:pointer;
+                   background:var(--bg-2); color:var(--text-2); border:1.5px solid transparent; transition:all .15s; }
+.p13-band-tab.active { color:#fff; }
+.p13-metric-cell { background:var(--bg-2); border-radius:8px; padding:8px 6px; text-align:center; }
+.p13-metric-val  { font-size:18px; font-weight:800; line-height:1.2; }
+.p13-metric-lbl  { font-size:9px; color:var(--text-3); margin-top:2px; line-height:1.3; }
+.p13-not-run     { display:flex; flex-direction:column; align-items:center; justify-content:center;
+                   padding:60px 20px; text-align:center; }
+.p13-stat-row    { display:flex; justify-content:space-between; align-items:center;
+                   padding:4px 0; border-bottom:1px solid var(--border); font-size:11px; }
+.p13-stat-row:last-child { border-bottom:none; }
+.p13-qa-grid     { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.p13-qa-btn      { padding:8px 12px; border:none; border-radius:7px; font-size:11px; font-weight:600;
+                   cursor:pointer; background:var(--bg-2); color:var(--text-1); transition:background .15s; }
+.p13-qa-btn:hover { background:#e0f2fe; color:#0e7490; }
+.p13-file-row    { display:flex; align-items:center; gap:6px; padding:3px 0; font-size:11px; }
+.p13-tbl th      { padding:6px 8px; background:var(--bg-2); font-size:11px; font-weight:700; text-align:left; position:sticky; top:0; }
+.p13-tbl td      { padding:5px 8px; font-size:11px; border-bottom:1px solid var(--border); }
+.p13-tbl tr:last-child td { border-bottom:none; }
+.p13-footer-band { background:linear-gradient(135deg,#0891b2,#0e7490); color:#fff;
+                   border-radius:10px; padding:12px 18px; font-size:12px; margin-top:14px; }
+.p13-sig-pos     { color:#dc2626; font-weight:700; }
+.p13-sig-neg     { color:#2563eb; font-weight:700; }
+.p13-inclusion-row { display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:6px;
+                     padding:5px 8px; font-size:11px; border-bottom:1px solid var(--border); }
 </style>
 </head>
 <body>
@@ -3623,6 +3654,237 @@ tr.row-warn:hover td { background: #fef9c3; }
   </div><!-- /phase-panel-10 -->
   <div id="phase-panel-11" class="phase-panel"></div>
   <div id="phase-panel-12" class="phase-panel"></div>
+  <div id="phase-panel-13" class="phase-panel">
+
+    <!-- Header -->
+    <div class="phase-header">
+      <div class="phase-header-left">
+        <div class="phase-badge-lg" style="background:#0891b2">13</div>
+        <div>
+          <div class="phase-title">13. Evaluación Transversal</div>
+          <div class="phase-subtitle">EM vs Control · wPLI · FDR-BH · Análisis grupal caso-control</div>
+        </div>
+      </div>
+      <div class="phase-header-right">
+        <span id="p13-status-chip" class="status-chip pending">Pendiente</span>
+      </div>
+    </div>
+
+    <!-- Top 4-col grid: cohorte | config | estado | archivos -->
+    <div class="grid-p13-top">
+      <div class="card">
+        <div class="card-header">Resumen de cohortes</div>
+        <div class="card-body" id="p13-cohort-card" style="padding:10px"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">Configuración del análisis</div>
+        <div class="card-body" id="p13-config-card" style="padding:10px"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">Estado de la fase</div>
+        <div class="card-body" id="p13-phase-status" style="padding:10px"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">Archivos generados</div>
+        <div class="card-body" id="p13-files-card" style="padding:8px"></div>
+      </div>
+    </div>
+
+    <!-- Métricas globales -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-header">Resumen estadístico global</div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px" id="p13-global-metrics"></div>
+      </div>
+    </div>
+
+    <!-- Selector de banda + condición -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-body" style="padding:8px 12px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-size:11px;font-weight:700;color:var(--text-3)">BANDA ACTIVA</span>
+          <div id="p13-band-tabs" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+            <label style="font-size:11px;color:var(--text-3)">Condición:</label>
+            <select id="p13-cond-sel" onchange="p13ChangeCond(this.value)"
+              style="font-size:11px;padding:3px 8px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg-2);color:var(--text-1)">
+              <option value="EC">EC — Ojos cerrados</option>
+              <option value="EO">EO — Ojos abiertos</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Not-run placeholder -->
+    <div id="p13-not-run-block" class="p13-not-run" style="display:none">
+      <div style="font-size:44px;margin-bottom:14px">🧬</div>
+      <div style="font-size:17px;font-weight:700;color:var(--text-1);margin-bottom:8px">Análisis transversal aún no ejecutado</div>
+      <div style="font-size:12px;max-width:500px;line-height:1.7;margin-bottom:18px;color:var(--text-2)">
+        Crea <code style="background:var(--bg-2);padding:1px 5px;border-radius:4px">data/BIDS/groups.csv</code>
+        con columnas <code style="background:var(--bg-2);padding:1px 5px;border-radius:4px">subject_id, group, session_id</code>
+        (group: MS / Control) y ejecuta:
+        <br><code style="background:var(--bg-2);padding:4px 10px;border-radius:4px;display:inline-block;margin-top:8px">
+          julia --project=. scripts/run_transversal_analysis.jl
+        </code>
+      </div>
+      <button style="background:#0891b2;color:#fff;border:none;padding:10px 26px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer" onclick="p13Reload()">↺ Buscar datos grupales</button>
+    </div>
+
+    <!-- Content block (visible cuando run=true) -->
+    <div id="p13-content-block" style="display:none">
+
+      <!-- 3 matrices: Control | EM | Diferencia -->
+      <div class="grid-p13-mats">
+        <div class="card">
+          <div class="card-header">
+            Matriz media — <span style="color:#2563eb;font-weight:700">Controles</span>
+            <span id="p13-ctrl-lbl" style="font-size:10px;color:var(--text-3);margin-left:4px"></span>
+          </div>
+          <div class="card-body" style="display:flex;justify-content:center;padding:8px;min-height:180px">
+            <canvas id="p13-ctrl-canvas"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            Matriz media — <span style="color:#dc2626;font-weight:700">Pacientes EM</span>
+            <span id="p13-ms-lbl" style="font-size:10px;color:var(--text-3);margin-left:4px"></span>
+          </div>
+          <div class="card-body" style="display:flex;justify-content:center;padding:8px;min-height:180px">
+            <canvas id="p13-ms-canvas"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            Diferencia EM − Control
+            <span id="p13-diff-lbl" style="font-size:10px;color:var(--text-3);margin-left:4px"></span>
+          </div>
+          <div class="card-body" style="display:flex;flex-direction:column;align-items:center;padding:8px;min-height:180px">
+            <canvas id="p13-diff-canvas"></canvas>
+            <div style="display:flex;gap:16px;margin-top:4px;font-size:10px">
+              <span style="color:#2563eb">◀ Control &gt; EM</span>
+              <span style="color:#dc2626">EM &gt; Control ▶</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Red significativa + Top diferencias -->
+      <div class="grid-p13-mid">
+        <div class="card">
+          <div class="card-header">Conexiones significativas (q &lt; 0.05)</div>
+          <div class="card-body" style="display:flex;justify-content:center;padding:8px">
+            <canvas id="p13-sig-canvas" width="400" height="360" style="max-width:100%"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">Top diferencias significativas</div>
+          <div class="card-body" style="padding:0;overflow:auto;max-height:380px">
+            <table class="p13-tbl" style="width:100%;border-collapse:collapse">
+              <thead>
+                <tr>
+                  <th>Ch A</th><th>Ch B</th>
+                  <th style="text-align:right">Ctrl</th>
+                  <th style="text-align:right">EM</th>
+                  <th style="text-align:right">Δ</th>
+                  <th style="text-align:right">q</th>
+                  <th style="text-align:right">d</th>
+                </tr>
+              </thead>
+              <tbody id="p13-top-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Distribución por banda + Estadísticas por banda -->
+      <div class="grid-p13-mid">
+        <div class="card">
+          <div class="card-header">Distribución conectividad global por banda</div>
+          <div class="card-body" style="display:flex;justify-content:center;min-height:180px">
+            <svg id="p13-dist-svg" style="width:100%;overflow:visible" height="180"></svg>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">Estadísticas por banda</div>
+          <div class="card-body" style="padding:0;overflow:auto;max-height:230px">
+            <table class="p13-tbl" style="width:100%;border-collapse:collapse">
+              <thead>
+                <tr>
+                  <th>Banda</th>
+                  <th style="text-align:right">Control</th>
+                  <th style="text-align:right">EM</th>
+                  <th style="text-align:right">Δ</th>
+                  <th style="text-align:right">p</th>
+                  <th style="text-align:right">q</th>
+                  <th style="text-align:right">d</th>
+                </tr>
+              </thead>
+              <tbody id="p13-band-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Métricas de red + Topografía (placeholder) -->
+      <div class="grid-p13-mid">
+        <div class="card">
+          <div class="card-header">Métricas de red — Comparativa grupos</div>
+          <div class="card-body" style="padding:10px" id="p13-netmet-body">
+            <div style="color:var(--text-3);font-size:12px;padding:20px;text-align:center">
+              Ejecuta el pipeline con <code>compute_graph_metrics = true</code> para ver métricas de red
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">Topografía diferencias</div>
+          <div class="card-body" style="display:flex;align-items:center;justify-content:center;min-height:140px;flex-direction:column;gap:8px;color:var(--text-3)">
+            <div style="font-size:28px">🗺️</div>
+            <div style="font-size:12px;text-align:center;max-width:260px">Disponible al generar mapas topográficos grupales en <code>results/group/transversal/</code></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Control de calidad cohortes -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">Control calidad cohortes — Sujetos incluidos / excluidos</div>
+        <div class="card-body" style="padding:0">
+          <div style="display:grid;grid-template-columns:1fr 80px 80px 80px 1fr;background:var(--bg-2);padding:6px 10px;font-size:11px;font-weight:700;border-bottom:1px solid var(--border)">
+            <span>Sujeto</span><span style="text-align:center">Grupo</span>
+            <span style="text-align:center">Sesión</span><span style="text-align:center">Bandas</span>
+            <span>Estado</span>
+          </div>
+          <div id="p13-inclusion-list" style="max-height:220px;overflow:auto"></div>
+        </div>
+      </div>
+
+      <!-- Acciones rápidas -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">Acciones rápidas</div>
+        <div class="card-body">
+          <div class="p13-qa-grid">
+            <button class="p13-qa-btn" onclick="p13ExportMatrices()">📊 Exportar matrices grupales</button>
+            <button class="p13-qa-btn" onclick="p13ExportEdges()">🔗 Exportar edges significativos</button>
+            <button class="p13-qa-btn" onclick="p13ExportStats()">📈 Exportar estadísticas</button>
+            <button class="p13-qa-btn" onclick="p13ExportFigures()">🖼️ Exportar figuras (Canvas)</button>
+            <button class="p13-qa-btn" onclick="p13ViewIncluded()">✅ Ver sujetos incluidos</button>
+            <button class="p13-qa-btn" onclick="p13ViewExcluded()">❌ Ver sujetos excluidos</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /p13-content-block -->
+
+    <!-- Footer informativo -->
+    <div class="p13-footer-band">
+      🧬 La evaluación transversal compara patrones de conectividad funcional entre pacientes con
+      Esclerosis Múltiple y controles sanos mediante <strong>wPLI</strong> y corrección
+      <strong>FDR-BH</strong>. Los resultados grupales se generan con
+      <code style="background:rgba(255,255,255,0.2);padding:1px 5px;border-radius:3px">scripts/run_transversal_analysis.jl</code>
+    </div>
+
+  </div><!-- /phase-panel-13 -->
+  <div id="phase-panel-14" class="phase-panel"></div>
 
 </main>
 </div><!-- /#layout -->
@@ -3664,6 +3926,8 @@ const PHASES = [
   { id: 10, name: 'Surrogates / Inferencia',  icon: 'SU' },
   { id: 11, name: 'Resultados finales',       icon: 'RF' },
   { id: 12, name: 'Exportación / Reporte',    icon: 'EX' },
+  { id: 13, name: 'Evaluación Transversal',   icon: 'TX' },
+  { id: 14, name: 'Evaluación Longitudinal',  icon: 'LG' },
 ];
 
 const PHASE_DESC = {
@@ -3679,6 +3943,8 @@ const PHASE_DESC = {
   10: 'Test de surrogates para validación estadística de la conectividad.',
   11: 'Integración y visualización de todos los resultados del pipeline.',
   12: 'Exportación de tablas, figuras e informe HTML final.',
+  13: 'Comparación de conectividad funcional entre pacientes EM y controles sanos.',
+  14: 'Análisis longitudinal intra-sujeto T1 → T2 en pacientes EM.',
 };
 
 // ── Estado global ─────────────────────────────────
@@ -3896,6 +4162,8 @@ async function switchPhase(n) {
     await loadPhase9();
   } else if (n === 10) {
     await loadPhase10();
+  } else if (n === 13) {
+    await loadPhase13();
   } else {
     renderPhasePlaceholder(n);
   }
@@ -3948,6 +4216,7 @@ async function loadCurrentPhase() {
   else if (State.phase === 8) await loadPhase8();
   else if (State.phase === 9)  await loadPhase9();
   else if (State.phase === 10) await loadPhase10();
+  else if (State.phase === 13) await loadPhase13();
   else renderPhasePlaceholder(State.phase);
 }
 
@@ -11298,6 +11567,539 @@ function p10Reload() { loadPhase10(); }
 
 // ════════════════════════════════════════════════════════════
 // FIN PHASE 10
+// ════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════
+// PHASE 13 — EVALUACIÓN TRANSVERSAL
+// ═══════════════════════════════════════════════════════════
+
+const P13 = { band: 'ALPHA', cond: 'EC', data: null };
+
+async function loadPhase13() {
+  const chip = document.getElementById('p13-status-chip');
+  if (chip) { chip.className = 'status-chip pending'; chip.textContent = 'Cargando…'; }
+  try {
+    const r = await fetch(`/api/phase13_transversal?cond=${P13.cond}&band=${P13.band}`);
+    const d = await r.json();
+    P13.data = d;
+
+    const notRun  = document.getElementById('p13-not-run-block');
+    const content = document.getElementById('p13-content-block');
+
+    _p13RenderBandTabs();
+    _p13RenderCohortCard(d.summary);
+    _p13RenderConfigCard(d.summary);
+    _p13RenderPhaseStatus(d.run, d);
+    _p13RenderFiles(d.run);
+    _p13RenderGlobalMetrics(d.band_stats, d.summary);
+
+    if (!d.run) {
+      if (notRun)  notRun.style.display  = '';
+      if (content) content.style.display = 'none';
+      if (chip) { chip.className = 'status-chip pending'; chip.textContent = 'Pendiente'; }
+      return;
+    }
+
+    if (notRun)  notRun.style.display  = 'none';
+    if (content) content.style.display = '';
+    if (chip) { chip.className = 'status-chip completed'; chip.textContent = 'Completado'; }
+
+    requestAnimationFrame(() => {
+      _p13RenderMatrix('p13-ctrl-canvas', d.matrix_ctrl, 'p13-ctrl-lbl', false);
+      _p13RenderMatrix('p13-ms-canvas',   d.matrix_ms,   'p13-ms-lbl',  false);
+      _p13RenderDiffMatrix('p13-diff-canvas', d.matrix_diff, 'p13-diff-lbl');
+      _p13RenderSigNetwork(d.sig_edges, d.matrix_ctrl);
+    });
+    _p13RenderTopTable(d.sig_edges);
+    _p13RenderDistribution(d.subject_means, d.band_stats);
+    _p13RenderBandStats(d.band_stats);
+    _p13RenderInclusion(d.inclusion);
+  } catch(e) {
+    console.error('Phase 13 error:', e);
+    if (chip) { chip.className = 'status-chip error'; chip.textContent = 'Error'; }
+  }
+}
+
+// ── Band tabs ──────────────────────────────────────────────
+function _p13RenderBandTabs() {
+  const el = document.getElementById('p13-band-tabs');
+  if (!el) return;
+  el.innerHTML = P9_BANDS.map(b => {
+    const act = b.key === P13.band;
+    return `<div class="p13-band-tab${act?' active':''}"
+              style="${act?'background:'+b.color+';color:#fff':''}"
+              onclick="p13SelectBand('${b.key}')">${b.label}</div>`;
+  }).join('');
+}
+
+async function p13SelectBand(band) {
+  P13.band = band;
+  _p13RenderBandTabs();
+  await loadPhase13();
+}
+
+async function p13ChangeCond(cond) {
+  P13.cond = cond;
+  await loadPhase13();
+}
+
+// ── Cohort summary card ────────────────────────────────────
+function _p13RenderCohortCard(s) {
+  const el = document.getElementById('p13-cohort-card');
+  if (!el) return;
+  const rows = [
+    ['Controles',          s.n_ctrl       ?? '—'],
+    ['Pacientes EM',       s.n_ms         ?? '—'],
+    ['Sujetos incluidos',  s.n_included   ?? '—'],
+    ['Sujetos excluidos',  s.n_excluded   ?? '—'],
+    ['Condición',          s.cond || P13.cond],
+    ['Bandas analizadas',  s.n_bands      ?? '—'],
+  ];
+  el.innerHTML = rows.map(([k,v]) => `
+    <div class="p13-stat-row">
+      <span style="color:var(--text-3)">${k}</span>
+      <span style="font-weight:700">${v}</span>
+    </div>`).join('');
+}
+
+// ── Analysis config card ───────────────────────────────────
+function _p13RenderConfigCard(s) {
+  const el = document.getElementById('p13-config-card');
+  if (!el) return;
+  const rows = [
+    ['Comparación',    'EM vs Control'],
+    ['Métrica',        'wPLI'],
+    ['Corrección',     'FDR-BH (q < 0.05)'],
+    ['Estadístico',    'Welch t-test'],
+    ['Normalización',  'Sin Fisher Z'],
+    ['Banda activa',   P13.band],
+  ];
+  el.innerHTML = rows.map(([k,v]) => `
+    <div class="p13-stat-row">
+      <span style="color:var(--text-3)">${k}</span>
+      <span style="font-weight:600;font-size:11px">${v}</span>
+    </div>`).join('');
+}
+
+// ── Phase status card ──────────────────────────────────────
+function _p13RenderPhaseStatus(run, d) {
+  const el = document.getElementById('p13-phase-status');
+  if (!el) return;
+  const s = d.summary || {};
+  const rows = [
+    ['Estado',     run ? '● Completado' : '○ Pendiente'],
+    ['Timestamp',  s.timestamp ? s.timestamp.replace('T',' ') : '—'],
+    ['N sujetos',  run ? ((s.n_ms||0)+(s.n_ctrl||0)) : '—'],
+    ['Sig. total', run ? (s.n_total_sig ?? '—') : '—'],
+    ['Mejor banda',run ? (s.best_band || '—') : '—'],
+  ];
+  el.innerHTML = rows.map(([k,v],i) => `
+    <div class="p13-stat-row">
+      <span style="color:var(--text-3)">${k}</span>
+      <span style="font-weight:${i===0?'700':'600'};color:${i===0&&run?'#059669':'inherit'}">${v}</span>
+    </div>`).join('');
+}
+
+// ── Files checklist ────────────────────────────────────────
+function _p13RenderFiles(run) {
+  const el = document.getElementById('p13-files-card');
+  if (!el) return;
+  const b = P13.band;
+  const files = [
+    [`group_connectivity_control_${b}.csv`, '📊'],
+    [`group_connectivity_ms_${b}.csv`,      '📊'],
+    [`group_difference_${b}.csv`,           '📉'],
+    [`group_statistics_${b}.csv`,           '📈'],
+    [`significant_edges_${b}.csv`,          '🔗'],
+    ['band_statistics.csv',                 '📋'],
+    ['subject_inclusion.csv',               '👥'],
+    ['transversal_summary.json',            '📄'],
+  ];
+  el.innerHTML = files.map(([name, icon]) => `
+    <div class="p13-file-row">
+      <span style="font-size:12px;width:16px;text-align:center">${run?'✓':'○'}</span>
+      <span style="font-size:12px">${icon}</span>
+      <span style="font-size:11px;color:${run?'var(--text-1)':'var(--text-3)'}">${name}</span>
+    </div>`).join('');
+}
+
+// ── Global metrics strip ───────────────────────────────────
+function _p13RenderGlobalMetrics(bandStats, summary) {
+  const el = document.getElementById('p13-global-metrics');
+  if (!el) return;
+  const s     = summary || {};
+  const bs    = bandStats || [];
+  const nSig  = s.n_total_sig ?? 0;
+  const nPairs= bs.reduce((a,r) => a + (r.n_pairs||0), 0);
+  const bestB = s.best_band || '—';
+  const meanD = bs.length ? (bs.reduce((a,r) => a + Math.abs(r.mean_d||0), 0) / bs.length).toFixed(3) : '—';
+  const ctrlG = bs.length ? (bs.reduce((a,r) => a + (r.ctrl_mean||0), 0) / bs.length).toFixed(3) : '—';
+  const msG   = bs.length ? (bs.reduce((a,r) => a + (r.ms_mean||0), 0) / bs.length).toFixed(3) : '—';
+  const nBands= bs.filter(r => r.n_sig > 0).length;
+
+  const metrics = [
+    { val: nSig,   lbl: 'Edges\nSignificativos', col: nSig > 0 ? '#059669' : 'var(--text-2)' },
+    { val: nPairs||'—', lbl: 'Pares\nAnalizados', col:'var(--text-1)' },
+    { val: `${nBands}/${bs.length}`,  lbl: 'Bandas con\ndifs. sig.', col: nBands>0?'#0891b2':'var(--text-2)' },
+    { val: meanD,  lbl: "Cohen's d\nmedio", col: 'var(--text-1)' },
+    { val: bestB,  lbl: 'Banda mayor\ndiferencia', col: '#7c3aed' },
+    { val: ctrlG,  lbl: 'wPLI medio\nControl', col: '#2563eb' },
+    { val: msG,    lbl: 'wPLI medio\nEM', col: '#dc2626' },
+  ];
+  el.innerHTML = metrics.map(m => `
+    <div class="p13-metric-cell">
+      <div class="p13-metric-val" style="color:${m.col}">${m.val}</div>
+      <div class="p13-metric-lbl">${m.lbl.replace('\n','<br>')}</div>
+    </div>`).join('');
+}
+
+// ── Heatmap (ctrl / ms) — reuses _p9Colormap ──────────────
+function _p13RenderMatrix(canvasId, matrix, labelId, _unused) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  if (labelId) {
+    const lb = document.getElementById(labelId);
+    if (lb) lb.textContent = `— ${P13.band}`;
+  }
+  const channels = matrix?.channels || [];
+  const values   = matrix?.values   || [];
+  const n = channels.length;
+  if (n === 0) {
+    const ctx = canvas.getContext('2d');
+    canvas.width = 200; canvas.height = 200;
+    ctx.fillStyle = '#f1f5f9'; ctx.fillRect(0,0,200,200);
+    ctx.fillStyle = '#9ca3af'; ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center'; ctx.fillText('Sin datos', 100, 100);
+    return;
+  }
+  const dpr    = window.devicePixelRatio || 1;
+  const cellPx = Math.max(3, Math.min(14, Math.floor(420 / n)));
+  const sz     = n * cellPx;
+  canvas.style.width  = sz + 'px';
+  canvas.style.height = sz + 'px';
+  canvas.width  = sz * dpr;
+  canvas.height = sz * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  let maxW = 0;
+  for (let i=0;i<n;i++) for (let j=0;j<n;j++) if (i!==j) maxW = Math.max(maxW, values[i]?.[j]??0);
+  maxW = Math.max(maxW, 0.01);
+  for (let i=0;i<n;i++) for (let j=0;j<n;j++) {
+    const w = values[i]?.[j] ?? 0;
+    ctx.fillStyle = i===j ? '#e2e8f0' : _p9Colormap(w / maxW);
+    ctx.fillRect(j*cellPx, i*cellPx, cellPx, cellPx);
+  }
+}
+
+// ── Difference matrix — diverging (red pos, blue neg) ─────
+function _p13RenderDiffMatrix(canvasId, matrix, labelId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  if (labelId) {
+    const lb = document.getElementById(labelId);
+    if (lb) lb.textContent = `— ${P13.band}`;
+  }
+  const channels = matrix?.channels || [];
+  const values   = matrix?.values   || [];
+  const n = channels.length;
+  if (n === 0) {
+    const ctx = canvas.getContext('2d');
+    canvas.width = 200; canvas.height = 200;
+    ctx.fillStyle='#f1f5f9'; ctx.fillRect(0,0,200,200);
+    ctx.fillStyle='#9ca3af'; ctx.font='12px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('Sin datos', 100, 100); return;
+  }
+  const dpr    = window.devicePixelRatio || 1;
+  const cellPx = Math.max(3, Math.min(14, Math.floor(420 / n)));
+  const sz     = n * cellPx;
+  canvas.style.width  = sz + 'px'; canvas.style.height = sz + 'px';
+  canvas.width  = sz * dpr;       canvas.height = sz * dpr;
+  const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
+  let maxAbs = 0;
+  for (let i=0;i<n;i++) for (let j=0;j<n;j++) if (i!==j) maxAbs = Math.max(maxAbs, Math.abs(values[i]?.[j]??0));
+  maxAbs = Math.max(maxAbs, 1e-4);
+  for (let i=0;i<n;i++) for (let j=0;j<n;j++) {
+    const v = values[i]?.[j] ?? 0;
+    if (i === j) { ctx.fillStyle = '#e2e8f0'; ctx.fillRect(j*cellPx,i*cellPx,cellPx,cellPx); continue; }
+    const t = v / maxAbs;           // -1..+1
+    let r, g, b;
+    if (t > 0) {                    // EM > Ctrl → red
+      r = 220; g = Math.round(220*(1-t)); b = Math.round(220*(1-t));
+    } else {                        // Ctrl > EM → blue
+      const at = -t;
+      r = Math.round(220*(1-at)); g = Math.round(220*(1-at)); b = 220;
+    }
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(j*cellPx, i*cellPx, cellPx, cellPx);
+  }
+}
+
+// ── Significant network (reuses P8_EEG_POS) ───────────────
+function _p13RenderSigNetwork(sigEdges, matrixCtrl) {
+  const canvas = document.getElementById('p13-sig-canvas');
+  if (!canvas) return;
+  const W = 400, H = 360;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
+  ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, W, H);
+
+  const channels = matrixCtrl?.channels || [];
+  const n        = channels.length;
+  if (n === 0 || !sigEdges || sigEdges.length === 0) {
+    ctx.fillStyle = '#9ca3af'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(n===0 ? 'Sin datos de canales' : 'Sin edges significativos', W/2, H/2);
+    return;
+  }
+
+  // Node positions — reuse P8_EEG_POS or circular fallback
+  const cx = W / 2, cy = H / 2, rad = Math.min(W, H) * 0.42;
+  const pos = {};
+  for (let i = 0; i < n; i++) {
+    const ch = channels[i];
+    if (P8_EEG_POS && P8_EEG_POS[ch]) {
+      pos[ch] = { x: cx + P8_EEG_POS[ch][0]*rad*1.1, y: cy - P8_EEG_POS[ch][1]*rad };
+    } else {
+      const angle = (2*Math.PI*i/n) - Math.PI/2;
+      pos[ch] = { x: cx + Math.cos(angle)*rad, y: cy + Math.sin(angle)*rad };
+    }
+  }
+
+  // Compute node strengths from sig edges
+  const strength = {};
+  for (const e of sigEdges) {
+    strength[e.ch_a] = (strength[e.ch_a]||0) + Math.abs(e.diff);
+    strength[e.ch_b] = (strength[e.ch_b]||0) + Math.abs(e.diff);
+  }
+  const maxStr = Math.max(...Object.values(strength), 1e-4);
+
+  // Draw edges
+  const maxAbs = Math.max(...sigEdges.map(e => Math.abs(e.diff)), 1e-4);
+  for (const e of sigEdges) {
+    const pa = pos[e.ch_a], pb = pos[e.ch_b];
+    if (!pa || !pb) continue;
+    const t   = Math.abs(e.diff) / maxAbs;
+    const lw  = 1 + t * 4;
+    const col = e.diff > 0
+      ? `rgba(220,38,38,${0.3 + t*0.6})`
+      : `rgba(37,99,235,${0.3 + t*0.6})`;
+    ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
+    ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.stroke();
+  }
+
+  // Draw nodes
+  for (const ch of channels) {
+    const p = pos[ch]; if (!p) continue;
+    const s = (strength[ch]||0) / maxStr;
+    const r = 3 + s * 5;
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 2*Math.PI);
+    ctx.fillStyle = ch in strength ? '#0891b2' : '#cbd5e1';
+    ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+  }
+
+  // Legend
+  ctx.font = '9px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillStyle = '#dc2626'; ctx.fillRect(8, H-28, 12, 3);
+  ctx.fillStyle = '#374151'; ctx.fillText('EM > Ctrl', 24, H-24);
+  ctx.fillStyle = '#2563eb'; ctx.fillRect(8, H-18, 12, 3);
+  ctx.fillStyle = '#374151'; ctx.fillText('Ctrl > EM', 24, H-14);
+}
+
+// ── Top differences table ──────────────────────────────────
+function _p13RenderTopTable(sigEdges) {
+  const tbody = document.getElementById('p13-top-tbody');
+  if (!tbody) return;
+  if (!sigEdges || sigEdges.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--text-3)">Sin conexiones significativas</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = sigEdges.slice(0, 25).map(e => {
+    const dColor = e.diff > 0 ? '#dc2626' : '#2563eb';
+    const q = e.q_value.toFixed(3), d = e.effect_d.toFixed(2);
+    const qCls = e.q_value < 0.01 ? 'color:#059669;font-weight:700' : 'color:var(--text-1)';
+    return `<tr>
+      <td>${e.ch_a}</td><td>${e.ch_b}</td>
+      <td style="text-align:right;font-family:monospace">${e.ctrl_mean.toFixed(3)}</td>
+      <td style="text-align:right;font-family:monospace">${e.ms_mean.toFixed(3)}</td>
+      <td style="text-align:right;font-family:monospace;color:${dColor};font-weight:700">${(e.diff>0?'+':'')+e.diff.toFixed(3)}</td>
+      <td style="text-align:right;font-family:monospace;${qCls}">${q}</td>
+      <td style="text-align:right;font-family:monospace">${d}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Distribution by band (bar chart SVG) ──────────────────
+function _p13RenderDistribution(subjectMeans, bandStats) {
+  const svg = document.getElementById('p13-dist-svg');
+  if (!svg) return;
+  const bs = bandStats || [];
+  if (bs.length === 0) {
+    svg.innerHTML = `<text x="50%" y="50%" text-anchor="middle" fill="#9ca3af" font-size="12">Sin datos de distribución</text>`;
+    return;
+  }
+
+  const W = svg.parentElement?.clientWidth || 420;
+  const H = 180;
+  const pad = { l:36, r:12, t:16, b:40 };
+  const nB  = bs.length;
+  const bw  = Math.max(8, (W - pad.l - pad.r) / (nB * 2.5));
+  const gap  = (W - pad.l - pad.r - nB * bw * 2) / (nB + 1);
+
+  const allVals = bs.flatMap(r => [r.ctrl_mean||0, r.ms_mean||0]);
+  const maxV = Math.max(...allVals, 0.001);
+
+  let bars = '', labels = '', axes = '';
+  for (let i = 0; i < nB; i++) {
+    const r    = bs[i];
+    const x0   = pad.l + gap + i * (bw * 2 + gap);
+    const hCtrl = ((r.ctrl_mean||0) / maxV) * (H - pad.t - pad.b);
+    const hMs   = ((r.ms_mean  ||0) / maxV) * (H - pad.t - pad.b);
+    const yBase = H - pad.b;
+    bars += `<rect x="${x0}" y="${yBase-hCtrl}" width="${bw}" height="${hCtrl}" fill="#2563eb" opacity="0.75" rx="2"/>`;
+    bars += `<rect x="${x0+bw}" y="${yBase-hMs}"   width="${bw}" height="${hMs}"   fill="#dc2626" opacity="0.75" rx="2"/>`;
+    const xLabel = x0 + bw;
+    const shortLabel = r.band.replace('BETA_','β').replace('DELTA','δ').replace('THETA','θ')
+                             .replace('ALPHA','α').replace('GAMMA','γ');
+    labels += `<text x="${xLabel}" y="${H-pad.b+14}" text-anchor="middle" font-size="9" fill="#6b7280">${shortLabel}</text>`;
+  }
+
+  // Y axis ticks
+  for (let t = 0; t <= 4; t++) {
+    const v = (maxV * t / 4);
+    const y = H - pad.b - (v / maxV) * (H - pad.t - pad.b);
+    axes += `<line x1="${pad.l-4}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="#e2e8f0" stroke-width="1"/>`;
+    axes += `<text x="${pad.l-6}" y="${y+4}" text-anchor="end" font-size="8" fill="#9ca3af">${v.toFixed(2)}</text>`;
+  }
+
+  // Legend
+  const legY = H - 8;
+  const legX  = W / 2 - 60;
+  const legend = `<rect x="${legX}" y="${legY-8}" width="10" height="8" fill="#2563eb" opacity="0.75" rx="1"/>
+    <text x="${legX+13}" y="${legY}" font-size="9" fill="#374151">Control</text>
+    <rect x="${legX+60}" y="${legY-8}" width="10" height="8" fill="#dc2626" opacity="0.75" rx="1"/>
+    <text x="${legX+73}" y="${legY}" font-size="9" fill="#374151">EM</text>`;
+
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('height', H);
+  svg.innerHTML = axes + bars + labels + legend;
+}
+
+// ── Band statistics table ──────────────────────────────────
+function _p13RenderBandStats(bandStats) {
+  const tbody = document.getElementById('p13-band-tbody');
+  if (!tbody) return;
+  if (!bandStats || bandStats.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="padding:12px;text-align:center;color:var(--text-3)">Sin datos</td></tr>`;
+    return;
+  }
+  const maxD = Math.max(...bandStats.map(r => Math.abs(r.mean_d||0)), 1e-4);
+  tbody.innerHTML = bandStats.map(r => {
+    const d    = (r.diff_mean||0);
+    const dCol = d > 0 ? '#dc2626' : (d < 0 ? '#2563eb' : 'var(--text-2)');
+    const sig  = r.n_sig > 0;
+    const band = r.band.replace('BETA_','β').replace('DELTA','δ').replace('THETA','θ')
+                        .replace('ALPHA','α').replace('GAMMA','γ').replace('_',' ');
+    return `<tr>
+      <td style="font-weight:700;color:#0891b2">${band}</td>
+      <td style="text-align:right;font-family:monospace">${(r.ctrl_mean||0).toFixed(4)}</td>
+      <td style="text-align:right;font-family:monospace">${(r.ms_mean  ||0).toFixed(4)}</td>
+      <td style="text-align:right;font-family:monospace;color:${dCol};font-weight:700">${(d>0?'+':'')+d.toFixed(4)}</td>
+      <td style="text-align:right;font-family:monospace">${(r.mean_p||1).toFixed(3)}</td>
+      <td style="text-align:right;font-family:monospace;font-weight:${sig?'700':'400'};color:${sig?'#059669':'var(--text-2)'}">
+        ${r.n_sig} sig</td>
+      <td style="text-align:right;font-family:monospace">${(r.mean_d||0).toFixed(3)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Subject inclusion list ─────────────────────────────────
+function _p13RenderInclusion(inclusion) {
+  const el = document.getElementById('p13-inclusion-list');
+  if (!el) return;
+  if (!inclusion || inclusion.length === 0) {
+    el.innerHTML = `<div style="padding:12px;color:var(--text-3);font-size:12px;text-align:center">Sin datos de inclusión</div>`;
+    return;
+  }
+  el.innerHTML = inclusion.map(r => {
+    const ok  = r.included;
+    const grp = r.group === 'MS' ? '<span style="color:#dc2626;font-weight:700">EM</span>'
+                                 : '<span style="color:#2563eb;font-weight:700">Ctrl</span>';
+    return `<div style="display:grid;grid-template-columns:1fr 80px 80px 80px 1fr;padding:5px 10px;font-size:11px;border-bottom:1px solid var(--border);align-items:center">
+      <span style="font-family:monospace">${r.subject_id}</span>
+      <span style="text-align:center">${grp}</span>
+      <span style="text-align:center;color:var(--text-2)">${r.session_id}</span>
+      <span style="text-align:center">${r.n_bands_ok}/7</span>
+      <span style="color:${ok?'#059669':'#dc2626'};font-weight:600">${ok?'✓ Incluido':'✗ '+r.excluded_reason}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Export helpers ─────────────────────────────────────────
+function p13ExportMatrices() {
+  const d = P13.data;
+  if (!d?.run) { alert('Sin datos de análisis transversal.'); return; }
+  ['p13-ctrl-canvas','p13-ms-canvas','p13-diff-canvas'].forEach((id, i) => {
+    const c = document.getElementById(id); if (!c) return;
+    const a = document.createElement('a');
+    a.href     = c.toDataURL('image/png');
+    a.download = ['matrix_ctrl','matrix_ms','matrix_diff'][i] + `_${P13.band}.png`;
+    a.click();
+  });
+}
+
+function p13ExportEdges() {
+  const d = P13.data;
+  if (!d?.run || !d.sig_edges?.length) { alert('Sin edges significativos.'); return; }
+  const headers = ['ch_a','ch_b','ctrl_mean','ms_mean','diff','p_value','q_value','effect_d'];
+  const rows = d.sig_edges.map(e => headers.map(h => e[h] ?? '').join(','));
+  const blob = new Blob([headers.join(',')+'\n'+rows.join('\n')], { type:'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `significant_edges_${P13.band}_${P13.cond}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function p13ExportStats() {
+  const d = P13.data;
+  if (!d?.run || !d.band_stats?.length) { alert('Sin estadísticas por banda.'); return; }
+  const headers = ['band','ctrl_mean','ms_mean','diff_mean','mean_p','n_sig','mean_d'];
+  const rows = d.band_stats.map(r => headers.map(h => r[h] ?? '').join(','));
+  const blob = new Blob([headers.join(',')+'\n'+rows.join('\n')], { type:'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `band_statistics_transversal_${P13.cond}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function p13ExportFigures() {
+  const c = document.getElementById('p13-sig-canvas');
+  if (!c) return;
+  const a = document.createElement('a');
+  a.href     = c.toDataURL('image/png');
+  a.download = `sig_network_${P13.band}_${P13.cond}.png`;
+  a.click();
+}
+
+function p13ViewIncluded() {
+  const d = P13.data;
+  const inc = (d?.inclusion || []).filter(r => r.included);
+  if (!inc.length) { alert('Sin sujetos incluidos'); return; }
+  alert('Sujetos incluidos:\n\n' + inc.map(r => `${r.subject_id} (${r.group}, ses-${r.session_id})`).join('\n'));
+}
+
+function p13ViewExcluded() {
+  const d = P13.data;
+  const exc = (d?.inclusion || []).filter(r => !r.included);
+  if (!exc.length) { alert('No hay sujetos excluidos'); return; }
+  alert('Sujetos excluidos:\n\n' + exc.map(r => `${r.subject_id}: ${r.excluded_reason}`).join('\n'));
+}
+
+function p13Reload() { loadPhase13(); }
+
+// ════════════════════════════════════════════════════════════
+// FIN PHASE 13
 // ════════════════════════════════════════════════════════════
 
 function p5RunICA() {

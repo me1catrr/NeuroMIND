@@ -2265,6 +2265,176 @@ function launch_webapp(cfg::PipelineConfig;
         end
     end
 
+    # ─── API: Fase 13 — Evaluación Transversal ──────────────────
+    route("/api/phase13_transversal") do
+        cond_raw = string(get(getpayload(), :cond, "EC"))
+        cond     = _normalize_cond(cond_raw)
+        band     = uppercase(string(get(getpayload(), :band, "ALPHA")))
+
+        # El script guarda en .../group/transversal/EC/ o /EO/
+        cond_short = cond == "eyesclosed" ? "EC" : (cond == "eyesopen" ? "EO" : uppercase(cond_raw))
+        grp_dir    = joinpath(res_root, "group", "transversal", cond_short)
+
+        # Función auxiliar de existencia en grp_dir
+        gfe(f) = isfile(joinpath(grp_dir, f))
+
+        empty_resp = Dict{String,Any}(
+            "ok"            => true,
+            "run"           => false,
+            "cond"          => cond_short,
+            "band"          => band,
+            "summary"       => Dict{String,Any}(),
+            "matrix_ctrl"   => Dict("channels"=>String[],"values"=>Vector{Vector{Float64}}()),
+            "matrix_ms"     => Dict("channels"=>String[],"values"=>Vector{Vector{Float64}}()),
+            "matrix_diff"   => Dict("channels"=>String[],"values"=>Vector{Vector{Float64}}()),
+            "sig_edges"     => Dict{String,Any}[],
+            "band_stats"    => Dict{String,Any}[],
+            "subject_means" => Dict{String,Any}[],
+            "inclusion"     => Dict{String,Any}[],
+        )
+
+        gfe("transversal_summary.json") || return json(empty_resp)
+
+        # ── Parse transversal_summary.json ────────────────────
+        summ = Dict{String,Any}(
+            "n_ms" => 0, "n_ctrl" => 0, "n_included" => 0,
+            "n_excluded" => 0, "n_total_sig" => 0, "n_bands" => 0,
+            "best_band" => "", "timestamp" => "",
+        )
+        try
+            txt = read(joinpath(grp_dir, "transversal_summary.json"), String)
+            for key in ["n_ms","n_ctrl","n_included","n_excluded","n_total_sig","n_bands"]
+                m = match(Regex("\"$(key)\"\\s*:\\s*([0-9]+)"), txt)
+                m !== nothing && (summ[key] = parse(Int, m.captures[1]))
+            end
+            for key in ["best_band","cond","timestamp"]
+                m = match(Regex("\"$(key)\"\\s*:\\s*\"([^\"]+)\""), txt)
+                m !== nothing && (summ[key] = m.captures[1])
+            end
+            # Band-level keys: ALPHA_n_sig, ALPHA_ctrl, etc.
+            for m in eachmatch(r"\"([A-Z_]+)_(n_sig|ctrl|ms)\"\s*:\s*([0-9.]+)", txt)
+                summ["$(m.captures[1])_$(m.captures[2])"] = tryparse(Float64, m.captures[3])
+            end
+        catch e
+            @warn "transversal_summary.json parse error: $e"
+        end
+
+        # ── Función para leer matriz n×n ──────────────────────
+        function read_matrix_csv(fname)
+            p = joinpath(grp_dir, fname)
+            isfile(p) || return Dict("channels"=>String[],"values"=>Vector{Vector{Float64}}())
+            try
+                df  = CSV.read(p, DataFrame)
+                ch  = string.(df[!, 1])
+                n   = length(ch)
+                vals = [[Float64(df[i, j+1]) for j in 1:n] for i in 1:n]
+                Dict{String,Any}("channels" => ch, "values" => vals)
+            catch
+                Dict("channels"=>String[],"values"=>Vector{Vector{Float64}}())
+            end
+        end
+
+        matrix_ctrl = read_matrix_csv("group_connectivity_control_$(band).csv")
+        matrix_ms   = read_matrix_csv("group_connectivity_ms_$(band).csv")
+        matrix_diff = read_matrix_csv("group_difference_$(band).csv")
+
+        # ── Significant edges ─────────────────────────────────
+        sig_edges = Dict{String,Any}[]
+        try
+            p = joinpath(grp_dir, "significant_edges_$(band).csv")
+            if isfile(p)
+                df = CSV.read(p, DataFrame)
+                for row in eachrow(df)
+                    push!(sig_edges, Dict{String,Any}(
+                        "ch_a"     => string(row.ch_a),
+                        "ch_b"     => string(row.ch_b),
+                        "ctrl_mean"=> Float64(row.ctrl_mean),
+                        "ms_mean"  => Float64(row.ms_mean),
+                        "diff"     => Float64(row.diff),
+                        "p_value"  => Float64(row.p_value),
+                        "q_value"  => Float64(row.q_value),
+                        "effect_d" => Float64(row.effect_d),
+                    ))
+                end
+                sort!(sig_edges, by=r->abs(r["effect_d"]), rev=true)
+            end
+        catch e; @warn "significant_edges parse error: $e"; end
+
+        # ── Band statistics ───────────────────────────────────
+        band_stats = Dict{String,Any}[]
+        try
+            p = joinpath(grp_dir, "band_statistics.csv")
+            if isfile(p)
+                df = CSV.read(p, DataFrame)
+                for row in eachrow(df)
+                    push!(band_stats, Dict{String,Any}(
+                        "band"       => string(row.band),
+                        "n_channels" => Int(row.n_channels),
+                        "n_pairs"    => Int(row.n_pairs),
+                        "n_sig"      => Int(row.n_sig),
+                        "pct_sig"    => Float64(row.pct_sig),
+                        "ctrl_mean"  => Float64(row.ctrl_mean),
+                        "ms_mean"    => Float64(row.ms_mean),
+                        "diff_mean"  => Float64(row.diff_mean),
+                        "mean_p"     => Float64(row.mean_p),
+                        "mean_d"     => Float64(row.mean_d),
+                    ))
+                end
+            end
+        catch e; @warn "band_statistics parse error: $e"; end
+
+        # ── Per-subject band means (for distribution) ─────────
+        subject_means = Dict{String,Any}[]
+        try
+            p = joinpath(grp_dir, "subject_band_means.csv")
+            if isfile(p)
+                df = CSV.read(p, DataFrame)
+                for row in eachrow(df)
+                    push!(subject_means, Dict{String,Any}(
+                        "subject_id" => string(row.subject_id),
+                        "group"      => string(row.group),
+                        "band"       => string(row.band),
+                        "mean_wpli"  => Float64(row.mean_wpli),
+                    ))
+                end
+            end
+        catch e; @warn "subject_band_means parse error: $e"; end
+
+        # ── Subject inclusion ─────────────────────────────────
+        inclusion = Dict{String,Any}[]
+        try
+            p = joinpath(grp_dir, "subject_inclusion.csv")
+            if isfile(p)
+                df = CSV.read(p, DataFrame)
+                for row in eachrow(df)
+                    push!(inclusion, Dict{String,Any}(
+                        "subject_id"      => string(row.subject_id),
+                        "session_id"      => string(row.session_id),
+                        "group"           => string(row.group),
+                        "n_bands_ok"      => Int(row.n_bands_ok),
+                        "included"        => Bool(row.included),
+                        "excluded_reason" => string(row.excluded_reason),
+                    ))
+                end
+            end
+        catch e; @warn "subject_inclusion parse error: $e"; end
+
+        json(Dict(
+            "ok"            => true,
+            "run"           => true,
+            "cond"          => cond_short,
+            "band"          => band,
+            "summary"       => summ,
+            "matrix_ctrl"   => matrix_ctrl,
+            "matrix_ms"     => matrix_ms,
+            "matrix_diff"   => matrix_diff,
+            "sig_edges"     => sig_edges[1:min(50, end)],
+            "band_stats"    => band_stats,
+            "subject_means" => subject_means,
+            "inclusion"     => inclusion,
+        ))
+    end
+
     # ─── Iniciar servidor ─────────────────────────────────────
     @info "NeuroMIND Dashboard → http://localhost:$(port)"
     open_browser && _try_open_browser("http://localhost:$(port)")
