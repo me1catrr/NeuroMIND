@@ -1010,13 +1010,13 @@ tr.row-warn:hover td { background: #fef9c3; }
 .p5-legend-item { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-2); margin-bottom:5px; }
 .p5-legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
 /* ── Phase 5 — Topomaps & Features ──────────────────────── */
-.p5-topo-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:4px; }
-.p5-topo-cell { display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px; background:var(--bg-2); border-radius:8px; border:1px solid var(--border); cursor:pointer; transition:border-color .15s; }
+.p5-topo-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; margin-top:4px; }
+.p5-topo-cell { display:flex; flex-direction:column; align-items:center; gap:3px; padding:5px; background:var(--bg-2); border-radius:7px; border:1px solid var(--border); cursor:pointer; transition:border-color .15s; }
 .p5-topo-cell:hover { border-color:#7c3aed; }
-.p5-topo-img  { width:100%; aspect-ratio:1/1; object-fit:contain; border-radius:6px; background:#f1f5f9; }
-.p5-topo-ph   { width:100%; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; background:#f1f5f9; border-radius:6px; font-size:11px; color:var(--text-3); flex-direction:column; gap:3px; }
-.p5-topo-lbl  { font-size:11px; font-weight:700; color:var(--text-1); }
-.p5-topo-sub  { font-size:9.5px; color:var(--text-3); }
+.p5-topo-img  { width:100%; aspect-ratio:1/1; object-fit:contain; border-radius:5px; background:#f1f5f9; }
+.p5-topo-ph   { width:100%; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; background:#f1f5f9; border-radius:5px; font-size:10px; color:var(--text-3); flex-direction:column; gap:3px; }
+.p5-topo-lbl  { font-size:10px; font-weight:700; color:var(--text-1); }
+.p5-topo-sub  { font-size:9px; color:var(--text-3); }
 .p5-topo-page { display:flex; align-items:center; justify-content:center; gap:12px; padding:8px 0 2px; }
 .p5-topo-btn  { padding:4px 12px; border:1px solid var(--border); border-radius:6px; background:var(--bg-2); cursor:pointer; font-size:11px; }
 .p5-topo-btn:hover { background:#ede9fe; color:#7c3aed; border-color:#7c3aed; }
@@ -7051,7 +7051,7 @@ function _p5TypeLabel(type) {
 
 // ── Phase 5: Topomap grid ────────────────────────────────────
 
-const _p5TopoState = { page: 0, perPage: 6 };
+const _p5TopoState = { page: 0, perPage: 36 };
 
 function renderP5TopoGrid() {
   const comps   = State.p5Info?.components || [];
