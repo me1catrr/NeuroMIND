@@ -963,7 +963,7 @@ function _save_ica_topomaps(
             clim_val == 0.0 && (clim_val = 1.0)
             fig = plot_topomap(weights, ch_names, ch_pos;
                                title    = "IC $(lpad(ic, 3, '0'))",
-                               colormap = :RdBu_r,
+                               colormap = CairoMakie.Reverse(:RdBu),
                                clims    = (-clim_val, clim_val))
             CairoMakie.save(fpath, fig)
             n_saved += 1
