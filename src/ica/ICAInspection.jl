@@ -30,10 +30,10 @@ function load_ica_labels(
         joinpath(legacy_base, "ICA_labels_$(condition).csv"),
     ]
 
-    path = something(findfirst(isfile, candidates), nothing)
-    path === nothing && return Int[]
+    idx = findfirst(isfile, candidates)
+    idx === nothing && return Int[]
 
-    df = CSV.read(candidates[path], DataFrame)
+    df = CSV.read(candidates[idx], DataFrame)
     hasproperty(df, :label)     || return Int[]
     hasproperty(df, :component) || return Int[]
 
