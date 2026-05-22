@@ -2,7 +2,7 @@
 
 > Este archivo es leído automáticamente por Claude Code al inicio de cada sesión.
 > Contiene todo el contexto necesario para trabajar en el proyecto desde cualquier ordenador.
-> **Mantenerlo actualizado es prioritario.** Última actualización: 2026-05-21 (Phase 7 completa).
+> **Mantenerlo actualizado es prioritario.** Última actualización: 2026-05-22 (Phase 6 EEG_Julia completa).
 
 ---
 
@@ -231,26 +231,32 @@ git push -u origin <rama>
 - [x] FastICA puro Julia (sin MultivariateStats); perfiles `eeg_julia` / `default`
 - [x] Dashboard paneles 0–7
 - [x] API routes: `/api/phase5_ica_info`, `/api/ica_activation`, `/api/ica_signal`, `/api/ica_features`
-- [x] API route: `/api/phase6_segmentation` → segmentation_summary.json, segments_table.csv, channel_coverage.csv
+- [x] API route: `/api/phase6_segmentation` → segmentation_summary.json (enriquecido), segments_table.csv, channel_coverage.csv
 - [x] API route: `/api/phase7_ar` → artifact_rejection_summary.json, rejected_segments.csv, channel_artifact_summary.csv
 - [x] `compute_ica_features` — 7 features por componente (portado de EEG_Julia)
 - [x] `evaluate_ica_components` — scores ocular/muscle/line/jump → labels
 - [x] `_save_ica_topomaps` — genera PNGs por IC (requiere ch_positions en BIDS)
-- [x] Dashboard Phase 5: topomap grid paginado, features table, profile badge
-- [x] 166 tests unitarios pasando (25 nuevos de ICA)
-- [x] `compute_epoch_quality_report` con worst_channel + p2p_uv
+- [x] Dashboard Phase 5: topomap grid paginado (6 columnas, 36/pág), features table, profile badge
+- [x] 241 tests unitarios pasando
+- [x] `compute_epoch_quality_report` con worst_channel + p2p_uv, respeta perfil AR
+- [x] **Phase 6 EEG_Julia profile** (rama `feat/phase6-eeg-julia-segmentation`):
+  - `segment_recording` perfil `"eeg_julia"` → fuerza 1 s, sin solapamiento
+  - `apply_baseline` método `"first_window_mean"` → media [0, 0.10 s] por canal (EEG_Julia exacto)
+  - `reject_artifacts` perfil `"eeg_julia"` → ±70 µV, primeros 30 canales, sin gradiente
+  - Pipeline: doble baseline (`n_passes=2`) — pre-AR + post-AR
+  - `segmentation_summary.json` enriquecido con 10 nuevos campos metodológicos
+  - Dashboard Phase 6: badges perfil, nota metodológica EEG_Julia, criterio AR detallado
 - [x] README.md completo; `.gitignore` estricto; CLAUDE.md actualizado
 
-### PRs activos
-- PR #1: `feat/phase6-segmentation` — abierto, pendiente merge a main
-- PR #2: `feat/phase7-artifact-rejection` — abierto, pendiente merge a main
-- PR #3: `feat/phase5-ica-classification` — en rama local, pendiente push
+### Ramas activas
+- `feat/phase5-ica-classification` — commits de Phase 5, pendiente push/PR
+- `feat/phase6-eeg-julia-segmentation` — Phase 6 EEG_Julia, pendiente push/PR
 
 ### Pendiente / próximo
 - [ ] Dashboard paneles 8–12 (espectral → exportación)
-- [ ] Segunda corrección de baseline post-ICA (`baseline_2st`)
 - [ ] Tests de integración pipeline completo
 - [ ] GitHub Actions CI (syntax check + tests)
+- [ ] Push ramas + PR a main
 
 ### Bugs conocidos resueltos
 - `JSON3.read` → regex parsing en `App.jl` (JSON3 no era dependencia)
