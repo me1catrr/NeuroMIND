@@ -740,7 +740,7 @@ function _save_spectral_extras(
   "window_pct": $(win_pct),
   "nfft": $(nfft_used),
   "epoch_length_s": $(epoch_s),
-  "n_epochs": $(spectra.n_epochs),
+  "n_epochs": $(spectra.n_epochs_used),
   "fs": $(fs_val),
   "delta_f": $(delta_f),
   "freq_range_lo": $(round(spectra.freqs[1], digits=3)),
