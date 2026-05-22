@@ -107,6 +107,8 @@ Paneles 11–12: placeholder vacío (próximos a implementar).
 | 10 | Surrogates / Inferencia | ✓ |
 | 11 | Resultados finales | placeholder |
 | 12 | Exportación / Reporte | placeholder |
+| 13 | Evaluación Transversal | ✓ |
+| 14 | Evaluación Longitudinal | placeholder |
 
 **Panel 5 ICA** muestra: resumen stats, **grid de topomaps paginado** (6 por página),
 **tabla de features de clasificación** (frontal/temporal/blink/emg/line ratio, kurtosis),
@@ -248,6 +250,11 @@ git push -u origin <rama>
 - [x] `compute_ica_features`, `evaluate_ica_components`, `_save_ica_topomaps`
 - [x] Dashboard Phase 8: espectro PSD, topomaps IDW Canvas, bandpower por banda, comparativa
 - [x] Dashboard Phase 9: heatmap wPLI Canvas (reusa `_p9Colormap`), red de conectividad con posiciones EEG, band tabs
+- [x] **Phase 13 Evaluación Transversal** (tema #0891b2, 13 secciones):
+  - `scripts/run_transversal_analysis.jl`: lee `groups.csv` + wPLI individuales → genera archivos grupales
+  - Archivos: `group_connectivity_{ctrl|ms}_{band}.csv`, `group_difference_{band}.csv`, `group_statistics_{band}.csv`, `significant_edges_{band}.csv`, `band_statistics.csv`, `subject_inclusion.csv`, `subject_band_means.csv`, `transversal_summary.json`
+  - `/api/phase13_transversal` → matrices, edges, estadísticas, distribución, inclusión
+  - Dashboard: 3 heatmaps (ctrl/ms/diff divergente), red significativa, top edges, distribución SVG, tabla bandas, inclusión QC, 6 acciones
 - [x] Dashboard Phase 10 (tema #7c3aed, 13 secciones):
   - Config surrogates, métricas inferencia, estado fase, archivos generados
   - Heatmap observado, red significativa (solo edges sig., ancho/color por wPLI)
@@ -268,10 +275,11 @@ git push -u origin <rama>
 - `feat/phase7-ar-eeg-julia` — Phase 7 AR
 - `feat/phase8-spectral` — Phase 8 espectral
 - `feat/phase9-wpli` — Phase 9 conectividad wPLI
-- `feat/phase10-surrogates` — Phase 10 surrogates/inferencia ← **rama actual**
+- `feat/phase10-surrogates` — Phase 10 + Phase 13 transversal ← **rama actual**
 
 ### Pendiente / próximo
 - [ ] Dashboard paneles 11–12 (Resultados finales, Exportación/Reporte)
+- [ ] Dashboard panel 14 (Evaluación Longitudinal)
 - [ ] Push ramas feat/phase8, feat/phase9, feat/phase10 + PR a main
 - [ ] Tests de integración pipeline completo
 - [ ] GitHub Actions CI (syntax check + tests)
