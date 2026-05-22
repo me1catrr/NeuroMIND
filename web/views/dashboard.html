@@ -856,6 +856,32 @@ tr.row-warn:hover td { background: #fef9c3; }
 .p4-impact-bar-wrap { width: 52px; height: 5px; background: #e2e8f0; border-radius: 3px; overflow: hidden; }
 .p4-impact-bar { height: 100%; border-radius: 3px; }
 
+/* ── Phase 4: controles adicionales ───────────────────── */
+.p4-view-btn {
+  padding: 2px 8px; font-size: 10px; font-weight: 600;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: #fff; cursor: pointer; color: var(--text-2);
+  transition: all .15s;
+}
+.p4-view-btn:hover { border-color: var(--accent); color: var(--accent); }
+.p4-view-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.p4-stage-sel {
+  font-size: 11px; border: 1px solid var(--border); border-radius: 4px;
+  padding: 2px 6px; background: #fff; color: var(--text);
+}
+/* ── Phase 4: tarjeta compatibilidad ──────────────────── */
+.p4-compat-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 0; border-bottom: 1px solid #f4f6f8; font-size: 12px;
+}
+.p4-compat-row:last-child { border-bottom: none; }
+.p4-compat-key { flex: 1; color: var(--text-2); font-size: 11px; }
+.p4-compat-val { font-weight: 600; font-size: 11px; }
+.p4-cbadge { padding: 1px 7px; border-radius: 8px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.p4-cbadge-ok   { background: #dcfce7; color: #15803d; }
+.p4-cbadge-diff { background: #fef3c7; color: #b45309; }
+.p4-cbadge-pend { background: #f1f5f9; color: #64748b; }
+
 .band-power-row {
   display: flex; align-items: center; gap: 8px;
   padding: 5px 0; border-bottom: 1px solid #f4f6f8; font-size: 12px;
@@ -1906,11 +1932,19 @@ tr.row-warn:hover td { background: #fef9c3; }
       </div>
 
       <div class="card">
-        <div class="card-header">Respuesta en frecuencia del filtro (magnitud)</div>
+        <div class="card-header" style="flex-wrap:wrap;gap:5px">
+          Respuesta de filtro · Julia DSP
+          <span style="font-size:9px;color:var(--text-3);margin-right:auto">dB · 0–250 Hz</span>
+          <button class="p4-view-btn active" id="p4-filt-btn-comp"
+            onclick="setP4FilterView('composite')">Compuesta</button>
+          <button class="p4-view-btn" id="p4-filt-btn-indiv"
+            onclick="setP4FilterView('individual')">Individual</button>
+        </div>
         <div class="card-body" style="padding:10px">
-          <svg id="p4-filter-svg" style="width:100%;display:block" viewBox="0 0 360 200">
-            <text x="180" y="100" text-anchor="middle" fill="#94a3b8" font-size="12">Sin config de filtro</text>
+          <svg id="p4-filter-svg" style="width:100%;display:block" viewBox="0 0 360 210">
+            <text x="180" y="105" text-anchor="middle" fill="#94a3b8" font-size="12">Sin config de filtro</text>
           </svg>
+          <div id="p4-filter-legend" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:3px;font-size:9px;color:var(--text-3)"></div>
         </div>
       </div>
 
@@ -1939,6 +1973,40 @@ tr.row-warn:hover td { background: #fef9c3; }
               </li>
             </ul>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fila 4: PSD por etapas + Compatibilidad EEG_Julia -->
+    <div class="grid-6040" style="margin-bottom:14px">
+
+      <div class="card">
+        <div class="card-header" style="flex-wrap:wrap;gap:6px">
+          Comparativa PSD por etapa (Welch-Hamming · estilo EEG_Julia)
+          <select id="p4-stage-pair-sel" class="p4-stage-sel" onchange="drawP4StagesSVG()">
+            <option value="original,lowpass">Original vs Final filtrada</option>
+            <option value="original,notch">Original vs +Notch 50 Hz</option>
+            <option value="notch,bandreject">Notch vs +BR 100 Hz</option>
+            <option value="bandreject,highpass">BR vs +HP 0.5 Hz</option>
+            <option value="highpass,lowpass">HP vs +LP 150 Hz</option>
+          </select>
+          <button class="p4-view-btn" id="p4-stages-load-btn"
+            onclick="loadP4Stages()" style="margin-left:auto">Cargar PSD</button>
+        </div>
+        <div class="card-body" style="padding:10px">
+          <svg id="p4-stages-svg" style="width:100%;display:block" viewBox="0 0 360 195">
+            <text x="180" y="98" text-anchor="middle" fill="#94a3b8" font-size="11">
+              Haz clic en "Cargar PSD" para calcular la PSD por etapas de filtrado
+            </text>
+          </svg>
+          <div id="p4-stages-legend" style="display:flex;gap:16px;justify-content:center;margin-top:4px;font-size:10px"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">Compatibilidad EEG_Julia / BrainVision</div>
+        <div class="card-body" id="p4-compat">
+          <div class="spinner"><div class="spin-circle"></div></div>
         </div>
       </div>
     </div>
@@ -2794,8 +2862,10 @@ const API = {
   projectOverview:(s, se, c)       => API.get(`/api/project_overview?subj=${s}&sess=${se}&cond=${c}`),
   bidsMetadata:   (s, se, c)       => API.get(`/api/bids_metadata?subj=${s}&sess=${se}&cond=${c}`),
   filterConfig:   (s, se, c)       => API.get(`/api/filter_config?subj=${s}&sess=${se}&cond=${c}`),
+  filterResponse: ()               => API.get(`/api/filter_response`),
   channelSignal:  (s, se, c, ch, sec) => API.get(`/api/bids/channel_signal?subj=${s}&sess=${se}&cond=${c}&channel=${encodeURIComponent(ch)}&secs=${sec}`),
   channelPsd:     (s, se, c, ch)   => API.get(`/api/bids/channel_psd?subj=${s}&sess=${se}&cond=${c}&channel=${encodeURIComponent(ch)}`),
+  channelPsdStages: (s, se, c, ch) => API.get(`/api/bids/channel_psd_stages?subj=${s}&sess=${se}&cond=${c}&channel=${encodeURIComponent(ch)}`),
   bandPower:      (s, se, c)       => API.get(`/api/bids/band_power?subj=${s}&sess=${se}&cond=${c}`),
   phase2Info:     (s, se, c)       => API.get(`/api/phase2_info?subj=${s}&sess=${se}&cond=${c}`),
   phase5IcaInfo:  (s, se, c)       => API.get(`/api/phase5_ica_info?subj=${s}&sess=${se}&cond=${c}`),
@@ -5323,17 +5393,21 @@ async function loadPhase4() {
 
   _buildP4ChannelSelect();
 
-  const [cfgR, sigR, psdR, bpR] = await Promise.all([
+  const [cfgR, sigR, psdR, bpR, freqR] = await Promise.all([
     API.filterConfig(subj, sess, cond),
     API.channelSignal(subj, sess, cond, State.p4Channel, 10),
     API.channelPsd(subj, sess, cond, State.p4Channel),
     API.bandPower(subj, sess, cond),
+    API.filterResponse(),
   ]);
 
-  State.p4FilterCfg = cfgR.ok ? cfgR : null;
-  State.p4SigData   = sigR.ok ? sigR  : null;
-  State.p4PsdData   = psdR.ok ? psdR  : null;
-  State.p4BandData  = bpR.ok  ? bpR.rows : [];
+  State.p4FilterCfg  = cfgR.ok  ? cfgR  : null;
+  State.p4SigData    = sigR.ok  ? sigR   : null;
+  State.p4PsdData    = psdR.ok  ? psdR   : null;
+  State.p4BandData   = bpR.ok   ? bpR.rows : [];
+  State.p4FilterResp = freqR.ok ? freqR  : null;
+  State.p4FilterView = State.p4FilterView || 'composite';
+  State.p4StagesData = null;
 
   renderPhase4FilterTable(State.p4FilterCfg);
   renderPhase4SignalParams(State.p4FilterCfg);
@@ -5341,9 +5415,10 @@ async function loadPhase4() {
   renderPhase4PhaseStatus();
   drawPhase4SignalCanvas(State.p4SigData);
   drawPSDSVG(State.p4PsdData);
-  drawFilterResponseSVG(State.p4FilterCfg);
+  drawFilterResponseSVG(State.p4FilterResp, State.p4FilterCfg, State.p4FilterView);
   renderPhase4BandTable(State.p4BandData);
   renderPhase4Notes();
+  renderPhase4Compat(State.p4FilterCfg);
   renderPhase4Interpretation(State.p4SigData, State.p4PsdData);
 }
 
@@ -5369,8 +5444,9 @@ async function onP4ChannelChange() {
     API.channelSignal(subj, sess, cond, State.p4Channel, 10),
     API.channelPsd(subj, sess, cond, State.p4Channel),
   ]);
-  State.p4SigData = sigR.ok ? sigR  : null;
-  State.p4PsdData = psdR.ok ? psdR  : null;
+  State.p4SigData    = sigR.ok ? sigR : null;
+  State.p4PsdData    = psdR.ok ? psdR : null;
+  State.p4StagesData = null;  // invalidar etapas al cambiar canal
   drawPhase4SignalCanvas(State.p4SigData);
   drawPSDSVG(State.p4PsdData);
   renderPhase4Impact(State.p4PsdData);
@@ -5454,14 +5530,20 @@ function renderPhase4SignalParams(cfg) {
     ? '<span style="background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:700">eeg_julia</span>'
     : '<span style="background:#f3f4f6;color:#374151;padding:1px 6px;border-radius:4px;font-size:11px">' + profile + '</span>';
 
+  const brLabel = (cfg.bandreject_lo !== undefined && cfg.bandreject_hi !== undefined)
+    ? `${cfg.bandreject_lo}–${cfg.bandreject_hi}`
+    : '99.5–100.5';
+  const ordEff = cfg.filter_order ? cfg.filter_order * 2 : 8;
+
   el.innerHTML = infoRows([
-    ['Perfil',       profileLabel,                      ''],
-    ['HP cut-off',   cfg.highpass_hz.toFixed(1),        'Hz'],
-    ['LP cut-off',   cfg.lowpass_hz.toFixed(1),         'Hz'],
-    ['Notch',        cfg.notch_hz.toFixed(0),           'Hz'],
-    ['BW Notch',     cfg.notch_bw_hz.toFixed(1),        'Hz'],
-    ['Orden filtro', String(cfg.filter_order),          ''],
-    ['Método',       methodLabel,                       ''],
+    ['Perfil',            profileLabel,                                             ''],
+    ['HP cut-off',        cfg.highpass_hz.toFixed(1),                              'Hz'],
+    ['LP cut-off',        cfg.lowpass_hz.toFixed(1),                               'Hz'],
+    ['Notch',             `${cfg.notch_hz.toFixed(0)} ±${(cfg.notch_bw_hz/2).toFixed(1)}`, 'Hz'],
+    ['Bandreject 100 Hz', brLabel,                                                 'Hz'],
+    ['Orden diseño',      String(cfg.filter_order),                                '(todos)'],
+    ['Ord. efect. HP/LP', `<span style="font-weight:700;color:#2563eb">${ordEff}</span>`, '(filtfilt ×2)'],
+    ['Método',            methodLabel,                                              ''],
   ]);
 }
 
@@ -5645,7 +5727,7 @@ function drawPhase4SignalCanvas(sigData) {
   if (infoEl) infoEl.textContent = `${sigData.channel} · ${sigData.n_secs}s · ${nT} pts`;
 }
 
-// ─ PSD log-scale SVG ────────────────────────────────
+// ─ PSD log-scale SVG (fMax = 160 Hz, muestra BR@100 y LP@150) ─
 function drawPSDSVG(psdData) {
   const svg = document.getElementById('p4-psd-svg');
   if (!svg) return;
@@ -5657,7 +5739,7 @@ function drawPSDSVG(psdData) {
   const W = 360, H = 210;
   const pl = 46, pr = 10, pt = 14, pb = 32;
   const pw = W - pl - pr, ph = H - pt - pb;
-  const fMin = 0.3, fMax = 50;
+  const fMin = 0.3, fMax = 160;   // extendido hasta 160 Hz (muestra BR@100, LP@150)
 
   const rawF = psdData.raw_freqs,  rawP = psdData.raw_power;
   const fltF = psdData.filt_freqs, fltP = psdData.filt_power;
@@ -5670,26 +5752,26 @@ function drawPSDSVG(psdData) {
   const logMin = Math.floor(Math.log10(Math.min(...allP)) - 0.3);
   const logMax = Math.ceil(Math.log10(Math.max(...allP))  + 0.3);
 
-  const xS = f  => pl + ((f - fMin) / (fMax - fMin)) * pw;
-  const yS = v  => { if (v <= 0) return pt + ph; const lv = Math.log10(v); return pt + ph * (1 - (lv - logMin) / (logMax - logMin)); };
+  const xS = f => pl + ((f - fMin) / (fMax - fMin)) * pw;
+  const yS = v => { if (v <= 0) return pt + ph; const lv = Math.log10(v); return pt + ph * (1 - (lv - logMin) / (logMax - logMin)); };
 
   let c = '';
 
-  // Band shading
+  // Band shading (0–50 Hz zona fisiológica)
   [
     { name:'δ', lo:0.5, hi:4,  col:'#dbeafe' },
     { name:'θ', lo:4,   hi:8,  col:'#e0e7ff' },
     { name:'α', lo:8,   hi:13, col:'#d1fae5' },
     { name:'β', lo:13,  hi:30, col:'#fef9c3' },
-    { name:'γ', lo:30,  hi:48, col:'#fce7f3' },
+    { name:'γ', lo:30,  hi:50, col:'#fce7f3' },
   ].forEach(b => {
     const x1 = Math.max(pl, xS(b.lo)), x2 = Math.min(pl + pw, xS(b.hi));
     if (x2 <= x1) return;
-    c += `<rect x="${x1.toFixed(1)}" y="${pt}" width="${(x2-x1).toFixed(1)}" height="${ph}" fill="${b.col}" opacity="0.65"/>`;
-    c += `<text x="${((x1+x2)/2).toFixed(1)}" y="${(pt+9).toFixed(1)}" text-anchor="middle" font-size="8" fill="#64748b" font-family="sans-serif">${b.name}</text>`;
+    c += `<rect x="${x1.toFixed(1)}" y="${pt}" width="${(x2-x1).toFixed(1)}" height="${ph}" fill="${b.col}" opacity="0.55"/>`;
+    c += `<text x="${((x1+x2)/2).toFixed(1)}" y="${(pt+9).toFixed(1)}" text-anchor="middle" font-size="7.5" fill="#64748b" font-family="sans-serif">${b.name}</text>`;
   });
 
-  // Grid (horizontal, log decades)
+  // Grid horizontal (log decades)
   for (let l = logMin; l <= logMax; l++) {
     const y = yS(Math.pow(10, l));
     if (y < pt || y > pt + ph) continue;
@@ -5697,7 +5779,18 @@ function drawPSDSVG(psdData) {
     c += `<text x="${(pl-3).toFixed(1)}" y="${y.toFixed(1)}" text-anchor="end" dominant-baseline="middle" font-size="7.5" fill="#94a3b8" font-family="sans-serif">10^${l}</text>`;
   }
 
-  // Helper: build SVG path from freq+power arrays
+  // Marcadores verticales de filtros
+  const vMark = (f, color, lbl) => {
+    const x = xS(f);
+    if (x < pl || x > pl + pw) return;
+    c += `<line x1="${x.toFixed(1)}" y1="${pt}" x2="${x.toFixed(1)}" y2="${pt+ph}" stroke="${color}" stroke-width="0.9" stroke-dasharray="4,3" opacity="0.7"/>`;
+    c += `<text x="${x.toFixed(1)}" y="${(pt+ph+22).toFixed(1)}" text-anchor="middle" font-size="7.5" fill="${color}" font-family="sans-serif">${lbl}</text>`;
+  };
+  vMark(50,  '#f59e0b', 'Notch');
+  vMark(100, '#ef4444', 'BR');
+  vMark(150, '#8b5cf6', 'LP');
+
+  // Helper: traza SVG path
   function svgPath(freqs, power, color, dash) {
     const pts = [];
     freqs.forEach((f, i) => {
@@ -5713,113 +5806,211 @@ function drawPSDSVG(psdData) {
   c += svgPath(rawF, rawP, '#94a3b8', '5,3');
   c += svgPath(fltF, fltP, '#2563eb', '');
 
-  // Axes
+  // Ejes
   c += `<line x1="${pl}" y1="${pt}" x2="${pl}" y2="${pt+ph}" stroke="#cbd5e1" stroke-width="1"/>`;
   c += `<line x1="${pl}" y1="${pt+ph}" x2="${pl+pw}" y2="${pt+ph}" stroke="#cbd5e1" stroke-width="1"/>`;
 
-  // X ticks
-  [1,4,8,13,20,30,40,50].forEach(f => {
+  // Ticks X (Hz)
+  [1,4,8,13,20,30,50,75,100,125,150,160].forEach(f => {
     if (f < fMin || f > fMax) return;
     const x = xS(f).toFixed(1);
     c += `<line x1="${x}" y1="${pt+ph}" x2="${x}" y2="${pt+ph+4}" stroke="#cbd5e1" stroke-width="1"/>`;
-    c += `<text x="${x}" y="${pt+ph+14}" text-anchor="middle" font-size="8.5" fill="#94a3b8" font-family="sans-serif">${f}</text>`;
+    c += `<text x="${x}" y="${pt+ph+13}" text-anchor="middle" font-size="7.5" fill="#94a3b8" font-family="sans-serif">${f}</text>`;
   });
 
-  // Axis labels
-  c += `<text x="${(pl+pw/2).toFixed(1)}" y="${H-2}" text-anchor="middle" font-size="9" fill="#64748b" font-family="sans-serif">Frecuencia (Hz)</text>`;
+  // Etiquetas de ejes
+  c += `<text x="${(pl+pw/2).toFixed(1)}" y="${H-1}" text-anchor="middle" font-size="9" fill="#64748b" font-family="sans-serif">Frecuencia (Hz)</text>`;
   c += `<text x="9" y="${(pt+ph/2).toFixed(1)}" text-anchor="middle" font-size="9" fill="#64748b" font-family="sans-serif" transform="rotate(-90,9,${(pt+ph/2).toFixed(1)})">μV²/Hz (log)</text>`;
 
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.innerHTML = c;
 }
 
-// ─ Respuesta en frecuencia del filtro (SVG) ──────────
-function drawFilterResponseSVG(cfg) {
+// ─ Selector de vista de respuesta de filtro ──────────
+function setP4FilterView(view) {
+  State.p4FilterView = view;
+  document.getElementById('p4-filt-btn-comp')?.classList.toggle('active', view === 'composite');
+  document.getElementById('p4-filt-btn-indiv')?.classList.toggle('active', view === 'individual');
+  drawFilterResponseSVG(State.p4FilterResp, State.p4FilterCfg, view);
+}
+
+// ─ Respuesta real de filtro (datos Julia DSP · dB · 0–250 Hz) ─
+// freqData: respuesta de /api/filter_response (Julia DSP.freqresp)
+// cfg:      /api/filter_config (fallback para marcadores)
+// view:     'composite' | 'individual'
+function drawFilterResponseSVG(freqData, cfg, view) {
   const svg = document.getElementById('p4-filter-svg');
   if (!svg) return;
-  if (!cfg) {
-    svg.innerHTML = '<text x="180" y="100" text-anchor="middle" fill="#94a3b8" font-size="12">Sin config de filtro</text>';
-    return;
+
+  // Si hay datos reales de Julia → usarlos; si no → aproximación JS
+  if (freqData?.ok) {
+    _drawFilterSVGfromJulia(svg, freqData, view || 'composite');
+  } else {
+    _drawFilterSVGapprox(svg, cfg);
   }
+}
 
-  const W = 360, H = 200;
-  const pl = 44, pr = 10, pt = 14, pb = 30;
+// ─ Dibujo desde datos reales Julia DSP (dB, 0–250 Hz) ──────────
+function _drawFilterSVGfromJulia(svg, data, view) {
+  const W = 360, H = 210;
+  const pl = 48, pr = 10, pt = 14, pb = 32;
   const pw = W - pl - pr, ph = H - pt - pb;
-  const hp = cfg.highpass_hz, lp = cfg.lowpass_hz;
-  const nz = cfg.notch_hz,    nbw = cfg.notch_bw_hz;
-  const ord = cfg.filter_order, fMax = 65;
+  const fMin = 0, fMax = data.fs / 2;           // 0–250 Hz
+  const dbMin = -80, dbMax = 6;
 
-  // Butterworth magnitude (filtfilt doubles the roll-off order)
-  const bwHP = (f, fc, n) => f <= 0 ? 0 : 1 / (1 + Math.pow(fc / f, 2 * n));
-  const bwLP = (f, fc, n)  => 1 / (1 + Math.pow(f / fc, 2 * n));
-  const bwNZ = (f, fz, bw, n) => {
-    if (Math.abs(f - fz) < bw * 0.08) return 0.005;
-    const Q = fz / bw;
-    const omega = Math.abs(Q * (f / fz - fz / f));
-    return 1 / (1 + Math.pow(1 / omega, 2 * n));
-  };
+  const xS  = f  => pl + ((f - fMin) / (fMax - fMin)) * pw;
+  const yS  = db => pt + ph * (1 - (Math.max(dbMin, Math.min(dbMax, db)) - dbMin) / (dbMax - dbMin));
+  const clamp = db => Math.max(dbMin, Math.min(dbMax, db));
 
-  const nPts = 400;
-  const freqs = Array.from({ length: nPts }, (_, i) => 0.05 + (fMax - 0.05) * i / (nPts - 1));
-  const responses = freqs.map(f =>
-    Math.sqrt(bwHP(f, hp, ord) * bwLP(f, lp, ord) * (nz > 0 ? bwNZ(f, nz, nbw, 2) : 1))
-  );
-
-  const xS = f => pl + ((f - 0.05) / (fMax - 0.05)) * pw;
-  const yS = v => pt + ph * (1 - Math.max(0, Math.min(1, v)));
+  const freqs = data.freqs;
+  const mk    = data.markers;
 
   let c = '';
 
-  // Pass-band shading
-  const x1 = xS(hp).toFixed(1), x2 = Math.min(pl + pw, xS(lp)).toFixed(1);
-  c += `<rect x="${x1}" y="${pt}" width="${(parseFloat(x2) - parseFloat(x1)).toFixed(1)}" height="${ph}" fill="#dbeafe" opacity="0.45"/>`;
-  c += `<text x="${((parseFloat(x1)+parseFloat(x2))/2).toFixed(1)}" y="${pt+11}" text-anchor="middle" font-size="8" fill="#3b82f6" font-family="sans-serif">Banda señal</text>`;
+  // Zona de paso (HP → LP)
+  const xhp = xS(mk.highpass_hz), xlp = xS(mk.lowpass_hz);
+  c += `<rect x="${xhp.toFixed(1)}" y="${pt}" width="${(xlp-xhp).toFixed(1)}" height="${ph}" fill="#dbeafe" opacity="0.35"/>`;
+  c += `<text x="${((xhp+xlp)/2).toFixed(1)}" y="${(pt+10).toFixed(1)}" text-anchor="middle" font-size="8" fill="#3b82f6" font-family="sans-serif">Banda señal</text>`;
 
-  // Grid (horizontal)
-  [0, 0.25, 0.5, 0.75, 1].forEach(f => {
-    const y = yS(f).toFixed(1);
-    c += `<line x1="${pl}" y1="${y}" x2="${pl+pw}" y2="${y}" stroke="#f1f5f9" stroke-width="0.7"/>`;
-    c += `<text x="${pl-3}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="8" fill="#94a3b8" font-family="sans-serif">${Math.round(f*100)}%</text>`;
+  // Grid horizontal dB
+  [-60,-40,-20,-10,-6,-3,0].forEach(db => {
+    const y = yS(db).toFixed(1);
+    const isMinus3 = db === -3;
+    c += `<line x1="${pl}" y1="${y}" x2="${pl+pw}" y2="${y}" stroke="${isMinus3?'#f59e0b':'#f1f5f9'}" stroke-width="${isMinus3?0.9:0.6}" stroke-dasharray="${isMinus3?'4,3':''}"/>`;
+    c += `<text x="${(pl-3).toFixed(1)}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="7.5" fill="${isMinus3?'#f59e0b':'#94a3b8'}" font-family="sans-serif">${db}</text>`;
   });
+  c += `<text x="${(pl-3).toFixed(1)}" y="${(pt+3).toFixed(1)}" text-anchor="end" dominant-baseline="middle" font-size="6.5" fill="#f59e0b" font-family="sans-serif">−3</text>`;
 
-  // Response curve
-  const d = freqs.map((f, i) => `${i===0?'M':'L'}${xS(f).toFixed(1)},${yS(responses[i]).toFixed(1)}`).join(' ');
-  c += `<path d="${d}" fill="none" stroke="#2563eb" stroke-width="1.8"/>`;
+  // Construir path desde array de dB
+  function mkPath(magDb, color, dash, lw) {
+    const pts = magDb.map((db, i) => {
+      const f = freqs[i];
+      if (f < fMin || f > fMax) return null;
+      return `${i===0||freqs[i-1]<fMin?'M':'L'}${xS(f).toFixed(1)},${yS(db).toFixed(1)}`;
+    }).filter(Boolean);
+    if (!pts.length) return '';
+    const da = dash ? `stroke-dasharray="${dash}"` : '';
+    return `<path d="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="${lw||1.5}" ${da}/>`;
+  }
 
-  // -3 dB line
-  const y3db = yS(1 / Math.sqrt(2)).toFixed(1);
-  c += `<line x1="${pl}" y1="${y3db}" x2="${pl+pw}" y2="${y3db}" stroke="#f59e0b" stroke-width="0.8" stroke-dasharray="4,3"/>`;
-  c += `<text x="${pl+4}" y="${parseFloat(y3db)-3}" font-size="8" fill="#f59e0b" font-family="sans-serif">−3 dB</text>`;
-
-  // Vertical markers
-  const vMark = (f, color, label) => {
-    const x = xS(f).toFixed(1);
-    if (parseFloat(x) < pl || parseFloat(x) > pl + pw) return;
-    c += `<line x1="${x}" y1="${pt}" x2="${x}" y2="${pt+ph}" stroke="${color}" stroke-width="1" stroke-dasharray="4,3" opacity="0.75"/>`;
-    c += `<text x="${x}" y="${pt+ph+18}" text-anchor="middle" font-size="8" fill="${color}" font-family="sans-serif">${label}</text>`;
+  const COLORS = {
+    'Notch':      '#f59e0b',
+    'Bandreject': '#ef4444',
+    'High-pass':  '#16a34a',
+    'Low-pass':   '#8b5cf6',
+    'composite':  '#2563eb',
   };
-  vMark(hp, '#ef4444', `${hp}Hz`);
-  vMark(lp, '#8b5cf6', `${lp}Hz`);
-  if (nz > 0) vMark(nz, '#f59e0b', `${nz}Hz`);
+  const DASHES = { 'Notch':'6,3', 'Bandreject':'3,3', 'High-pass':'', 'Low-pass':'' };
 
-  // Axes
+  if (view === 'individual') {
+    Object.entries(data.individual).forEach(([name, flt]) => {
+      c += mkPath(flt.mag_db, COLORS[name] || '#64748b', DASHES[name] || '', 1.4);
+    });
+    // Legend
+    const leg = document.getElementById('p4-filter-legend');
+    if (leg) leg.innerHTML = Object.entries(COLORS).filter(([k])=>k!=='composite').map(([k,col])=>
+      `<span style="color:${col}">— ${k}</span>`).join(' ');
+  } else {
+    c += mkPath(data.composite.mag_db, COLORS.composite, '', 2);
+    const leg = document.getElementById('p4-filter-legend');
+    if (leg) leg.innerHTML = `<span style="color:#2563eb">— Cadena completa (Notch·BR·HP·LP)</span>`;
+  }
+
+  // Marcadores verticales de los 4 filtros
+  const vMark = (f, color, lbl, yOff) => {
+    const x = xS(f);
+    if (x < pl || x > pl + pw) return;
+    c += `<line x1="${x.toFixed(1)}" y1="${pt}" x2="${x.toFixed(1)}" y2="${pt+ph}" stroke="${color}" stroke-width="1" stroke-dasharray="3,3" opacity="0.8"/>`;
+    c += `<text x="${x.toFixed(1)}" y="${(pt+ph+(yOff||18)).toFixed(1)}" text-anchor="middle" font-size="7.5" fill="${color}" font-family="sans-serif">${lbl}</text>`;
+  };
+  vMark(mk.highpass_hz,    '#16a34a', `HP\n${mk.highpass_hz}Hz`, 15);
+  vMark(mk.notch_hz,       '#f59e0b', `N\n${mk.notch_hz}Hz`,     23);
+  vMark(mk.bandreject_lo + (mk.bandreject_hi - mk.bandreject_lo)/2, '#ef4444', `BR\n100Hz`, 15);
+  vMark(mk.lowpass_hz,     '#8b5cf6', `LP\n${mk.lowpass_hz}Hz`,  23);
+
+  // Ejes
   c += `<line x1="${pl}" y1="${pt}" x2="${pl}" y2="${pt+ph}" stroke="#cbd5e1" stroke-width="1"/>`;
   c += `<line x1="${pl}" y1="${pt+ph}" x2="${pl+pw}" y2="${pt+ph}" stroke="#cbd5e1" stroke-width="1"/>`;
 
-  // X ticks
-  [0,10,20,30,40,50,60].forEach(f => {
-    const x = xS(f).toFixed(1);
-    if (parseFloat(x) < pl || parseFloat(x) > pl + pw) return;
-    c += `<line x1="${x}" y1="${pt+ph}" x2="${x}" y2="${pt+ph+4}" stroke="#cbd5e1" stroke-width="1"/>`;
-    c += `<text x="${x}" y="${pt+ph+12}" text-anchor="middle" font-size="8.5" fill="#94a3b8" font-family="sans-serif">${f}</text>`;
+  // Ticks X
+  [0,10,25,50,75,100,125,150,200,250].forEach(f => {
+    const x = xS(f);
+    if (x < pl || x > pl + pw) return;
+    c += `<line x1="${x.toFixed(1)}" y1="${pt+ph}" x2="${x.toFixed(1)}" y2="${pt+ph+4}" stroke="#cbd5e1" stroke-width="1"/>`;
+    c += `<text x="${x.toFixed(1)}" y="${pt+ph+12}" text-anchor="middle" font-size="7.5" fill="#94a3b8" font-family="sans-serif">${f}</text>`;
   });
 
-  // Labels
+  // Etiquetas de ejes
   c += `<text x="${(pl+pw/2).toFixed(1)}" y="${H-1}" text-anchor="middle" font-size="9" fill="#64748b" font-family="sans-serif">Frecuencia (Hz)</text>`;
-  c += `<text x="9" y="${(pt+ph/2).toFixed(1)}" text-anchor="middle" font-size="9" fill="#64748b" font-family="sans-serif" transform="rotate(-90,9,${(pt+ph/2).toFixed(1)})">Magnitud</text>`;
+  c += `<text x="10" y="${(pt+ph/2).toFixed(1)}" text-anchor="middle" font-size="9" fill="#64748b" font-family="sans-serif" transform="rotate(-90,10,${(pt+ph/2).toFixed(1)})">Magnitud (dB)</text>`;
 
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.innerHTML = c;
+}
+
+// ─ Fallback: aproximación JS si el endpoint Julia no está disponible ──
+function _drawFilterSVGapprox(svg, cfg) {
+  if (!cfg) {
+    svg.innerHTML = '<text x="180" y="105" text-anchor="middle" fill="#94a3b8" font-size="12">Sin config de filtro</text>';
+    return;
+  }
+  const W = 360, H = 210;
+  const pl = 48, pr = 10, pt = 14, pb = 32;
+  const pw = W - pl - pr, ph = H - pt - pb;
+  const hp = cfg.highpass_hz, lp = cfg.lowpass_hz;
+  const nz = cfg.notch_hz,    nbw = cfg.notch_bw_hz;
+  const lo = cfg.bandreject_lo || 99.5, hi = cfg.bandreject_hi || 100.5;
+  const ord = cfg.filter_order || 4;
+  const fMax = 250;   // extendido al Nyquist
+
+  const bwHP = (f, fc, n) => f <= 0 ? 0 : 1 / (1 + Math.pow(fc/f,  2*n));
+  const bwLP = (f, fc, n) => 1 / (1 + Math.pow(f/fc,  2*n));
+  const bwBS = (f, fz, bw, n) => {
+    if (Math.abs(f-fz) < bw*0.05) return 0;
+    const Q = fz/bw, om = Math.abs(Q*(f/fz - fz/f));
+    return 1/(1 + Math.pow(1/om, 2*n));
+  };
+
+  const nPts = 512;
+  const freqs = Array.from({length:nPts}, (_, i) => 0.05 + (fMax-0.05)*i/(nPts-1));
+  const mags  = freqs.map(f =>
+    bwHP(f,hp,ord) * bwLP(f,lp,ord) *
+    (nz > 0 ? bwBS(f,nz,nbw,2) : 1) *
+    bwBS(f,(lo+hi)/2,hi-lo,2)
+  );
+  const dbMin = -80, dbMax = 6;
+  const xS = f  => pl + (f / fMax) * pw;
+  const yS = v  => { const db = v > 0 ? 20*Math.log10(v) : dbMin; return pt + ph*(1-(Math.max(dbMin,Math.min(dbMax,db))-dbMin)/(dbMax-dbMin)); };
+
+  let c = '';
+  // Grid dB
+  [-60,-40,-20,-10,-6,-3,0].forEach(db => {
+    const y = (pt + ph*(1-(db-dbMin)/(dbMax-dbMin))).toFixed(1);
+    c += `<line x1="${pl}" y1="${y}" x2="${pl+pw}" y2="${y}" stroke="${db===-3?'#f59e0b':'#f1f5f9'}" stroke-width="${db===-3?.8:.6}" stroke-dasharray="${db===-3?'4,3':''}"/>`;
+    c += `<text x="${pl-3}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="7.5" fill="${db===-3?'#f59e0b':'#94a3b8'}" font-family="sans-serif">${db}</text>`;
+  });
+  const d = freqs.map((f,i)=>`${i===0?'M':'L'}${xS(f).toFixed(1)},${yS(mags[i]).toFixed(1)}`).join(' ');
+  c += `<path d="${d}" fill="none" stroke="#2563eb" stroke-width="1.8"/>`;
+  // Marcadores
+  [[hp,'#16a34a',`HP`],[nz,'#f59e0b','N'],[(lo+hi)/2,'#ef4444','BR'],[lp,'#8b5cf6','LP']].forEach(([f,col,lbl])=>{
+    const x = xS(f);
+    if (x<pl||x>pl+pw) return;
+    c += `<line x1="${x.toFixed(1)}" y1="${pt}" x2="${x.toFixed(1)}" y2="${pt+ph}" stroke="${col}" stroke-width="1" stroke-dasharray="3,3" opacity="0.8"/>`;
+    c += `<text x="${x.toFixed(1)}" y="${pt+ph+14}" text-anchor="middle" font-size="7.5" fill="${col}" font-family="sans-serif">${lbl}</text>`;
+  });
+  c += `<line x1="${pl}" y1="${pt}" x2="${pl}" y2="${pt+ph}" stroke="#cbd5e1" stroke-width="1"/>`;
+  c += `<line x1="${pl}" y1="${pt+ph}" x2="${pl+pw}" y2="${pt+ph}" stroke="#cbd5e1" stroke-width="1"/>`;
+  [0,25,50,100,150,200,250].forEach(f => {
+    const x = xS(f).toFixed(1);
+    c += `<line x1="${x}" y1="${pt+ph}" x2="${x}" y2="${pt+ph+4}" stroke="#cbd5e1" stroke-width="1"/>`;
+    c += `<text x="${x}" y="${pt+ph+12}" text-anchor="middle" font-size="7.5" fill="#94a3b8" font-family="sans-serif">${f}</text>`;
+  });
+  c += `<text x="${(pl+pw/2).toFixed(1)}" y="${H-1}" text-anchor="middle" font-size="9" fill="#64748b" font-family="sans-serif">Frecuencia (Hz) · aproximación JS</text>`;
+  c += `<text x="10" y="${(pt+ph/2).toFixed(1)}" text-anchor="middle" font-size="9" fill="#64748b" font-family="sans-serif" transform="rotate(-90,10,${(pt+ph/2).toFixed(1)})">Magnitud (dB)</text>`;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = c;
+  const leg = document.getElementById('p4-filter-legend');
+  if (leg) leg.innerHTML = '<span style="color:#f59e0b;font-size:10px">⚠ Aproximación JS — inicia el dashboard para respuesta real Julia DSP</span>';
 }
 
 // ─ Potencia por banda ───────────────────────────────
@@ -5902,6 +6093,167 @@ function renderPhase4Interpretation(sigData, psdData) {
       `Advertencia: solo se conserva el ${sb.toFixed(1)}% de potencia en banda señal. ` +
       `Verifica que los parámetros de filtro sean adecuados para esta señal EEG.`;
   }
+}
+
+// ─ PSD por etapas: carga desde Julia ────────────────
+async function loadP4Stages() {
+  const btn = document.getElementById('p4-stages-load-btn');
+  const svg = document.getElementById('p4-stages-svg');
+  if (!State.subj || !State.sess) return;
+  if (btn) { btn.textContent = 'Calculando…'; btn.disabled = true; }
+  if (svg) svg.innerHTML = '<text x="180" y="98" text-anchor="middle" fill="#94a3b8" font-size="11">Calculando PSD (Welch-Hamming)…</text>';
+
+  try {
+    const { subj, sess, cond } = State;
+    const r = await API.channelPsdStages(subj, sess, cond, State.p4Channel || 'Cz');
+    State.p4StagesData = r.ok ? r : null;
+    drawP4StagesSVG();
+  } catch(e) {
+    if (svg) svg.innerHTML = `<text x="180" y="98" text-anchor="middle" fill="#ef4444" font-size="11">Error: ${e.message}</text>`;
+  } finally {
+    if (btn) { btn.textContent = 'Cargar PSD'; btn.disabled = false; }
+  }
+}
+
+// ─ Dibuja PSD comparativa de dos etapas ─────────────
+function drawP4StagesSVG() {
+  const svg  = document.getElementById('p4-stages-svg');
+  const leg  = document.getElementById('p4-stages-legend');
+  if (!svg) return;
+
+  const data = State.p4StagesData;
+  if (!data?.ok) return;
+
+  const pairVal = document.getElementById('p4-stage-pair-sel')?.value || 'original,lowpass';
+  const [kA, kB] = pairVal.split(',');
+
+  const LABELS = {
+    original:'Original', notch:'Notch 50 Hz',
+    bandreject:'Notch + BR 100 Hz', highpass:'Notch+BR+HP 0.5 Hz', lowpass:'Final (LP 150 Hz)',
+  };
+  const pA = data.stages[kA], pB = data.stages[kB];
+  if (!pA || !pB) {
+    svg.innerHTML = `<text x="180" y="98" text-anchor="middle" fill="#94a3b8" font-size="11">Etapas no disponibles</text>`;
+    return;
+  }
+
+  const freqs = data.freqs;
+  const W = 360, H = 195;
+  const pl = 46, pr = 10, pt = 14, pb = 32;
+  const pw = W - pl - pr, ph = H - pt - pb;
+  const fMin = 0.3, fMax = 250;
+
+  const allP = [...pA, ...pB].filter(v => v > 0);
+  if (!allP.length) { svg.innerHTML = '<text x="180" y="98" text-anchor="middle" fill="#94a3b8" font-size="11">Sin potencia</text>'; return; }
+
+  const logMin = Math.floor(Math.log10(Math.min(...allP)) - 0.3);
+  const logMax = Math.ceil(Math.log10(Math.max(...allP))  + 0.3);
+  const xS = f => pl + ((f - fMin) / (fMax - fMin)) * pw;
+  const yS = v => { if (v <= 0) return pt + ph; const lv = Math.log10(v); return pt + ph*(1-(lv-logMin)/(logMax-logMin)); };
+
+  let c = '';
+
+  // Grid log dB
+  for (let l = logMin; l <= logMax; l++) {
+    const y = yS(Math.pow(10, l));
+    if (y < pt || y > pt+ph) continue;
+    c += `<line x1="${pl}" y1="${y.toFixed(1)}" x2="${pl+pw}" y2="${y.toFixed(1)}" stroke="#e2e8f0" stroke-width="0.6"/>`;
+    c += `<text x="${(pl-3).toFixed(1)}" y="${y.toFixed(1)}" text-anchor="end" dominant-baseline="middle" font-size="7" fill="#94a3b8" font-family="sans-serif">10^${l}</text>`;
+  }
+
+  // Marcadores de filtros
+  [[50,'#f59e0b','N'],[100,'#ef4444','BR'],[150,'#8b5cf6','LP']].forEach(([f,col,lbl])=>{
+    const x = xS(f);
+    if (x<pl||x>pl+pw) return;
+    c += `<line x1="${x.toFixed(1)}" y1="${pt}" x2="${x.toFixed(1)}" y2="${pt+ph}" stroke="${col}" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.7"/>`;
+    c += `<text x="${x.toFixed(1)}" y="${pt+ph+20}" text-anchor="middle" font-size="7.5" fill="${col}" font-family="sans-serif">${lbl}</text>`;
+  });
+
+  // Curvas de PSD
+  function mkPath(ps, color, dash) {
+    const pts = freqs.map((f, i) => {
+      if (f < fMin || f > fMax || ps[i] <= 0) return null;
+      return `${i===0?'M':'L'}${xS(f).toFixed(1)},${yS(ps[i]).toFixed(1)}`;
+    }).filter(Boolean);
+    if (!pts.length) return '';
+    const da = dash ? `stroke-dasharray="${dash}"` : '';
+    return `<path d="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.4" ${da}/>`;
+  }
+  c += mkPath(pA, '#94a3b8', '5,3');
+  c += mkPath(pB, '#2563eb', '');
+
+  // Ejes
+  c += `<line x1="${pl}" y1="${pt}" x2="${pl}" y2="${pt+ph}" stroke="#cbd5e1" stroke-width="1"/>`;
+  c += `<line x1="${pl}" y1="${pt+ph}" x2="${pl+pw}" y2="${pt+ph}" stroke="#cbd5e1" stroke-width="1"/>`;
+
+  // Ticks X
+  [1,4,8,13,20,50,100,150,200,250].forEach(f => {
+    const x = xS(f);
+    if (x<pl||x>pl+pw) return;
+    c += `<line x1="${x.toFixed(1)}" y1="${pt+ph}" x2="${x.toFixed(1)}" y2="${pt+ph+4}" stroke="#cbd5e1" stroke-width="1"/>`;
+    c += `<text x="${x.toFixed(1)}" y="${pt+ph+12}" text-anchor="middle" font-size="7.5" fill="#94a3b8" font-family="sans-serif">${f}</text>`;
+  });
+
+  c += `<text x="${(pl+pw/2).toFixed(1)}" y="${H-1}" text-anchor="middle" font-size="9" fill="#64748b" font-family="sans-serif">Frecuencia (Hz)</text>`;
+  c += `<text x="10" y="${(pt+ph/2).toFixed(1)}" text-anchor="middle" font-size="9" fill="#64748b" font-family="sans-serif" transform="rotate(-90,10,${(pt+ph/2).toFixed(1)})">μV²/Hz (log)</text>`;
+
+  // Info método
+  c += `<text x="${pl+pw}" y="${pt+8}" text-anchor="end" font-size="7" fill="#94a3b8" font-family="sans-serif">Welch-Hamming · nfft=N · ${data.n_pts} muestras</text>`;
+
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = c;
+
+  if (leg) leg.innerHTML =
+    `<span style="color:#94a3b8">— — ${LABELS[kA]||kA}</span>` +
+    `<span style="color:#2563eb">— ${LABELS[kB]||kB}</span>`;
+}
+
+// ─ Tarjeta compatibilidad EEG_Julia / BrainVision ───
+function renderPhase4Compat(cfg) {
+  const el = document.getElementById('p4-compat');
+  if (!el) return;
+
+  const profile = cfg?.profile || '—';
+  const isEEGJ  = profile === 'eeg_julia';
+
+  const row = (key, val, badge, cls) =>
+    `<div class="p4-compat-row">
+      <span class="p4-compat-key">${key}</span>
+      <span class="p4-cbadge p4-cbadge-${cls}">${badge}</span>
+      <span class="p4-compat-val" style="font-size:10px;color:var(--text-3)">${val}</span>
+    </div>`;
+
+  el.innerHTML = [
+    row('Perfil activo',
+        isEEGJ ? 'eeg_julia' : (profile || 'default'),
+        isEEGJ ? '✓ Activo' : '⚠ No activo',
+        isEEGJ ? 'ok' : 'diff'),
+    row('Notch 50 Hz · orden 4 · filt',
+        isEEGJ ? 'causal, bw 1 Hz' : 'filtfilt (legacy)',
+        isEEGJ ? '✓' : '≠', isEEGJ ? 'ok' : 'diff'),
+    row('Bandreject 100 Hz · orden 4 · filt',
+        isEEGJ ? '99.5–100.5 Hz' : 'no activo o filtfilt',
+        isEEGJ ? '✓' : '≠', isEEGJ ? 'ok' : 'diff'),
+    row('HP 0.5 Hz · ord. diseño 4 · filtfilt',
+        isEEGJ ? 'ord. efectivo 8' : '—',
+        isEEGJ ? '✓' : '—', isEEGJ ? 'ok' : 'pend'),
+    row('LP 150 Hz · ord. diseño 4 · filtfilt',
+        isEEGJ ? 'ord. efectivo 8' : '—',
+        isEEGJ ? '✓' : '—', isEEGJ ? 'ok' : 'pend'),
+    row('PSD (espectral)',
+        'Hanning vs Hamming · nfft diferente',
+        '~ Aprox', 'diff'),
+    row('CSD pre-filtrado',
+        'EEG_Julia: sí  ·  NeuroMIND: no (use_csd=false)',
+        '≠ Diferencia', 'diff'),
+    row('Orden cadena',
+        isEEGJ ? 'N→BR→HP→LP (idéntico)' : 'HP→LP→N→BR',
+        isEEGJ ? '✓' : '≠', isEEGJ ? 'ok' : 'diff'),
+  ].join('') +
+  `<div style="margin-top:8px;padding:6px 0;border-top:1px solid var(--border);font-size:10px;color:var(--text-3)">
+    BrainVision Analyzer: filtros FIR/IIR con parámetros propietarios.<br>
+    NeuroMIND replica el diseño Butterworth IIR de EEG_Julia, <em>no</em> el filtro BrainVision directamente.
+  </div>`;
 }
 
 // ═══════════════════════════════════════════════════

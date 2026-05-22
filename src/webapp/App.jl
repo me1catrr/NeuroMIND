@@ -168,6 +168,166 @@ function launch_webapp(cfg::PipelineConfig;
                   "filter_order"   => ord))
     end
 
+    # ─── API: respuesta real de filtros (DSP.freqresp) ──────────
+    # Devuelve magnitud en dB para cada filtro individual y la cadena compuesta.
+    # Método: filt → |H(ω)|, filtfilt → |H(ω)|² (fase cero, orden efectivo doble).
+    route("/api/filter_response") do
+        flt_cfg = cfg.filtering
+        profile = get(flt_cfg, "profile", "default")
+        hp      = Float64(get(flt_cfg, "highpass_hz",    0.5))
+        lp      = Float64(get(flt_cfg, "lowpass_hz",   150.0))
+        nz      = Float64(get(flt_cfg, "notch_hz",      50.0))
+        nbw     = Float64(get(flt_cfg, "notch_bw_hz",    1.0))
+        lo      = Float64(get(flt_cfg, "bandreject_lo",  99.5))
+        hi      = Float64(get(flt_cfg, "bandreject_hi", 100.5))
+        ord     = Int(get(flt_cfg, "filter_order", 4))
+        fs      = Float64(get(cfg.recording, "fs", 500.0))
+        nyq     = fs / 2.0
+
+        n_pts = 2048
+        omega = Float64[π * k / (n_pts - 1) for k in 0:(n_pts - 1)]
+        freqs = Float64[ω * nyq / π for ω in omega]
+
+        f_notch = digitalfilter(Bandstop((nz - nbw/2)/nyq, (nz + nbw/2)/nyq), Butterworth(ord))
+        f_br    = digitalfilter(Bandstop(lo/nyq, hi/nyq),                       Butterworth(ord))
+        f_hp    = digitalfilter(Highpass(hp/nyq),                                Butterworth(ord))
+        f_lp    = digitalfilter(Lowpass(lp/nyq),                                 Butterworth(ord))
+
+        H_notch = freqresp(f_notch, omega)
+        H_br    = freqresp(f_br,    omega)
+        H_hp    = freqresp(f_hp,    omega)
+        H_lp    = freqresp(f_lp,    omega)
+
+        # filt (causal) → |H|; filtfilt (zero-phase) → |H|² (magnitude squared)
+        m_notch = abs.(H_notch)
+        m_br    = abs.(H_br)
+        m_hp    = abs.(H_hp) .^ 2
+        m_lp    = abs.(H_lp) .^ 2
+        m_comp  = m_notch .* m_br .* m_hp .* m_lp
+
+        to_db(m) = Float64[20.0 * log10(max(v, 1e-10)) for v in m]
+        r4(v)    = round.(v, digits=4)
+
+        json(Dict(
+            "ok"      => true,
+            "fs"      => fs,
+            "freqs"   => r4(freqs),
+            "profile" => profile,
+            "individual" => Dict(
+                "Notch"      => Dict(
+                    "mag_db"    => r4(to_db(m_notch)),
+                    "method"    => "filt",
+                    "order_eff" => ord,
+                    "freq_label"=> "$(nz - nbw/2)–$(nz + nbw/2) Hz",
+                ),
+                "Bandreject" => Dict(
+                    "mag_db"    => r4(to_db(m_br)),
+                    "method"    => "filt",
+                    "order_eff" => ord,
+                    "freq_label"=> "$(lo)–$(hi) Hz",
+                ),
+                "High-pass"  => Dict(
+                    "mag_db"    => r4(to_db(m_hp)),
+                    "method"    => "filtfilt",
+                    "order_eff" => ord * 2,
+                    "freq_label"=> "$(hp) Hz",
+                ),
+                "Low-pass"   => Dict(
+                    "mag_db"    => r4(to_db(m_lp)),
+                    "method"    => "filtfilt",
+                    "order_eff" => ord * 2,
+                    "freq_label"=> "$(lp) Hz",
+                ),
+            ),
+            "composite" => Dict("mag_db" => r4(to_db(m_comp))),
+            "markers"   => Dict(
+                "notch_hz"      => nz,
+                "notch_bw_hz"   => nbw,
+                "bandreject_lo" => lo,
+                "bandreject_hi" => hi,
+                "highpass_hz"   => hp,
+                "lowpass_hz"    => lp,
+            ),
+        ))
+    end
+
+    # ─── API: PSD por etapas de filtrado (estilo EEG_Julia) ─────
+    # Aplica cada filtro secuencialmente y devuelve PSD (Welch-Hamming, nfft=N)
+    # para cada etapa, replicando el método de EEG_Julia/src/Preprocessing/filtering.jl.
+    route("/api/bids/channel_psd_stages") do
+        subj    = string(get(getpayload(), :subj, "M05"))
+        sess    = string(get(getpayload(), :sess, "T2"))
+        cond    = _normalize_cond(string(get(getpayload(), :cond, "EC")))
+        ch_name = string(get(getpayload(), :channel, "Cz"))
+
+        try
+            fs  = Float64(get(cfg.recording, "fs", 500.0))
+            nyq = fs / 2.0
+            flt = cfg.filtering
+            ord = Int(get(flt, "filter_order", 4))
+            hp  = Float64(get(flt, "highpass_hz",    0.5))
+            lp  = Float64(get(flt, "lowpass_hz",   150.0))
+            nz  = Float64(get(flt, "notch_hz",      50.0))
+            nbw = Float64(get(flt, "notch_bw_hz",    1.0))
+            lo  = Float64(get(flt, "bandreject_lo",  99.5))
+            hi  = Float64(get(flt, "bandreject_hi", 100.5))
+
+            tsv_name = "sub-$(subj)_ses-$(sess)_task-$(cond)_run-01_eeg_data.tsv"
+            tsv_path = joinpath(project_root, "data", "BIDS", "raw", tsv_name)
+            !isfile(tsv_path) && return json(Dict("ok"=>false,
+                "error"=>"TSV no encontrado: $tsv_name"))
+
+            raw = _read_channel_from_tsv(tsv_path, ch_name, 60_000)
+            isempty(raw) && return json(Dict("ok"=>false,
+                "error"=>"Canal $ch_name no encontrado en $tsv_name"))
+
+            # PSD estilo EEG_Julia: welch_pgram con ventana Hamming, nfft = N
+            n_sig = length(raw)
+            function _psd_stages(sig)
+                p = welch_pgram(sig; fs=fs, window=hamming, nfft=n_sig)
+                return Float64.(DSP.freq(p)), Float64.(DSP.power(p))
+            end
+
+            # Cadena "eeg_julia": Notch(filt) → BR(filt) → HP(filtfilt) → LP(filtfilt)
+            s0 = raw
+            s1 = filt(digitalfilter(Bandstop((nz-nbw/2)/nyq,(nz+nbw/2)/nyq),Butterworth(ord)), s0)
+            s2 = filt(digitalfilter(Bandstop(lo/nyq, hi/nyq), Butterworth(ord)), s1)
+            s3 = filtfilt(digitalfilter(Highpass(hp/nyq), Butterworth(ord)), s2)
+            s4 = filtfilt(digitalfilter(Lowpass(lp/nyq),  Butterworth(ord)), s3)
+
+            freqs, p0 = _psd_stages(s0)
+            _,     p1 = _psd_stages(s1)
+            _,     p2 = _psd_stages(s2)
+            _,     p3 = _psd_stages(s3)
+            _,     p4 = _psd_stages(s4)
+
+            r5(v) = round.(v, digits=6)
+            json(Dict(
+                "ok"      => true,
+                "channel" => ch_name,
+                "method"  => "welch_pgram_hamming_nfft_N",
+                "n_pts"   => n_sig,
+                "freqs"   => r5(freqs),
+                "stages"  => Dict(
+                    "original"   => r5(p0),
+                    "notch"      => r5(p1),
+                    "bandreject" => r5(p2),
+                    "highpass"   => r5(p3),
+                    "lowpass"    => r5(p4),
+                ),
+                "stage_labels" => [
+                    "Original",
+                    "Notch 50 Hz",
+                    "Notch + BR 100 Hz",
+                    "Notch + BR + HP 0.5 Hz",
+                    "Final (+ LP 150 Hz)",
+                ],
+            ))
+        catch e
+            json(Dict("ok"=>false, "error"=>string(e)))
+        end
+    end
+
     # ─── API: señal cruda + filtrada de un canal ──────────────
     route("/api/bids/channel_signal") do
         subj    = string(get(getpayload(), :subj,    "M05"))

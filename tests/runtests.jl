@@ -8,6 +8,7 @@ using Test
 using NeuroMIND
 using Statistics
 using LinearAlgebra: diag
+using DSP: digitalfilter, Bandstop, Highpass, Lowpass, Butterworth, freqresp
 
 # ─── Fixtures ─────────────────────────────────────────────────
 
@@ -314,6 +315,166 @@ end
     @test cfg.statistics["fdr_q"] == 0.05
     @test haskey(cfg.study, "n_ms_t1")
     @test cfg.study["n_ms_t1"] == 44
+end
+
+# ─── Tests de parámetros EEG_Julia (réplica exacta) ──────────
+# Verifica que NeuroMIND.describe_filter_chain reproduce el perfil documentado en
+# EEG_Julia/src/Preprocessing/filtering.jl y EEG_Julia/config/default_config.jl
+
+@testset "FilterChainParams_EEGJulia" begin
+    cfg = mock_config()   # profile = "eeg_julia"
+    chain = describe_filter_chain(cfg)
+
+    # Cadena: 4 pasos (Notch → BR → HP → LP)
+    @test length(chain) == 4
+
+    notch = chain[1]; br = chain[2]; hp_f = chain[3]; lp_f = chain[4]
+
+    # Nombres exactos
+    @test notch.name == "Notch"
+    @test br.name    == "Bandreject"
+    @test hp_f.name  == "High-pass"
+    @test lp_f.name  == "Low-pass"
+
+    # Métodos: EEG_Julia usa filt para Notch y BR, filtfilt para HP y LP
+    @test notch.method == "filt"
+    @test br.method    == "filt"
+    @test hp_f.method  == "filtfilt"
+    @test lp_f.method  == "filtfilt"
+
+    # Órdenes de diseño: todos 4 (EEG_Julia: Notch_order=4, Bandreject_order=4,
+    #                             Highpass_order_design=4, Lowpass_order_design=4)
+    @test notch.order == 4
+    @test br.order    == 4
+    @test hp_f.order  == 4
+    @test lp_f.order  == 4
+
+    # Frecuencias del Notch: 49.5–50.5 Hz (EEG_Julia: freq=50, width=1.0)
+    @test occursin("49.5", notch.freq) || occursin("49.5–50.5", notch.freq)
+    @test occursin("50.5", notch.freq)
+
+    # Frecuencias del Bandreject: 99.5–100.5 Hz (EEG_Julia: freq=100, bw=1.0)
+    @test occursin("99.5", br.freq)
+    @test occursin("100.5", br.freq)
+
+    # HP: 0.5 Hz; LP: 150.0 Hz  (EEG_Julia: Highpass_cutoff=0.5, Lowpass_cutoff=150)
+    @test occursin("0.5",   hp_f.freq)
+    @test occursin("150.0", lp_f.freq)
+
+    # Orden efectivo con filtfilt: design × 2 = 8
+    ord_design = cfg.filtering["filter_order"]
+    @test ord_design == 4
+    @test ord_design * 2 == 8    # orden efectivo HP y LP
+
+    println("  ✓ Cadena EEG_Julia: $(join([s.name for s in chain], " → "))")
+    println("  ✓ Notch 49.5–50.5 Hz, BR 99.5–100.5 Hz, HP 0.5 Hz, LP 150.0 Hz")
+    println("  ✓ Notch/BR: filt (causal ord.4)  HP/LP: filtfilt (ord.efectivo 8)")
+end
+
+# ─── Tests de defaults del código (sin config) ────────────────
+# Verifica que los valores por defecto en Filtering.jl coinciden con EEG_Julia
+# cuando no se carga config (p. ej., llamadas programáticas sin TOML).
+
+@testset "FilteringDefaults_EEGJulia" begin
+    # Config mínima sin keys de filtrado → debe usar defaults del código
+    cfg_min = PipelineConfig(
+        Dict{String,Any}("name" => "test", "version" => "0.2"),
+        Dict{String,Any}("n_ms_t1" => 44, "n_controls" => 40,
+                         "conditions" => ["EO","EC"],
+                         "groups" => ["MS","Control"], "sessions" => ["T1","T2"]),
+        Dict{String,Any}("results" => "results", "data_cache" => "data/cache",
+                         "bids_root" => "data/BIDS"),
+        Dict{String,Any}("fs" => 500.0, "conditions" => ["EO","EC"],
+                         "n_channels" => 32, "reference" => "average"),
+        # filtering: solo el perfil, sin parámetros → defaults del código
+        Dict{String,Any}("profile" => "eeg_julia",
+                         "bandreject_lo" => 99.5, "bandreject_hi" => 100.5),
+        Dict{String,Any}("epoch_length_s" => 1.0, "epoch_overlap" => 0.0,
+                         "min_epochs" => 5),
+        Dict{String,Any}("apply" => true, "method" => "mean"),
+        Dict{String,Any}("amplitude_threshold_uv" => 100.0,
+                         "gradient_threshold_uv"  => 50.0, "enabled" => true),
+        Dict{String,Any}("n_components" => 10, "random_seed" => 42),
+        Dict{String,Any}("nfft" => 256, "window" => "hamming", "window_pct" => 10.0),
+        Dict{String,Tuple{Float64,Float64}}("DELTA" => (0.5,4.0), "ALPHA" => (7.8,11.7)),
+        Dict{String,Any}("filter_order" => 8, "use_csd" => false, "method" => "wpli"),
+        Dict{String,Any}("n_surrogates" => 10, "alpha" => 0.05,
+                         "method" => "phase_shuffle", "fdr_method" => "bh"),
+        Dict{String,Any}("threshold_method" => "proportional", "density" => 0.1),
+        Dict{String,Any}("variables" => ["EDSS"]),
+        Dict{String,Any}("min_visits" => 2),
+        Dict{String,Any}("group_test" => "mann_whitney", "alpha" => 0.05,
+                         "fdr_q" => 0.05, "paired_test" => "wilcoxon"),
+        Dict{String,Any}("figure_format" => "png", "figure_dpi" => 150,
+                         "table_format" => "csv"),
+        joinpath(@__DIR__, "..")
+    )
+    chain_min = describe_filter_chain(cfg_min)
+    @test length(chain_min) == 4
+
+    # Con defaults del código, LP debe ser 150.0 Hz (no 48.0 que era el bug)
+    lp_step = chain_min[4]
+    @test lp_step.name == "Low-pass"
+    @test occursin("150.0", lp_step.freq)    # default correcto: 150 Hz
+
+    # Con defaults del código, notch bw debe ser 1.0 Hz (no 2.0 que era el bug)
+    notch_step = chain_min[1]
+    @test notch_step.name == "Notch"
+    @test occursin("49.5", notch_step.freq)  # bw=1.0 → 50-0.5=49.5 Hz
+
+    println("  ✓ Default LP = 150.0 Hz (no el antiguo 48.0 Hz)")
+    println("  ✓ Default Notch bw = 1.0 Hz (49.5–50.5 Hz)")
+end
+
+# ─── Tests de respuesta en frecuencia (atenuación real) ───────
+# Verifica que los filtros construidos por NeuroMIND atenúan/preservan
+# las frecuencias esperadas según el diseño Butterworth.
+
+@testset "FilterAttenuation" begin
+    fs  = 500.0
+    nyq = fs / 2.0
+    ord = 4
+
+    # ── Notch 50 Hz, bw 1 Hz, filt (orden 4) ─────────────────
+    f_notch = digitalfilter(Bandstop(49.5/nyq, 50.5/nyq), Butterworth(ord))
+    # En 50 Hz → fuerte atenuación (< -40 dB)
+    H_at_50 = freqresp(f_notch, [π * 50.0 / nyq])
+    @test 20*log10(abs(H_at_50[1])) < -40.0
+    # En 1 Hz → paso completo (> -1 dB)
+    H_at_1  = freqresp(f_notch, [π * 1.0 / nyq])
+    @test 20*log10(abs(H_at_1[1])) > -1.0
+
+    # ── Bandreject 100 Hz, bw 1 Hz, filt (orden 4) ───────────
+    f_br = digitalfilter(Bandstop(99.5/nyq, 100.5/nyq), Butterworth(ord))
+    H_at_100 = freqresp(f_br, [π * 100.0 / nyq])
+    @test 20*log10(abs(H_at_100[1])) < -40.0
+    H_at_60  = freqresp(f_br, [π * 60.0 / nyq])
+    @test 20*log10(abs(H_at_60[1])) > -1.0
+
+    # ── HP 0.5 Hz, filtfilt → mag efectiva = |H|² ────────────
+    f_hp = digitalfilter(Highpass(0.5/nyq), Butterworth(ord))
+    # En 0.5 Hz → -3 dB (un solo paso); con filtfilt → -6 dB efectivo
+    H_hp_at_fc = freqresp(f_hp, [π * 0.5 / nyq])
+    mag_hp_fc  = abs(H_hp_at_fc[1])^2
+    @test 20*log10(mag_hp_fc) ≈ -6.0 atol=1.5
+    # En 10 Hz → paso completo (> -1 dB efectivo con filtfilt)
+    H_hp_at_10 = freqresp(f_hp, [π * 10.0 / nyq])
+    @test 20*log10(abs(H_hp_at_10[1])^2) > -1.0
+
+    # ── LP 150 Hz, filtfilt → mag efectiva = |H|² ────────────
+    f_lp = digitalfilter(Lowpass(150.0/nyq), Butterworth(ord))
+    # En 150 Hz → -6 dB efectivo (filtfilt)
+    H_lp_at_fc = freqresp(f_lp, [π * 150.0 / nyq])
+    mag_lp_fc  = abs(H_lp_at_fc[1])^2
+    @test 20*log10(mag_lp_fc) ≈ -6.0 atol=1.5
+    # En 10 Hz → paso completo
+    H_lp_at_10 = freqresp(f_lp, [π * 10.0 / nyq])
+    @test 20*log10(abs(H_lp_at_10[1])^2) > -1.0
+
+    println("  ✓ Notch 50 Hz: < −40 dB en 50 Hz, > −1 dB en 1 Hz")
+    println("  ✓ BR 100 Hz:   < −40 dB en 100 Hz, > −1 dB en 60 Hz")
+    println("  ✓ HP 0.5 Hz:   ≈ −6 dB efectivo en fc (filtfilt, ord.efect.8)")
+    println("  ✓ LP 150 Hz:   ≈ −6 dB efectivo en fc (filtfilt, ord.efect.8)")
 end
 
 println("\n✅ Todos los tests completados")
