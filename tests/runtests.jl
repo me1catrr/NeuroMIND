@@ -1,8 +1,7 @@
 # NeuroMIND/tests/runtests.jl
 # Suite de tests unitarios e integración.
-
-using Pkg
-Pkg.activate(joinpath(@__DIR__, ".."))
+# Uso directo:  julia --project=. tests/runtests.jl
+# Vía Pkg.test(): el entorno ya está activo; no se llama Pkg.activate aquí.
 
 using Test
 using NeuroMIND
