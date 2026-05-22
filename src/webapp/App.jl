@@ -1370,23 +1370,34 @@ function launch_webapp(cfg::PipelineConfig;
         # Valores por defecto desde config
         ar_cfg  = cfg.artifact_rejection
         seg_cfg = cfg.segmentation
+        ar_prof_def = String(get(ar_cfg, "profile", "default"))
+        is_ej_def   = ar_prof_def == "eeg_julia"
 
         default_summary = Dict(
-            "n_total"              => 0,
-            "n_valid"              => 0,
-            "n_rejected"           => 0,
-            "retention_pct"        => 0.0,
-            "n_rejected_amplitude" => 0,
-            "n_rejected_gradient"  => 0,
-            "amp_threshold_uv"     => Float64(get(ar_cfg, "amplitude_threshold_uv", 100.0)),
-            "grad_threshold_uv"    => Float64(get(ar_cfg, "gradient_threshold_uv",  50.0)),
-            "p2p_mean_uv"          => 0.0,
-            "p2p_std_uv"           => 0.0,
-            "p2p_max_uv"           => 0.0,
-            "p2p_thresh_2sd"       => 0.0,
-            "p2p_histogram"        => [],
-            "timestamp"            => "",
-            "duration_s"           => 0.0,
+            "profile"                => ar_prof_def,
+            "n_total"                => 0,
+            "n_valid"                => 0,
+            "n_rejected"             => 0,
+            "retention_pct"          => 0.0,
+            "n_rejected_amplitude"   => 0,
+            "n_rejected_gradient"    => 0,
+            "min_amplitude_uv"       => Float64(get(ar_cfg, "min_amplitude_uv",        is_ej_def ? -70.0 : -100.0)),
+            "max_amplitude_uv"       => Float64(get(ar_cfg, "max_amplitude_uv",        is_ej_def ?  70.0 :  100.0)),
+            "amp_threshold_uv"       => Float64(get(ar_cfg, "amplitude_threshold_uv",  100.0)),
+            "grad_threshold_uv"      => Float64(get(ar_cfg, "gradient_threshold_uv",    50.0)),
+            "use_gradient"           => Bool(get(ar_cfg,   "use_gradient",             !is_ej_def)),
+            "n_channels_used"        => Int(get(ar_cfg,    "n_channels_used",           30)),
+            "n_channels_total"       => 0,
+            "before_event_ms"        => Int(get(ar_cfg,    "before_event_ms",           200)),
+            "after_event_ms"         => Int(get(ar_cfg,    "after_event_ms",            300)),
+            "before_after_applied"   => false,
+            "p2p_mean_uv"            => 0.0,
+            "p2p_std_uv"             => 0.0,
+            "p2p_max_uv"             => 0.0,
+            "p2p_thresh_2sd"         => 0.0,
+            "p2p_histogram"          => [],
+            "timestamp"              => "",
+            "duration_s"             => 0.0,
         )
 
         if !isfile(summ_path)
@@ -1405,19 +1416,27 @@ function launch_webapp(cfg::PipelineConfig;
         try
             txt = read(summ_path, String)
             for key in ["n_total","n_valid","n_rejected",
-                        "n_rejected_amplitude","n_rejected_gradient"]
+                        "n_rejected_amplitude","n_rejected_gradient",
+                        "n_channels_used","n_channels_total",
+                        "before_event_ms","after_event_ms"]
                 m = match(Regex("\"$(key)\"\\s*:\\s*([0-9]+)"), txt)
                 m !== nothing && (summary[key] = parse(Int, m.captures[1]))
             end
             for key in ["retention_pct","amp_threshold_uv","grad_threshold_uv",
+                        "min_amplitude_uv","max_amplitude_uv",
                         "p2p_mean_uv","p2p_std_uv","p2p_max_uv","p2p_thresh_2sd",
                         "duration_s"]
                 m = match(Regex("\"$(key)\"\\s*:\\s*([0-9.eE+\\-]+)"), txt)
                 m !== nothing && (summary[key] = parse(Float64, m.captures[1]))
             end
-            for key in ["timestamp"]
+            for key in ["timestamp","profile"]
                 m = match(Regex("\"$(key)\"\\s*:\\s*\"([^\"]+)\""), txt)
                 m !== nothing && (summary[key] = String(m.captures[1]))
+            end
+            # use_gradient / before_after_applied (boolean)
+            for key in ["use_gradient","before_after_applied"]
+                m = match(Regex("\"$(key)\"\\s*:\\s*(true|false)"), txt)
+                m !== nothing && (summary[key] = m.captures[1] == "true")
             end
             # histograma P2P: array de [bin, count]
             mh = match(r"\"p2p_histogram\"\s*:\s*(\[[^\]]*\])", txt)
@@ -1432,6 +1451,23 @@ function launch_webapp(cfg::PipelineConfig;
             @warn "artifact_rejection_summary.json parse error: $e"
         end
 
+        # ── Labels derivados para el frontend ─────────────────────────────────
+        is_ej    = string(get(summary, "profile", "default")) == "eeg_julia"
+        use_grad = Bool(get(summary, "use_gradient", !is_ej))
+        min_uv   = Float64(get(summary, "min_amplitude_uv", is_ej ? -70.0 : -100.0))
+        max_uv   = Float64(get(summary, "max_amplitude_uv", is_ej ?  70.0 :  100.0))
+        n_ch_u   = Int(get(summary, "n_channels_used", 30))
+        n_ch_t   = Int(get(summary, "n_channels_total", 0))
+        ch_desc  = is_ej ? "primeros $(n_ch_u) canales" :
+                           (n_ch_t > 0 ? "todos ($(n_ch_t))" : "todos los canales")
+        summary["detector_label"] = is_ej ?
+            "Amplitud ±$(Int(round(max_uv))) µV" :
+            "Amplitud $(Int(round(max_uv))) µV" * (use_grad ? " + Gradiente" : "")
+        summary["gradient_label"] = use_grad ?
+            "$(Int(round(Float64(get(summary, "grad_threshold_uv", 50.0))))) µV/muestra" :
+            "No aplicado"
+        summary["channels_desc"] = ch_desc
+
         # ── Parsear rejected_segments.csv ────────────────────────────────────
         rejected_segs = Dict{String,Any}[]
         if isfile(rej_path)
@@ -1439,16 +1475,18 @@ function launch_webapp(cfg::PipelineConfig;
                 df = CSV.read(rej_path, DataFrame)
                 for row in eachrow(df)
                     d = Dict{String,Any}(
-                        "epoch"            => Int(get(row, :epoch,    0)),
-                        "start_s"          => Float64(get(row, :start_s, 0.0)),
-                        "end_s"            => Float64(get(row, :end_s,   0.0)),
-                        "status"           => string(get(row, :status,   "rejected")),
-                        "rejection_reason" => string(get(row, :rejection_reason, "")),
-                        "max_amp_uv"       => round(Float64(get(row, :max_amp_uv,  0.0)), digits=1),
-                        "max_grad_uv"      => round(Float64(get(row, :max_grad_uv, 0.0)), digits=1),
-                        "p2p_uv"           => round(Float64(get(row, :p2p_uv,      0.0)), digits=1),
-                        "worst_channel"    => string(get(row, :worst_channel, "")),
-                        "quality"          => round(Float64(get(row, :quality, 0.0)), digits=3),
+                        "epoch"               => Int(get(row, :epoch,    0)),
+                        "start_s"             => Float64(get(row, :start_s, 0.0)),
+                        "end_s"               => Float64(get(row, :end_s,   0.0)),
+                        "status"              => string(get(row, :status,   "rejected")),
+                        "rejection_reason"    => string(get(row, :rejection_reason, "")),
+                        "max_amp_uv"          => round(Float64(get(row, :max_amp_uv,  0.0)), digits=1),
+                        "min_amp_uv"          => round(Float64(get(row, :min_amp_uv,  0.0)), digits=1),
+                        "max_grad_uv"         => round(Float64(get(row, :max_grad_uv, 0.0)), digits=1),
+                        "p2p_uv"              => round(Float64(get(row, :p2p_uv,      0.0)), digits=1),
+                        "worst_channel"       => string(get(row, :worst_channel, "")),
+                        "channels_violating"  => string(get(row, :channels_violating, "")),
+                        "quality"             => round(Float64(get(row, :quality, 0.0)), digits=3),
                     )
                     push!(rejected_segs, d)
                 end
@@ -1507,6 +1545,71 @@ function launch_webapp(cfg::PipelineConfig;
                 "duration" => t_dur,
             ),
         ))
+    end
+
+    # ─── API: Fase 7 — Señal de un epoch concreto ─────────────
+    route("/api/phase7_epoch_signal") do
+        subj   = string(get(getpayload(), :subj,    "M05"))
+        sess   = string(get(getpayload(), :sess,    "T2"))
+        cond   = _normalize_cond(string(get(getpayload(), :cond, "EC")))
+        ep_str = string(get(getpayload(), :epoch,   "1"))
+        ch_req = string(get(getpayload(), :channel, ""))
+
+        epoch_idx = tryparse(Int, ep_str)
+        epoch_idx === nothing && return json(Dict("ok"=>false,"error"=>"invalid epoch"))
+
+        res_base  = joinpath(bids_root, "sub-$(subj)", "ses-$(sess)", cond)
+        sig_path  = joinpath(res_base, "ica_signal_after.csv")
+        summ_path = joinpath(res_base, "segmentation_summary.json")
+
+        isfile(sig_path) || return json(Dict("ok"=>false,"error"=>"no signal file"))
+
+        try
+            df = CSV.read(sig_path, DataFrame)
+            # Epoch length from segmentation summary (default 1.0 s)
+            epoch_s = 1.0
+            if isfile(summ_path)
+                txt2 = read(summ_path, String)
+                m2 = match(r"\"epoch_length_s\"\s*:\s*([0-9.]+)", txt2)
+                m2 !== nothing && (epoch_s = parse(Float64, m2.captures[1]))
+            end
+            t_start = (epoch_idx - 1) * epoch_s
+            t_end   = epoch_idx       * epoch_s
+
+            t_col   = Float64.(df.t_s)
+            mask    = (t_col .>= t_start .- 1e-4) .& (t_col .< t_end .+ 1e-4)
+            sub_df  = df[mask, :]
+            isempty(sub_df) && return json(Dict("ok"=>false,"error"=>"epoch out of range"))
+
+            ch_names_all = [string(c) for c in names(df) if string(c) != "t_s"]
+            isempty(ch_names_all) && return json(Dict("ok"=>false,"error"=>"no channels"))
+
+            # Resolve requested channel
+            ch_idx = 1
+            if !isempty(ch_req)
+                idx2 = findfirst(==(ch_req), ch_names_all)
+                idx2 !== nothing && (ch_idx = idx2)
+            end
+            ch_name = ch_names_all[ch_idx]
+            ch_sym  = Symbol(ch_name)
+            values  = hasproperty(sub_df, ch_sym) ?
+                      round.(Float64.(getproperty(sub_df, ch_sym)), digits=3) : Float64[]
+
+            return json(Dict(
+                "ok"       => true,
+                "epoch"    => epoch_idx,
+                "channel"  => ch_name,
+                "t_start"  => t_start,
+                "t_end"    => t_end,
+                "epoch_s"  => epoch_s,
+                "times"    => round.(Float64.(sub_df.t_s), digits=4),
+                "values"   => values,
+                "ch_names" => ch_names_all,
+            ))
+        catch e
+            @warn "phase7_epoch_signal error: $e"
+            return json(Dict("ok"=>false,"error"=>string(e)))
+        end
     end
 
     # ─── Legacy API (mantener compatibilidad) ─────────────────

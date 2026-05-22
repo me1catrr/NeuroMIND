@@ -54,6 +54,7 @@ export compute_ica_features, evaluate_ica_components
 # ─── Segmentación ─────────────────────────────────────────────
 include("segmentation/Epochs.jl")
 export segment_recording, apply_baseline, reject_artifacts
+export compute_epoch_quality_report, compute_channel_coverage
 
 # ─── Spectral ─────────────────────────────────────────────────
 include("spectral/PowerSpectrum.jl")

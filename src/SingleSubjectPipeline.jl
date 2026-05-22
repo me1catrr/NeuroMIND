@@ -80,6 +80,8 @@ function load_ss_config(path::String)::PipelineConfig
             "max_amplitude_uv"       => Float64(get(ar, "max_amplitude_uv",         70.0)),
             "n_channels_used"        => Int(get(ar,    "n_channels_used",           30)),
             "use_gradient"           => Bool(get(ar,   "use_gradient",             true)),
+            "before_event_ms"        => Int(get(ar,    "before_event_ms",           200)),
+            "after_event_ms"         => Int(get(ar,    "after_event_ms",            300)),
             "enabled"                => Bool(get(ar,   "enabled",                  true)),
         ),
         Dict{String,Any}(
@@ -533,7 +535,8 @@ function _save_segmentation_results(
     # 4–6) Ficheros específicos de rechazo de artefactos
     if !isempty(qr)
         _save_ar_results(qr, cfg, export_dir, ts, dur_s,
-                         n_total, n_valid, n_rejected, log_io)
+                         n_total, n_valid, n_rejected, log_io,
+                         rec.meta.n_channels)
     end
 end
 
@@ -548,12 +551,29 @@ function _save_ar_results(
     n_total::Int,
     n_valid::Int,
     n_rejected::Int,
-    log_io::IO
+    log_io::IO,
+    n_channels_total::Int = 0   # número total de canales (de la señal de entrada)
 )
-    ar_cfg     = cfg.artifact_rejection
-    amp_thresh = Float64(get(ar_cfg, "amplitude_threshold_uv", 100.0))
-    grad_thresh= Float64(get(ar_cfg, "gradient_threshold_uv",   50.0))
-    ret_pct    = round(100.0 * n_valid / max(n_total, 1), digits=1)
+    ar_cfg      = cfg.artifact_rejection
+    ar_profile  = String(get(ar_cfg, "profile",                "default"))
+    amp_thresh  = Float64(get(ar_cfg, "amplitude_threshold_uv", 100.0))
+    grad_thresh = Float64(get(ar_cfg, "gradient_threshold_uv",   50.0))
+    min_amp_uv  = Float64(get(ar_cfg, "min_amplitude_uv",        -70.0))
+    max_amp_uv  = Float64(get(ar_cfg, "max_amplitude_uv",         70.0))
+    n_ch_used   = Int(get(ar_cfg,    "n_channels_used",           30))
+    use_grad    = Bool(get(ar_cfg,   "use_gradient",             true))
+    bef_ms      = Int(get(ar_cfg,    "before_event_ms",           200))
+    aft_ms      = Int(get(ar_cfg,    "after_event_ms",            300))
+    ret_pct     = round(100.0 * n_valid / max(n_total, 1), digits=1)
+
+    # For default profile, min/max are symmetric around amp_thresh
+    if ar_profile != "eeg_julia"
+        min_amp_uv = -amp_thresh
+        max_amp_uv =  amp_thresh
+    end
+    # n_channels_used capped to actual total if known
+    n_ch_reported = (n_channels_total > 0 && ar_profile == "eeg_julia") ?
+                    min(n_ch_used, n_channels_total) : n_ch_used
 
     rej_mask   = qr.status .== "rejected"
     rej_df     = qr[rej_mask, :]
@@ -562,16 +582,16 @@ function _save_ar_results(
 
     # ── Estadísticas P2P ─────────────────────────────────────────────────────
     p2p_vals = hasproperty(qr, :p2p_uv) ? Float64.(qr.p2p_uv) : Float64[]
-    p2p_mean = isempty(p2p_vals) ? 0.0 : round(mean(p2p_vals),  digits=2)
-    p2p_std  = isempty(p2p_vals) ? 0.0 : round(std(p2p_vals),   digits=2)
+    p2p_mean = isempty(p2p_vals) ? 0.0 : round(mean(p2p_vals),    digits=2)
+    p2p_std  = isempty(p2p_vals) ? 0.0 : round(std(p2p_vals),     digits=2)
     p2p_max  = isempty(p2p_vals) ? 0.0 : round(maximum(p2p_vals), digits=2)
     p2p_thresh_2sd = round(p2p_mean + 2.0 * p2p_std, digits=2)
 
     # Histograma P2P (20 bins)
     p2p_hist_json = ""
     if !isempty(p2p_vals) && p2p_max > 0
-        bin_w   = p2p_max / 20.0
-        hist_c  = zeros(Int, 20)
+        bin_w  = p2p_max / 20.0
+        hist_c = zeros(Int, 20)
         for v in p2p_vals
             b = min(floor(Int, v / bin_w), 19)
             hist_c[b+1] += 1
@@ -581,8 +601,19 @@ function _save_ar_results(
     end
 
     # ── Tabla de canales más afectados ───────────────────────────────────────
+    # Preferir channels_violating (lista real de canales), si no worst_channel
     ch_bad = Dict{String, @NamedTuple{n::Int, amp::Int, grad::Int}}()
-    if hasproperty(qr, :worst_channel)
+    if hasproperty(rej_df, :channels_violating)
+        for row in eachrow(rej_df)
+            viols = filter(!isempty, split(string(row.channels_violating), ";"))
+            for ch in viols
+                prev = get(ch_bad, ch, (n=0, amp=0, grad=0))
+                na   = string(row.rejection_reason) == "amplitude" ? prev.amp + 1 : prev.amp
+                ng   = string(row.rejection_reason) == "gradient"  ? prev.grad + 1 : prev.grad
+                ch_bad[ch] = (n=prev.n + 1, amp=na, grad=ng)
+            end
+        end
+    elseif hasproperty(rej_df, :worst_channel)
         for row in eachrow(rej_df)
             ch   = string(row.worst_channel)
             prev = get(ch_bad, ch, (n=0, amp=0, grad=0))
@@ -594,7 +625,7 @@ function _save_ar_results(
     ch_rows_sorted = sort(collect(ch_bad); by=x->x[2].n, rev=true)
     ca_df = isempty(ch_rows_sorted) ? DataFrame() :
         DataFrame(
-            channel     = [r[1]  for r in ch_rows_sorted],
+            channel     = [r[1] for r in ch_rows_sorted],
             n_bad       = [r[2].n   for r in ch_rows_sorted],
             pct_bad     = [round(100.0 * r[2].n / max(n_total,1), digits=1) for r in ch_rows_sorted],
             main_reason = [r[2].amp >= r[2].grad ? "amplitude" : "gradient" for r in ch_rows_sorted],
@@ -603,14 +634,23 @@ function _save_ar_results(
     # ── 4) artifact_rejection_summary.json ───────────────────────────────────
     open(joinpath(export_dir, "artifact_rejection_summary.json"), "w") do f
         write(f, """{
+  "profile": "$(ar_profile)",
   "n_total": $(n_total),
   "n_valid": $(n_valid),
   "n_rejected": $(n_rejected),
   "retention_pct": $(ret_pct),
   "n_rejected_amplitude": $(n_rej_amp),
   "n_rejected_gradient": $(n_rej_grad),
+  "min_amplitude_uv": $(min_amp_uv),
+  "max_amplitude_uv": $(max_amp_uv),
   "amp_threshold_uv": $(amp_thresh),
   "grad_threshold_uv": $(grad_thresh),
+  "use_gradient": $(use_grad),
+  "n_channels_used": $(n_ch_reported),
+  "n_channels_total": $(n_channels_total),
+  "before_event_ms": $(bef_ms),
+  "after_event_ms": $(aft_ms),
+  "before_after_applied": false,
   "p2p_mean_uv": $(p2p_mean),
   "p2p_std_uv": $(p2p_std),
   "p2p_max_uv": $(p2p_max),
@@ -623,8 +663,14 @@ function _save_ar_results(
     _log(log_io, "  Guardado: artifact_rejection_summary.json")
 
     # ── 5) rejected_segments.csv ──────────────────────────────────────────────
+    # Seleccionar columnas canónicas (orden limpio para CSV)
     if !isempty(rej_df)
-        CSV.write(joinpath(export_dir, "rejected_segments.csv"), rej_df)
+        wanted = [:epoch, :start_s, :end_s, :duration_s, :quality,
+                  :status, :rejection_reason,
+                  :max_amp_uv, :min_amp_uv, :p2p_uv,
+                  :worst_channel, :channels_violating, :max_grad_uv]
+        present = [c for c in wanted if hasproperty(rej_df, c)]
+        CSV.write(joinpath(export_dir, "rejected_segments.csv"), rej_df[:, present])
         _log(log_io, "  Guardado: rejected_segments.csv ($(nrow(rej_df)) rechazados)")
     end
 

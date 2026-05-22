@@ -7903,14 +7903,42 @@ function _p7RenderSummary() {
 function _p7RenderMethod() {
   const el = document.getElementById('p7-method-body');
   if (!el) return;
-  const s = State.p7Data?.summary || {};
-  el.innerHTML = `
-    <div class="p7-cfg-row"><span class="p7-cfg-key">Detector</span><span class="p7-cfg-val">Amplitud + Gradiente</span></div>
-    <div class="p7-cfg-row"><span class="p7-cfg-key">Umbral amplitud</span><span class="p7-cfg-val">${s.amp_threshold_uv||100} µV</span></div>
-    <div class="p7-cfg-row"><span class="p7-cfg-key">Umbral gradiente</span><span class="p7-cfg-val">${s.grad_threshold_uv||50} µV/samp</span></div>
-    <div class="p7-cfg-row"><span class="p7-cfg-key">Métrica AR</span><span class="p7-cfg-val">max(|x|), max(|Δx|)</span></div>
-    <div class="p7-cfg-row"><span class="p7-cfg-key">Ventana</span><span class="p7-cfg-val">Por epoch</span></div>
-    <div class="p7-cfg-row"><span class="p7-cfg-key">Canales</span><span class="p7-cfg-val">Todos</span></div>`;
+  const s      = State.p7Data?.summary || {};
+  const isEJ   = (s.profile || 'default') === 'eeg_julia';
+  const useGrad= s.use_gradient !== false && !isEJ;
+  const minUV  = s.min_amplitude_uv ?? (isEJ ? -70 : -100);
+  const maxUV  = s.max_amplitude_uv ?? (isEJ ?  70 :  100);
+  const nChU   = s.n_channels_used  ?? 30;
+  const nChT   = s.n_channels_total ?? 0;
+  const chDesc = s.channels_desc    ?? (isEJ ? `primeros ${nChU}` : 'todos');
+  const profBadge = `<span class="p5-profile-badge ${isEJ ? 'p5-profile-eeg-julia' : 'p5-profile-default'}">${isEJ ? '⚡ eeg_julia' : '⚙ default'}</span>`;
+  const crit   = isEJ
+    ? `min &lt; ${minUV} µV o max &gt; +${Math.abs(maxUV)} µV`
+    : `|amp| &gt; ${maxUV} µV${useGrad ? ` o grad &gt; ${s.grad_threshold_uv??50} µV/s` : ''}`;
+
+  let rows = `
+    <div class="p7-cfg-row"><span class="p7-cfg-key">Perfil AR</span><span class="p7-cfg-val">${profBadge}</span></div>
+    <div class="p7-cfg-row"><span class="p7-cfg-key">Detector</span><span class="p7-cfg-val">${s.detector_label ?? (isEJ ? 'Amplitud ±70 µV' : 'Amplitud + Gradiente')}</span></div>
+    <div class="p7-cfg-row"><span class="p7-cfg-key">Criterio</span><span class="p7-cfg-val" style="font-size:10px">${crit}</span></div>
+    <div class="p7-cfg-row"><span class="p7-cfg-key">Gradiente</span><span class="p7-cfg-val">${s.gradient_label ?? (useGrad ? (s.grad_threshold_uv??50)+' µV/s' : 'No aplicado')}</span></div>
+    <div class="p7-cfg-row"><span class="p7-cfg-key">Canales evaluados</span><span class="p7-cfg-val">${chDesc}</span></div>
+    <div class="p7-cfg-row"><span class="p7-cfg-key">Ventana</span><span class="p7-cfg-val">Por epoch completo</span></div>`;
+  if (isEJ) {
+    const bef = s.before_event_ms ?? 200;
+    const aft = s.after_event_ms  ?? 300;
+    rows += `<div class="p7-cfg-row"><span class="p7-cfg-key">Before/After event</span><span class="p7-cfg-val" style="font-size:10px;color:#7c3aed">${bef}/${aft} ms · guardado, no usado</span></div>`;
+  }
+  rows += `</div>`;
+
+  // Note metodológica
+  const note = isEJ
+    ? `<div style="margin-top:6px;padding:5px 7px;background:#ede9fe;border-radius:5px;font-size:10px;color:#6d28d9;line-height:1.4">
+        ⚡ <b>EEG_Julia:</b> epoch rechazado si cualquier muestra de los ${nChU} canales evaluados
+        excede el rango [${minUV}, +${Math.abs(maxUV)}] µV.
+       </div>`
+    : '';
+
+  el.innerHTML = `<div>${rows}${note}`;
 }
 
 function _p7RenderTimeline() {
@@ -7970,16 +7998,21 @@ function _p7RenderPhaseStatus() {
 function _p7RenderStats() {
   const el = document.getElementById('p7-stats-body');
   if (!el || !State.p7Data) return;
-  const s  = State.p7Data.summary || {};
+  const s      = State.p7Data.summary || {};
+  const isEJ   = (s.profile || 'default') === 'eeg_julia';
+  const useGrad= s.use_gradient !== false && !isEJ;
   const nT = s.n_total||0, nV = s.n_valid||0, nR = s.n_rejected||0;
   const nA = s.n_rejected_amplitude||0, nG = s.n_rejected_gradient||0;
   const pct = v => nT > 0 ? (100*v/nT).toFixed(1)+'%' : '—';
+  const gradRow = useGrad
+    ? `<div class="p7-stat-row"><span class="p7-stat-key">Por gradiente</span><span class="p7-stat-val">${nG} (${pct(nG)})</span></div>`
+    : `<div class="p7-stat-row"><span class="p7-stat-key">Por gradiente</span><span class="p7-stat-val" style="color:var(--text-3)">— no aplicado</span></div>`;
   el.innerHTML = `
     <div class="p7-stat-row"><span class="p7-stat-key">Total ventanas</span><span class="p7-stat-val">${nT}</span></div>
     <div class="p7-stat-row"><span class="p7-stat-key">Aceptadas</span><span class="p7-stat-val" style="color:var(--good)">${nV} (${pct(nV)})</span></div>
     <div class="p7-stat-row"><span class="p7-stat-key">Rechazadas</span><span class="p7-stat-val" style="color:#dc2626">${nR} (${pct(nR)})</span></div>
     <div class="p7-stat-row"><span class="p7-stat-key">Por amplitud</span><span class="p7-stat-val">${nA} (${pct(nA)})</span></div>
-    <div class="p7-stat-row"><span class="p7-stat-key">Por gradiente</span><span class="p7-stat-val">${nG} (${pct(nG)})</span></div>
+    ${gradRow}
     <div class="p7-stat-row"><span class="p7-stat-key">P2P media</span><span class="p7-stat-val">${(s.p2p_mean_uv||0).toFixed(1)} µV</span></div>
     <div class="p7-stat-row"><span class="p7-stat-key">P2P máx</span><span class="p7-stat-val">${(s.p2p_max_uv||0).toFixed(1)} µV</span></div>
     <div class="p7-stat-row"><span class="p7-stat-key">P2P umbral 2SD</span><span class="p7-stat-val">${(s.p2p_thresh_2sd||0).toFixed(1)} µV</span></div>`;
@@ -8037,33 +8070,63 @@ function _p7RenderP2PHist() {
 
 function _p7RenderTopSegments() {
   const tbody = document.getElementById('p7-top-body');
+  const thead = document.querySelector('#p7-top-tbl thead tr');
   if (!tbody || !State.p7Data) return;
-  const segs = (State.p7Data.rejected_segments || [])
+  const s     = State.p7Data.summary || {};
+  const isEJ  = (s.profile || 'default') === 'eeg_julia';
+  const segs  = (State.p7Data.rejected_segments || [])
     .slice().sort((a,b) => (b.p2p_uv||0) - (a.p2p_uv||0)).slice(0, 8);
 
+  // Update table header for eeg_julia (show min/max instead of just p2p)
+  if (thead) {
+    thead.innerHTML = isEJ
+      ? '<th>#</th><th>Inicio</th><th>Max µV</th><th>Min µV</th><th>Canal</th>'
+      : '<th>#</th><th>Inicio</th><th>P2P µV</th><th>Motivo</th><th>Canal</th>';
+  }
+
   if (!segs.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-3);padding:10px;text-align:center">Sin segmentos rechazados</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-3);padding:10px;text-align:center">Sin segmentos rechazados</td></tr>`;
     return;
   }
-  tbody.innerHTML = segs.map((s,i) => `<tr>
-    <td><b>${i+1}</b></td>
-    <td style="font-family:monospace">${(s.start_s||0).toFixed(2)}s</td>
-    <td style="font-family:monospace;color:#dc2626"><b>${(s.p2p_uv||0).toFixed(1)}</b></td>
-    <td>${s.rejection_reason==='amplitude'?'<span class="p7-badge-amp">amp</span>':'<span class="p7-badge-grad">grad</span>'}</td>
-    <td style="font-family:monospace;font-size:10px">${s.worst_channel||'—'}</td>
-  </tr>`).join('');
+  tbody.innerHTML = segs.map((sg, i) => {
+    if (isEJ) {
+      return `<tr>
+        <td><b>${i+1}</b></td>
+        <td style="font-family:monospace">${(sg.start_s||0).toFixed(2)}s</td>
+        <td style="font-family:monospace;color:#dc2626"><b>${(sg.max_amp_uv||0).toFixed(1)}</b></td>
+        <td style="font-family:monospace;color:#2563eb">${(sg.min_amp_uv||0).toFixed(1)}</td>
+        <td style="font-family:monospace;font-size:10px">${sg.worst_channel||'—'}</td>
+      </tr>`;
+    } else {
+      const badge = sg.rejection_reason === 'amplitude'
+        ? '<span class="p7-badge-amp">amp</span>'
+        : '<span class="p7-badge-grad">grad</span>';
+      return `<tr>
+        <td><b>${i+1}</b></td>
+        <td style="font-family:monospace">${(sg.start_s||0).toFixed(2)}s</td>
+        <td style="font-family:monospace;color:#dc2626"><b>${(sg.p2p_uv||0).toFixed(1)}</b></td>
+        <td>${badge}</td>
+        <td style="font-family:monospace;font-size:10px">${sg.worst_channel||'—'}</td>
+      </tr>`;
+    }
+  }).join('');
 }
 
 function _p7RenderCauses() {
   const svg = document.getElementById('p7-causes-svg');
   if (!svg || !State.p7Data?.ar_run) return;
-  const s  = State.p7Data.summary || {};
+  const s     = State.p7Data.summary || {};
+  const isEJ  = (s.profile || 'default') === 'eeg_julia';
+  const useGrad = s.use_gradient !== false && !isEJ;
   const nA = s.n_rejected_amplitude || 0;
   const nG = s.n_rejected_gradient  || 0;
-  const bars = [
-    { label:'Amplitud',  value:nA, color:'#f59e0b' },
-    { label:'Gradiente', value:nG, color:'#8b5cf6' },
-  ];
+
+  // Si no se usa gradiente, mostrar solo la barra de amplitud
+  const bars = useGrad
+    ? [ { label:'Amplitud',  value:nA, color:'#f59e0b' },
+        { label:'Gradiente', value:nG, color:'#8b5cf6' } ]
+    : [ { label:'Amplitud',  value:nA, color:'#f59e0b' } ];
+
   const maxV = Math.max(...bars.map(b => b.value), 1);
   const vW=200, vH=130, pad={t:18,r:10,b:16,l:62};
   const W = vW-pad.l-pad.r, H = vH-pad.t-pad.b;
@@ -8071,17 +8134,21 @@ function _p7RenderCauses() {
   let rects='', labels='';
 
   bars.forEach((b, i) => {
-    const y  = pad.t + i*(H/bars.length) + (H/bars.length - bh)/2;
-    const bw = W * (b.value / maxV);
-    const tot = nA + nG || 1;
+    const y   = pad.t + i*(H/bars.length) + (H/bars.length - bh)/2;
+    const bw  = W * (b.value / maxV);
+    const tot = bars.reduce((s,x) => s + x.value, 0) || 1;
     const pct = (100*b.value/tot).toFixed(1);
     rects  += `<rect x="${pad.l}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" fill="${b.color}" rx="3"/>`;
     rects  += `<text x="${(pad.l+bw+4).toFixed(1)}" y="${(y+bh/2+3).toFixed(1)}" font-size="9" fill="${b.color}"><tspan font-weight="700">${b.value}</tspan> (${pct}%)</text>`;
     labels += `<text x="${(pad.l-4).toFixed(1)}" y="${(y+bh/2+3).toFixed(1)}" text-anchor="end" font-size="10" fill="#475569">${b.label}</text>`;
   });
 
+  const note = !useGrad
+    ? `<text x="${vW/2}" y="${vH-2}" text-anchor="middle" font-size="8" fill="#7c3aed">gradiente: no aplicado en perfil eeg_julia</text>`
+    : '';
+
   svg.innerHTML = `<text x="${vW/2}" y="12" text-anchor="middle" font-size="10" font-weight="700" fill="#1e293b">Distribución de causas</text>` +
-    rects + labels;
+    rects + labels + note;
 }
 
 function _p7RenderChannels() {
@@ -8112,7 +8179,7 @@ function _p7RenderChannels() {
   }).join('');
 }
 
-function _p7RenderExample() {
+async function _p7RenderExample() {
   const canvas = document.getElementById('p7-ex-canvas');
   const info   = document.getElementById('p7-ex-info');
   if (!canvas) return;
@@ -8122,54 +8189,139 @@ function _p7RenderExample() {
 
   if (!segs.length) { _p7CanvasMsg(canvas, 'Sin segmentos rechazados'); return; }
 
-  const worst = segs[0];
+  const worst  = segs[0];
+  const sm     = State.p7Data?.summary || {};
+  const isEJ   = (sm.profile || 'default') === 'eeg_julia';
+  const thrPos = isEJ ? Math.abs(sm.min_amplitude_uv ?? 70) : (sm.max_amplitude_uv ?? 100);
+  const thrNeg = isEJ ? (sm.min_amplitude_uv ?? -70) : -(sm.amp_threshold_uv ?? 100);
+
+  // Try to fetch real signal from pipeline output
+  let realOk = false;
+  try {
+    const ch = worst.worst_channel || '';
+    const r  = await fetch(
+      `/api/phase7_epoch_signal?subj=${State.subj}&sess=${State.sess}&cond=${State.cond}&epoch=${worst.epoch}&channel=${encodeURIComponent(ch)}`
+    ).then(x => x.json()).catch(() => null);
+
+    if (r?.ok && r.values?.length >= 2) {
+      _p7DrawRealSignal(canvas, r.times, r.values, thrNeg, thrPos, worst, r.channel);
+      if (info) {
+        const reason = worst.rejection_reason === 'amplitude' ? 'Amplitud excesiva' : 'Gradiente excesivo';
+        info.innerHTML =
+          `<b>Epoch #${worst.epoch}</b> · ${(worst.start_s||0).toFixed(2)}–${(worst.end_s||0).toFixed(2)} s · ` +
+          `Canal: <b>${r.channel}</b> · ` +
+          `Max: <b style="color:#dc2626">${(worst.max_amp_uv||0).toFixed(1)} µV</b> · ` +
+          `Min: <b style="color:#2563eb">${(worst.min_amp_uv||0).toFixed(1)} µV</b> · ` +
+          `Causa: <span class="p7-badge-${worst.rejection_reason==='amplitude'?'amp':'grad'}">${reason}</span>`;
+      }
+      realOk = true;
+    }
+  } catch(e) { /* fall through */ }
+
+  if (!realOk) {
+    _p7DrawExamplePlaceholder(canvas, worst, thrNeg, thrPos);
+    if (info) {
+      info.innerHTML =
+        `<b>Epoch #${worst.epoch}</b> · Inicio: ${(worst.start_s||0).toFixed(2)} s · ` +
+        `P2P: <b style="color:#dc2626">${(worst.p2p_uv||0).toFixed(1)} µV</b> · ` +
+        `Canal peor: <b>${worst.worst_channel||'—'}</b> · ` +
+        `<span style="color:#94a3b8;font-style:italic">señal real no disponible (ejecuta el pipeline)</span>`;
+    }
+  }
+}
+
+function _p7DrawRealSignal(canvas, times, values, thrNeg, thrPos, seg, chName) {
+  const W   = canvas.offsetWidth || 350, H = canvas.offsetHeight || 120;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  const pad = { t:8, r:8, b:8, l:8 };
+  const dW  = W - pad.l - pad.r, dH = H - pad.t - pad.b;
+  const n   = values.length;
+  const vMin = Math.min(...values, thrNeg * 1.1);
+  const vMax = Math.max(...values, thrPos * 1.1);
+  const vRange = vMax - vMin || 1;
+  const toX = (i)  => pad.l + (i / (n-1)) * dW;
+  const toY = (v)  => pad.t + (1 - (v - vMin) / vRange) * dH;
+
+  // Rejected background
+  ctx.fillStyle = 'rgba(220,38,38,0.06)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Threshold lines
+  [thrPos, thrNeg].forEach((thr, ti) => {
+    const yt = toY(thr);
+    if (yt >= 0 && yt <= H) {
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(220,38,38,0.5)';
+      ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+      ctx.moveTo(pad.l, yt); ctx.lineTo(W - pad.r, yt);
+      ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#dc2626';
+      ctx.font = '8px sans-serif';
+      ctx.fillText(`${thr > 0 ? '+' : ''}${thr} µV`, W - pad.r - 38, yt - 2);
+    }
+  });
+
+  // Zero line
+  const yZ = toY(0);
+  if (yZ >= 0 && yZ <= H) {
+    ctx.beginPath(); ctx.strokeStyle = 'rgba(100,116,139,0.3)';
+    ctx.lineWidth = 0.5; ctx.moveTo(pad.l, yZ); ctx.lineTo(W - pad.r, yZ); ctx.stroke();
+  }
+
+  // Signal
+  ctx.beginPath(); ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 1.5;
+  values.forEach((v, i) => {
+    const x = toX(i), y = toY(v);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Mark violations in red
+  ctx.beginPath(); ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 2;
+  let inViol = false;
+  values.forEach((v, i) => {
+    const isViol = v < thrNeg || v > thrPos;
+    const x = toX(i), y = toY(v);
+    if (isViol && !inViol) { ctx.moveTo(x, y); inViol = true; }
+    else if (isViol)       { ctx.lineTo(x, y); }
+    else                   { inViol = false; }
+  });
+  ctx.stroke();
+}
+
+function _p7DrawExamplePlaceholder(canvas, seg, thrNeg, thrPos) {
   const W = canvas.offsetWidth || 350, H = canvas.offsetHeight || 120;
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, W, H);
-
-  // Simulate a noisy signal with the given p2p amplitude
-  const p2p = worst.p2p_uv || 100;
-  const n   = 200;
-  const noise = Array.from({length: n}, (_, i) =>
-    (p2p/2) * Math.sin(2*Math.PI*i/30) * (1 + 0.4*Math.sin(2*Math.PI*i/7)) +
-    (Math.random() - 0.5) * p2p * 0.15
-  );
-  const yMin = Math.min(...noise), yMax = Math.max(...noise), yRange = yMax - yMin || 1;
-  const pad  = 12;
-
-  // Rejected background
-  ctx.fillStyle = 'rgba(220,38,38,0.07)';
+  ctx.fillStyle = 'rgba(248,250,252,1)';
   ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+  ctx.strokeRect(1, 1, W-2, H-2);
 
-  // Signal
-  ctx.beginPath(); ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 1.5;
-  noise.forEach((v, i) => {
-    const x = pad + (i/(n-1))*(W-2*pad);
-    const y = pad + (1-(v-yMin)/yRange)*(H-2*pad);
-    i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
-  });
-  ctx.stroke();
-
-  // Threshold dashed lines
-  const amp = State.p7Data?.summary?.amp_threshold_uv || 100;
-  [yMin + (yRange - amp)/2 + amp, yMin + (yRange - amp)/2].forEach(thresh => {
-    const yt = pad + (1-(thresh-yMin)/yRange)*(H-2*pad);
-    if (yt > pad && yt < H-pad) {
-      ctx.beginPath(); ctx.strokeStyle='rgba(220,38,38,0.35)';
-      ctx.lineWidth=1; ctx.setLineDash([4,3]);
-      ctx.moveTo(pad, yt); ctx.lineTo(W-pad, yt); ctx.stroke();
-      ctx.setLineDash([]);
+  // Threshold lines as context
+  const pad = 16;
+  const dH = H - 2*pad;
+  const range = Math.abs(thrPos) * 2.4;
+  const center = pad + dH/2;
+  const scale  = dH / range;
+  [thrPos, thrNeg].forEach(thr => {
+    const yt = center - thr * scale;
+    if (yt >= pad && yt <= H - pad) {
+      ctx.beginPath(); ctx.strokeStyle = 'rgba(220,38,38,0.4)';
+      ctx.lineWidth = 1; ctx.setLineDash([4,3]);
+      ctx.moveTo(pad, yt); ctx.lineTo(W-pad, yt); ctx.stroke(); ctx.setLineDash([]);
     }
   });
 
-  if (info) {
-    const reason = worst.rejection_reason==='amplitude' ? 'Amplitud excesiva' : 'Gradiente excesivo';
-    info.innerHTML = `<b>Epoch #${worst.epoch}</b> · Inicio: ${(worst.start_s||0).toFixed(2)}s · ` +
-      `P2P: <b style="color:#dc2626">${(worst.p2p_uv||0).toFixed(1)} µV</b> · ` +
-      `Causa: <span class="p7-badge-${worst.rejection_reason==='amplitude'?'amp':'grad'}">${reason}</span> · ` +
-      `Canal peor: <b>${worst.worst_channel||'—'}</b>`;
-  }
+  // Placeholder text
+  ctx.fillStyle = '#94a3b8'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Señal no disponible', W/2, H/2 - 8);
+  ctx.font = '9px sans-serif';
+  ctx.fillText(`Epoch #${seg.epoch} · Ejecuta el pipeline para ver la señal real`, W/2, H/2 + 8);
+  ctx.textAlign = 'left';
 }
 
 async function _p7LoadPreview() {

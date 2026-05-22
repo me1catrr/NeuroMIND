@@ -347,6 +347,203 @@ end
     @test size(epochs2.data, 3) == epochs_ar.n_valid
 end
 
+# ─── Tests Phase 7: comportamiento exacto AR eeg_julia ───────
+
+@testset "AR_Phase7_MaxAmplitude" begin
+    # Canal 5, época 2: +75 µV > +70 µV → rechazado con eeg_julia, válido con default (±100)
+    fs   = 500.0
+    n_ch = 10; n_samp = 1000   # 2 épocas de 1 s a 500 Hz
+    data = zeros(n_ch, n_samp)
+    data[5, 501:1000] .= 75.0   # época 2, canal 5: +75 µV
+    meta  = RecordingMeta("T01", "T1", "EC", 1, fs, n_ch,
+                          ["Ch$i" for i in 1:n_ch], nothing, "dummy.tsv")
+    rec   = EEGRecording(meta, data, collect(0.0:(1/fs):(n_samp-1)/fs))
+
+    seg = Dict{String,Any}("profile" => "default", "epoch_length_s" => 1.0,
+                           "epoch_overlap" => 0.0, "min_epochs" => 1)
+    bl  = Dict{String,Any}("apply" => false)
+    ar  = Dict{String,Any}("profile" => "eeg_julia", "enabled" => true,
+                           "min_amplitude_uv" => -70.0, "max_amplitude_uv" => 70.0,
+                           "n_channels_used" => 10,
+                           "amplitude_threshold_uv" => 100.0,
+                           "gradient_threshold_uv"  => 50.0)
+    cfg    = _cfg_seg(seg, bl, ar)
+    epochs = segment_recording(rec, cfg)
+    ep_ar  = reject_artifacts(epochs, cfg)
+
+    @test ep_ar.n_valid == 1              # solo época 1 válida
+    @test length(ep_ar.rejected_idx) == 1
+    @test ep_ar.rejected_idx[1] == 2     # época 2 rechazada por amplitud máxima
+
+    # Con default (±100 µV): 75 µV < 100 µV → ninguna época rechazada
+    ar_def = Dict{String,Any}("profile" => "default", "enabled" => true,
+                              "amplitude_threshold_uv" => 100.0,
+                              "gradient_threshold_uv"  => 200.0,
+                              "use_gradient" => false)
+    cfg_def = _cfg_seg(seg, bl, ar_def)
+    ep_def  = reject_artifacts(epochs, cfg_def)
+    @test ep_def.n_valid == n_epochs(epochs)   # 75 µV < 100 µV → sin rechazo
+end
+
+@testset "AR_Phase7_MinAmplitude" begin
+    # Canal 3, época 1: -75 µV < -70 µV → rechazado con eeg_julia
+    fs   = 500.0
+    n_ch = 10; n_samp = 1000
+    data = zeros(n_ch, n_samp)
+    data[3, 1:500] .= -75.0   # época 1, canal 3: -75 µV
+    meta  = RecordingMeta("T01", "T1", "EC", 1, fs, n_ch,
+                          ["Ch$i" for i in 1:n_ch], nothing, "dummy.tsv")
+    rec   = EEGRecording(meta, data, collect(0.0:(1/fs):(n_samp-1)/fs))
+
+    seg = Dict{String,Any}("profile" => "default", "epoch_length_s" => 1.0,
+                           "epoch_overlap" => 0.0, "min_epochs" => 1)
+    bl  = Dict{String,Any}("apply" => false)
+    ar  = Dict{String,Any}("profile" => "eeg_julia", "enabled" => true,
+                           "min_amplitude_uv" => -70.0, "max_amplitude_uv" => 70.0,
+                           "n_channels_used" => 10,
+                           "amplitude_threshold_uv" => 100.0,
+                           "gradient_threshold_uv"  => 50.0)
+    cfg    = _cfg_seg(seg, bl, ar)
+    epochs = segment_recording(rec, cfg)
+    ep_ar  = reject_artifacts(epochs, cfg)
+
+    @test ep_ar.n_valid == 1              # solo época 2 válida
+    @test length(ep_ar.rejected_idx) == 1
+    @test ep_ar.rejected_idx[1] == 1     # época 1 rechazada (min < -70 µV)
+end
+
+@testset "AR_Phase7_GradientNotUsed" begin
+    # Spike que genera gradiente > 50 µV/muestra, pero amplitud ≤ 60 µV < 70 µV
+    # eeg_julia: sin gradient check → NO rechazado
+    # default + use_gradient=true: rechazado por gradiente
+    fs   = 500.0
+    n_ch = 5; n_samp = 1000
+    data = zeros(n_ch, n_samp)
+    # muestra 250 = 60 µV, muestra 251 = 0 → gradiente = 60 µV/muestra > 50
+    data[2, 250] = 60.0
+    meta  = RecordingMeta("T01", "T1", "EC", 1, fs, n_ch,
+                          ["Ch$i" for i in 1:n_ch], nothing, "dummy.tsv")
+    rec   = EEGRecording(meta, data, collect(0.0:(1/fs):(n_samp-1)/fs))
+
+    seg = Dict{String,Any}("profile" => "default", "epoch_length_s" => 1.0,
+                           "epoch_overlap" => 0.0, "min_epochs" => 1)
+    bl  = Dict{String,Any}("apply" => false)
+
+    # eeg_julia: amplitud 60 µV < 70 µV, gradiente ignorado → NO rechazado
+    ar_ej = Dict{String,Any}("profile" => "eeg_julia", "enabled" => true,
+                             "min_amplitude_uv" => -70.0, "max_amplitude_uv" => 70.0,
+                             "n_channels_used" => 5,
+                             "amplitude_threshold_uv" => 100.0,
+                             "gradient_threshold_uv"  => 50.0)
+    cfg_ej = _cfg_seg(seg, bl, ar_ej)
+    epochs = segment_recording(rec, cfg_ej)
+    ep_ej  = reject_artifacts(epochs, cfg_ej)
+    @test ep_ej.n_valid == n_epochs(epochs)   # gradiente ignorado → ambas épocas válidas
+
+    # default + use_gradient=true: gradiente 60 > 50 → época 1 rechazada
+    ar_def = Dict{String,Any}("profile" => "default", "enabled" => true,
+                              "amplitude_threshold_uv" => 100.0,
+                              "gradient_threshold_uv"  => 50.0,
+                              "use_gradient"           => true)
+    cfg_def = _cfg_seg(seg, bl, ar_def)
+    ep_def  = reject_artifacts(epochs, cfg_def)
+    @test ep_def.n_valid < n_epochs(epochs)   # gradiente 60 > 50 → época 1 rechazada
+end
+
+@testset "AR_Phase7_NChannelsUsed" begin
+    # Violación (+75 µV) en canal 31, fuera de los primeros 30 evaluados por eeg_julia.
+    # n_channels_used=30 → NO rechaza; n_channels_used=35 → SÍ rechaza.
+    fs   = 500.0
+    n_ch = 35; n_samp = 1000
+    data = zeros(n_ch, n_samp)
+    data[31, 1:500] .= 75.0   # canal 31, época 1: 75 µV
+    meta  = RecordingMeta("T01", "T1", "EC", 1, fs, n_ch,
+                          ["Ch$i" for i in 1:n_ch], nothing, "dummy.tsv")
+    rec   = EEGRecording(meta, data, collect(0.0:(1/fs):(n_samp-1)/fs))
+
+    seg = Dict{String,Any}("profile" => "default", "epoch_length_s" => 1.0,
+                           "epoch_overlap" => 0.0, "min_epochs" => 1)
+    bl  = Dict{String,Any}("apply" => false)
+
+    # n_channels_used=30: canal 31 no evaluado → 75 µV no detectado → NO rechaza
+    ar_30 = Dict{String,Any}("profile" => "eeg_julia", "enabled" => true,
+                             "min_amplitude_uv" => -70.0, "max_amplitude_uv" => 70.0,
+                             "n_channels_used" => 30,
+                             "amplitude_threshold_uv" => 100.0,
+                             "gradient_threshold_uv"  => 50.0)
+    cfg_30 = _cfg_seg(seg, bl, ar_30)
+    epochs = segment_recording(rec, cfg_30)
+    ep_30  = reject_artifacts(epochs, cfg_30)
+    @test ep_30.n_valid == n_epochs(epochs)   # canal 31 ignorado → sin rechazo
+
+    # n_channels_used=35: canal 31 evaluado → 75 µV > 70 µV → rechaza época 1
+    ar_35 = Dict{String,Any}("profile" => "eeg_julia", "enabled" => true,
+                             "min_amplitude_uv" => -70.0, "max_amplitude_uv" => 70.0,
+                             "n_channels_used" => 35,
+                             "amplitude_threshold_uv" => 100.0,
+                             "gradient_threshold_uv"  => 50.0)
+    cfg_35 = _cfg_seg(seg, bl, ar_35)
+    ep_35  = reject_artifacts(epochs, cfg_35)
+    @test ep_35.n_valid < n_epochs(epochs)    # canal 31 evaluado → 75 > 70 → rechazado
+    @test ep_35.rejected_idx[1] == 1          # época 1 rechazada
+end
+
+@testset "AR_Phase7_QualityReport" begin
+    # Verifica que compute_epoch_quality_report produce las columnas min_amp_uv
+    # y channels_violating (Phase 7), y que sus valores son correctos.
+    fs   = 500.0
+    n_ch = 5; n_samp = 1000
+    ch_names = ["Fp1","Fp2","F3","F4","Fz"]
+    data = zeros(n_ch, n_samp)
+    data[2, 501:1000] .= 75.0    # época 2, canal Fp2: +75 µV
+    data[4, 501:1000] .= -65.0   # época 2, canal F4: -65 µV (dentro de ±70, no viola)
+    meta  = RecordingMeta("T01", "T1", "EC", 1, fs, n_ch,
+                          ch_names, nothing, "dummy.tsv")
+    rec   = EEGRecording(meta, data, collect(0.0:(1/fs):(n_samp-1)/fs))
+
+    seg = Dict{String,Any}("profile" => "default", "epoch_length_s" => 1.0,
+                           "epoch_overlap" => 0.0, "min_epochs" => 1)
+    bl  = Dict{String,Any}("apply" => false)
+    ar  = Dict{String,Any}("profile" => "eeg_julia", "enabled" => true,
+                           "min_amplitude_uv" => -70.0, "max_amplitude_uv" => 70.0,
+                           "n_channels_used" => 5,
+                           "amplitude_threshold_uv" => 100.0,
+                           "gradient_threshold_uv"  => 50.0)
+    cfg    = _cfg_seg(seg, bl, ar)
+    epochs = segment_recording(rec, cfg)
+    qr     = compute_epoch_quality_report(epochs, cfg)
+
+    # ── Columnas nuevas Phase 7 ────────────────────────────────
+    @test hasproperty(qr, :min_amp_uv)
+    @test hasproperty(qr, :channels_violating)
+
+    # ── Época 1 (todas las muestras = 0): válida, sin violaciones ─
+    @test qr.status[1]             == "valid"
+    @test isempty(qr.channels_violating[1])
+    @test qr.min_amp_uv[1]         ≈ 0.0 atol=1e-6
+    @test qr.max_amp_uv[1]         ≈ 0.0 atol=1e-6
+
+    # ── Época 2 (Fp2=+75): rechazada, Fp2 en channels_violating ──
+    @test qr.status[2]             == "rejected"
+    @test qr.rejection_reason[2]   == "amplitude"
+    @test occursin("Fp2", qr.channels_violating[2])
+
+    # F4 (-65 µV) NO viola ±70 → no debe aparecer en channels_violating
+    @test !occursin("F4", qr.channels_violating[2])
+
+    # max_amp y p2p correctos para época 2
+    @test qr.max_amp_uv[2]  ≈ 75.0 atol=1e-4
+    @test qr.p2p_uv[2]      ≈ 140.0 atol=1e-4  # 75.0 - (-65.0) = 140.0
+
+    # worst_channel debe ser Fp2 (mayor amplitud absoluta = 75.0 vs |−65|=65)
+    @test qr.worst_channel[2] == "Fp2"
+
+    # ── Tamaño del reporte: una fila por época ─────────────────
+    @test size(qr, 1) == 2
+    @test qr.epoch[1] == 1
+    @test qr.epoch[2] == 2
+end
+
 # ─── Tests espectrales ────────────────────────────────────────
 
 @testset "Spectral" begin

@@ -182,15 +182,16 @@ function compute_epoch_quality_report(epochs::EpochSet, cfg::PipelineConfig)::Da
 
     ch_max = min(n_ch_used, n_ch)
 
-    epoch_v    = Int[];    start_v   = Float64[]; end_v    = Float64[]
-    quality_v  = Float64[]; status_v  = String[];  reason_v = String[]
-    amp_v      = Float64[]; grad_v    = Float64[]
-    worst_ch_v = String[];  p2p_v     = Float64[]
+    epoch_v    = Int[];    start_v   = Float64[]; end_v      = Float64[]
+    quality_v  = Float64[]; status_v  = String[];  reason_v   = String[]
+    amp_v      = Float64[]; min_amp_v = Float64[]; grad_v     = Float64[]
+    worst_ch_v = String[];  p2p_v     = Float64[]; ch_viol_v  = String[]
 
     @inbounds for ep in 1:n_ep
         ma = 0.0; mg = 0.0; reason = ""; bad = false
         worst_ch_idx = 1
         ep_min = Inf; ep_max = -Inf
+        violating_names = String[]
 
         for ch in 1:ch_max
             seg = @view epochs.data[ch, :, ep]
@@ -199,6 +200,11 @@ function compute_epoch_quality_report(epochs::EpochSet, cfg::PipelineConfig)::Da
             if v > ma; ma = v; worst_ch_idx = ch; end
             if (seg_min < min_uv || seg_max > max_uv) && !bad
                 reason = "amplitude"; bad = true
+            end
+            # track violating channels (amplitude)
+            if seg_min < min_uv || seg_max > max_uv
+                push!(violating_names,
+                      (ch <= length(ch_names)) ? ch_names[ch] : "CH$(ch)")
             end
             seg_min < ep_min && (ep_min = seg_min)
             seg_max > ep_max && (ep_max = seg_max)
@@ -211,12 +217,13 @@ function compute_epoch_quality_report(epochs::EpochSet, cfg::PipelineConfig)::Da
             end
         end
 
-        grad_ratio = use_grad ? mg / grad_thresh : 0.0
-        q   = clamp(1.0 - 0.5 * max(ma / amp_thresh, grad_ratio), 0.0, 1.0)
-        t0  = round((ep - 1) * step_s, digits=3)
-        p2p = isinf(ep_min) ? 0.0 : round(ep_max - ep_min, digits=2)
-        worst_name = (worst_ch_idx <= length(ch_names)) ?
-                     ch_names[worst_ch_idx] : "CH$(worst_ch_idx)"
+        grad_ratio  = use_grad ? mg / grad_thresh : 0.0
+        q           = clamp(1.0 - 0.5 * max(ma / amp_thresh, grad_ratio), 0.0, 1.0)
+        t0          = round((ep - 1) * step_s, digits=3)
+        p2p         = isinf(ep_min) ? 0.0 : round(ep_max - ep_min, digits=2)
+        min_amp_ep  = isinf(ep_min) ? 0.0 : round(ep_min, digits=2)
+        worst_name  = (worst_ch_idx <= length(ch_names)) ?
+                      ch_names[worst_ch_idx] : "CH$(worst_ch_idx)"
 
         push!(epoch_v,    ep)
         push!(start_v,    t0)
@@ -225,23 +232,27 @@ function compute_epoch_quality_report(epochs::EpochSet, cfg::PipelineConfig)::Da
         push!(status_v,   bad ? "rejected" : "valid")
         push!(reason_v,   reason)
         push!(amp_v,      round(ma, digits=2))
+        push!(min_amp_v,  min_amp_ep)
         push!(grad_v,     round(mg, digits=2))
         push!(worst_ch_v, worst_name)
         push!(p2p_v,      p2p)
+        push!(ch_viol_v,  join(violating_names, ";"))
     end
 
     return DataFrame(
-        epoch            = epoch_v,
-        start_s          = start_v,
-        end_s            = end_v,
-        duration_s       = fill(epoch_s, n_ep),
-        quality          = quality_v,
-        status           = status_v,
-        rejection_reason = reason_v,
-        max_amp_uv       = amp_v,
-        max_grad_uv      = grad_v,
-        worst_channel    = worst_ch_v,
-        p2p_uv           = p2p_v,
+        epoch               = epoch_v,
+        start_s             = start_v,
+        end_s               = end_v,
+        duration_s          = fill(epoch_s, n_ep),
+        quality             = quality_v,
+        status              = status_v,
+        rejection_reason    = reason_v,
+        max_amp_uv          = amp_v,
+        min_amp_uv          = min_amp_v,
+        max_grad_uv         = grad_v,
+        worst_channel       = worst_ch_v,
+        p2p_uv              = p2p_v,
+        channels_violating  = ch_viol_v,
     )
 end
 

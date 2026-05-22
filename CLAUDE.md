@@ -2,7 +2,7 @@
 
 > Este archivo es leído automáticamente por Claude Code al inicio de cada sesión.
 > Contiene todo el contexto necesario para trabajar en el proyecto desde cualquier ordenador.
-> **Mantenerlo actualizado es prioritario.** Última actualización: 2026-05-22 (Phase 6 EEG_Julia completa).
+> **Mantenerlo actualizado es prioritario.** Última actualización: 2026-05-22 (Phase 7 AR EEG_Julia completa).
 
 ---
 
@@ -232,13 +232,15 @@ git push -u origin <rama>
 - [x] Dashboard paneles 0–7
 - [x] API routes: `/api/phase5_ica_info`, `/api/ica_activation`, `/api/ica_signal`, `/api/ica_features`
 - [x] API route: `/api/phase6_segmentation` → segmentation_summary.json (enriquecido), segments_table.csv, channel_coverage.csv
-- [x] API route: `/api/phase7_ar` → artifact_rejection_summary.json, rejected_segments.csv, channel_artifact_summary.csv
+- [x] API route: `/api/phase7_ar` → artifact_rejection_summary.json (enriquecido), rejected_segments.csv, channel_artifact_summary.csv
+- [x] API route: `/api/phase7_epoch_signal` → señal real del epoch del peor segmento
 - [x] `compute_ica_features` — 7 features por componente (portado de EEG_Julia)
 - [x] `evaluate_ica_components` — scores ocular/muscle/line/jump → labels
 - [x] `_save_ica_topomaps` — genera PNGs por IC (requiere ch_positions en BIDS)
 - [x] Dashboard Phase 5: topomap grid paginado (6 columnas, 36/pág), features table, profile badge
-- [x] 241 tests unitarios pasando
-- [x] `compute_epoch_quality_report` con worst_channel + p2p_uv, respeta perfil AR
+- [x] 269 tests unitarios pasando
+- [x] `compute_epoch_quality_report` con min_amp_uv + channels_violating + worst_channel + p2p_uv, respeta perfil AR
+- [x] `compute_channel_coverage` exportado desde módulo
 - [x] **Phase 6 EEG_Julia profile** (rama `feat/phase6-eeg-julia-segmentation`):
   - `segment_recording` perfil `"eeg_julia"` → fuerza 1 s, sin solapamiento
   - `apply_baseline` método `"first_window_mean"` → media [0, 0.10 s] por canal (EEG_Julia exacto)
@@ -246,11 +248,21 @@ git push -u origin <rama>
   - Pipeline: doble baseline (`n_passes=2`) — pre-AR + post-AR
   - `segmentation_summary.json` enriquecido con 10 nuevos campos metodológicos
   - Dashboard Phase 6: badges perfil, nota metodológica EEG_Julia, criterio AR detallado
+- [x] **Phase 7 AR EEG_Julia profile** (rama `feat/phase7-ar-eeg-julia`):
+  - `_save_ar_results` enriquecida: profile, min/max_amplitude_uv, use_gradient, n_channels_used/total, before/after_event_ms, before_after_applied
+  - `rejected_segments.csv`: columnas min_amp_uv + channels_violating añadidas
+  - `channel_artifact_summary.csv`: usa channels_violating para conteo exacto por canal
+  - `load_ss_config` AR dict ampliado con todos los parámetros EEG_Julia
+  - `/api/phase7_ar` parsea nuevos campos + computed labels (detector_label, gradient_label, channels_desc)
+  - `/api/phase7_epoch_signal` endpoint nuevo: señal real del epoch desde ica_signal_after.csv
+  - Dashboard Phase 7: profile badge, criterio correcto, gradiente "no aplicado" (eeg_julia), before/after note, `_p7RenderExample` con señal real + fallback profesional
+  - 28 nuevos tests: MaxAmplitude, MinAmplitude, GradientNotUsed, NChannelsUsed, QualityReport (16 aserciones)
 - [x] README.md completo; `.gitignore` estricto; CLAUDE.md actualizado
 
 ### Ramas activas
 - `feat/phase5-ica-classification` — commits de Phase 5, pendiente push/PR
 - `feat/phase6-eeg-julia-segmentation` — Phase 6 EEG_Julia, pendiente push/PR
+- `feat/phase7-ar-eeg-julia` — Phase 7 AR EEG_Julia, pendiente push/PR
 
 ### Pendiente / próximo
 - [ ] Dashboard paneles 8–12 (espectral → exportación)

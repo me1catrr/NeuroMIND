@@ -73,6 +73,9 @@ n_channels_used       = 30      # solo los primeros N canales para el rechazo
 amplitude_threshold_uv = 100.0
 gradient_threshold_uv  = 50.0
 use_gradient           = true
+# Parámetros EEG_Julia — guardados pero NO aplicados (before/after event):
+before_event_ms        = 200   # almacenado por compatibilidad con EEG_Julia; no usado en detección
+after_event_ms         = 300   # almacenado por compatibilidad con EEG_Julia; no usado en detección
 enabled                = true
 
 # ─── Análisis espectral ───────────────────────────────────────
