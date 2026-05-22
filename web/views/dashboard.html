@@ -1188,6 +1188,54 @@ tr.row-warn:hover td { background: #fef9c3; }
 .p8-reg-lbl     { width:58px; font-weight:600; color:var(--text-2); font-size:9px; overflow:hidden;
                   white-space:nowrap; text-overflow:ellipsis; }
 .p8-reg-val     { width:46px; text-align:right; font-size:9px; font-family:monospace; color:var(--text-3); }
+
+/* ── Phase 9 — Conectividad wPLI ─────────────────────── */
+.grid-p9-top  { display:grid; grid-template-columns:1fr 1.2fr 1.3fr 0.9fr; gap:12px; margin-bottom:14px; }
+.grid-p9-mid  { display:grid; grid-template-columns:1.15fr 0.85fr; gap:12px; margin-bottom:14px; }
+.grid-p9-bot  { display:grid; grid-template-columns:1.1fr 0.9fr; gap:12px; margin-bottom:14px; }
+.p9-full      { margin-bottom:14px; }
+.p9-cfg-row   { display:flex; justify-content:space-between; align-items:center; padding:5px 0;
+                 border-bottom:1px solid var(--border); font-size:12px; }
+.p9-cfg-row:last-child { border-bottom:none; }
+.p9-cfg-key   { color:var(--text-3); }
+.p9-cfg-val   { font-weight:700; font-family:monospace; font-size:11px; color:var(--text-1); }
+.p9-band-tabs { display:flex; flex-wrap:wrap; gap:5px; padding:2px 0 4px; }
+.p9-band-tab  { padding:4px 9px; border-radius:12px; font-size:11px; font-weight:700;
+                 cursor:pointer; border:1.5px solid transparent; transition:.12s;
+                 background:var(--bg-3); color:var(--text-2); }
+.p9-band-tab.active { color:#fff; }
+.p9-band-tab:hover  { opacity:.85; }
+.p9-metrics-row { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:8px; }
+.p9-metric-cell { background:var(--bg-2); border-radius:8px; padding:8px; text-align:center; }
+.p9-metric-val  { font-size:18px; font-weight:800; }
+.p9-metric-lbl  { font-size:9px; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:.3px; margin-top:2px; }
+#p9-heatmap-canvas { display:block; width:100%; cursor:crosshair; border-radius:6px; background:#f8fafc; }
+#p9-network-canvas { display:block; width:100%; border-radius:6px; background:#f8fafc; }
+.p9-threshold-row  { display:flex; align-items:center; gap:10px; margin:8px 0 4px; font-size:11px; }
+.p9-threshold-row input[type=range] { flex:1; accent-color:#1d4ed8; }
+.p9-tbl       { width:100%; border-collapse:collapse; font-size:12px; }
+.p9-tbl th    { background:var(--bg-3); color:var(--text-3); font-weight:600; text-align:left;
+                 padding:6px 8px; border-bottom:2px solid var(--border); font-size:10px;
+                 text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; position:sticky; top:0; }
+.p9-tbl td    { padding:5px 8px; border-bottom:1px solid var(--border); }
+.p9-tbl tr:hover td { background:rgba(29,78,216,.04); }
+.p9-qa-grid   { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
+.p9-qa-btn    { display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;
+                background:var(--bg-2); border:1px solid var(--border); border-radius:8px;
+                cursor:pointer; font-size:10px; font-weight:600; color:var(--text-2);
+                transition:.15s; text-align:center; line-height:1.3; }
+.p9-qa-btn:hover { background:#dbeafe; color:#1d4ed8; }
+.p9-qa-icon   { font-size:18px; }
+.p9-not-run   { display:flex; flex-direction:column; align-items:center; justify-content:center;
+                padding:50px 20px; text-align:center; color:var(--text-3); }
+.p9-not-run-icon { font-size:42px; margin-bottom:14px; }
+.p9-not-run-title{ font-size:17px; font-weight:700; color:var(--text-1); margin-bottom:8px; }
+.p9-not-run-sub  { font-size:12px; max-width:400px; line-height:1.6; margin-bottom:16px; }
+.p9-run-btn      { padding:9px 20px; background:#1d4ed8; color:#fff; border:none; border-radius:8px;
+                   cursor:pointer; font-weight:700; font-size:13px; }
+.p9-run-btn:hover{ background:#1e40af; }
+.p9-hist-svg  { display:block; width:100%; overflow:visible; }
+.p9-band-pill { display:inline-block; padding:1px 7px; border-radius:10px; font-size:10px; font-weight:700; }
 </style>
 </head>
 <body>
@@ -3110,7 +3158,202 @@ tr.row-warn:hover td { background: #fef9c3; }
     </div>
 
   </div><!-- /phase-panel-8 -->
-  <div id="phase-panel-9"  class="phase-panel"></div>
+  <!-- ══════════════════════════════════════════════════════════
+       PHASE 9 — CONECTIVIDAD wPLI
+  ══════════════════════════════════════════════════════════ -->
+  <div id="phase-panel-9" class="phase-panel">
+
+    <!-- Header -->
+    <div class="phase-header">
+      <div class="phase-header-left">
+        <div class="phase-badge-lg" style="background:#1d4ed8">9</div>
+        <div>
+          <div class="phase-title">9. Conectividad wPLI — Red funcional EEG</div>
+          <div class="phase-subtitle" id="p9-subtitle">wPLI · Hilbert analítica · Transformada Fisher Z · Grafos cerebrales</div>
+        </div>
+      </div>
+      <div id="p9-status-chip" class="status-chip pending">Cargando…</div>
+    </div>
+
+    <!-- Fila 1: Config | Band selector | Summary | Estado -->
+    <div class="grid-p9-top">
+
+      <!-- 1. Config del análisis -->
+      <div class="card">
+        <div class="card-header">Configuración</div>
+        <div class="card-body" id="p9-analysis-cfg">
+          <div class="spinner"><div class="spin-circle"></div></div>
+        </div>
+      </div>
+
+      <!-- 2. Selector de banda -->
+      <div class="card">
+        <div class="card-header">Banda activa</div>
+        <div class="card-body" style="padding:10px">
+          <div class="p9-band-tabs" id="p9-band-tabs">
+            <div class="spinner"><div class="spin-circle"></div></div>
+          </div>
+          <div id="p9-band-desc" style="font-size:10px;color:var(--text-3);margin-top:6px;line-height:1.5"></div>
+        </div>
+      </div>
+
+      <!-- 3. Summary metrics para la banda seleccionada -->
+      <div class="card">
+        <div class="card-header">Conectividad — banda seleccionada</div>
+        <div class="card-body" style="padding:8px">
+          <div class="p9-metrics-row" id="p9-metrics-row">
+            <div class="p9-metric-cell"><div class="p9-metric-val" id="p9-m-mean"  style="color:#1d4ed8">—</div><div class="p9-metric-lbl">Media wPLI</div></div>
+            <div class="p9-metric-cell"><div class="p9-metric-val" id="p9-m-max"   style="color:#dc2626">—</div><div class="p9-metric-lbl">Máximo</div></div>
+            <div class="p9-metric-cell"><div class="p9-metric-val" id="p9-m-dens"  style="color:#d97706">—</div><div class="p9-metric-lbl">Densidad</div></div>
+            <div class="p9-metric-cell"><div class="p9-metric-val" id="p9-m-edges" style="color:#7c3aed">—</div><div class="p9-metric-lbl">N° pares</div></div>
+          </div>
+          <div id="p9-metrics-note" style="font-size:10px;color:var(--text-3);padding:2px;line-height:1.5"></div>
+        </div>
+      </div>
+
+      <!-- 4. Estado de la fase -->
+      <div class="card">
+        <div class="card-header">Estado de la fase</div>
+        <div class="card-body" id="p9-phase-status">
+          <div class="spinner"><div class="spin-circle"></div></div>
+        </div>
+      </div>
+
+    </div><!-- /grid-p9-top -->
+
+    <!-- Placeholder si no hay datos de conectividad -->
+    <div id="p9-not-run-block" class="p9-not-run" style="display:none">
+      <div class="p9-not-run-icon">🔗</div>
+      <div class="p9-not-run-title">Conectividad wPLI aún no calculada</div>
+      <div class="p9-not-run-sub">
+        Ejecuta el pipeline para calcular la conectividad funcional wPLI entre todos los pares de canales EEG en cada banda de frecuencia.
+      </div>
+      <button class="p9-run-btn" onclick="p9RunPipeline()">▶ Ejecutar pipeline</button>
+      <div style="font-size:11px;color:var(--text-3);margin-top:6px">
+        Requiere segmentación y rechazo de artefactos completados (Fases 6–7)
+      </div>
+    </div>
+
+    <!-- Contenido principal (visible cuando hay datos) -->
+    <div id="p9-content-block" style="display:none">
+
+      <!-- Fila 2: Heatmap de la matriz wPLI | Grafo de red -->
+      <div class="grid-p9-mid">
+
+        <!-- 5. Heatmap wPLI canal × canal -->
+        <div class="card">
+          <div class="card-header">
+            Matriz de conectividad wPLI
+            <span style="font-size:10px;font-weight:400;color:var(--text-3)" id="p9-heatmap-band-label"></span>
+          </div>
+          <div class="card-body" style="padding:8px">
+            <canvas id="p9-heatmap-canvas"></canvas>
+            <div id="p9-heatmap-tooltip" style="font-size:11px;color:var(--text-3);margin-top:5px;min-height:16px;text-align:center"></div>
+          </div>
+        </div>
+
+        <!-- 6. Grafo de red funcional -->
+        <div class="card">
+          <div class="card-header">
+            Grafo de red funcional
+            <span style="font-size:10px;font-weight:400;color:var(--text-3)" id="p9-network-band-label"></span>
+          </div>
+          <div class="card-body" style="padding:8px">
+            <canvas id="p9-network-canvas"></canvas>
+            <div class="p9-threshold-row">
+              <span style="color:var(--text-3)">Umbral wPLI:</span>
+              <input id="p9-threshold-slider" type="range" min="0" max="60" value="10"
+                     oninput="p9UpdateThreshold(this.value)">
+              <span id="p9-threshold-val" style="font-weight:700;font-family:monospace;min-width:40px">0.10</span>
+            </div>
+            <div id="p9-network-stats" style="font-size:10px;color:var(--text-3);text-align:center;margin-top:2px"></div>
+          </div>
+        </div>
+
+      </div><!-- /grid-p9-mid -->
+
+      <!-- Fila 3: Top conexiones | Histograma wPLI -->
+      <div class="grid-p9-bot">
+
+        <!-- 7. Tabla de top conexiones con Fisher Z -->
+        <div class="card">
+          <div class="card-header">
+            Top conexiones
+            <span style="font-size:10px;font-weight:400;color:var(--text-3)">wPLI + Fisher Z · banda activa</span>
+          </div>
+          <div style="max-height:280px;overflow-y:auto">
+            <table class="p9-tbl">
+              <thead><tr>
+                <th>#</th><th>Canal A</th><th>Canal B</th><th>wPLI</th><th>Fisher Z</th>
+              </tr></thead>
+              <tbody id="p9-edges-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 8. Histograma de distribución wPLI -->
+        <div class="card">
+          <div class="card-header">
+            Distribución wPLI
+            <span style="font-size:10px;font-weight:400;color:var(--text-3)">todos los pares · banda activa</span>
+          </div>
+          <div class="card-body" style="padding:10px">
+            <svg id="p9-hist-svg" class="p9-hist-svg" height="220" viewBox="0 0 300 220"></svg>
+            <div id="p9-hist-note" style="font-size:10px;color:var(--text-3);text-align:center;margin-top:4px"></div>
+          </div>
+        </div>
+
+      </div><!-- /grid-p9-bot -->
+
+      <!-- 9. Tabla comparativa por banda -->
+      <div class="card p9-full">
+        <div class="card-header">Conectividad por banda — comparativa global</div>
+        <div style="overflow-x:auto">
+          <table class="p9-tbl">
+            <thead><tr>
+              <th>Banda</th><th>Hz</th><th>Media wPLI</th><th>DE</th><th>Mediana</th>
+              <th>Máximo</th><th>Edges &gt;0.1</th><th>Densidad</th>
+            </tr></thead>
+            <tbody id="p9-bands-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 10. Acciones rápidas -->
+      <div class="card p9-full" style="margin-bottom:0">
+        <div class="card-header">Acciones rápidas</div>
+        <div class="card-body" style="padding:10px">
+          <div class="p9-qa-grid">
+            <button class="p9-qa-btn" onclick="p9ExportMatrix()">
+              <span class="p9-qa-icon">📥</span>Exportar<br><span style="font-weight:400;font-size:9px">matriz CSV</span>
+            </button>
+            <button class="p9-qa-btn" onclick="p9ExportEdges()">
+              <span class="p9-qa-icon">🔗</span>Exportar<br><span style="font-weight:400;font-size:9px">edges CSV</span>
+            </button>
+            <button class="p9-qa-btn" onclick="p9SaveHeatmap()">
+              <span class="p9-qa-icon">🖼️</span>Guardar<br><span style="font-weight:400;font-size:9px">heatmap PNG</span>
+            </button>
+            <button class="p9-qa-btn" onclick="p9SaveNetwork()">
+              <span class="p9-qa-icon">🕸️</span>Guardar<br><span style="font-weight:400;font-size:9px">grafo PNG</span>
+            </button>
+            <button class="p9-qa-btn" onclick="switchPhase(8)">
+              <span class="p9-qa-icon">📊</span>Ver espectral<br><span style="font-weight:400;font-size:9px">(Fase 8)</span>
+            </button>
+            <button class="p9-qa-btn" onclick="p9Reload()">
+              <span class="p9-qa-icon">🔄</span>Recargar<br><span style="font-weight:400;font-size:9px">resultados</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /p9-content-block -->
+
+    <!-- Info bar -->
+    <div class="phase-info-bar" id="p9-info-bar" style="display:none">
+      <span id="p9-info-text"></span>
+    </div>
+
+  </div><!-- /phase-panel-9 -->
   <div id="phase-panel-10" class="phase-panel"></div>
   <div id="phase-panel-11" class="phase-panel"></div>
   <div id="phase-panel-12" class="phase-panel"></div>
@@ -3383,6 +3626,8 @@ async function switchPhase(n) {
     await loadPhase7();
   } else if (n === 8) {
     await loadPhase8();
+  } else if (n === 9) {
+    await loadPhase9();
   } else {
     renderPhasePlaceholder(n);
   }
@@ -3433,6 +3678,7 @@ async function loadCurrentPhase() {
   else if (State.phase === 6) await loadPhase6();
   else if (State.phase === 7) await loadPhase7();
   else if (State.phase === 8) await loadPhase8();
+  else if (State.phase === 9) await loadPhase9();
   else renderPhasePlaceholder(State.phase);
 }
 
@@ -9574,6 +9820,575 @@ function p8Reload() { loadPhase8(); }
 
 // ════════════════════════════════════════════════════════════
 // FIN PHASE 8
+// ════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════
+// FASE 9 — CONECTIVIDAD wPLI
+// ════════════════════════════════════════════════════════════
+
+// ── Band metadata ──────────────────────────────────────────
+const P9_BANDS = [
+  { key:'DELTA',     label:'δ Delta',     range:'0.5–4 Hz',   color:'#7c3aed' },
+  { key:'THETA',     label:'θ Theta',     range:'4–8 Hz',     color:'#2563eb' },
+  { key:'ALPHA',     label:'α Alpha',     range:'7.8–11.7 Hz',color:'#16a34a' },
+  { key:'BETA_LOW',  label:'β₁ Beta-Low', range:'12–15 Hz',   color:'#d97706' },
+  { key:'BETA_MID',  label:'β₂ Beta-Mid', range:'15–18 Hz',   color:'#ea580c' },
+  { key:'BETA_HIGH', label:'β₃ Beta-High',range:'18–30 Hz',   color:'#dc2626' },
+  { key:'GAMMA',     label:'γ Gamma',     range:'30–50 Hz',   color:'#db2777' },
+];
+
+// Phase 9 state
+const P9 = { data: null, band: 'ALPHA', threshold: 0.10 };
+
+// ── Colormap: white → light-blue → yellow → orange → red ──
+function _p9Colormap(t) {
+  const stops = [
+    [0.00, [247,247,247]],
+    [0.25, [116,173,209]],
+    [0.50, [254,224,144]],
+    [0.75, [244,109, 67]],
+    [1.00, [165,  0, 38]],
+  ];
+  t = Math.max(0, Math.min(1, t));
+  for (let i = 0; i < stops.length - 1; i++) {
+    const [t0,c0] = stops[i], [t1,c1] = stops[i+1];
+    if (t <= t1) {
+      const f = (t-t0)/(t1-t0);
+      return [Math.round(c0[0]+f*(c1[0]-c0[0])),
+              Math.round(c0[1]+f*(c1[1]-c0[1])),
+              Math.round(c0[2]+f*(c1[2]-c0[2]))];
+    }
+  }
+  return [165,0,38];
+}
+
+// ── Main loader ────────────────────────────────────────────
+async function loadPhase9() {
+  const { subj, sess, cond } = State;
+  if (!subj || !sess) return;
+  const chip = document.getElementById('p9-status-chip');
+  if (chip) { chip.className = 'status-chip pending'; chip.textContent = 'Cargando…'; }
+  try {
+    const r = await fetch(`/api/phase9_wpli?subj=${subj}&sess=${sess}&cond=${cond}&band=${P9.band}`);
+    const d = await r.json();
+    P9.data = d;
+    const notRun = document.getElementById('p9-not-run-block');
+    const content= document.getElementById('p9-content-block');
+    if (!d.conn_run) {
+      if (notRun) notRun.style.display = '';
+      if (content) content.style.display = 'none';
+      if (chip) { chip.className = 'status-chip pending'; chip.textContent = 'Pendiente'; }
+      _p9RenderConfig(d.summary);
+      _p9RenderBandTabs();
+      _p9RenderPhaseStatus(false, d);
+      return;
+    }
+    if (notRun) notRun.style.display = 'none';
+    if (content) content.style.display = '';
+    if (chip) { chip.className = 'status-chip completed'; chip.textContent = 'Completado'; }
+    _p9RenderConfig(d.summary);
+    _p9RenderBandTabs();
+    _p9RenderSummaryMetrics(d.summary);
+    _p9RenderPhaseStatus(true, d);
+    requestAnimationFrame(() => {
+      _p9RenderHeatmap(d.matrix);
+      _p9RenderNetwork(d.matrix, P9.threshold);
+    });
+    _p9RenderEdgesTable(d.edges);
+    _p9RenderHistogram(d.matrix);
+    _p9RenderBandsTable(d.summary);
+  } catch(e) {
+    console.error('Phase 9 load error:', e);
+    if (chip) { chip.className = 'status-chip error'; chip.textContent = 'Error'; }
+  }
+}
+
+// ── Band tabs ──────────────────────────────────────────────
+function _p9RenderBandTabs() {
+  const el = document.getElementById('p9-band-tabs');
+  if (!el) return;
+  el.innerHTML = P9_BANDS.map(b => {
+    const active = b.key === P9.band;
+    return `<div class="p9-band-tab${active?' active':''}"
+              data-band="${b.key}"
+              style="${active?'background:'+b.color+';border-color:'+b.color:''}"
+              onclick="p9SelectBand('${b.key}')">${b.label}</div>`;
+  }).join('');
+  const bd = P9_BANDS.find(b => b.key === P9.band);
+  const descEl = document.getElementById('p9-band-desc');
+  if (descEl && bd) descEl.textContent = `${bd.label} · ${bd.range}`;
+}
+
+async function p9SelectBand(band) {
+  P9.band = band;
+  _p9RenderBandTabs();
+  await loadPhase9();
+}
+
+// ── Config card ────────────────────────────────────────────
+function _p9RenderConfig(s) {
+  const el = document.getElementById('p9-analysis-cfg');
+  if (!el) return;
+  const rows = [
+    ['Método',        s.method       || 'wpli'],
+    ['Espacio',       s.space        || 'sensor'],
+    ['Canales',       s.n_channels   || '—'],
+    ['Épocas usadas', s.n_epochs_used|| '—'],
+    ['Umbral base',   (s.threshold   ?? 0.1).toFixed(2)],
+    ['Banda activa',  P9.band],
+    ['Timestamp',     (s.timestamp   || '—').replace('T',' ')],
+  ];
+  el.innerHTML = rows.map(([k,v]) =>
+    `<div class="p9-cfg-row"><span class="p9-cfg-key">${k}</span><span class="p9-cfg-val">${v}</span></div>`
+  ).join('');
+}
+
+// ── Summary metrics ────────────────────────────────────────
+function _p9RenderSummaryMetrics(s) {
+  const b = P9.band;
+  _p9SetEl('p9-m-mean',  (s[`${b}_mean`]    ?? 0).toFixed(3));
+  _p9SetEl('p9-m-max',   (s[`${b}_max`]     ?? 0).toFixed(3));
+  _p9SetEl('p9-m-dens',  ((s[`${b}_density`]?? 0)*100).toFixed(1)+'%');
+  _p9SetEl('p9-m-edges',  s[`${b}_n_edges`] ?? '—');
+  const note = document.getElementById('p9-metrics-note');
+  if (note) note.textContent =
+    `Pares sobre umbral 0.10: ${s[`${b}_n_above`]??'—'} · Mediana: ${(s[`${b}_median`]??0).toFixed(3)}`;
+}
+
+// ── Phase status card ──────────────────────────────────────
+function _p9RenderPhaseStatus(isRun, d) {
+  const el = document.getElementById('p9-phase-status');
+  if (!el) return;
+  const st = State.statuses?.['9'] || (isRun ? 'completed' : 'pending');
+  const stLabel = {completed:'✓ Completado',warning:'⚠ Warning',error:'✗ Error',
+                   pending:'○ Pendiente',not_available:'— No disponible'};
+  const stColor = {completed:'#16a34a',warning:'#d97706',error:'#dc2626',
+                   pending:'var(--pending)',not_available:'#9ca3af'};
+  const t = d.phase_timing || {};
+  el.innerHTML = `
+    <div style="font-size:13px;font-weight:700;color:${stColor[st]||'#6b7280'};margin-bottom:8px">${stLabel[st]||st}</div>
+    <div class="p9-cfg-row"><span class="p9-cfg-key">Inicio</span><span class="p9-cfg-val">${t.start||'—'}</span></div>
+    <div class="p9-cfg-row"><span class="p9-cfg-key">Fin</span><span class="p9-cfg-val">${t.end||'—'}</span></div>
+    <div class="p9-cfg-row" style="border:none"><span class="p9-cfg-key">Duración</span><span class="p9-cfg-val">${t.duration||'—'}</span></div>`;
+}
+
+// ── wPLI Heatmap (Canvas) ──────────────────────────────────
+function _p9RenderHeatmap(matrix) {
+  const canvas = document.getElementById('p9-heatmap-canvas');
+  if (!canvas) return;
+  const label = document.getElementById('p9-heatmap-band-label');
+  if (label) label.textContent = `— banda ${P9.band}`;
+
+  const channels = matrix?.channels || [];
+  const values   = matrix?.values   || [];
+  const n = channels.length;
+
+  const dpr    = window.devicePixelRatio || 1;
+  const margin = n > 40 ? 2 : (n > 20 ? 8 : 16);
+  const cellPx = Math.max(4, Math.min(16, Math.floor((520 - margin) / Math.max(n, 1))));
+  const imgSz  = n * cellPx;
+  const scaleSz= 14;
+  const total  = imgSz + margin;
+
+  canvas.style.width  = total + 'px';
+  canvas.style.height = (total + scaleSz) + 'px';
+  canvas.width  = (total) * dpr;
+  canvas.height = (total + scaleSz) * dpr;
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, total, total + scaleSz);
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(0, 0, total, total + scaleSz);
+
+  if (n === 0) {
+    ctx.fillStyle = '#9ca3af'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Sin datos de matriz', total/2, total/2);
+    return;
+  }
+
+  // Find max wPLI (upper triangle, excluding diagonal)
+  let maxW = 0;
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j < n; j++)
+      if (i !== j && values[i]?.[j] > maxW) maxW = values[i][j];
+  maxW = Math.max(maxW, 0.01);
+
+  // Draw matrix cells
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      const w = values[i]?.[j] ?? 0;
+      const t = i === j ? 0 : (w / maxW);
+      const [r,g,b] = _p9Colormap(t);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(margin + j*cellPx, margin + i*cellPx, cellPx, cellPx);
+    }
+  }
+
+  // Channel labels (if space allows)
+  if (n <= 36 && cellPx >= 8) {
+    ctx.fillStyle = '#374151';
+    ctx.font = `${Math.min(8, cellPx-2)}px monospace`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i < n; i++)
+      ctx.fillText(channels[i]||'', margin-2, margin + i*cellPx + cellPx/2);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    for (let j = 0; j < n; j++) {
+      ctx.save();
+      ctx.translate(margin + j*cellPx + cellPx/2, margin - 2);
+      ctx.rotate(-Math.PI/2);
+      ctx.fillText(channels[j]||'', 0, 0);
+      ctx.restore();
+    }
+  }
+
+  // Color scale bar below matrix
+  const scW = Math.min(180, imgSz);
+  const scX = margin + (imgSz - scW)/2;
+  const scY = margin + imgSz + 2;
+  for (let px = 0; px < scW; px++) {
+    const [r,g,b] = _p9Colormap(px/scW);
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(scX+px, scY, 1, 7);
+  }
+  ctx.fillStyle = '#6b7280'; ctx.font = '8px sans-serif'; ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';   ctx.fillText('0',             scX,        scY+9);
+  ctx.textAlign = 'center'; ctx.fillText(maxW.toFixed(2), scX+scW/2,  scY+9);
+  ctx.textAlign = 'right';  ctx.fillText(maxW.toFixed(2), scX+scW,    scY+9);
+
+  // Hover tooltip
+  canvas.onmousemove = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const scl  = total / rect.width;
+    const mx = (e.clientX - rect.left) * scl;
+    const my = (e.clientY - rect.top)  * scl;
+    const j  = Math.floor((mx - margin) / cellPx);
+    const i  = Math.floor((my - margin) / cellPx);
+    const tip = document.getElementById('p9-heatmap-tooltip');
+    if (tip && i >= 0 && i < n && j >= 0 && j < n && i !== j) {
+      const w  = values[i]?.[j] ?? 0;
+      const fz = Math.atanh(Math.min(w, 0.9999));
+      tip.textContent = `${channels[i]} ↔ ${channels[j]} · wPLI = ${w.toFixed(4)} · Fisher Z = ${fz.toFixed(3)}`;
+    } else if (tip) tip.textContent = '';
+  };
+  canvas.onmouseleave = () => {
+    const tip = document.getElementById('p9-heatmap-tooltip');
+    if (tip) tip.textContent = '';
+  };
+}
+
+// ── Network Graph (Canvas) ─────────────────────────────────
+function _p9RenderNetwork(matrix, threshold) {
+  const canvas = document.getElementById('p9-network-canvas');
+  if (!canvas) return;
+  const label = document.getElementById('p9-network-band-label');
+  if (label) label.textContent = `— banda ${P9.band}`;
+
+  const channels = matrix?.channels || [];
+  const values   = matrix?.values   || [];
+  const n = channels.length;
+
+  const dpr = window.devicePixelRatio || 1;
+  const CW  = canvas.offsetWidth  || 380;
+  const CH  = 360;
+  canvas.width  = CW * dpr;
+  canvas.height = CH * dpr;
+  canvas.style.height = CH + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, CW, CH);
+  ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, CW, CH);
+
+  if (n === 0) {
+    ctx.fillStyle = '#9ca3af'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Sin datos', CW/2, CH/2);
+    return;
+  }
+
+  const cx = CW/2, cy = CH/2 + 5;
+  const radius = Math.min(CW, CH) * 0.38;
+
+  // Node positions: try EEG 10-20 layout, else uniform circle
+  const nodePos = [];
+  const nKnown  = channels.filter(ch => P8_EEG_POS[ch]).length;
+  const useEEG  = nKnown >= channels.length * 0.5;
+  for (let i = 0; i < n; i++) {
+    if (useEEG && P8_EEG_POS[channels[i]]) {
+      const [ex, ey] = P8_EEG_POS[channels[i]];
+      nodePos.push({ x: cx + ex*radius*1.05, y: cy - ey*radius*1.05 });
+    } else {
+      const angle = (i / n) * 2*Math.PI - Math.PI/2;
+      nodePos.push({ x: cx + radius*Math.cos(angle), y: cy + radius*Math.sin(angle) });
+    }
+  }
+
+  // Head outline if EEG layout
+  if (useEEG) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius*1.09, 0, 2*Math.PI);
+    ctx.strokeStyle = 'rgba(107,114,128,0.2)'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - radius*0.07, cy - radius*1.07);
+    ctx.lineTo(cx, cy - radius*1.2);
+    ctx.lineTo(cx + radius*0.07, cy - radius*1.07);
+    ctx.strokeStyle = 'rgba(107,114,128,0.25)'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
+  // Max wPLI for normalisation
+  let maxW = 0;
+  for (let i = 0; i < n; i++)
+    for (let j = i+1; j < n; j++)
+      if ((values[i]?.[j] ?? 0) > maxW) maxW = values[i][j];
+  maxW = Math.max(maxW, 0.01);
+
+  // Draw edges
+  let nDrawn = 0;
+  for (let i = 0; i < n; i++) {
+    for (let j = i+1; j < n; j++) {
+      const w = values[i]?.[j] ?? 0;
+      if (w <= threshold) continue;
+      nDrawn++;
+      const t = w / maxW;
+      const [r,g,b] = _p9Colormap(t);
+      ctx.beginPath();
+      ctx.moveTo(nodePos[i].x, nodePos[i].y);
+      ctx.lineTo(nodePos[j].x, nodePos[j].y);
+      ctx.strokeStyle = `rgba(${r},${g},${b},${(0.15 + 0.65*t).toFixed(2)})`;
+      ctx.lineWidth   = 0.5 + 2.5*t;
+      ctx.stroke();
+    }
+  }
+
+  // Node strength for sizing
+  const strength = channels.map((_,i) =>
+    (values[i] || []).reduce((s,v,j) => j===i ? s : s+v, 0)
+  );
+  const maxStr = Math.max(...strength, 0.001);
+  const nodeR  = Math.max(3, Math.min(10, 160/n));
+
+  // Draw nodes
+  for (let i = 0; i < n; i++) {
+    const { x, y } = nodePos[i];
+    const sz = nodeR*0.5 + nodeR*0.9*(strength[i]/maxStr);
+    const [r,g,b] = _p9Colormap(strength[i]/maxStr);
+    ctx.beginPath(); ctx.arc(x, y, sz, 0, 2*Math.PI);
+    ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2; ctx.stroke();
+    // Label
+    if (n <= 32) {
+      const dx = x-cx, dy = y-cy, dist = Math.sqrt(dx*dx+dy*dy)||1;
+      ctx.fillStyle = '#1f2937';
+      ctx.font = `${Math.min(8, nodeR)}px monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(channels[i], x+(dx/dist)*(sz+5), y+(dy/dist)*(sz+5));
+    }
+  }
+
+  const stats = document.getElementById('p9-network-stats');
+  if (stats) stats.textContent =
+    `Umbral: ${threshold.toFixed(2)} · Conexiones: ${nDrawn} · Nodos: ${n}${useEEG?' · 10-20 layout':' · layout circular'}`;
+}
+
+function p9UpdateThreshold(val) {
+  P9.threshold = parseFloat(val) / 100;
+  const el = document.getElementById('p9-threshold-val');
+  if (el) el.textContent = P9.threshold.toFixed(2);
+  if (P9.data?.matrix) _p9RenderNetwork(P9.data.matrix, P9.threshold);
+}
+
+// ── Top edges table ────────────────────────────────────────
+function _p9RenderEdgesTable(edges) {
+  const tbody = document.getElementById('p9-edges-tbody');
+  if (!tbody) return;
+  if (!edges?.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-3);padding:16px">Sin datos</td></tr>';
+    return;
+  }
+  tbody.innerHTML = edges.map((e,i) => `<tr>
+    <td style="color:var(--text-3);font-size:10px">${i+1}</td>
+    <td style="font-family:monospace;font-weight:700">${e.ch_a}</td>
+    <td style="font-family:monospace;font-weight:700">${e.ch_b}</td>
+    <td style="font-weight:700;color:${_p9WpliColor(e.wpli)}">${e.wpli?.toFixed(4)??'—'}</td>
+    <td style="font-family:monospace;color:var(--text-2)">${e.fisher_z?.toFixed(3)??'—'}</td>
+  </tr>`).join('');
+}
+
+function _p9WpliColor(w) {
+  if (w >= 0.4) return '#dc2626';
+  if (w >= 0.25) return '#d97706';
+  if (w >= 0.1)  return '#1d4ed8';
+  return '#6b7280';
+}
+
+// ── wPLI Histogram (SVG) ───────────────────────────────────
+function _p9RenderHistogram(matrix) {
+  const svg  = document.getElementById('p9-hist-svg');
+  const note = document.getElementById('p9-hist-note');
+  if (!svg) return;
+
+  const channels = matrix?.channels || [];
+  const values   = matrix?.values   || [];
+  const n = channels.length;
+
+  // Collect upper-triangle values
+  const vals = [];
+  for (let i = 0; i < n; i++)
+    for (let j = i+1; j < n; j++)
+      if (values[i]?.[j] !== undefined) vals.push(values[i][j]);
+
+  if (!vals.length) {
+    svg.innerHTML = '<text x="150" y="110" text-anchor="middle" fill="#9ca3af" font-size="13">Sin datos</text>';
+    return;
+  }
+
+  const nBins = 20;
+  const bins  = new Array(nBins).fill(0);
+  for (const v of vals) bins[Math.min(nBins-1, Math.floor(v*nBins))]++;
+  const maxBin = Math.max(...bins, 1);
+
+  const padL=32, padR=8, padT=8, padB=34, svgW=300, svgH=220;
+  const plotW = svgW-padL-padR, plotH = svgH-padT-padB;
+  const bW = plotW / nBins;
+
+  let html = '';
+  for (let i = 0; i < nBins; i++) {
+    const t  = (i+0.5)/nBins;
+    const [r,g,b] = _p9Colormap(t);
+    const bH = (bins[i]/maxBin)*plotH;
+    const bX = padL + i*bW, bY = padT+plotH-bH;
+    html += `<rect x="${bX.toFixed(1)}" y="${bY.toFixed(1)}"
+              width="${(bW-0.6).toFixed(1)}" height="${Math.max(0.5,bH).toFixed(1)}"
+              fill="rgb(${r},${g},${b})" opacity="0.88">
+               <title>${(i/nBins).toFixed(2)}–${((i+1)/nBins).toFixed(2)}: ${bins[i]} pares</title>
+             </rect>`;
+  }
+
+  // Axes
+  html += `<line x1="${padL}" y1="${padT+plotH}" x2="${padL+plotW}" y2="${padT+plotH}" stroke="#d1d5db" stroke-width="1"/>`;
+  html += `<line x1="${padL}" y1="${padT}"        x2="${padL}"       y2="${padT+plotH}" stroke="#d1d5db" stroke-width="1"/>`;
+  for (let i=0; i<=5; i++) {
+    const x = padL+(i/5)*plotW;
+    html += `<text x="${x.toFixed(1)}" y="${padT+plotH+12}" text-anchor="middle" fill="#9ca3af" font-size="9">${(i/5).toFixed(1)}</text>`;
+    if (i>0&&i<5)
+      html += `<line x1="${x.toFixed(1)}" y1="${padT}" x2="${x.toFixed(1)}" y2="${padT+plotH}" stroke="#f3f4f6" stroke-width="1"/>`;
+  }
+  html += `<text x="${padL+plotW/2}" y="${svgH-3}" text-anchor="middle" fill="#6b7280" font-size="10">wPLI</text>`;
+  for (let i=0; i<=3; i++) {
+    const y = padT+(1-i/3)*plotH;
+    html += `<text x="${padL-3}" y="${y.toFixed(1)}" text-anchor="end" dominant-baseline="middle" fill="#9ca3af" font-size="8">${Math.round((i/3)*maxBin)}</text>`;
+  }
+
+  svg.innerHTML = html;
+
+  const mean = vals.reduce((a,b)=>a+b,0)/vals.length;
+  const std  = Math.sqrt(vals.reduce((a,b)=>a+(b-mean)**2,0)/vals.length);
+  if (note) note.textContent =
+    `${vals.length} pares · media = ${mean.toFixed(3)} · DE = ${std.toFixed(3)}`;
+}
+
+// ── Band comparison table ──────────────────────────────────
+function _p9RenderBandsTable(s) {
+  const tbody = document.getElementById('p9-bands-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = P9_BANDS.map(bd => {
+    const mean  = s[`${bd.key}_mean`]    ?? null;
+    const std   = s[`${bd.key}_std`]     ?? null;
+    const med   = s[`${bd.key}_median`]  ?? null;
+    const max   = s[`${bd.key}_max`]     ?? null;
+    const nabove= s[`${bd.key}_n_above`] ?? null;
+    const dens  = s[`${bd.key}_density`] ?? null;
+    const active= bd.key === P9.band;
+    return `<tr style="${active?'background:rgba(29,78,216,.05)':''}">
+      <td>
+        <span class="p9-band-pill" style="background:${bd.color};color:#fff">${bd.label}</span>
+        ${active?'<span style="font-size:9px;color:#1d4ed8;margin-left:4px">▶</span>':''}
+      </td>
+      <td style="font-family:monospace;font-size:10px;color:var(--text-3)">${bd.range}</td>
+      <td style="font-weight:700">${mean!==null?mean.toFixed(4):'—'}</td>
+      <td style="color:var(--text-3)">${std!==null?std.toFixed(4):'—'}</td>
+      <td>${med!==null?med.toFixed(4):'—'}</td>
+      <td style="color:${max>0.3?'#dc2626':'inherit'}">${max!==null?max.toFixed(4):'—'}</td>
+      <td>${nabove!==null?nabove:'—'}</td>
+      <td style="font-weight:700">${dens!==null?(dens*100).toFixed(1)+'%':'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Helpers ────────────────────────────────────────────────
+function _p9SetEl(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function _p9SetInfoBar(msg) {
+  const bar = document.getElementById('p9-info-bar');
+  const txt = document.getElementById('p9-info-text');
+  if (bar && txt) { txt.textContent = msg; bar.style.display = ''; }
+}
+
+// ── Export / Save actions ──────────────────────────────────
+function p9ExportMatrix() {
+  const d = P9.data;
+  if (!d?.conn_run) { alert('Sin datos de conectividad.'); return; }
+  const m = d.matrix;
+  if (!m?.channels?.length) { alert('Matriz no disponible.'); return; }
+  const chs  = m.channels;
+  const rows = [['channel',...chs].join(',')];
+  chs.forEach((_,i) =>
+    rows.push([chs[i], ...m.values[i].map(v=>v.toFixed(4))].join(','))
+  );
+  const blob = new Blob([rows.join('\n')], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `wpli_matrix_${P9.band}_${State.subj}_${State.sess}_${State.cond}.csv`;
+  a.click();
+}
+
+function p9ExportEdges() {
+  const d = P9.data;
+  if (!d?.conn_run) { alert('Sin datos de conectividad.'); return; }
+  const edges = d.edges || [];
+  if (!edges.length) { alert('Sin edges para exportar.'); return; }
+  const rows = [['rank','ch_a','ch_b','band','wpli','fisher_z'].join(',')];
+  edges.forEach((e,i) =>
+    rows.push([i+1,e.ch_a,e.ch_b,e.band,(e.wpli||0).toFixed(4),(e.fisher_z||0).toFixed(4)].join(','))
+  );
+  const blob = new Blob([rows.join('\n')], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `wpli_edges_${P9.band}_${State.subj}_${State.sess}_${State.cond}.csv`;
+  a.click();
+}
+
+function p9SaveHeatmap() {
+  const c = document.getElementById('p9-heatmap-canvas');
+  if (!c) return;
+  const a = document.createElement('a');
+  a.href = c.toDataURL('image/png');
+  a.download = `wpli_heatmap_${P9.band}_${State.subj}_${State.sess}.png`;
+  a.click();
+}
+
+function p9SaveNetwork() {
+  const c = document.getElementById('p9-network-canvas');
+  if (!c) return;
+  const a = document.createElement('a');
+  a.href = c.toDataURL('image/png');
+  a.download = `wpli_network_${P9.band}_${State.subj}_${State.sess}.png`;
+  a.click();
+}
+
+function p9RunPipeline() {
+  alert('Para calcular conectividad wPLI, usa el terminal:\n\n' +
+    'julia --project=. scripts/run_single_subject.jl\n\n' +
+    'El dashboard mostrará los resultados al recargar la fase.');
+}
+
+function p9Reload() { loadPhase9(); }
+
+// ════════════════════════════════════════════════════════════
+// FIN PHASE 9
 // ════════════════════════════════════════════════════════════
 
 function p5RunICA() {

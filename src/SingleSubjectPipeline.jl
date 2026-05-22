@@ -836,6 +836,77 @@ $(join(band_json_parts, ",\n"))
     _log(log_io, "  Guardado: spectral_indices.csv")
 end
 
+# ─── Extras de conectividad: connectivity_summary.json + network_metrics.csv ───
+
+function _save_connectivity_extras(
+    conn::ConnectivityMatrix,
+    export_dir::String,
+    log_io::IO
+)
+    bands   = sort(collect(keys(conn.matrices)))
+    ch_names = conn.channel_names
+    n        = length(ch_names)
+    thr      = 0.1   # densidad a umbral 0.1
+
+    # ── Flat JSON summary ─────────────────────────────────────
+    pairs = String[
+        "\"method\": \"$(conn.method)\"",
+        "\"space\": \"$(conn.space)\"",
+        "\"n_channels\": $n",
+        "\"n_epochs_used\": $(conn.n_epochs_used)",
+        "\"timestamp\": \"$(Dates.format(now(), "yyyy-mm-ddTHH:MM:SS"))\"",
+        "\"threshold\": $thr",
+    ]
+    for band in bands
+        W = conn.matrices[band]
+        vals = Float64[]
+        for i in 1:n, j in (i+1):n
+            push!(vals, W[i,j])
+        end
+        isempty(vals) && continue
+        n_edges = length(vals)
+        n_above = count(v -> v > thr, vals)
+        push!(pairs, "\"$(band)_mean\": $(round(mean(vals),    digits=4))")
+        push!(pairs, "\"$(band)_std\": $(round(std(vals),     digits=4))")
+        push!(pairs, "\"$(band)_median\": $(round(median(vals), digits=4))")
+        push!(pairs, "\"$(band)_max\": $(round(maximum(vals),  digits=4))")
+        push!(pairs, "\"$(band)_n_edges\": $n_edges")
+        push!(pairs, "\"$(band)_n_above\": $n_above")
+        push!(pairs, "\"$(band)_density\": $(round(n_above / max(1, n_edges), digits=4))")
+    end
+    open(joinpath(export_dir, "connectivity_summary.json"), "w") do io
+        write(io, "{\n" * join(["  " * p for p in pairs], ",\n") * "\n}")
+    end
+
+    # ── network_metrics.csv (strength + degree agregados por banda) ──
+    strength_agg = zeros(Float64, n)
+    degree_agg   = zeros(Int,     n)
+    n_counted    = 0
+    for (_, W) in conn.matrices
+        for i in 1:n
+            for j in 1:n
+                i == j && continue
+                strength_agg[i] += W[i,j]
+                W[i,j] > thr && (degree_agg[i] += 1)
+            end
+        end
+        n_counted += 1
+    end
+    if n_counted > 0
+        strength_agg ./= n_counted
+        degree_agg    = round.(Int, degree_agg ./ n_counted)
+    end
+    max_str = maximum(abs.(strength_agg))
+    nm_df = DataFrame(
+        channel       = ch_names,
+        strength      = round.(strength_agg, digits=4),
+        degree        = degree_agg,
+        norm_strength = round.(max_str > 0 ? strength_agg ./ max_str : zeros(n), digits=4),
+    )
+    CSV.write(joinpath(export_dir, "network_metrics.csv"), nm_df)
+    _log(log_io, "  Guardado: connectivity_summary.json + network_metrics.csv")
+end
+
 function _save_all_results(
     rec::EEGRecording, rec_filt::EEGRecording,
     qc_stats::DataFrame, bad_ch::Vector{String},
@@ -925,6 +996,9 @@ function _save_all_results(
     edges_path = joinpath(export_dir, "connectivity_edges.csv")
     CSV.write(edges_path, all_edges)
     _log(log_io, "  Guardado: matrices y edges wPLI por banda")
+
+    # ── Extras de conectividad (summary JSON + network metrics) ──
+    _save_connectivity_extras(conn, export_dir, log_io)
 
     # ── Figura: señal preview ─────────────────────────────────
     try

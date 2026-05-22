@@ -1802,6 +1802,164 @@ function launch_webapp(cfg::PipelineConfig;
         ))
     end
 
+    # ─── API: Fase 9 — Conectividad wPLI ─────────────────────
+    route("/api/phase9_wpli") do
+        subj = string(get(getpayload(), :subj, "M05"))
+        sess = string(get(getpayload(), :sess, "T2"))
+        cond = _normalize_cond(string(get(getpayload(), :cond, "EC")))
+        band = string(get(getpayload(), :band, "ALPHA"))
+
+        res_base   = joinpath(bids_root, "sub-$(subj)", "ses-$(sess)", cond)
+        edges_path = joinpath(res_base, "connectivity_edges.csv")
+        summ_path  = joinpath(res_base, "connectivity_summary.json")
+        nm_path    = joinpath(res_base, "network_metrics.csv")
+        log_path   = joinpath(res_base, "pipeline_log.txt")
+        mat_path   = joinpath(res_base, "wpli_$(band).csv")
+
+        conn_run = isfile(edges_path) || isfile(mat_path)
+        if !conn_run
+            return json(Dict(
+                "ok"              => true,
+                "conn_run"        => false,
+                "summary"         => Dict{String,Any}(),
+                "matrix"          => Dict("channels"=>String[],"values"=>Vector{Vector{Float64}}(),"band"=>band),
+                "edges"           => Dict{String,Any}[],
+                "network_metrics" => Dict{String,Any}[],
+                "phase_timing"    => Dict("start"=>"","end"=>"","duration"=>""),
+            ))
+        end
+
+        # ── Parse connectivity_summary.json ────────────────────────────────────
+        summary = Dict{String,Any}(
+            "method"        => "wpli",
+            "space"         => "sensor",
+            "n_channels"    => 0,
+            "n_epochs_used" => 0,
+            "threshold"     => 0.1,
+            "timestamp"     => "",
+        )
+        if isfile(summ_path)
+            try
+                txt = read(summ_path, String)
+                for key in ["n_channels","n_epochs_used"]
+                    m = match(Regex("\"$(key)\"\\s*:\\s*([0-9]+)"), txt)
+                    m !== nothing && (summary[key] = parse(Int, m.captures[1]))
+                end
+                for key in ["threshold"]
+                    m = match(Regex("\"$(key)\"\\s*:\\s*([0-9.eE+\\-]+)"), txt)
+                    m !== nothing && (summary[key] = parse(Float64, m.captures[1]))
+                end
+                for key in ["method","space","timestamp"]
+                    m = match(Regex("\"$(key)\"\\s*:\\s*\"([^\"]+)\""), txt)
+                    m !== nothing && (summary[key] = String(m.captures[1]))
+                end
+                # Per-band stats: BAND_stat
+                for bname in ["DELTA","THETA","ALPHA","BETA_LOW","BETA_MID","BETA_HIGH","GAMMA"]
+                    for stat in ["mean","std","median","max","density"]
+                        key = "$(bname)_$(stat)"
+                        m = match(Regex("\"$(key)\"\\s*:\\s*([0-9.eE+\\-]+)"), txt)
+                        m !== nothing && (summary[key] = parse(Float64, m.captures[1]))
+                    end
+                    for stat in ["n_edges","n_above"]
+                        key = "$(bname)_$(stat)"
+                        m = match(Regex("\"$(key)\"\\s*:\\s*([0-9]+)"), txt)
+                        m !== nothing && (summary[key] = parse(Int, m.captures[1]))
+                    end
+                end
+            catch e
+                @warn "connectivity_summary.json parse error: $e"
+            end
+        end
+
+        # ── Parse wPLI matrix for selected band ────────────────────────────────
+        matrix = Dict{String,Any}("channels"=>String[],"values"=>Vector{Vector{Float64}}(),"band"=>band)
+        if isfile(mat_path)
+            try
+                df  = CSV.read(mat_path, DataFrame)
+                chs = [string(row.channel) for row in eachrow(df)]
+                val_cols = [c for c in names(df) if c != "channel"]
+                vals = Vector{Vector{Float64}}()
+                for row in eachrow(df)
+                    push!(vals, [round(Float64(getproperty(row, Symbol(c))), digits=4) for c in val_cols])
+                end
+                matrix = Dict{String,Any}("channels"=>chs,"values"=>vals,"band"=>band)
+            catch e
+                @warn "wpli matrix parse error band=$(band): $e"
+            end
+        end
+
+        # ── Parse connectivity_edges.csv — top 30 for selected band ───────────
+        edges = Dict{String,Any}[]
+        if isfile(edges_path)
+            try
+                df      = CSV.read(edges_path, DataFrame)
+                df_band = filter(row -> string(row.band) == band, df)
+                sort!(df_band, :wpli; rev=true)
+                n_top   = min(30, nrow(df_band))
+                for row in eachrow(df_band[1:n_top, :])
+                    wv = Float64(row.wpli)
+                    push!(edges, Dict{String,Any}(
+                        "ch_a"     => string(row.ch_a),
+                        "ch_b"     => string(row.ch_b),
+                        "band"     => string(row.band),
+                        "wpli"     => round(wv, digits=4),
+                        "rank"     => Int(row.rank),
+                        "fisher_z" => round(atanh(min(wv, 0.9999)), digits=4),
+                    ))
+                end
+            catch e
+                @warn "connectivity_edges.csv parse error: $e"
+            end
+        end
+
+        # ── Parse network_metrics.csv ─────────────────────────────────────────
+        network_metrics = Dict{String,Any}[]
+        if isfile(nm_path)
+            try
+                df = CSV.read(nm_path, DataFrame)
+                for row in eachrow(df)
+                    push!(network_metrics, Dict{String,Any}(
+                        "channel"       => string(row.channel),
+                        "strength"      => round(Float64(row.strength),      digits=4),
+                        "degree"        => Int(row.degree),
+                        "norm_strength" => round(Float64(row.norm_strength), digits=4),
+                    ))
+                end
+            catch e
+                @warn "network_metrics.csv parse error: $e"
+            end
+        end
+
+        # ── Timing from log ───────────────────────────────────────────────────
+        t_start = ""; t_end = ""; t_dur = ""
+        if isfile(log_path)
+            try
+                txt = read(log_path, String)
+                for line in split(txt, '\n')
+                    if (occursin("[7/8]", line) || occursin("wPLI", line) ||
+                        occursin("Conectividad", line)) && isempty(t_start)
+                        m = match(r"\[(\d{2}:\d{2}:\d{2})\]", line)
+                        m !== nothing && (t_start = String(m.captures[1]))
+                    end
+                    if occursin("[8/8]", line) && isempty(t_end)
+                        m = match(r"\[(\d{2}:\d{2}:\d{2})\]", line)
+                        m !== nothing && (t_end = String(m.captures[1]))
+                    end
+                end
+            catch; end
+        end
+
+        json(Dict(
+            "ok"              => true,
+            "conn_run"        => true,
+            "summary"         => summary,
+            "matrix"          => matrix,
+            "edges"           => edges,
+            "network_metrics" => network_metrics,
+            "phase_timing"    => Dict("start"=>t_start,"end"=>t_end,"duration"=>t_dur),
+        ))
+    end
+
     # ─── Legacy API (mantener compatibilidad) ─────────────────
 
     route("/api/subjects") do
