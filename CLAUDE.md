@@ -2,7 +2,7 @@
 
 > Este archivo es leído automáticamente por Claude Code al inicio de cada sesión.
 > Contiene todo el contexto necesario para trabajar en el proyecto desde cualquier ordenador.
-> **Mantenerlo actualizado es prioritario.** Última actualización: 2026-05-22 (Phase 7 AR EEG_Julia completa).
+> **Mantenerlo actualizado es prioritario.** Última actualización: 2026-05-22 (Phase 10 Surrogates/Inferencia completa).
 
 ---
 
@@ -89,8 +89,8 @@ La señal limpiada `rec_ica` alimenta directamente la segmentación y todo lo po
 
 ## 4. Dashboard web (Genie.jl)
 
-13 paneles (Phase 0–12). Implementados completamente: **0, 1, 2, 3, 4, 5**.
-Paneles 6–12: placeholder vacío (próximos a implementar).
+13 paneles (Phase 0–12). Implementados completamente: **0–10**.
+Paneles 11–12: placeholder vacío (próximos a implementar).
 
 | Panel | Nombre | Estado |
 |-------|--------|--------|
@@ -102,9 +102,9 @@ Paneles 6–12: placeholder vacío (próximos a implementar).
 | 5 | ICA | ✓ |
 | 6 | Segmentación | ✓ |
 | 7 | Rechazo artefactos | ✓ |
-| 8 | Análisis espectral | placeholder |
-| 9 | Conectividad wPLI | placeholder |
-| 10 | Surrogates / Inferencia | placeholder |
+| 8 | Análisis espectral | ✓ |
+| 9 | Conectividad wPLI | ✓ |
+| 10 | Surrogates / Inferencia | ✓ |
 | 11 | Resultados finales | placeholder |
 | 12 | Exportación / Reporte | placeholder |
 
@@ -126,7 +126,7 @@ Si ICA no se ha ejecutado → placeholder elegante con botón de acción.
 | `src/types.jl` | Tipos centrales: `EEGRecording`, `EpochSet`, `ICAResult`, `SpectralResult`, `ConnectivityMatrix`, `PipelineConfig`, `RecordingMeta` |
 | `src/SingleSubjectPipeline.jl` | Pipeline 8 pasos + `load_ss_config` + helpers de guardado |
 | `src/webapp/App.jl` | Servidor Genie + todas las rutas API (`/api/phase*`, `/api/ica_*`, etc.) |
-| `web/views/dashboard.html` | SPA completa del dashboard (~6300 líneas; HTML + CSS + JS inline) |
+| `web/views/dashboard.html` | SPA completa del dashboard (~12 600 líneas; HTML + CSS + JS inline) |
 | `src/ica/ICACore.jl` | FastICA puro Julia (PCA whitening + tanh); perfiles `eeg_julia`/`default` |
 | `src/ica/ICAClassification.jl` | `compute_ica_features` (7 features) + `evaluate_ica_components` (scores → labels) |
 | `src/ica/ICAInspection.jl` | `load_ica_labels` (multi-path), `apply_ica_rejection` |
@@ -154,16 +154,25 @@ results/subjects/sub-{id}/ses-{sess}/{task}/
 ├── psd_by_channel.csv
 ├── band_power_summary.csv
 ├── connectivity_edges.csv
-├── wpli_{band}.csv              ← una por banda
-├── ica_components.csv           ← índice, varianza, artifact_type, rechazado
-├── ica_component_features.csv   ← 7 features + 4 scores + artifact_type por IC
-├── ica_mixing_matrix.csv        ← A (n_ch × n_comp)
-├── ica_unmixing_matrix.csv      ← W_total (n_comp × n_ch)
-├── ica_summary.json             ← n_comp, n_rej, varianza retenida, has_features, n_topomaps
-├── ica_activations.csv          ← primeros 10s; columnas: t_s, IC1…IC30
-├── ica_signal_before.csv        ← primeros 10s señal filtrada (todos los canales)
-├── ica_signal_after.csv         ← primeros 10s señal limpiada por ICA
-├── figures/ica_topomap_001.png  ← topomaps per IC (si hay ch_positions)
+├── wpli_{band}.csv                      ← una por banda (wPLI observado)
+├── connectivity_summary.json            ← resumen wPLI por banda
+├── wpli_observed_{band}.csv             ← matriz wPLI observada por banda (surrogates)
+├── wpli_pvalues_{band}.csv              ← p-valores par×par por banda
+├── wpli_qvalues_{band}.csv              ← q-valores BH par×par por banda
+├── wpli_significant_{band}.csv          ← máscara binaria de significancia
+├── surrogate_null_stats_{band}.csv      ← (null_mean, null_std) por par (aprox. Gaussiana)
+├── significant_connections.csv          ← top conexiones sig. (ch1, ch2, wPLI, p, q)
+├── surrogate_summary.json               ← resumen por banda: n_sig, pct_sig, mean_p, fdr_thr
+├── surrogate_quality.csv                ← QC checks por banda
+├── ica_components.csv                   ← índice, varianza, artifact_type, rechazado
+├── ica_component_features.csv           ← 7 features + 4 scores + artifact_type por IC
+├── ica_mixing_matrix.csv                ← A (n_ch × n_comp)
+├── ica_unmixing_matrix.csv              ← W_total (n_comp × n_ch)
+├── ica_summary.json                     ← n_comp, n_rej, varianza retenida, has_features, n_topomaps
+├── ica_activations.csv                  ← primeros 10s; columnas: t_s, IC1…IC30
+├── ica_signal_before.csv                ← primeros 10s señal filtrada (todos los canales)
+├── ica_signal_after.csv                 ← primeros 10s señal limpiada por ICA
+├── figures/ica_topomap_001.png          ← topomaps per IC (si hay ch_positions)
 ├── pipeline_log.txt
 └── config_snapshot.toml
 ```
@@ -227,48 +236,45 @@ git push -u origin <rama>
 ## 9. Estado actual del proyecto (2026-05-22)
 
 ### Implementado y funcionando
-- [x] Pipeline 8 pasos completo con ICA
+- [x] Pipeline 8 pasos completo con ICA + paso opcional [SUR] surrogates
 - [x] FastICA puro Julia (sin MultivariateStats); perfiles `eeg_julia` / `default`
-- [x] Dashboard paneles 0–7
+- [x] Dashboard paneles 0–10 completamente implementados
 - [x] API routes: `/api/phase5_ica_info`, `/api/ica_activation`, `/api/ica_signal`, `/api/ica_features`
-- [x] API route: `/api/phase6_segmentation` → segmentation_summary.json (enriquecido), segments_table.csv, channel_coverage.csv
-- [x] API route: `/api/phase7_ar` → artifact_rejection_summary.json (enriquecido), rejected_segments.csv, channel_artifact_summary.csv
-- [x] API route: `/api/phase7_epoch_signal` → señal real del epoch del peor segmento
-- [x] `compute_ica_features` — 7 features por componente (portado de EEG_Julia)
-- [x] `evaluate_ica_components` — scores ocular/muscle/line/jump → labels
-- [x] `_save_ica_topomaps` — genera PNGs por IC (requiere ch_positions en BIDS)
-- [x] Dashboard Phase 5: topomap grid paginado (6 columnas, 36/pág), features table, profile badge
-- [x] 269 tests unitarios pasando
-- [x] `compute_epoch_quality_report` con min_amp_uv + channels_violating + worst_channel + p2p_uv, respeta perfil AR
-- [x] `compute_channel_coverage` exportado desde módulo
-- [x] **Phase 6 EEG_Julia profile** (rama `feat/phase6-eeg-julia-segmentation`):
-  - `segment_recording` perfil `"eeg_julia"` → fuerza 1 s, sin solapamiento
-  - `apply_baseline` método `"first_window_mean"` → media [0, 0.10 s] por canal (EEG_Julia exacto)
-  - `reject_artifacts` perfil `"eeg_julia"` → ±70 µV, primeros 30 canales, sin gradiente
-  - Pipeline: doble baseline (`n_passes=2`) — pre-AR + post-AR
-  - `segmentation_summary.json` enriquecido con 10 nuevos campos metodológicos
-  - Dashboard Phase 6: badges perfil, nota metodológica EEG_Julia, criterio AR detallado
-- [x] **Phase 7 AR EEG_Julia profile** (rama `feat/phase7-ar-eeg-julia`):
-  - `_save_ar_results` enriquecida: profile, min/max_amplitude_uv, use_gradient, n_channels_used/total, before/after_event_ms, before_after_applied
-  - `rejected_segments.csv`: columnas min_amp_uv + channels_violating añadidas
-  - `channel_artifact_summary.csv`: usa channels_violating para conteo exacto por canal
-  - `load_ss_config` AR dict ampliado con todos los parámetros EEG_Julia
-  - `/api/phase7_ar` parsea nuevos campos + computed labels (detector_label, gradient_label, channels_desc)
-  - `/api/phase7_epoch_signal` endpoint nuevo: señal real del epoch desde ica_signal_after.csv
-  - Dashboard Phase 7: profile badge, criterio correcto, gradiente "no aplicado" (eeg_julia), before/after note, `_p7RenderExample` con señal real + fallback profesional
-  - 28 nuevos tests: MaxAmplitude, MinAmplitude, GradientNotUsed, NChannelsUsed, QualityReport (16 aserciones)
+- [x] API route: `/api/phase6_segmentation`
+- [x] API route: `/api/phase7_ar` + `/api/phase7_epoch_signal`
+- [x] API route: `/api/phase8_spectral` — PSD, topomaps IDW en Canvas, bandpower
+- [x] API route: `/api/phase9_wpli` — ConnectivityMatrix, heatmap, network, band tabs
+- [x] API route: `/api/phase10_surrogates` — surr_run flag, matrix_obs, sig_connections, null_stats, QC, p-value hist, timing
+- [x] `compute_ica_features`, `evaluate_ica_components`, `_save_ica_topomaps`
+- [x] Dashboard Phase 8: espectro PSD, topomaps IDW Canvas, bandpower por banda, comparativa
+- [x] Dashboard Phase 9: heatmap wPLI Canvas (reusa `_p9Colormap`), red de conectividad con posiciones EEG, band tabs
+- [x] Dashboard Phase 10 (tema #7c3aed, 13 secciones):
+  - Config surrogates, métricas inferencia, estado fase, archivos generados
+  - Heatmap observado, red significativa (solo edges sig., ancho/color por wPLI)
+  - Histograma p-valores SVG (barras verde/gris, línea alpha, línea uniforme)
+  - Tabla top conexiones, estadísticas por banda/globales
+  - Distribución par (Gaussiana N(null_mean,null_std), área p-value, línea observado)
+  - 8 checks QC, 6 botones exportación
+- [x] `_bh_qvalues` helper en Pipeline — q-values individuales BH con monotonicidad
+- [x] `_save_surrogate_results` — 8 archivos por banda + surrogate_summary.json + significant_connections.csv + surrogate_quality.csv
+- [x] 241 tests unitarios pasando (Types, Filtering, Segmentation, Spectral, wPLI, FDR, Config, ICA, …)
+- [x] **Phase 6 EEG_Julia profile**: `"first_window_mean"` baseline, ±70 µV AR, doble baseline pass
+- [x] **Phase 7 AR EEG_Julia profile**: enriquecimiento completo de AR summary, señal real epoch
 - [x] README.md completo; `.gitignore` estricto; CLAUDE.md actualizado
 
-### Ramas activas
-- `feat/phase5-ica-classification` — commits de Phase 5, pendiente push/PR
-- `feat/phase6-eeg-julia-segmentation` — Phase 6 EEG_Julia, pendiente push/PR
-- `feat/phase7-ar-eeg-julia` — Phase 7 AR EEG_Julia, pendiente push/PR
+### Ramas activas (pendientes push/PR)
+- `feat/phase5-ica-classification` — Phase 5 ICA
+- `feat/phase6-eeg-julia-segmentation` — Phase 6 segmentation
+- `feat/phase7-ar-eeg-julia` — Phase 7 AR
+- `feat/phase8-spectral` — Phase 8 espectral
+- `feat/phase9-wpli` — Phase 9 conectividad wPLI
+- `feat/phase10-surrogates` — Phase 10 surrogates/inferencia ← **rama actual**
 
 ### Pendiente / próximo
-- [ ] Dashboard paneles 8–12 (espectral → exportación)
+- [ ] Dashboard paneles 11–12 (Resultados finales, Exportación/Reporte)
+- [ ] Push ramas feat/phase8, feat/phase9, feat/phase10 + PR a main
 - [ ] Tests de integración pipeline completo
 - [ ] GitHub Actions CI (syntax check + tests)
-- [ ] Push ramas + PR a main
 
 ### Bugs conocidos resueltos
 - `JSON3.read` → regex parsing en `App.jl` (JSON3 no era dependencia)
@@ -316,7 +322,7 @@ StatsBase, TOML
 
 ## 12. Notas para Claude Code
 
-- El dashboard es una **SPA de ~6300 líneas** (`web/views/dashboard.html`). Siempre leer la sección relevante antes de editar; no releer completo.
+- El dashboard es una **SPA de ~12 600 líneas** (`web/views/dashboard.html`). Siempre leer la sección relevante antes de editar; no releer completo.
 - `App.jl` tiene las rutas API y helpers de filtrado para el viewer interactivo de la Fase 4.
 - `SingleSubjectPipeline.jl` contiene el pipeline + visualizaciones + helpers de guardado en un solo archivo.
 - Al tocar lógica científica (filtrado, ICA, wPLI, PSD), **comparar siempre** con el original en `EEG_Julia/` antes de cambiar comportamiento.
