@@ -108,9 +108,11 @@ Paneles 6–12: placeholder vacío (próximos a implementar).
 | 11 | Resultados finales | placeholder |
 | 12 | Exportación / Reporte | placeholder |
 
-**Panel 5 ICA** muestra: resumen stats, tabla de componentes, donut SVG, señal temporal
-del componente (Canvas), espectro (SVG DFT), butterfly antes/después (Canvas),
-componentes rechazados, métricas de calidad, vista de artefactos.
+**Panel 5 ICA** muestra: resumen stats, **grid de topomaps paginado** (6 por página),
+**tabla de features de clasificación** (frontal/temporal/blink/emg/line ratio, kurtosis),
+tabla de componentes, donut SVG, señal temporal del componente (Canvas), espectro (SVG DFT),
+butterfly antes/después (Canvas), componentes rechazados, métricas de calidad, vista de artefactos.
+Profile badge indica si el perfil es `eeg_julia` o `default`.
 
 Si ICA no se ha ejecutado → placeholder elegante con botón de acción.
 
@@ -125,8 +127,9 @@ Si ICA no se ha ejecutado → placeholder elegante con botón de acción.
 | `src/SingleSubjectPipeline.jl` | Pipeline 8 pasos + `load_ss_config` + helpers de guardado |
 | `src/webapp/App.jl` | Servidor Genie + todas las rutas API (`/api/phase*`, `/api/ica_*`, etc.) |
 | `web/views/dashboard.html` | SPA completa del dashboard (~6300 líneas; HTML + CSS + JS inline) |
-| `src/ica/ICACore.jl` | FastICA puro Julia (PCA whitening + tanh) |
-| `src/ica/ICAInspection.jl` | `load_ica_labels`, `apply_ica_rejection` |
+| `src/ica/ICACore.jl` | FastICA puro Julia (PCA whitening + tanh); perfiles `eeg_julia`/`default` |
+| `src/ica/ICAClassification.jl` | `compute_ica_features` (7 features) + `evaluate_ica_components` (scores → labels) |
+| `src/ica/ICAInspection.jl` | `load_ica_labels` (multi-path), `apply_ica_rejection` |
 | `src/preprocessing/Filtering.jl` | `filter_recording` (HP/LP/Notch/Bandreject, Butterworth) |
 | `src/segmentation/Epochs.jl` | `segment_recording`, `apply_baseline`, `reject_artifacts` |
 | `src/spectral/PowerSpectrum.jl` | `compute_psd`, `plot_spectrum_grid` |
@@ -152,11 +155,15 @@ results/subjects/sub-{id}/ses-{sess}/{task}/
 ├── band_power_summary.csv
 ├── connectivity_edges.csv
 ├── wpli_{band}.csv              ← una por banda
-├── ica_components.csv           ← índice, varianza, tipo, rechazado
-├── ica_summary.json             ← n_comp, n_rej, varianza retenida, timestamp, duración
+├── ica_components.csv           ← índice, varianza, artifact_type, rechazado
+├── ica_component_features.csv   ← 7 features + 4 scores + artifact_type por IC
+├── ica_mixing_matrix.csv        ← A (n_ch × n_comp)
+├── ica_unmixing_matrix.csv      ← W_total (n_comp × n_ch)
+├── ica_summary.json             ← n_comp, n_rej, varianza retenida, has_features, n_topomaps
 ├── ica_activations.csv          ← primeros 10s; columnas: t_s, IC1…IC30
 ├── ica_signal_before.csv        ← primeros 10s señal filtrada (todos los canales)
 ├── ica_signal_after.csv         ← primeros 10s señal limpiada por ICA
+├── figures/ica_topomap_001.png  ← topomaps per IC (si hay ch_positions)
 ├── pipeline_log.txt
 └── config_snapshot.toml
 ```
@@ -217,30 +224,30 @@ git push -u origin <rama>
 
 ---
 
-## 9. Estado actual del proyecto (2026-05-21)
+## 9. Estado actual del proyecto (2026-05-22)
 
 ### Implementado y funcionando
 - [x] Pipeline 8 pasos completo con ICA
-- [x] FastICA puro Julia (sin MultivariateStats)
+- [x] FastICA puro Julia (sin MultivariateStats); perfiles `eeg_julia` / `default`
 - [x] Dashboard paneles 0–7
-- [x] API routes: `/api/phase5_ica_info`, `/api/ica_activation`, `/api/ica_signal`
+- [x] API routes: `/api/phase5_ica_info`, `/api/ica_activation`, `/api/ica_signal`, `/api/ica_features`
 - [x] API route: `/api/phase6_segmentation` → segmentation_summary.json, segments_table.csv, channel_coverage.csv
 - [x] API route: `/api/phase7_ar` → artifact_rejection_summary.json, rejected_segments.csv, channel_artifact_summary.csv
+- [x] `compute_ica_features` — 7 features por componente (portado de EEG_Julia)
+- [x] `evaluate_ica_components` — scores ocular/muscle/line/jump → labels
+- [x] `_save_ica_topomaps` — genera PNGs por IC (requiere ch_positions en BIDS)
+- [x] Dashboard Phase 5: topomap grid paginado, features table, profile badge
+- [x] 166 tests unitarios pasando (25 nuevos de ICA)
 - [x] `compute_epoch_quality_report` con worst_channel + p2p_uv
-- [x] `_save_ar_results` en pipeline → 3 ficheros AR
-- [x] README.md completo
-- [x] `.gitignore` estricto
-- [x] `gh` CLI configurado
-- [x] CLAUDE.md / AGENTS.md / .cursorrules para multi-herramienta
+- [x] README.md completo; `.gitignore` estricto; CLAUDE.md actualizado
 
 ### PRs activos
 - PR #1: `feat/phase6-segmentation` — abierto, pendiente merge a main
 - PR #2: `feat/phase7-artifact-rejection` — abierto, pendiente merge a main
+- PR #3: `feat/phase5-ica-classification` — en rama local, pendiente push
 
 ### Pendiente / próximo
 - [ ] Dashboard paneles 8–12 (espectral → exportación)
-- [ ] Modo reproducibilidad `EEG_Julia` (CSD + mismos parámetros de filtrado)
-- [ ] Clasificación automática de componentes ICA (ocular/muscular/cardíaco)
 - [ ] Segunda corrección de baseline post-ICA (`baseline_2st`)
 - [ ] Tests de integración pipeline completo
 - [ ] GitHub Actions CI (syntax check + tests)
