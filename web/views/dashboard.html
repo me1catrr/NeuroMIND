@@ -1157,12 +1157,11 @@ tr.row-warn:hover td { background: #fef9c3; }
 .p8-region-card { background:var(--bg-2); border-radius:8px; padding:10px; }
 .p8-region-title{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px;
                   color:var(--text-2); margin-bottom:8px; }
-.p8-topo-grid   { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
-.p8-topo-card   { background:var(--bg-2); border-radius:8px; overflow:hidden; text-align:center; }
-.p8-topo-label  { font-size:10px; font-weight:700; padding:6px 4px 2px; color:var(--text-2); }
-.p8-topo-img    { width:100%; aspect-ratio:1; object-fit:contain; padding:4px; }
-.p8-topo-ph     { width:100%; aspect-ratio:1; display:flex; align-items:center; justify-content:center;
-                  font-size:22px; color:var(--text-3); }
+.p8-topo-grid   { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; }
+.p8-topo-card   { background:#fff; border:1px solid var(--border); border-radius:8px; overflow:hidden; text-align:center; }
+.p8-topo-label  { font-size:10px; font-weight:700; padding:5px 4px 1px; }
+.p8-topo-canvas { display:block; width:100% !important; aspect-ratio:1; cursor:pointer; }
+.p8-topo-sub    { font-size:8px; color:var(--text-3); padding:1px 4px 5px; }
 .p8-idx-grid    { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
 .p8-idx-card    { background:var(--bg-2); border-radius:8px; padding:10px; }
 .p8-idx-label   { font-size:10px; color:var(--text-3); font-weight:600; margin-bottom:4px; text-transform:uppercase; letter-spacing:.3px; }
@@ -9145,35 +9144,239 @@ function _p8RenderPSDCanvas(psdData) {
 }
 
 // ── 7. Topografía por banda ────────────────────────────────
+// ── Posiciones 10-20 normalizadas (radio cabeza = 1, +y = anterior) ────────
+const P8_EEG_POS = {
+  'Fp1':[-0.18, 0.80], 'Fp2':[ 0.18, 0.80],
+  'AF7':[-0.40, 0.72], 'AF3':[-0.18, 0.68], 'AFz':[ 0.00, 0.70], 'AF4':[ 0.18, 0.68], 'AF8':[ 0.40, 0.72],
+  'F7': [-0.54, 0.52], 'F5': [-0.42, 0.52], 'F3': [-0.28, 0.52], 'F1': [-0.14, 0.53],
+  'Fz': [ 0.00, 0.54], 'F2': [ 0.14, 0.53], 'F4': [ 0.28, 0.52], 'F6': [ 0.42, 0.52], 'F8': [ 0.54, 0.52],
+  'FT9':[-0.70, 0.34], 'FT7':[-0.62, 0.32], 'FC5':[-0.48, 0.28], 'FC3':[-0.32, 0.28],
+  'FC1':[-0.16, 0.29], 'FCz':[ 0.00, 0.30], 'FC2':[ 0.16, 0.29], 'FC4':[ 0.32, 0.28],
+  'FC6':[ 0.48, 0.28], 'FT8':[ 0.62, 0.32], 'FT10':[ 0.70, 0.34],
+  'T9': [-0.78, 0.00], 'T7': [-0.72, 0.00], 'C5': [-0.54, 0.00], 'C3': [-0.36, 0.00],
+  'C1': [-0.18, 0.00], 'Cz': [ 0.00, 0.00], 'C2': [ 0.18, 0.00], 'C4': [ 0.36, 0.00],
+  'C6': [ 0.54, 0.00], 'T8': [ 0.72, 0.00], 'T10':[ 0.78, 0.00],
+  'TP9':[-0.70,-0.34], 'TP7':[-0.62,-0.32], 'CP5':[-0.48,-0.28], 'CP3':[-0.32,-0.28],
+  'CP1':[-0.16,-0.29], 'CPz':[ 0.00,-0.30], 'CP2':[ 0.16,-0.29], 'CP4':[ 0.32,-0.28],
+  'CP6':[ 0.48,-0.28], 'TP8':[ 0.62,-0.32], 'TP10':[ 0.70,-0.34],
+  'P9': [-0.72,-0.44], 'P7': [-0.54,-0.52], 'P5': [-0.42,-0.52], 'P3': [-0.28,-0.52],
+  'P1': [-0.14,-0.53], 'Pz': [ 0.00,-0.54], 'P2': [ 0.14,-0.53], 'P4': [ 0.28,-0.52],
+  'P6': [ 0.42,-0.52], 'P8': [ 0.54,-0.52], 'P10':[ 0.72,-0.44],
+  'PO9':[-0.56,-0.68], 'PO7':[-0.42,-0.68], 'PO3':[-0.20,-0.70], 'POz':[ 0.00,-0.72],
+  'PO4':[ 0.20,-0.70], 'PO8':[ 0.42,-0.68], 'PO10':[ 0.56,-0.68],
+  'O1': [-0.18,-0.84], 'Oz': [ 0.00,-0.88], 'O2': [ 0.18,-0.84], 'Iz': [ 0.00,-0.96],
+};
+
+// ── Colormap RdYlBu_r (azul=bajo, amarillo=medio, rojo=alto) ───────────────
+function _p8Colormap(t) {
+  const s = [
+    [0.00, [49,  54, 149]],
+    [0.20, [100,155, 205]],
+    [0.40, [170,217, 230]],
+    [0.50, [255,255, 191]],
+    [0.65, [253,174,  97]],
+    [0.82, [224, 72,  31]],
+    [1.00, [165,  0,  38]],
+  ];
+  for (let i = 0; i < s.length - 1; i++) {
+    const [t0,c0] = s[i], [t1,c1] = s[i+1];
+    if (t >= t0 && t <= t1) {
+      const f = (t - t0) / (t1 - t0);
+      return [Math.round(c0[0]+(c1[0]-c0[0])*f),
+              Math.round(c0[1]+(c1[1]-c0[1])*f),
+              Math.round(c0[2]+(c1[2]-c0[2])*f)];
+    }
+  }
+  return [165,0,38];
+}
+
+// ── Core IDW topomap renderer ──────────────────────────────────────────────
+function _p8DrawTopo(canvas, elecs, vals) {
+  const SIZE = canvas.width;
+  const ctx  = canvas.getContext('2d');
+  const cx = SIZE * 0.50, cy = SIZE * 0.50;
+  const r  = SIZE * 0.42;
+
+  // Normalize values
+  const va = elecs.map(e => vals[e.name] ?? 0);
+  const vMin = Math.min(...va), vMax = Math.max(...va);
+  const vRng = Math.max(vMax - vMin, 1e-14);
+
+  // Background
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, SIZE, SIZE);
+
+  // IDW per pixel
+  const imgData = ctx.createImageData(SIZE, SIZE);
+  const buf = imgData.data;
+  const r2 = r * r;
+
+  for (let py = 0; py < SIZE; py++) {
+    for (let px = 0; px < SIZE; px++) {
+      const dx = px - cx, dy = cy - py;
+      if (dx*dx + dy*dy > r2) continue;
+
+      const nx = dx / r, ny = dy / r;  // head coords [-1,1]
+
+      let num = 0, den = 0, exact = false;
+      for (const e of elecs) {
+        const ex = nx - e.nx, ey = ny - e.ny;
+        const d2 = ex*ex + ey*ey;
+        if (d2 < 5e-5) { num = vals[e.name] ?? 0; den = 1; exact = true; break; }
+        const w = 1 / d2;
+        num += w * (vals[e.name] ?? 0);
+        den += w;
+      }
+
+      const v  = exact ? num : (den > 0 ? num / den : 0);
+      const t  = Math.max(0, Math.min(1, (v - vMin) / vRng));
+      const [ri, gi, bi] = _p8Colormap(t);
+      const idx = (py * SIZE + px) * 4;
+      buf[idx]=ri; buf[idx+1]=gi; buf[idx+2]=bi; buf[idx+3]=235;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  // Head outline
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
+  ctx.strokeStyle = '#475569'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Nose
+  const nr = r * 0.08;
+  ctx.beginPath();
+  ctx.moveTo(cx - nr, cy - r + 1);
+  ctx.lineTo(cx, cy - r - nr*1.5);
+  ctx.lineTo(cx + nr, cy - r + 1);
+  ctx.strokeStyle = '#475569'; ctx.lineWidth = 1.2; ctx.stroke();
+
+  // Ear markers (left/right)
+  [[cx-r, cy],[cx+r, cy]].forEach(([ex,ey]) => {
+    ctx.beginPath(); ctx.arc(ex, ey, r*0.045, 0, Math.PI*2);
+    ctx.fillStyle = '#f1f5f9'; ctx.fill();
+    ctx.strokeStyle = '#475569'; ctx.lineWidth = 1; ctx.stroke();
+  });
+
+  // Electrode dots
+  const dotR = Math.max(1.8, SIZE * 0.018);
+  for (const e of elecs) {
+    const ex2 = cx + e.nx * r, ey2 = cy - e.ny * r;
+    ctx.beginPath(); ctx.arc(ex2, ey2, dotR, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(15,23,42,0.75)'; ctx.fill();
+  }
+
+  // Color scale bar (right edge)
+  const bx = SIZE - Math.round(SIZE*0.09), by0 = Math.round(SIZE*0.14);
+  const bh = Math.round(SIZE*0.72), bw = Math.max(3, Math.round(SIZE*0.055));
+  const grad = ctx.createLinearGradient(0, by0+bh, 0, by0);
+  [[0,'#3136a5'],[0.25,'#64a9d1'],[0.5,'#ffffe0'],[0.75,'#f46d43'],[1,'#a50026']]
+    .forEach(([t,c]) => grad.addColorStop(t,c));
+  ctx.fillStyle = grad;
+  ctx.fillRect(bx, by0, bw, bh);
+  ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 0.5;
+  ctx.strokeRect(bx, by0, bw, bh);
+
+  // Scale labels
+  const fs = Math.max(7, Math.round(SIZE*0.075));
+  ctx.fillStyle='#475569'; ctx.font=`${fs}px sans-serif`; ctx.textAlign='right';
+  ctx.fillText(vMax.toExponential(1), bx-2, by0 + fs*0.9);
+  ctx.fillText(vMin.toExponential(1), bx-2, by0 + bh + fs*0.4);
+}
+
+// ── 7. Topografía por banda (Canvas IDW) ───────────────────────────────────
 function _p8RenderTopoGrid(d) {
   const grid = document.getElementById('p8-topo-grid');
   if (!grid) return;
 
-  const { subj, sess, cond } = State;
-  const topoFiles = P8_BANDS.map(b => ({
-    band:  b,
-    file:  `topo_${b.key.toLowerCase()}.png`,
-    url:   `/api/bids/figure?subj=${subj}&sess=${sess}&cond=${cond}&file=topo_${b.key.toLowerCase()}.png`
-  }));
+  const bp = d.band_power;
+  if (!bp?.length) {
+    grid.innerHTML = P8_BANDS.map(b =>
+      `<div class="p8-topo-card">
+        <div class="p8-topo-label" style="color:${b.color}">${b.label}</div>
+        <div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+                    color:var(--text-3);font-size:11px;padding:8px">Sin datos</div>
+       </div>`).join('');
+    return;
+  }
 
-  grid.innerHTML = P8_BANDS.map((b, i) => `
-    <div class="p8-topo-card">
+  // Build per-band value dicts
+  const bVals = {};
+  P8_BANDS.forEach(b => {
+    bVals[b.key] = {};
+    bp.forEach(row => { bVals[b.key][row.channel] = row[b.key] ?? 0; });
+  });
+
+  // Match available channels to known 10-20 positions
+  const channels = bp.map(r => r.channel);
+  const elecs = channels
+    .filter(ch => P8_EEG_POS[ch])
+    .map(ch => ({ name: ch, nx: P8_EEG_POS[ch][0], ny: P8_EEG_POS[ch][1] }));
+
+  const hasPositions = elecs.length >= 4;
+
+  // Build HTML
+  grid.innerHTML = P8_BANDS.map(b =>
+    `<div class="p8-topo-card" title="${b.label} · ${b.range}">
       <div class="p8-topo-label" style="color:${b.color}">${b.label}</div>
-      <div class="p8-topo-ph" id="p8-topo-${b.key}" style="background:${b.color}12">
-        <span style="font-size:28px;opacity:0.4">🧠</span>
-      </div>
-      <div style="font-size:9px;color:var(--text-3);padding:2px 4px 6px;text-align:center">${b.range}</div>
+      <canvas id="p8-tc-${b.key}" class="p8-topo-canvas"
+              onclick="p8TopoLightbox('${b.key}')"></canvas>
+      <div class="p8-topo-sub">${b.range}</div>
     </div>`).join('');
 
-  // Try to load actual topo images
-  P8_BANDS.forEach(b => {
-    const url = `/api/bids/figure?subj=${subj}&sess=${sess}&cond=${cond}&file=topo_${b.key.toLowerCase()}.png`;
-    fetch(url).then(r => r.json()).then(j => {
-      if (j.ok && j.data) {
-        const el = document.getElementById(`p8-topo-${b.key}`);
-        if (el) el.innerHTML = `<img class="p8-topo-img" src="data:image/png;base64,${j.data}" alt="${b.label} topo" onclick="openLightbox(this.src)">`;
+  // Render each canvas after layout (nextTick so CSS width is resolved)
+  requestAnimationFrame(() => {
+    P8_BANDS.forEach(b => {
+      const cv = document.getElementById(`p8-tc-${b.key}`);
+      if (!cv) return;
+      const cssW = cv.offsetWidth || 140;
+      const dpr  = Math.min(window.devicePixelRatio || 1, 2);
+      const SIZE = Math.round(cssW * dpr);
+      cv.width  = SIZE;
+      cv.height = SIZE;
+
+      if (hasPositions) {
+        _p8DrawTopo(cv, elecs, bVals[b.key]);
+      } else {
+        // Fallback: ranked bar chart if positions unknown
+        _p8DrawBarFallback(cv, bVals[b.key], b.color);
       }
-    }).catch(() => {});
+    });
+  });
+}
+
+// Lightbox helper for topo canvas
+function p8TopoLightbox(bandKey) {
+  const cv = document.getElementById(`p8-tc-${bandKey}`);
+  if (!cv) return;
+  openLightbox(cv.toDataURL('image/png'));
+}
+
+// Fallback: simple ranked bar chart when electrode positions unknown
+function _p8DrawBarFallback(canvas, vals, color) {
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, W, H);
+
+  const pairs = Object.entries(vals)
+    .filter(([,v]) => v > 0)
+    .sort(([,a],[,b]) => b-a)
+    .slice(0, 12);
+  if (!pairs.length) return;
+
+  const maxV = pairs[0][1];
+  const bH = H / (pairs.length + 1);
+  ctx.fillStyle = color;
+
+  pairs.forEach(([ch, v], i) => {
+    const barW = (v / maxV) * (W * 0.55);
+    const y = (i + 0.5) * bH;
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.7 + 0.3 * (v / maxV);
+    ctx.fillRect(W * 0.30, y - bH*0.35, barW, bH*0.7);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#334155';
+    ctx.font = `${Math.round(bH * 0.4)}px monospace`;
+    ctx.textAlign = 'right';
+    ctx.fillText(ch, W*0.28, y + bH*0.15);
   });
 }
 
