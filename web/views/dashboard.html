@@ -1121,6 +1121,74 @@ tr.row-warn:hover td { background: #fef9c3; }
 .p7-ch-bar-bg  { flex:1; height:8px; background:var(--bg-3); border-radius:4px; overflow:hidden; }
 .p7-ch-bar-fill{ height:100%; border-radius:4px; }
 .p7-ch-pct     { width:34px; text-align:right; font-size:10px; color:var(--text-2); font-weight:600; }
+
+/* ── Phase 8 — Análisis Espectral ────────────────────── */
+.grid-p8-top  { display:grid; grid-template-columns:1fr 1fr 1.5fr 0.9fr; gap:12px; margin-bottom:14px; }
+.grid-p8-mid  { display:grid; grid-template-columns:1.1fr 0.9fr 1fr; gap:12px; margin-bottom:14px; }
+.grid-p8-bot  { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+.p8-full      { margin-bottom:14px; }
+.p8-big-val   { font-size:28px; font-weight:800; line-height:1; margin:6px 0 2px; }
+.p8-big-lbl   { font-size:10px; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
+.p8-cfg-row   { display:flex; justify-content:space-between; align-items:center; padding:5px 0;
+                 border-bottom:1px solid var(--border); font-size:12px; }
+.p8-cfg-row:last-child { border-bottom:none; }
+.p8-cfg-key   { color:var(--text-3); }
+.p8-cfg-val   { font-weight:700; font-family:monospace; font-size:11px; color:var(--text-1); }
+.p8-band-row  { display:flex; align-items:center; gap:8px; padding:6px 4px;
+                 border-bottom:1px solid var(--border); font-size:12px; }
+.p8-band-row:last-child { border-bottom:none; }
+.p8-band-dot  { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.p8-band-name { font-weight:700; width:80px; }
+.p8-band-range{ font-family:monospace; font-size:10px; color:var(--text-3); flex:1; }
+.p8-band-pct  { font-size:11px; font-weight:700; color:var(--text-2); text-align:right; width:40px; }
+.p8-tbl       { width:100%; border-collapse:collapse; font-size:12px; }
+.p8-tbl th    { background:var(--bg-3); color:var(--text-3); font-weight:600; text-align:left;
+                 padding:6px 8px; border-bottom:2px solid var(--border); font-size:10px;
+                 text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; position:sticky; top:0; }
+.p8-tbl td    { padding:5px 8px; border-bottom:1px solid var(--border); }
+.p8-tbl tr:hover td { background:rgba(22,163,74,.04); }
+.p8-band-chip { display:inline-block; padding:1px 6px; border-radius:8px; font-size:10px; font-weight:700; }
+.p8-metrics-row { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:10px; }
+.p8-metric-cell { background:var(--bg-2); border-radius:8px; padding:8px; text-align:center; }
+.p8-metric-val  { font-size:18px; font-weight:800; }
+.p8-metric-lbl  { font-size:9px; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:.3px; margin-top:2px; }
+#p8-psd-canvas  { display:block; width:100%; height:200px; background:#f8fafc; border-radius:6px; }
+.p8-regions-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+.p8-region-card { background:var(--bg-2); border-radius:8px; padding:10px; }
+.p8-region-title{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px;
+                  color:var(--text-2); margin-bottom:8px; }
+.p8-topo-grid   { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+.p8-topo-card   { background:var(--bg-2); border-radius:8px; overflow:hidden; text-align:center; }
+.p8-topo-label  { font-size:10px; font-weight:700; padding:6px 4px 2px; color:var(--text-2); }
+.p8-topo-img    { width:100%; aspect-ratio:1; object-fit:contain; padding:4px; }
+.p8-topo-ph     { width:100%; aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+                  font-size:22px; color:var(--text-3); }
+.p8-idx-grid    { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+.p8-idx-card    { background:var(--bg-2); border-radius:8px; padding:10px; }
+.p8-idx-label   { font-size:10px; color:var(--text-3); font-weight:600; margin-bottom:4px; text-transform:uppercase; letter-spacing:.3px; }
+.p8-idx-val     { font-size:20px; font-weight:800; font-family:monospace; }
+.p8-idx-sub     { font-size:10px; color:var(--text-3); margin-top:2px; }
+.p8-qa-grid     { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
+.p8-qa-btn      { display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;
+                  background:var(--bg-2); border:1px solid var(--border); border-radius:8px;
+                  cursor:pointer; font-size:10px; font-weight:600; color:var(--text-2);
+                  transition:.15s; text-align:center; line-height:1.3; }
+.p8-qa-btn:hover { background:#dcfce7; color:#16a34a; }
+.p8-qa-icon     { font-size:18px; }
+.p8-not-run     { display:flex; flex-direction:column; align-items:center; justify-content:center;
+                  padding:50px 20px; text-align:center; color:var(--text-3); }
+.p8-not-run-icon{ font-size:42px; margin-bottom:14px; }
+.p8-not-run-title{ font-size:17px; font-weight:700; color:var(--text-1); margin-bottom:8px; }
+.p8-not-run-sub  { font-size:12px; max-width:400px; line-height:1.6; margin-bottom:16px; }
+.p8-run-btn      { padding:9px 20px; background:#16a34a; color:#fff; border:none; border-radius:8px;
+                   cursor:pointer; font-weight:700; font-size:13px; }
+.p8-run-btn:hover{ background:#15803d; }
+.p8-reg-bar-wrap{ display:flex; align-items:center; gap:6px; padding:3px 0; font-size:10px; }
+.p8-reg-bar-bg  { flex:1; height:7px; background:var(--bg-3); border-radius:4px; overflow:hidden; }
+.p8-reg-bar-fill{ height:100%; border-radius:4px; }
+.p8-reg-lbl     { width:58px; font-weight:600; color:var(--text-2); font-size:9px; overflow:hidden;
+                  white-space:nowrap; text-overflow:ellipsis; }
+.p8-reg-val     { width:46px; text-align:right; font-size:9px; font-family:monospace; color:var(--text-3); }
 </style>
 </head>
 <body>
@@ -2815,7 +2883,234 @@ tr.row-warn:hover td { background: #fef9c3; }
     </div>
 
   </div><!-- /phase-panel-7 -->
-  <div id="phase-panel-8"  class="phase-panel"></div>
+  <!-- ══════════════════════════════════════════════════════════
+       PHASE 8 — ANÁLISIS ESPECTRAL
+  ══════════════════════════════════════════════════════════ -->
+  <div id="phase-panel-8" class="phase-panel">
+
+    <!-- Header -->
+    <div class="phase-header">
+      <div class="phase-header-left">
+        <div class="phase-badge-lg" style="background:#16a34a">8</div>
+        <div>
+          <div class="phase-title">8. Análisis Espectral — Potencia por bandas de frecuencia</div>
+          <div class="phase-subtitle" id="p8-subtitle">FFT Hamming-taper · PSD por canal · Potencia relativa y absoluta</div>
+        </div>
+      </div>
+      <div id="p8-status-chip" class="status-chip pending">Cargando…</div>
+    </div>
+
+    <!-- Fila 1: Información | Bandas | Stats rápidas | Estado -->
+    <div class="grid-p8-top">
+
+      <!-- 1. Información del análisis -->
+      <div class="card">
+        <div class="card-header">Información del análisis</div>
+        <div class="card-body" id="p8-analysis-info">
+          <div class="spinner"><div class="spin-circle"></div></div>
+        </div>
+      </div>
+
+      <!-- 2. Bandas de frecuencia -->
+      <div class="card">
+        <div class="card-header">Bandas de frecuencia</div>
+        <div class="card-body" id="p8-bands-list">
+          <div class="spinner"><div class="spin-circle"></div></div>
+        </div>
+      </div>
+
+      <!-- 3. Estadísticas globales (métricas rápidas) -->
+      <div class="card">
+        <div class="card-header">Resumen de potencia</div>
+        <div class="card-body" style="padding:8px">
+          <div class="p8-metrics-row" id="p8-power-metrics">
+            <div class="p8-metric-cell"><div class="p8-metric-val" id="p8-m-epochs" style="color:#16a34a">—</div><div class="p8-metric-lbl">Épocas</div></div>
+            <div class="p8-metric-cell"><div class="p8-metric-val" id="p8-m-ch"     style="color:#2563eb">—</div><div class="p8-metric-lbl">Canales</div></div>
+            <div class="p8-metric-cell"><div class="p8-metric-val" id="p8-m-df"     style="color:#7c3aed">—</div><div class="p8-metric-lbl">Δf (Hz)</div></div>
+            <div class="p8-metric-cell"><div class="p8-metric-val" id="p8-m-total"  style="color:#d97706">—</div><div class="p8-metric-lbl">μV² total</div></div>
+          </div>
+          <div id="p8-dominant-band" style="font-size:11px;color:var(--text-3);padding:4px 2px;line-height:1.5"></div>
+        </div>
+      </div>
+
+      <!-- 5. Estado de la fase -->
+      <div class="card">
+        <div class="card-header">Estado de la fase</div>
+        <div class="card-body" id="p8-phase-status">
+          <div class="spinner"><div class="spin-circle"></div></div>
+        </div>
+      </div>
+    </div><!-- /grid-p8-top -->
+
+    <!-- Placeholder si no hay datos espectrales -->
+    <div id="p8-not-run-block" class="p8-not-run" style="display:none">
+      <div class="p8-not-run-icon">📊</div>
+      <div class="p8-not-run-title">Análisis espectral aún no ejecutado</div>
+      <div class="p8-not-run-sub">
+        Ejecuta el pipeline para calcular la PSD y la potencia por banda de frecuencia en todos los canales.
+      </div>
+      <button class="p8-run-btn" onclick="p8RunPipeline()">▶ Ejecutar pipeline</button>
+      <div style="font-size:11px;color:var(--text-3);margin-top:6px">
+        Requiere segmentación y rechazo de artefactos completados (Fases 6–7)
+      </div>
+    </div>
+
+    <!-- Contenido principal -->
+    <div id="p8-content-block" style="display:none">
+
+      <!-- Fila 2: Potencia absoluta | Potencia relativa (donut) | Índices espectrales -->
+      <div class="grid-p8-mid">
+
+        <!-- 3. Potencia absoluta por banda -->
+        <div class="card">
+          <div class="card-header">
+            Potencia absoluta por banda
+            <span style="font-size:10px;font-weight:400;color:var(--text-3)">media ± DE entre canales</span>
+          </div>
+          <div style="max-height:240px;overflow-y:auto">
+            <table class="p8-tbl">
+              <thead><tr>
+                <th>Banda</th><th>Hz</th><th>Media µV²</th><th>DE</th><th>Med.</th><th>Min</th><th>Max</th><th>% total</th>
+              </tr></thead>
+              <tbody id="p8-abs-power-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 4. Potencia relativa — donut -->
+        <div class="card" style="display:flex;flex-direction:column;align-items:center">
+          <div class="card-header" style="width:100%">Distribución relativa de potencia</div>
+          <div class="card-body" style="padding:8px;display:flex;flex-direction:column;align-items:center;width:100%">
+            <svg id="p8-donut-svg" viewBox="0 0 200 180" style="width:100%;max-width:220px;display:block"></svg>
+            <div id="p8-donut-legend" style="width:100%;margin-top:4px"></div>
+          </div>
+        </div>
+
+        <!-- 11. Índices espectrales (globales — media entre canales) -->
+        <div class="card">
+          <div class="card-header">Índices espectrales <span style="font-size:9px;font-weight:400;color:var(--text-3)">(media entre canales)</span></div>
+          <div class="card-body" style="padding:8px">
+            <div class="p8-idx-grid" id="p8-indices-summary"></div>
+            <div style="margin-top:10px;font-size:10px;color:var(--text-3);border-top:1px solid var(--border);padding-top:8px">
+              <div style="font-weight:600;margin-bottom:4px">Detalle por canal</div>
+              <div style="max-height:110px;overflow-y:auto">
+                <table class="p8-tbl">
+                  <thead><tr><th>Canal</th><th>α/θ</th><th>β/α</th><th>θ/β</th><th>PAF (Hz)</th></tr></thead>
+                  <tbody id="p8-idx-channel-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /grid-p8-mid -->
+
+      <!-- Fila 3: PSD Global (full width) -->
+      <div class="card p8-full">
+        <div class="card-header">
+          PSD promedio global · escala logarítmica
+          <span style="font-size:10px;font-weight:400;color:var(--text-3)">media entre canales · 0–80 Hz</span>
+          <div id="p8-psd-legend" style="display:flex;gap:12px;font-size:10px;font-weight:400;color:var(--text-3);flex-wrap:wrap;margin-left:auto"></div>
+        </div>
+        <div style="padding:8px 12px 4px;position:relative">
+          <canvas id="p8-psd-canvas"></canvas>
+          <div id="p8-psd-xaxis" style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-3);padding:0 40px 0 50px;margin-top:2px"></div>
+        </div>
+      </div>
+
+      <!-- Fila 4: Topografía por banda (full width) -->
+      <div class="card p8-full">
+        <div class="card-header">Topografía de potencia por banda</div>
+        <div class="card-body" style="padding:10px">
+          <div class="p8-topo-grid" id="p8-topo-grid"></div>
+        </div>
+      </div>
+
+      <!-- Fila 5: PSD por regiones (full width) -->
+      <div class="card p8-full">
+        <div class="card-header">
+          PSD por regiones cerebrales
+          <span style="font-size:10px;font-weight:400;color:var(--text-3)">10-20: frontal · central · parietal · occipital</span>
+        </div>
+        <div class="card-body" style="padding:10px">
+          <div class="p8-regions-grid" id="p8-regions-grid"></div>
+        </div>
+      </div>
+
+      <!-- Fila 6: Potencia por canal | Estadísticas por banda -->
+      <div class="grid-p8-bot">
+
+        <!-- 9. Potencia por canal -->
+        <div class="card">
+          <div class="card-header">
+            Potencia por canal
+            <select id="p8-ch-band-sel" class="p6-sel" onchange="p8RenderChannelTable()" style="margin-left:auto">
+              <option value="ALPHA">α Alpha</option>
+              <option value="DELTA">δ Delta</option>
+              <option value="THETA">θ Theta</option>
+              <option value="BETA_LOW">β1 Beta-Low</option>
+              <option value="BETA_MID">β2 Beta-Mid</option>
+              <option value="BETA_HIGH">β3 Beta-High</option>
+              <option value="GAMMA">γ Gamma</option>
+              <option value="ALL">Todas las bandas</option>
+            </select>
+          </div>
+          <div style="max-height:280px;overflow-y:auto">
+            <table class="p8-tbl">
+              <thead id="p8-ch-tbl-head"></thead>
+              <tbody id="p8-ch-tbl-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 10. Estadísticas por banda -->
+        <div class="card">
+          <div class="card-header">Estadísticas por banda <span style="font-size:10px;font-weight:400;color:var(--text-3)">(entre canales)</span></div>
+          <div style="overflow-y:auto;max-height:280px">
+            <table class="p8-tbl">
+              <thead><tr>
+                <th>Banda</th><th>Media</th><th>Mediana</th><th>DE</th><th>Mín</th><th>Máx</th><th>%</th>
+              </tr></thead>
+              <tbody id="p8-stats-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /grid-p8-bot -->
+
+    </div><!-- /p8-content-block -->
+
+    <!-- 12. Acciones rápidas (siempre visible) -->
+    <div class="card p8-full">
+      <div class="card-header">Acciones rápidas</div>
+      <div class="card-body" style="padding:10px">
+        <div class="p8-qa-grid">
+          <button class="p8-qa-btn" onclick="switchPhase(7)">
+            <span class="p8-qa-icon">🧹</span>Rechazo artefactos<br><span style="font-weight:400;font-size:9px">(Fase 7)</span>
+          </button>
+          <button class="p8-qa-btn" onclick="switchPhase(9)">
+            <span class="p8-qa-icon">🔗</span>Conectividad wPLI<br><span style="font-weight:400;font-size:9px">(Fase 9)</span>
+          </button>
+          <button class="p8-qa-btn" onclick="switchPhase(4)">
+            <span class="p8-qa-icon">🔵</span>Ver filtros aplicados<br><span style="font-weight:400;font-size:9px">(Fase 4)</span>
+          </button>
+          <button class="p8-qa-btn" onclick="p8ExportCSV()">
+            <span class="p8-qa-icon">📥</span>Exportar tablas CSV<br><span style="font-weight:400;font-size:9px">band_power + PSD</span>
+          </button>
+          <button class="p8-qa-btn" onclick="p8ViewAllChannels()">
+            <span class="p8-qa-icon">📡</span>PSD por canal<br><span style="font-weight:400;font-size:9px">todos los canales</span>
+          </button>
+          <button class="p8-qa-btn" onclick="p8Reload()">
+            <span class="p8-qa-icon">🔄</span>Recargar<br><span style="font-weight:400;font-size:9px">resultados</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info bar -->
+    <div class="phase-info-bar" id="p8-info-bar" style="display:none">
+      <span id="p8-info-text"></span>
+    </div>
+
+  </div><!-- /phase-panel-8 -->
   <div id="phase-panel-9"  class="phase-panel"></div>
   <div id="phase-panel-10" class="phase-panel"></div>
   <div id="phase-panel-11" class="phase-panel"></div>
@@ -3087,6 +3382,8 @@ async function switchPhase(n) {
     await loadPhase6();
   } else if (n === 7) {
     await loadPhase7();
+  } else if (n === 8) {
+    await loadPhase8();
   } else {
     renderPhasePlaceholder(n);
   }
@@ -3136,6 +3433,7 @@ async function loadCurrentPhase() {
   else if (State.phase === 5) await loadPhase5();
   else if (State.phase === 6) await loadPhase6();
   else if (State.phase === 7) await loadPhase7();
+  else if (State.phase === 8) await loadPhase8();
   else renderPhasePlaceholder(State.phase);
 }
 
@@ -8440,6 +8738,639 @@ function p7Reload() { loadPhase7(); }
 
 // ════════════════════════════════════════════════════════════
 // FIN PHASE 7
+// ════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════
+// FASE 8 — ANÁLISIS ESPECTRAL
+// ════════════════════════════════════════════════════════════
+
+// ── Band metadata ─────────────────────────────────────────
+const P8_BANDS = [
+  { key:'DELTA',     label:'δ Delta',     range:'0.5–4 Hz',   color:'#7c3aed' },
+  { key:'THETA',     label:'θ Theta',     range:'4–8 Hz',     color:'#2563eb' },
+  { key:'ALPHA',     label:'α Alpha',     range:'7.8–11.7 Hz',color:'#16a34a' },
+  { key:'BETA_LOW',  label:'β₁ Beta-Low', range:'12–15 Hz',   color:'#d97706' },
+  { key:'BETA_MID',  label:'β₂ Beta-Mid', range:'15–18 Hz',   color:'#ea580c' },
+  { key:'BETA_HIGH', label:'β₃ Beta-High',range:'18–30 Hz',   color:'#dc2626' },
+  { key:'GAMMA',     label:'γ Gamma',     range:'30–50 Hz',   color:'#db2777' },
+];
+// Aggregated for donut (combine betas)
+const P8_BANDS_AGG = [
+  { key:'DELTA',  label:'δ Delta',  color:'#7c3aed' },
+  { key:'THETA',  label:'θ Theta',  color:'#2563eb' },
+  { key:'ALPHA',  label:'α Alpha',  color:'#16a34a' },
+  { key:'BETA',   label:'β Beta',   color:'#d97706', keys:['BETA_LOW','BETA_MID','BETA_HIGH'] },
+  { key:'GAMMA',  label:'γ Gamma',  color:'#db2777' },
+];
+
+// Spectral band ranges for PSD canvas shading
+const P8_BAND_RANGES = [
+  { lo:0.5,  hi:4.0,  color:'rgba(124,58,237,0.07)',  label:'δ' },
+  { lo:4.0,  hi:8.0,  color:'rgba(37,99,235,0.07)',   label:'θ' },
+  { lo:7.8,  hi:11.7, color:'rgba(22,163,74,0.10)',   label:'α' },
+  { lo:12.0, hi:30.0, color:'rgba(217,119,6,0.07)',   label:'β' },
+  { lo:30.0, hi:50.0, color:'rgba(219,39,119,0.07)',  label:'γ' },
+];
+
+// State for Phase 8
+const P8 = {
+  data: null,
+};
+
+// ── Main loader ───────────────────────────────────────────
+async function loadPhase8() {
+  const { subj, sess, cond } = State;
+  if (!subj || !sess) return;
+
+  // Update status chip
+  const chip = document.getElementById('p8-status-chip');
+  if (chip) { chip.className = 'status-chip pending'; chip.textContent = 'Cargando…'; }
+
+  try {
+    const r = await fetch(`/api/phase8_spectral?subj=${subj}&sess=${sess}&cond=${cond}`);
+    const d = await r.json();
+    P8.data = d;
+
+    // Update global status
+    const st = State.statuses['8'] || 'pending';
+    if (chip) {
+      chip.className  = `status-chip ${st === 'completed' ? 'good' : st === 'warning' ? 'warning' : st === 'error' ? 'bad' : 'pending'}`;
+      chip.textContent = st === 'completed' ? 'Completado' : st === 'warning' ? 'Warnings' : st === 'error' ? 'Error' : 'Pendiente';
+    }
+
+    const notRun  = document.getElementById('p8-not-run-block');
+    const content = document.getElementById('p8-content-block');
+
+    if (!d.spectral_run) {
+      if (notRun)  notRun.style.display  = 'flex';
+      if (content) content.style.display = 'none';
+      _p8RenderEmpty();
+    } else {
+      if (notRun)  notRun.style.display  = 'none';
+      if (content) content.style.display = 'block';
+      _p8RenderAll(d);
+    }
+  } catch(e) {
+    console.error('Phase 8 load error:', e);
+    const chip2 = document.getElementById('p8-status-chip');
+    if (chip2) { chip2.className = 'status-chip bad'; chip2.textContent = 'Error'; }
+    _p8SetInfoBar('Error al cargar datos espectrales: ' + e.message);
+  }
+}
+
+function _p8SetInfoBar(msg) {
+  const bar = document.getElementById('p8-info-bar');
+  const txt = document.getElementById('p8-info-text');
+  if (bar && txt) { txt.textContent = msg; bar.style.display = 'block'; }
+}
+
+function _p8RenderEmpty() {
+  ['p8-analysis-info','p8-bands-list','p8-phase-status'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = placeholder('Sin datos.');
+  });
+  ['p8-m-epochs','p8-m-ch','p8-m-df','p8-m-total'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '—';
+  });
+}
+
+function _p8RenderAll(d) {
+  const s = d.summary || {};
+  _p8RenderAnalysisInfo(s);
+  _p8RenderBandsList(s);
+  _p8RenderMetrics(s);
+  _p8RenderPhaseStatus(d.phase_timing, s);
+  _p8RenderAbsPower(s);
+  _p8RenderDonut(s);
+  _p8RenderPSDCanvas(d.psd_global || {});
+  _p8RenderTopoGrid(d);
+  _p8RenderRegions(d.regional_psd || []);
+  p8RenderChannelTable();
+  _p8RenderBandStats(s);
+  _p8RenderIndices(d.spectral_indices || []);
+}
+
+// ── 1. Información del análisis ────────────────────────────
+function _p8RenderAnalysisInfo(s) {
+  const el = document.getElementById('p8-analysis-info');
+  if (!el) return;
+  const profile = s.profile || 'default';
+  const profileBadge = profile === 'eeg_julia'
+    ? '<span style="background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700">eeg_julia</span>'
+    : `<span style="background:#f1f5f9;color:#64748b;padding:1px 6px;border-radius:4px;font-size:10px">${profile}</span>`;
+  el.innerHTML = infoRows([
+    ['Método PSD',    'FFT + Hamming-taper',           ''],
+    ['Perfil',        profileBadge,                    ''],
+    ['Ventana',       s.window || 'hamming_taper',     ''],
+    ['Longitud',      s.epoch_length_s != null ? s.epoch_length_s.toFixed(1) : '—', 's'],
+    ['Solapamiento',  '0',                             '%'],
+    ['Nº ventanas',   s.n_epochs != null ? String(s.n_epochs) : '—', ''],
+    ['Δf frecuencial',s.delta_f != null ? s.delta_f.toFixed(3) : '—', 'Hz'],
+    ['Rango',         `${(s.freq_range_lo||0).toFixed(1)}–${(s.freq_range_hi||250).toFixed(1)}`, 'Hz'],
+    ['Referencia',    s.reference || 'average',        ''],
+  ]);
+}
+
+// ── 2. Bandas de frecuencia ────────────────────────────────
+function _p8RenderBandsList(s) {
+  const el = document.getElementById('p8-bands-list');
+  if (!el) return;
+  el.innerHTML = P8_BANDS.map(b => {
+    const pct = s[`${b.key}_pct`];
+    const pctStr = pct != null ? `${pct.toFixed(1)}%` : '';
+    return `<div class="p8-band-row">
+      <div class="p8-band-dot" style="background:${b.color}"></div>
+      <div class="p8-band-name">${b.label}</div>
+      <div class="p8-band-range">${b.range}</div>
+      <div class="p8-band-pct">${pctStr}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── 3. Métricas rápidas ────────────────────────────────────
+function _p8RenderMetrics(s) {
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('p8-m-epochs', s.n_epochs != null ? String(s.n_epochs) : '—');
+  set('p8-m-ch',     s.n_channels != null ? String(s.n_channels) : '—');
+  set('p8-m-df',     s.delta_f != null ? s.delta_f.toFixed(2) : '—');
+  set('p8-m-total',  s.total_power_uv2 != null ? s.total_power_uv2.toExponential(2) : '—');
+
+  // Dominant band
+  const el = document.getElementById('p8-dominant-band');
+  if (el) {
+    let maxBand = null, maxPct = 0;
+    P8_BANDS.forEach(b => {
+      const pct = s[`${b.key}_pct`] || 0;
+      if (pct > maxPct) { maxPct = pct; maxBand = b; }
+    });
+    el.innerHTML = maxBand
+      ? `<span style="color:${maxBand.color};font-weight:700">Banda dominante: ${maxBand.label}</span>
+         <span style="color:var(--text-3)"> (${maxPct.toFixed(1)}% de la potencia total)</span>`
+      : '';
+  }
+}
+
+// ── 5. Estado de la fase ───────────────────────────────────
+function _p8RenderPhaseStatus(timing, s) {
+  const el = document.getElementById('p8-phase-status');
+  if (!el) return;
+  const st = State.statuses['8'] || 'pending';
+  const stLabel = {
+    completed: '<span class="text-good">● Completado</span>',
+    warning:   '<span class="text-warn">● Con warnings</span>',
+    error:     '<span class="text-bad">● Error</span>',
+    pending:   '<span style="color:var(--pending)">● Pendiente</span>',
+  }[st] || '—';
+
+  el.innerHTML = `
+    <div class="info-row"><span class="info-key">Estado</span><span class="info-val">${stLabel}</span></div>
+    <div class="info-row"><span class="info-key">Inicio</span><span class="info-val mono">${timing?.start || '—'}</span></div>
+    <div class="info-row"><span class="info-key">Fin</span><span class="info-val mono">${timing?.end || '—'}</span></div>
+    <div class="info-row"><span class="info-key">nFFT</span><span class="info-val mono">${s.nfft || '—'}</span></div>
+    <div class="info-row"><span class="info-key">Canales</span><span class="info-val">${s.n_channels || '—'}</span></div>
+    <div style="margin-top:8px">
+      <span style="cursor:pointer;font-size:11px;color:var(--accent)" onclick="showLog()">📄 Ver log →</span>
+    </div>`;
+}
+
+// ── 3b. Potencia absoluta — tabla ──────────────────────────
+function _p8RenderAbsPower(s) {
+  const tbody = document.getElementById('p8-abs-power-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = P8_BANDS.map(b => {
+    const mean_ = s[`${b.key}_mean`];
+    const std_  = s[`${b.key}_std`];
+    const med_  = s[`${b.key}_median`];
+    const min_  = s[`${b.key}_min`];
+    const max_  = s[`${b.key}_max`];
+    const pct_  = s[`${b.key}_pct`];
+    if (mean_ == null) return '';
+    const fmt = v => v != null ? v.toExponential(2) : '—';
+    const fmtP = v => v != null ? v.toFixed(1)+'%' : '—';
+    return `<tr>
+      <td><span class="p8-band-chip" style="background:${b.color}20;color:${b.color}">${b.label}</span></td>
+      <td style="font-size:10px;color:var(--text-3)">${b.range}</td>
+      <td class="mono">${fmt(mean_)}</td>
+      <td class="mono">${fmt(std_)}</td>
+      <td class="mono">${fmt(med_)}</td>
+      <td class="mono">${fmt(min_)}</td>
+      <td class="mono">${fmt(max_)}</td>
+      <td style="font-weight:700;color:${b.color}">${fmtP(pct_)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── 4. Donut de potencia relativa ─────────────────────────
+function _p8RenderDonut(s) {
+  const svg = document.getElementById('p8-donut-svg');
+  const leg = document.getElementById('p8-donut-legend');
+  if (!svg) return;
+
+  // Compute aggregated values
+  const vals = P8_BANDS_AGG.map(b => {
+    if (b.keys) {
+      return b.keys.reduce((acc, k) => acc + (s[`${k}_mean`] || 0), 0);
+    }
+    return s[`${b.key}_mean`] || 0;
+  });
+  const total = vals.reduce((a, c) => a + c, 0) || 1;
+  const pcts  = vals.map(v => v / total);
+
+  const cx = 100, cy = 82, r = 60, ri = 36;
+  let startAngle = -Math.PI / 2;
+  let paths = '';
+
+  pcts.forEach((p, i) => {
+    if (p <= 0) return;
+    const sweep = p * 2 * Math.PI;
+    const end   = startAngle + sweep;
+    const x1 = cx + r  * Math.cos(startAngle); const y1 = cy + r  * Math.sin(startAngle);
+    const x2 = cx + r  * Math.cos(end);         const y2 = cy + r  * Math.sin(end);
+    const x3 = cx + ri * Math.cos(end);         const y3 = cy + ri * Math.sin(end);
+    const x4 = cx + ri * Math.cos(startAngle);  const y4 = cy + ri * Math.sin(startAngle);
+    const large = sweep > Math.PI ? 1 : 0;
+    paths += `<path d="M${x1},${y1} A${r},${r},0,${large},1,${x2},${y2} L${x3},${y3} A${ri},${ri},0,${large},0,${x4},${y4} Z"
+              fill="${P8_BANDS_AGG[i].color}" opacity="0.88">
+              <title>${P8_BANDS_AGG[i].label}: ${(pcts[i]*100).toFixed(1)}%</title></path>`;
+    startAngle = end;
+  });
+
+  // Find dominant
+  const domIdx = pcts.indexOf(Math.max(...pcts));
+  const domBand = P8_BANDS_AGG[domIdx] || P8_BANDS_AGG[2];
+  const domPct  = (pcts[domIdx] * 100).toFixed(1);
+
+  svg.innerHTML = `
+    ${paths}
+    <text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="13" font-weight="800" fill="${domBand.color}">${domBand.label}</text>
+    <text x="${cx}" y="${cy + 9}" text-anchor="middle" font-size="11" fill="#64748b">${domPct}%</text>
+    <text x="${cx}" y="${cy + 21}" text-anchor="middle" font-size="9"  fill="#94a3b8">dominante</text>`;
+
+  if (leg) {
+    leg.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">` +
+      P8_BANDS_AGG.map((b, i) => `
+        <div style="display:flex;align-items:center;gap:4px;font-size:10px">
+          <div style="width:10px;height:10px;border-radius:50%;background:${b.color};flex-shrink:0"></div>
+          <span style="font-weight:600;color:${b.color}">${b.label}</span>
+          <span style="color:var(--text-3)">${(pcts[i]*100).toFixed(1)}%</span>
+        </div>`).join('') + '</div>';
+  }
+}
+
+// ── 6. PSD Canvas (log scale) ──────────────────────────────
+function _p8RenderPSDCanvas(psdData) {
+  const canvas = document.getElementById('p8-psd-canvas');
+  if (!canvas) return;
+
+  const freqs = psdData.freqs || [];
+  const power = psdData.power || [];
+  if (freqs.length < 2) {
+    const ctx = canvas.getContext('2d');
+    canvas.width  = canvas.offsetWidth  || 600;
+    canvas.height = 200;
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('PSD no disponible', canvas.width / 2, canvas.height / 2);
+    return;
+  }
+
+  const W = canvas.offsetWidth || 600;
+  const H = 200;
+  canvas.width  = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  const PAD = { l: 52, r: 14, t: 14, b: 28 };
+  const plotW = W - PAD.l - PAD.r;
+  const plotH = H - PAD.t - PAD.b;
+
+  // Convert to dB
+  const EPS = 1e-12;
+  const db  = power.map(p => 10 * Math.log10(Math.max(p, EPS)));
+  const fMax = Math.min(Math.max(...freqs), 80);
+  const dbMin = Math.floor(Math.min(...db) / 5) * 5;
+  const dbMax = Math.ceil( Math.max(...db) / 5) * 5;
+
+  const xScale = f => PAD.l + (f / fMax) * plotW;
+  const yScale = d => PAD.t + plotH - ((d - dbMin) / (dbMax - dbMin)) * plotH;
+
+  // Background
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(0, 0, W, H);
+
+  // Band shading
+  P8_BAND_RANGES.forEach(b => {
+    if (b.hi > fMax) return;
+    ctx.fillStyle = b.color;
+    ctx.fillRect(xScale(b.lo), PAD.t, xScale(b.hi) - xScale(b.lo), plotH);
+    // Band label
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.font = 'bold 9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(b.label, (xScale(b.lo) + xScale(b.hi)) / 2, PAD.t + 12);
+  });
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+  ctx.lineWidth = 1;
+  for (let f = 10; f <= fMax; f += 10) {
+    ctx.beginPath(); ctx.moveTo(xScale(f), PAD.t); ctx.lineTo(xScale(f), PAD.t + plotH); ctx.stroke();
+  }
+  const dbStep = Math.round((dbMax - dbMin) / 5 / 5) * 5 || 5;
+  for (let d = dbMin; d <= dbMax; d += dbStep) {
+    const y = yScale(d);
+    ctx.beginPath(); ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l + plotW, y); ctx.stroke();
+    // Y labels
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(d.toFixed(0), PAD.l - 4, y + 3);
+  }
+
+  // Axes
+  ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(PAD.l, PAD.t); ctx.lineTo(PAD.l, PAD.t + plotH); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD.l, PAD.t + plotH); ctx.lineTo(PAD.l + plotW, PAD.t + plotH); ctx.stroke();
+
+  // PSD curve
+  ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  let first = true;
+  freqs.forEach((f, i) => {
+    if (f > fMax) return;
+    const x = xScale(f);
+    const y = yScale(db[i]);
+    first ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    first = false;
+  });
+  ctx.stroke();
+
+  // Vertical band boundary lines
+  P8_BAND_RANGES.forEach(b => {
+    if (b.lo >= 0.5 && b.lo <= fMax) {
+      ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 1;
+      ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(xScale(b.lo), PAD.t); ctx.lineTo(xScale(b.lo), PAD.t + plotH); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  });
+
+  // Axis labels
+  ctx.fillStyle = '#64748b'; ctx.font = 'bold 9px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.save(); ctx.translate(11, PAD.t + plotH / 2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('dB (µV²)', 0, 0); ctx.restore();
+
+  // X axis ticks
+  const xaxis = document.getElementById('p8-psd-xaxis');
+  if (xaxis) {
+    const ticks = [0, 10, 20, 30, 40, 50, 60, 70, 80].filter(f => f <= fMax);
+    xaxis.innerHTML = ticks.map(t => `<span>${t}</span>`).join('');
+  }
+
+  // Legend
+  const legEl = document.getElementById('p8-psd-legend');
+  if (legEl) {
+    legEl.innerHTML = P8_BAND_RANGES.map(b =>
+      `<span style="display:flex;align-items:center;gap:3px">
+        <span style="display:inline-block;width:10px;height:8px;background:${b.color.replace('0.07','0.5').replace('0.10','0.5')};border-radius:2px"></span>
+        ${b.label}
+      </span>`
+    ).join('');
+  }
+}
+
+// ── 7. Topografía por banda ────────────────────────────────
+function _p8RenderTopoGrid(d) {
+  const grid = document.getElementById('p8-topo-grid');
+  if (!grid) return;
+
+  const { subj, sess, cond } = State;
+  const topoFiles = P8_BANDS.map(b => ({
+    band:  b,
+    file:  `topo_${b.key.toLowerCase()}.png`,
+    url:   `/api/bids/figure?subj=${subj}&sess=${sess}&cond=${cond}&file=topo_${b.key.toLowerCase()}.png`
+  }));
+
+  grid.innerHTML = P8_BANDS.map((b, i) => `
+    <div class="p8-topo-card">
+      <div class="p8-topo-label" style="color:${b.color}">${b.label}</div>
+      <div class="p8-topo-ph" id="p8-topo-${b.key}" style="background:${b.color}12">
+        <span style="font-size:28px;opacity:0.4">🧠</span>
+      </div>
+      <div style="font-size:9px;color:var(--text-3);padding:2px 4px 6px;text-align:center">${b.range}</div>
+    </div>`).join('');
+
+  // Try to load actual topo images
+  P8_BANDS.forEach(b => {
+    const url = `/api/bids/figure?subj=${subj}&sess=${sess}&cond=${cond}&file=topo_${b.key.toLowerCase()}.png`;
+    fetch(url).then(r => r.json()).then(j => {
+      if (j.ok && j.data) {
+        const el = document.getElementById(`p8-topo-${b.key}`);
+        if (el) el.innerHTML = `<img class="p8-topo-img" src="data:image/png;base64,${j.data}" alt="${b.label} topo" onclick="openLightbox(this.src)">`;
+      }
+    }).catch(() => {});
+  });
+}
+
+// ── 8. PSD por regiones ────────────────────────────────────
+function _p8RenderRegions(regData) {
+  const grid = document.getElementById('p8-regions-grid');
+  if (!grid) return;
+
+  const regions = ['frontal', 'central', 'parietal', 'occipital'];
+  const regionIcons = { frontal:'👁', central:'⚡', parietal:'🔺', occipital:'👁' };
+
+  if (!regData.length) {
+    grid.innerHTML = regions.map(r =>
+      `<div class="p8-region-card">
+        <div class="p8-region-title">${regionIcons[r] || '●'} ${r}</div>
+        ${placeholder('Sin datos de región')}
+      </div>`
+    ).join('');
+    return;
+  }
+
+  // Group by region
+  const byReg = {};
+  regData.forEach(row => {
+    const k = row.region;
+    if (!byReg[k]) byReg[k] = [];
+    byReg[k].push(row);
+  });
+
+  // Find global max for uniform scale
+  const allVals = regData.map(r => r.mean_power);
+  const gMax = Math.max(...allVals, 1e-12);
+
+  grid.innerHTML = regions.map(reg => {
+    const rows = (byReg[reg] || []).sort((a, b) => {
+      const oa = P8_BANDS.findIndex(x => x.key === a.band);
+      const ob = P8_BANDS.findIndex(x => x.key === b.band);
+      return oa - ob;
+    });
+    const bars = rows.map(row => {
+      const band = P8_BANDS.find(b => b.key === row.band);
+      const color = band ? band.color : '#94a3b8';
+      const label = band ? band.label : row.band;
+      const pct = Math.min(100, (row.mean_power / gMax) * 100);
+      const valStr = row.mean_power.toExponential(1);
+      return `<div class="p8-reg-bar-wrap">
+        <div class="p8-reg-lbl">${label}</div>
+        <div class="p8-reg-bar-bg">
+          <div class="p8-reg-bar-fill" style="width:${pct}%;background:${color}"></div>
+        </div>
+        <div class="p8-reg-val">${valStr}</div>
+      </div>`;
+    }).join('');
+    return `<div class="p8-region-card">
+      <div class="p8-region-title">${reg}</div>
+      ${rows.length ? bars : placeholder('Sin canales de región')}
+    </div>`;
+  }).join('');
+}
+
+// ── 9. Potencia por canal ──────────────────────────────────
+function p8RenderChannelTable() {
+  const head  = document.getElementById('p8-ch-tbl-head');
+  const tbody = document.getElementById('p8-ch-tbl-body');
+  const sel   = document.getElementById('p8-ch-band-sel');
+  if (!head || !tbody || !P8.data?.band_power?.length) return;
+
+  const bandKey = sel?.value || 'ALPHA';
+  const bp      = P8.data.band_power;
+
+  if (bandKey === 'ALL') {
+    head.innerHTML = `<tr><th>Canal</th>${P8_BANDS.map(b =>
+      `<th style="color:${b.color}">${b.label.split(' ')[0]}</th>`).join('')}</tr>`;
+    tbody.innerHTML = bp.map(row => `<tr>
+      <td class="mono" style="font-weight:700">${row.channel}</td>
+      ${P8_BANDS.map(b => {
+        const v = row[b.key];
+        return `<td class="mono" style="font-size:10px">${v != null ? v.toExponential(2) : '—'}</td>`;
+      }).join('')}
+    </tr>`).join('');
+  } else {
+    const band = P8_BANDS.find(b => b.key === bandKey);
+    const color = band ? band.color : '#16a34a';
+    // Sort by power desc
+    const sorted = [...bp].sort((a, b) => (b[bandKey] || 0) - (a[bandKey] || 0));
+    const maxV = Math.max(...sorted.map(r => r[bandKey] || 0), 1e-12);
+    head.innerHTML = `<tr><th>#</th><th>Canal</th><th style="color:${color}">Potencia µV²</th><th>Rel.</th></tr>`;
+    tbody.innerHTML = sorted.map((row, i) => {
+      const v   = row[bandKey] || 0;
+      const bar = `<div style="height:4px;background:${color};border-radius:2px;opacity:0.7;width:${(v/maxV*80).toFixed(0)}px"></div>`;
+      return `<tr>
+        <td style="color:var(--text-3);font-size:10px">${i+1}</td>
+        <td class="mono" style="font-weight:700">${row.channel}</td>
+        <td class="mono">${v.toExponential(2)}</td>
+        <td>${bar}</td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+// ── 10. Estadísticas por banda ─────────────────────────────
+function _p8RenderBandStats(s) {
+  const tbody = document.getElementById('p8-stats-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = P8_BANDS.map(b => {
+    const mean_ = s[`${b.key}_mean`];
+    if (mean_ == null) return '';
+    const fmt = v => v != null ? v.toExponential(2) : '—';
+    const pct_ = s[`${b.key}_pct`];
+    return `<tr>
+      <td><span class="p8-band-chip" style="background:${b.color}18;color:${b.color}">${b.label}</span></td>
+      <td class="mono">${fmt(mean_)}</td>
+      <td class="mono">${fmt(s[`${b.key}_median`])}</td>
+      <td class="mono">${fmt(s[`${b.key}_std`])}</td>
+      <td class="mono">${fmt(s[`${b.key}_min`])}</td>
+      <td class="mono">${fmt(s[`${b.key}_max`])}</td>
+      <td style="font-weight:700;color:${b.color}">${pct_ != null ? pct_.toFixed(1)+'%' : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── 11. Índices espectrales ────────────────────────────────
+function _p8RenderIndices(idxRows) {
+  const summEl = document.getElementById('p8-indices-summary');
+  const tBody  = document.getElementById('p8-idx-channel-tbody');
+  if (!summEl) return;
+
+  if (!idxRows.length) {
+    summEl.innerHTML = placeholder('Sin datos de índices.');
+    return;
+  }
+
+  // Mean across channels
+  const mean = key => {
+    const vals = idxRows.map(r => r[key] || 0).filter(v => v > 0);
+    return vals.length ? vals.reduce((a,b) => a+b, 0) / vals.length : 0;
+  };
+
+  const at = mean('alpha_theta');
+  const ba = mean('beta_alpha');
+  const tb = mean('theta_beta');
+  const ga = mean('gamma_alpha');
+  const pafHz  = mean('peak_alpha_hz');
+  const pafUV  = mean('peak_alpha_uv2');
+
+  const idxCards = [
+    { label:'α/θ',    val:at.toFixed(2),   sub:'Alpha / Theta',  color:'#16a34a', tip: at>1.5 ? '↑ alta' : at<0.8 ? '↓ baja' : 'normal' },
+    { label:'β/α',    val:ba.toFixed(2),   sub:'Beta / Alpha',   color:'#d97706', tip: ba>1.5 ? '↑ alta' : '—' },
+    { label:'θ/β',    val:tb.toFixed(2),   sub:'Theta / Beta',   color:'#2563eb', tip: tb>1.5 ? '↑ alta' : '—' },
+    { label:'γ/α',    val:ga.toFixed(2),   sub:'Gamma / Alpha',  color:'#db2777', tip: '' },
+    { label:'PAF',    val:pafHz.toFixed(1), sub:'Peak Alpha Hz', color:'#16a34a', tip: `${pafHz.toFixed(1)} Hz` },
+    { label:'Pot.PAF',val:pafUV.toExponential(1), sub:'µV² @ PAF', color:'#16a34a', tip: '' },
+  ];
+
+  summEl.innerHTML = idxCards.map(c => `
+    <div class="p8-idx-card">
+      <div class="p8-idx-label">${c.sub}</div>
+      <div class="p8-idx-val" style="color:${c.color}">${c.val}</div>
+      ${c.tip ? `<div class="p8-idx-sub">${c.tip}</div>` : ''}
+    </div>`).join('');
+
+  if (tBody) {
+    tBody.innerHTML = idxRows.slice(0, 12).map(r => `<tr>
+      <td class="mono" style="font-weight:700">${r.channel}</td>
+      <td class="mono">${(r.alpha_theta||0).toFixed(2)}</td>
+      <td class="mono">${(r.beta_alpha||0).toFixed(2)}</td>
+      <td class="mono">${(r.theta_beta||0).toFixed(2)}</td>
+      <td class="mono">${(r.peak_alpha_hz||0).toFixed(1)}</td>
+    </tr>`).join('');
+  }
+}
+
+// ── Acciones rápidas ──────────────────────────────────────
+function p8RunPipeline() {
+  alert('Para ejecutar el análisis espectral:\n\njulia --project=. scripts/run_single_subject.jl\n\nEl dashboard mostrará los resultados automáticamente al recargar.');
+}
+
+function p8ExportCSV() {
+  const { subj, sess, cond } = State;
+  const files = ['band_power_summary.csv', 'psd_by_channel.csv',
+                 'spectral_summary.json', 'regional_psd.csv', 'spectral_indices.csv'];
+  _p8SetInfoBar('Datos disponibles en: results/subjects/sub-' + subj + '/ses-' + sess + '/' + cond + '/ — ' + files.join(', '));
+}
+
+function p8ViewAllChannels() {
+  const { subj, sess, cond } = State;
+  const url = `/api/bids/figure?subj=${subj}&sess=${sess}&cond=${cond}&file=psd_all_channels.png`;
+  fetch(url).then(r => r.json()).then(j => {
+    if (j.ok && j.data) openLightbox('data:image/png;base64,' + j.data);
+    else _p8SetInfoBar('Imagen psd_all_channels.png no encontrada — ejecuta el pipeline primero.');
+  }).catch(() => _p8SetInfoBar('Error al cargar imagen.'));
+}
+
+function p8Reload() { loadPhase8(); }
+
+// ════════════════════════════════════════════════════════════
+// FIN PHASE 8
 // ════════════════════════════════════════════════════════════
 
 function p5RunICA() {

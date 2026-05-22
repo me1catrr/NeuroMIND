@@ -1612,6 +1612,196 @@ function launch_webapp(cfg::PipelineConfig;
         end
     end
 
+    # ─── API: Fase 8 — Análisis Espectral ────────────────────
+    route("/api/phase8_spectral") do
+        subj = string(get(getpayload(), :subj, "M05"))
+        sess = string(get(getpayload(), :sess, "T2"))
+        cond = _normalize_cond(string(get(getpayload(), :cond, "EC")))
+
+        res_base  = joinpath(bids_root, "sub-$(subj)", "ses-$(sess)", cond)
+        summ_path = joinpath(res_base, "spectral_summary.json")
+        bp_path   = joinpath(res_base, "band_power_summary.csv")
+        psd_path  = joinpath(res_base, "psd_by_channel.csv")
+        reg_path  = joinpath(res_base, "regional_psd.csv")
+        idx_path  = joinpath(res_base, "spectral_indices.csv")
+        log_path  = joinpath(res_base, "pipeline_log.txt")
+
+        spectral_run = isfile(bp_path)
+        if !spectral_run
+            return json(Dict(
+                "ok"               => true,
+                "spectral_run"     => false,
+                "summary"          => Dict{String,Any}(),
+                "band_power"       => Dict{String,Any}[],
+                "regional_psd"     => Dict{String,Any}[],
+                "spectral_indices" => Dict{String,Any}[],
+                "psd_global"       => Dict("freqs"=>Float64[],"power"=>Float64[]),
+                "phase_timing"     => Dict("start"=>"","end"=>"","duration"=>""),
+            ))
+        end
+
+        # ── Defaults from config ──────────────────────────────────────────────
+        summary = Dict{String,Any}(
+            "method"         => "fft_hamming_taper",
+            "window"         => "hamming_taper",
+            "window_pct"     => Float64(get(cfg.spectral, "window_pct", 10.0)),
+            "nfft"           => Int(get(cfg.spectral, "nfft", 512)),
+            "epoch_length_s" => Float64(get(cfg.segmentation, "epoch_length_s",
+                                    get(cfg.segmentation, "segment_length_seconds", 1.0))),
+            "n_epochs"       => 0,
+            "fs"             => Float64(get(cfg.recording, "fs",
+                                    get(cfg.recording, "sampling_rate", 500.0))),
+            "delta_f"        => 0.0,
+            "freq_range_lo"  => 0.0,
+            "freq_range_hi"  => 250.0,
+            "n_freq_bins"    => 0,
+            "n_channels"     => 0,
+            "reference"      => String(get(cfg.recording, "reference", "average")),
+            "profile"        => String(get(cfg.filtering, "profile", "default")),
+            "total_power_uv2"=> 0.0,
+            "timestamp"      => "",
+        )
+
+        # ── Parse spectral_summary.json ───────────────────────────────────────
+        if isfile(summ_path)
+            try
+                txt = read(summ_path, String)
+                for key in ["nfft","n_epochs","n_freq_bins","n_channels"]
+                    m = match(Regex("\"$(key)\"\\s*:\\s*([0-9]+)"), txt)
+                    m !== nothing && (summary[key] = parse(Int, m.captures[1]))
+                end
+                for key in ["window_pct","epoch_length_s","fs","delta_f",
+                            "freq_range_lo","freq_range_hi","total_power_uv2"]
+                    m = match(Regex("\"$(key)\"\\s*:\\s*([0-9.eE+\\-]+)"), txt)
+                    m !== nothing && (summary[key] = parse(Float64, m.captures[1]))
+                end
+                for key in ["method","window","reference","profile","timestamp"]
+                    m = match(Regex("\"$(key)\"\\s*:\\s*\"([^\"]+)\""), txt)
+                    m !== nothing && (summary[key] = String(m.captures[1]))
+                end
+                # Flat band stats: {BAND}_{stat}
+                for bname in ["DELTA","THETA","ALPHA","BETA_LOW","BETA_MID","BETA_HIGH","GAMMA"]
+                    for stat in ["mean","std","median","min","max","pct"]
+                        key = "$(bname)_$(stat)"
+                        m = match(Regex("\"$(key)\"\\s*:\\s*([0-9.eE+\\-]+)"), txt)
+                        m !== nothing && (summary[key] = parse(Float64, m.captures[1]))
+                    end
+                end
+            catch e
+                @warn "spectral_summary.json parse error: $e"
+            end
+        end
+
+        # ── Parse band_power_summary.csv ──────────────────────────────────────
+        band_power = Dict{String,Any}[]
+        try
+            df = CSV.read(bp_path, DataFrame)
+            for row in eachrow(df)
+                d = Dict{String,Any}("channel" => string(row.channel))
+                for col in names(df)
+                    col == "channel" && continue
+                    v = getproperty(row, Symbol(col))
+                    d[col] = v isa AbstractFloat ? round(Float64(v), digits=6) : v
+                end
+                push!(band_power, d)
+            end
+        catch e
+            @warn "band_power_summary.csv parse error: $e"
+        end
+
+        # ── Compute global mean PSD (0–80 Hz) from psd_by_channel.csv ────────
+        psd_global = Dict("freqs"=>Float64[], "power"=>Float64[])
+        if isfile(psd_path)
+            try
+                df = CSV.read(psd_path, DataFrame)
+                freq_groups = Dict{Float64, Vector{Float64}}()
+                for row in eachrow(df)
+                    f = Float64(row.freq_hz)
+                    f > 80.0 && continue     # Limit display range
+                    p = Float64(row.power_uv2)
+                    v = get!(freq_groups, f, Float64[])
+                    push!(v, p)
+                end
+                freq_sorted = sort(collect(keys(freq_groups)))
+                psd_global = Dict(
+                    "freqs" => [round(f, digits=3) for f in freq_sorted],
+                    "power" => [round(mean(freq_groups[f]), digits=9) for f in freq_sorted],
+                )
+            catch e
+                @warn "psd_by_channel.csv global parse error: $e"
+            end
+        end
+
+        # ── Parse regional_psd.csv ────────────────────────────────────────────
+        regional_psd = Dict{String,Any}[]
+        if isfile(reg_path)
+            try
+                df = CSV.read(reg_path, DataFrame)
+                for row in eachrow(df)
+                    push!(regional_psd, Dict{String,Any}(
+                        "region"     => string(row.region),
+                        "band"       => string(row.band),
+                        "mean_power" => round(Float64(row.mean_power), digits=6),
+                        "std_power"  => round(Float64(row.std_power),  digits=6),
+                        "n_channels" => Int(row.n_channels),
+                    ))
+                end
+            catch e
+                @warn "regional_psd.csv parse error: $e"
+            end
+        end
+
+        # ── Parse spectral_indices.csv ────────────────────────────────────────
+        spectral_indices = Dict{String,Any}[]
+        if isfile(idx_path)
+            try
+                df = CSV.read(idx_path, DataFrame)
+                for row in eachrow(df)
+                    push!(spectral_indices, Dict{String,Any}(
+                        "channel"        => string(row.channel),
+                        "alpha_theta"    => round(Float64(get(row, :alpha_theta,    0.0)), digits=3),
+                        "beta_alpha"     => round(Float64(get(row, :beta_alpha,     0.0)), digits=3),
+                        "theta_beta"     => round(Float64(get(row, :theta_beta,     0.0)), digits=3),
+                        "gamma_alpha"    => round(Float64(get(row, :gamma_alpha,    0.0)), digits=3),
+                        "peak_alpha_hz"  => round(Float64(get(row, :peak_alpha_hz,  0.0)), digits=2),
+                        "peak_alpha_uv2" => round(Float64(get(row, :peak_alpha_uv2, 0.0)), digits=6),
+                    ))
+                end
+            catch e
+                @warn "spectral_indices.csv parse error: $e"
+            end
+        end
+
+        # ── Timing from log ───────────────────────────────────────────────────
+        t_start = ""; t_end = ""; t_dur = ""
+        if isfile(log_path)
+            try
+                txt = read(log_path, String)
+                for line in split(txt, '\n')
+                    if (occursin("[6/8]", line) || occursin("Espectral", line)) && isempty(t_start)
+                        m = match(r"\[(\d{2}:\d{2}:\d{2})\]", line)
+                        m !== nothing && (t_start = String(m.captures[1]))
+                    end
+                    if occursin("[7/8]", line) && isempty(t_end)
+                        m = match(r"\[(\d{2}:\d{2}:\d{2})\]", line)
+                        m !== nothing && (t_end = String(m.captures[1]))
+                    end
+                end
+            catch; end
+        end
+
+        json(Dict(
+            "ok"               => true,
+            "spectral_run"     => true,
+            "summary"          => summary,
+            "band_power"       => band_power,
+            "regional_psd"     => regional_psd,
+            "spectral_indices" => spectral_indices,
+            "psd_global"       => psd_global,
+            "phase_timing"     => Dict("start"=>t_start,"end"=>t_end,"duration"=>t_dur),
+        ))
+    end
+
     # ─── Legacy API (mantener compatibilidad) ─────────────────
 
     route("/api/subjects") do

@@ -681,6 +681,161 @@ function _save_ar_results(
     end
 end
 
+# ─── Extras espectrales: summary.json, regional_psd.csv, spectral_indices.csv ───
+
+function _save_spectral_extras(
+    spectra::SpectralResult,
+    cfg::PipelineConfig,
+    export_dir::String,
+    log_io::IO
+)
+    ch_names  = spectra.meta.channel_names
+    n_ch      = length(ch_names)
+    fs_val    = Float64(spectra.meta.fs)
+    nfft_used = Int(get(spectra.params, "nfft", length(spectra.freqs) * 2 - 2))
+    win_pct   = Float64(get(spectra.params, "window_pct", 10.0))
+    n_freqs   = length(spectra.freqs)
+    delta_f   = n_freqs > 1 ? round(spectra.freqs[2] - spectra.freqs[1], digits=4) : 1.0
+    epoch_s   = Float64(get(cfg.segmentation, "epoch_length_s",
+                    get(cfg.segmentation, "segment_length_seconds", 1.0)))
+    ts        = string(Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS"))
+    ref_val   = String(get(cfg.recording, "reference", "average"))
+    prof_val  = String(get(cfg.filtering, "profile", "default"))
+
+    # ── 1) spectral_summary.json ──────────────────────────────────────────────
+    # Total power = integral of global mean PSD
+    psd_global_mean = vec(mean(spectra.psd, dims=1))   # (n_bins,)
+    total_pw        = round(sum(psd_global_mean) * delta_f, digits=6)
+
+    # Band relative power (fraction of band means)
+    bnames_sorted    = sort(collect(keys(spectra.band_power)))
+    band_mean_dict   = Dict{String,Float64}()
+    for bname in bnames_sorted
+        valid = filter(!isnan, spectra.band_power[bname])
+        isempty(valid) || (band_mean_dict[bname] = mean(valid))
+    end
+    total_band_sum = max(sum(values(band_mean_dict)), 1e-12)
+
+    band_json_parts = String[]
+    for bname in bnames_sorted
+        bvals = spectra.band_power[bname]
+        valid = filter(!isnan, bvals)
+        isempty(valid) && continue
+        bpct  = round(get(band_mean_dict, bname, 0.0) / total_band_sum * 100, digits=2)
+        push!(band_json_parts,
+            "  \"$(bname)_mean\":$(round(mean(valid),digits=6))," *
+            "\"$(bname)_std\":$(round(length(valid)>1 ? std(valid) : 0.0, digits=6))," *
+            "\"$(bname)_median\":$(round(median(valid),digits=6))," *
+            "\"$(bname)_min\":$(round(minimum(valid),digits=6))," *
+            "\"$(bname)_max\":$(round(maximum(valid),digits=6))," *
+            "\"$(bname)_pct\":$(bpct)"
+        )
+    end
+
+    open(joinpath(export_dir, "spectral_summary.json"), "w") do f
+        write(f, """{
+  "timestamp": "$(ts)",
+  "method": "fft_hamming_taper",
+  "window": "hamming_taper",
+  "window_pct": $(win_pct),
+  "nfft": $(nfft_used),
+  "epoch_length_s": $(epoch_s),
+  "n_epochs": $(spectra.n_epochs),
+  "fs": $(fs_val),
+  "delta_f": $(delta_f),
+  "freq_range_lo": $(round(spectra.freqs[1], digits=3)),
+  "freq_range_hi": $(round(spectra.freqs[end], digits=3)),
+  "n_freq_bins": $(n_freqs),
+  "n_channels": $(n_ch),
+  "reference": "$(ref_val)",
+  "profile": "$(prof_val)",
+  "total_power_uv2": $(total_pw),
+$(join(band_json_parts, ",\n"))
+}""")
+    end
+    _log(log_io, "  Guardado: spectral_summary.json")
+
+    # ── 2) regional_psd.csv ───────────────────────────────────────────────────
+    regions_map = Dict{String,Vector{String}}(
+        "frontal"   => ["Fp1","Fp2","F3","F4","Fz","F7","F8","AF3","AF4","AF7","AF8"],
+        "central"   => ["C3","C4","Cz","FC1","FC2","FC5","FC6"],
+        "parietal"  => ["P3","P4","Pz","P7","P8","CP1","CP2","CP5","CP6"],
+        "occipital" => ["O1","O2","Oz","PO3","PO4","PO7","PO8"],
+    )
+    reg_region = String[]; reg_band = String[]
+    reg_mean   = Float64[]; reg_std = Float64[]; reg_n = Int[]
+
+    for reg_ord in ["frontal","central","parietal","occipital"]
+        reg_chs = regions_map[reg_ord]
+        idxs    = [i for (i,c) in enumerate(ch_names) if c in reg_chs]
+        isempty(idxs) && continue
+        for bname in bnames_sorted
+            bvals = spectra.band_power[bname]
+            valid = [bvals[i] for i in idxs if !isnan(bvals[i])]
+            isempty(valid) && continue
+            push!(reg_region, reg_ord);  push!(reg_band, bname)
+            push!(reg_mean, round(mean(valid), digits=6))
+            push!(reg_std,  round(length(valid) > 1 ? std(valid) : 0.0, digits=6))
+            push!(reg_n,    length(valid))
+        end
+    end
+
+    if !isempty(reg_region)
+        CSV.write(joinpath(export_dir, "regional_psd.csv"),
+                  DataFrame(region=reg_region, band=reg_band,
+                            mean_power=reg_mean, std_power=reg_std, n_channels=reg_n))
+        _log(log_io, "  Guardado: regional_psd.csv")
+    end
+
+    # ── 3) spectral_indices.csv ───────────────────────────────────────────────
+    get_bp(name) = get(spectra.band_power, name, fill(NaN, n_ch))
+
+    alpha   = get_bp("ALPHA")
+    theta   = get_bp("THETA")
+    gamma   = get_bp("GAMMA")
+    bl      = get_bp("BETA_LOW")
+    bm      = get_bp("BETA_MID")
+    bh_     = get_bp("BETA_HIGH")
+
+    beta = map(1:n_ch) do i
+        v = filter(!isnan, [bl[i], bm[i], bh_[i]])
+        isempty(v) ? NaN : mean(v)
+    end
+
+    a_range = get(cfg.bands, "ALPHA", (7.8, 11.7))
+    a_idx   = findall(f -> f >= a_range[1] && f <= a_range[2], spectra.freqs)
+    safe(x, y) = (!isnan(x) && !isnan(y) && abs(y) > 1e-12) ? round(x/y, digits=3) : 0.0
+
+    idx_ch = String[]; idx_at = Float64[]; idx_ba = Float64[]
+    idx_tb = Float64[]; idx_ga = Float64[]
+    idx_ph = Float64[]; idx_pu = Float64[]
+
+    for i in 1:n_ch
+        pk_hz = 0.0; pk_uv = 0.0
+        if !isempty(a_idx)
+            psd_a = spectra.psd[i, a_idx]
+            if !any(isnan, psd_a)
+                pi2   = argmax(psd_a)
+                pk_hz = round(spectra.freqs[a_idx[pi2]], digits=2)
+                pk_uv = round(psd_a[pi2], digits=6)
+            end
+        end
+        push!(idx_ch, ch_names[i])
+        push!(idx_at, safe(alpha[i], theta[i]))
+        push!(idx_ba, safe(beta[i],  alpha[i]))
+        push!(idx_tb, safe(theta[i], beta[i]))
+        push!(idx_ga, safe(gamma[i], alpha[i]))
+        push!(idx_ph, pk_hz); push!(idx_pu, pk_uv)
+    end
+
+    CSV.write(joinpath(export_dir, "spectral_indices.csv"),
+              DataFrame(channel=idx_ch,
+                        alpha_theta=idx_at, beta_alpha=idx_ba,
+                        theta_beta=idx_tb, gamma_alpha=idx_ga,
+                        peak_alpha_hz=idx_ph, peak_alpha_uv2=idx_pu))
+    _log(log_io, "  Guardado: spectral_indices.csv")
+end
+
 function _save_all_results(
     rec::EEGRecording, rec_filt::EEGRecording,
     qc_stats::DataFrame, bad_ch::Vector{String},
@@ -737,6 +892,9 @@ function _save_all_results(
     CSV.write(bp_path, bp_df)
     cp(bp_path, joinpath(export_dir, "band_power_summary.csv"); force=true)
     _log(log_io, "  Guardado: band_power_$(condition).csv")
+
+    # ── Extras espectrales (summary + regional + indices) ─────
+    _save_spectral_extras(spectra, cfg, export_dir, log_io)
 
     # ── Tablas wPLI matrices + edges ──────────────────────────
     all_edges = DataFrame(ch_a=String[], ch_b=String[], band=String[],
