@@ -2,7 +2,7 @@
 
 > Este archivo es leído automáticamente por Claude Code al inicio de cada sesión.
 > Contiene todo el contexto necesario para trabajar en el proyecto desde cualquier ordenador.
-> **Mantenerlo actualizado es prioritario.** Última actualización: 2026-05-22 (Phase 10 Surrogates/Inferencia completa).
+> **Mantenerlo actualizado es prioritario.** Última actualización: 2026-05-22 (Phase 14 Evaluación Longitudinal completa).
 
 ---
 
@@ -89,7 +89,7 @@ La señal limpiada `rec_ica` alimenta directamente la segmentación y todo lo po
 
 ## 4. Dashboard web (Genie.jl)
 
-13 paneles (Phase 0–12). Implementados completamente: **0–10**.
+15 paneles (Phase 0–14). Implementados completamente: **0–10, 13–14**.
 Paneles 11–12: placeholder vacío (próximos a implementar).
 
 | Panel | Nombre | Estado |
@@ -108,7 +108,7 @@ Paneles 11–12: placeholder vacío (próximos a implementar).
 | 11 | Resultados finales | placeholder |
 | 12 | Exportación / Reporte | placeholder |
 | 13 | Evaluación Transversal | ✓ |
-| 14 | Evaluación Longitudinal | placeholder |
+| 14 | Evaluación Longitudinal | ✓ |
 
 **Panel 5 ICA** muestra: resumen stats, **grid de topomaps paginado** (6 por página),
 **tabla de features de clasificación** (frontal/temporal/blink/emg/line ratio, kurtosis),
@@ -255,6 +255,11 @@ git push -u origin <rama>
   - Archivos: `group_connectivity_{ctrl|ms}_{band}.csv`, `group_difference_{band}.csv`, `group_statistics_{band}.csv`, `significant_edges_{band}.csv`, `band_statistics.csv`, `subject_inclusion.csv`, `subject_band_means.csv`, `transversal_summary.json`
   - `/api/phase13_transversal` → matrices, edges, estadísticas, distribución, inclusión
   - Dashboard: 3 heatmaps (ctrl/ms/diff divergente), red significativa, top edges, distribución SVG, tabla bandas, inclusión QC, 6 acciones
+- [x] **Phase 14 Evaluación Longitudinal** (tema #d97706 ámbar, 13 secciones):
+  - `scripts/run_longitudinal_analysis.jl`: auto-detecta pares T1/T2 o lee `longitudinal_pairs.csv` → paired t-test + Cohen's dz + BH-FDR por banda
+  - Archivos: `longitudinal_connectivity_t1_{band}.csv`, `longitudinal_connectivity_t2_{band}.csv`, `longitudinal_difference_{band}.csv`, `longitudinal_statistics_{band}.csv`, `significant_longitudinal_edges_{band}.csv`, `band_statistics_longitudinal.csv`, `subject_band_means.csv`, `paired_subjects.csv`, `longitudinal_summary.json`
+  - `/api/phase14_longitudinal` → matrices t1/t2/diff, edges significativos top-50, estadísticas, distribución, sujetos pareados
+  - Dashboard: timeline T1→T2, 3 heatmaps (T1/T2/diff ámbar-azul), red significativa, top edges, distribución SVG, tabla bandas, tabla sujetos pareados
 - [x] Dashboard Phase 10 (tema #7c3aed, 13 secciones):
   - Config surrogates, métricas inferencia, estado fase, archivos generados
   - Heatmap observado, red significativa (solo edges sig., ancho/color por wPLI)
@@ -275,11 +280,10 @@ git push -u origin <rama>
 - `feat/phase7-ar-eeg-julia` — Phase 7 AR
 - `feat/phase8-spectral` — Phase 8 espectral
 - `feat/phase9-wpli` — Phase 9 conectividad wPLI
-- `feat/phase10-surrogates` — Phase 10 + Phase 13 transversal ← **rama actual**
+- `feat/phase10-surrogates` — Phase 10 + Phase 13 + Phase 14 ← **rama actual**
 
 ### Pendiente / próximo
 - [ ] Dashboard paneles 11–12 (Resultados finales, Exportación/Reporte)
-- [ ] Dashboard panel 14 (Evaluación Longitudinal)
 - [ ] Push ramas feat/phase8, feat/phase9, feat/phase10 + PR a main
 - [ ] Tests de integración pipeline completo
 - [ ] GitHub Actions CI (syntax check + tests)
@@ -330,7 +334,7 @@ StatsBase, TOML
 
 ## 12. Notas para Claude Code
 
-- El dashboard es una **SPA de ~12 600 líneas** (`web/views/dashboard.html`). Siempre leer la sección relevante antes de editar; no releer completo.
+- El dashboard es una **SPA de ~14 200 líneas** (`web/views/dashboard.html`). Siempre leer la sección relevante antes de editar; no releer completo.
 - `App.jl` tiene las rutas API y helpers de filtrado para el viewer interactivo de la Fase 4.
 - `SingleSubjectPipeline.jl` contiene el pipeline + visualizaciones + helpers de guardado en un solo archivo.
 - Al tocar lógica científica (filtrado, ICA, wPLI, PSD), **comparar siempre** con el original en `EEG_Julia/` antes de cambiar comportamiento.
