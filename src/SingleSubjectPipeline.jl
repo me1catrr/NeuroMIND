@@ -25,6 +25,7 @@ function load_ss_config(path::String)::PipelineConfig
     ar   = get(raw, "artifact_rejection", Dict{String,Any}())
     sp   = get(raw, "spectral",           Dict{String,Any}())
     conn = get(raw, "connectivity",       Dict{String,Any}())
+    surr = get(raw, "surrogates",         Dict{String,Any}())
     paths_r = get(raw, "paths",           Dict{String,Any}())
     out  = get(raw, "output",             Dict{String,Any}())
     rec  = get(raw, "recording",          Dict{String,Any}())
@@ -102,7 +103,14 @@ function load_ss_config(path::String)::PipelineConfig
             "filter_order" => Int(get(conn, "filter_order", 8)),
             "use_csd"      => Bool(get(conn, "use_csd", false)),
         ),
-        Dict{String,Any}(),
+        Dict{String,Any}(
+            "enabled"      => Bool(get(surr, "enabled",      false)),
+            "n_surrogates" => Int( get(surr, "n_surrogates",  200)),
+            "method"       => String(get(surr, "method",  "phase_shuffle")),
+            "alpha"        => Float64(get(surr, "alpha",    0.05)),
+            "fdr_method"   => String(get(surr, "fdr_method",  "bh")),
+            "seed"         => Int(get(surr, "seed",            42)),
+        ),
         Dict{String,Any}(),
         Dict{String,Any}(),
         Dict{String,Any}(),
@@ -375,6 +383,29 @@ function run_single_subject_pipeline(config_path::String)
     epochs_conn = use_csd ? apply_csd(epochs, cfg) : epochs
     conn = compute_wpli(epochs_conn, cfg)
     _log(log_io, "  Espacio: $(conn.space) | Bandas: " * join(sort(collect(keys(conn.matrices))), ", "))
+
+    # ── 9b. Surrogates (opcional — activar en config [surrogates] enabled=true) ─
+    if Bool(get(cfg.surrogates, "enabled", false))
+        println("[SUR] Inferencia por surrogates…")
+        _log(log_io, "\n[SUR] Inferencia por surrogates")
+        n_sur  = Int(get(cfg.surrogates, "n_surrogates", 200))
+        _log(log_io, "  Método: $(get(cfg.surrogates,"method","phase_shuffle")) | N=$(n_sur) | FDR: $(get(cfg.surrogates,"fdr_method","bh"))")
+        surr_results = SurrogateResult[]
+        for band in sort(collect(keys(conn.matrices)))
+            try
+                sr = surrogate_test(epochs_conn, conn, band, cfg)
+                push!(surr_results, sr)
+                n_sig = count(sr.sig_mask) ÷ 2
+                _log(log_io, "  Banda $(lpad(band,9)): $(n_sig) pares significativos  FDR-thr=$(round(sr.fdr_threshold,digits=4))")
+            catch e
+                @warn "Surrogate fallido para $band: $e"
+                _log(log_io, "  WARN: surrogate $(band) fallido: $e")
+            end
+        end
+        if !isempty(surr_results)
+            _save_surrogate_results(surr_results, conn, export_dir, cfg, log_io)
+        end
+    end
 
     # ── 10. Guardar resultados ────────────────────────────────
     println("[8/8] Guardando resultados...")
@@ -905,6 +936,179 @@ function _save_connectivity_extras(
     )
     CSV.write(joinpath(export_dir, "network_metrics.csv"), nm_df)
     _log(log_io, "  Guardado: connectivity_summary.json + network_metrics.csv")
+end
+
+# ─── BH q-valores individuales (para surrogates) ─────────────
+
+function _bh_qvalues(p_vec::Vector{Float64})::Vector{Float64}
+    m = length(p_vec)
+    m == 0 && return Float64[]
+    order  = sortperm(p_vec)
+    rank   = invperm(order)           # rank[i] = posición de p_vec[i] al ordenar
+    q_vec  = p_vec .* m ./ rank      # BH q-value
+    # Monotonicidad de derecha a izquierda sobre p ordenado
+    q_sorted = q_vec[order]
+    for i in (m-1):-1:1
+        q_sorted[i] = min(q_sorted[i], q_sorted[i+1])
+    end
+    q_out         = zeros(Float64, m)
+    q_out[order]  = q_sorted
+    return min.(q_out, 1.0)
+end
+
+# ─── Guardar resultados de surrogates ──────────────────────────
+
+function _save_surrogate_results(
+    surr_results::Vector{SurrogateResult},
+    conn::ConnectivityMatrix,
+    export_dir::String,
+    cfg::PipelineConfig,
+    log_io::IO
+)
+    ch_names  = conn.channel_names
+    n         = length(ch_names)
+    alpha     = Float64(get(cfg.surrogates, "alpha", 0.05))
+    method    = String(get(cfg.surrogates, "method", "phase_shuffle"))
+    n_sur_cfg = Int(get(cfg.surrogates, "n_surrogates", 200))
+    fdr_meth  = String(get(cfg.surrogates, "fdr_method", "bh"))
+    seed_v    = Int(get(cfg.surrogates, "seed", 42))
+
+    upper_idx = [(i,j) for i in 1:n for j in (i+1):n]
+
+    # Acumular conexiones significativas globales
+    all_sig_rows = NamedTuple[]
+
+    # Métricas QC + summary por banda
+    qc_bands = Dict{String,Any}[]
+
+    for sr in surr_results
+        band  = sr.band
+        W_obs = sr.observed
+        p_mat = sr.p_values
+        null_d = sr.null_distribution   # (n_ch, n_ch, n_sur)
+
+        p_vec = [p_mat[i,j] for (i,j) in upper_idx]
+        q_vec = _bh_qvalues(p_vec)
+
+        # ── Observado ─────────────────────────────────────────
+        obs_df = DataFrame(hcat(ch_names, W_obs), vcat(["channel"], ch_names))
+        CSV.write(joinpath(export_dir, "wpli_observed_$(band).csv"), obs_df)
+
+        # ── p-values ──────────────────────────────────────────
+        p_df = DataFrame(hcat(ch_names, p_mat), vcat(["channel"], ch_names))
+        CSV.write(joinpath(export_dir, "wpli_pvalues_$(band).csv"), p_df)
+
+        # ── q-values (matriz simétrica) ───────────────────────
+        q_mat = zeros(Float64, n, n)
+        for (k,(i,j)) in enumerate(upper_idx)
+            q_mat[i,j] = q_vec[k]; q_mat[j,i] = q_vec[k]
+        end
+        q_df = DataFrame(hcat(ch_names, q_mat), vcat(["channel"], ch_names))
+        CSV.write(joinpath(export_dir, "wpli_qvalues_$(band).csv"), q_df)
+
+        # ── Máscara significativa ─────────────────────────────
+        sig_int = Int.(sr.sig_mask)
+        mask_df = DataFrame(hcat(ch_names, sig_int), vcat(["channel"], ch_names))
+        CSV.write(joinpath(export_dir, "wpli_significant_$(band).csv"), mask_df)
+
+        # ── Estadísticas de la distribución nula por par ──────
+        null_mean_mat = dropdims(mean(null_d, dims=3), dims=3)
+        null_std_mat  = dropdims(std( null_d, dims=3), dims=3)
+
+        null_rows = [(
+            ch_a      = ch_names[i],
+            ch_b      = ch_names[j],
+            wpli_obs  = round(W_obs[i,j], digits=4),
+            null_mean = round(null_mean_mat[i,j], digits=4),
+            null_std  = round(null_std_mat[i,j],  digits=4),
+            p_value   = round(p_vec[k], digits=4),
+            q_value   = round(q_vec[k], digits=4),
+            z_score   = round(null_std_mat[i,j] > 0 ?
+                            (W_obs[i,j] - null_mean_mat[i,j]) / null_std_mat[i,j] : 0.0,
+                            digits=3)
+        ) for (k,(i,j)) in enumerate(upper_idx)]
+        CSV.write(joinpath(export_dir, "surrogate_null_stats_$(band).csv"),
+                  DataFrame(null_rows))
+
+        # ── Conexiones significativas (q < alpha) ─────────────
+        for (k,(i,j)) in enumerate(upper_idx)
+            q_vec[k] < alpha || continue
+            zs = null_std_mat[i,j] > 0 ?
+                 (W_obs[i,j] - null_mean_mat[i,j]) / null_std_mat[i,j] : 0.0
+            push!(all_sig_rows, (
+                ch_a     = ch_names[i],
+                ch_b     = ch_names[j],
+                band     = band,
+                wpli_obs = round(W_obs[i,j], digits=4),
+                p_value  = round(p_vec[k], digits=4),
+                q_value  = round(q_vec[k], digits=4),
+                z_score  = round(zs, digits=3)
+            ))
+        end
+
+        # ── QC de esta banda ──────────────────────────────────
+        n_sig   = count(q_vec .< alpha)
+        n_total = length(p_vec)
+        nzm_vals = [null_mean_mat[i,j] for (i,j) in upper_idx if !isnan(null_mean_mat[i,j])]
+        nzs_vals = [null_std_mat[i,j]  for (i,j) in upper_idx if !isnan(null_std_mat[i,j])]
+        push!(qc_bands, Dict{String,Any}(
+            "band"           => band,
+            "n_surrogates"   => sr.n_surrogates,
+            "n_sig"          => n_sig,
+            "n_total"        => n_total,
+            "pct_sig"        => round(100.0*n_sig/max(1,n_total), digits=2),
+            "mean_p"         => round(mean(p_vec), digits=4),
+            "fdr_threshold"  => round(sr.fdr_threshold, digits=4),
+            "mean_null_mean" => isempty(nzm_vals) ? 0.0 : round(mean(nzm_vals), digits=4),
+            "mean_null_std"  => isempty(nzs_vals) ? 0.0 : round(mean(nzs_vals), digits=4),
+            "obs_mean"       => round(mean([W_obs[i,j] for (i,j) in upper_idx]), digits=4),
+            "obs_max"        => round(maximum(W_obs), digits=4),
+        ))
+    end
+
+    # ── Guardar conexiones significativas ─────────────────────
+    if !isempty(all_sig_rows)
+        sig_df = DataFrame(all_sig_rows)
+        sort!(sig_df, :q_value)
+        CSV.write(joinpath(export_dir, "significant_connections.csv"), sig_df)
+    else
+        # CSV vacío con columnas correctas
+        CSV.write(joinpath(export_dir, "significant_connections.csv"),
+            DataFrame(ch_a=String[], ch_b=String[], band=String[],
+                      wpli_obs=Float64[], p_value=Float64[],
+                      q_value=Float64[], z_score=Float64[]))
+    end
+
+    # ── Guardar QC por banda ──────────────────────────────────
+    qc_df = DataFrame(qc_bands)
+    CSV.write(joinpath(export_dir, "surrogate_quality.csv"), qc_df)
+
+    # ── Generar surrogate_summary.json ───────────────────────
+    n_sig_total = length(all_sig_rows)
+    n_pairs     = n * (n-1) ÷ 2
+    json_pairs  = String[
+        "\"method\": \"$(method)\"",
+        "\"n_surrogates\": $(n_sur_cfg)",
+        "\"alpha\": $(alpha)",
+        "\"fdr_method\": \"$(fdr_meth)\"",
+        "\"seed\": $(seed_v)",
+        "\"n_channels\": $n",
+        "\"n_total_pairs\": $(n_pairs)",
+        "\"n_sig_total\": $(n_sig_total)",
+        "\"timestamp\": \"$(Dates.format(now(), "yyyy-mm-ddTHH:MM:SS"))\"",
+    ]
+    for qc in qc_bands
+        band = qc["band"]
+        push!(json_pairs, "\"$(band)_n_sig\": $(qc["n_sig"])")
+        push!(json_pairs, "\"$(band)_pct_sig\": $(qc["pct_sig"])")
+        push!(json_pairs, "\"$(band)_mean_p\": $(qc["mean_p"])")
+        push!(json_pairs, "\"$(band)_fdr_thr\": $(qc["fdr_threshold"])")
+    end
+    open(joinpath(export_dir, "surrogate_summary.json"), "w") do io
+        write(io, "{\n" * join(["  " * p for p in json_pairs], ",\n") * "\n}")
+    end
+
+    _log(log_io, "  Surrogates guardados: $(n_sig_total) conexiones significativas en $(length(surr_results)) bandas")
 end
 
 function _save_all_results(

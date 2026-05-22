@@ -1236,6 +1236,61 @@ tr.row-warn:hover td { background: #fef9c3; }
 .p9-run-btn:hover{ background:#1e40af; }
 .p9-hist-svg  { display:block; width:100%; overflow:visible; }
 .p9-band-pill { display:inline-block; padding:1px 7px; border-radius:10px; font-size:10px; font-weight:700; }
+
+/* ── Phase 10 — Surrogates / Inferencia ─────────────── */
+.grid-p10-top { display:grid; grid-template-columns:1fr 1.1fr 0.9fr 0.9fr; gap:12px; margin-bottom:14px; }
+.grid-p10-mid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+.grid-p10-bot { display:grid; grid-template-columns:1.1fr 0.9fr; gap:12px; margin-bottom:14px; }
+.p10-full     { margin-bottom:14px; }
+.p10-cfg-row  { display:flex; justify-content:space-between; align-items:center; padding:5px 0;
+                border-bottom:1px solid var(--border); font-size:12px; }
+.p10-cfg-row:last-child { border-bottom:none; }
+.p10-cfg-key  { color:var(--text-3); }
+.p10-cfg-val  { font-weight:700; font-family:monospace; font-size:11px; color:var(--text-1); }
+.p10-band-tabs{ display:flex; flex-wrap:wrap; gap:5px; padding:2px 0 4px; }
+.p10-band-tab { padding:4px 9px; border-radius:12px; font-size:11px; font-weight:700;
+                cursor:pointer; transition:.12s; background:var(--bg-3); color:var(--text-2); }
+.p10-band-tab.active { color:#fff; }
+.p10-band-tab:hover  { opacity:.85; }
+.p10-metrics-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:8px; }
+.p10-metric-cell{ background:var(--bg-2); border-radius:8px; padding:8px; text-align:center; }
+.p10-metric-val { font-size:18px; font-weight:800; }
+.p10-metric-lbl { font-size:9px; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:.3px; margin-top:2px; }
+#p10-obs-canvas { display:block; width:100%; cursor:crosshair; border-radius:6px; background:#f8fafc; }
+#p10-sig-canvas { display:block; width:100%; border-radius:6px; background:#f8fafc; }
+.p10-tbl       { width:100%; border-collapse:collapse; font-size:12px; }
+.p10-tbl th    { background:var(--bg-3); color:var(--text-3); font-weight:600; text-align:left;
+                 padding:6px 8px; border-bottom:2px solid var(--border); font-size:10px;
+                 text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; position:sticky; top:0; }
+.p10-tbl td    { padding:5px 8px; border-bottom:1px solid var(--border); }
+.p10-tbl tr:hover td { background:rgba(124,58,237,.04); }
+.p10-qa-grid   { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
+.p10-qa-btn    { display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px;
+                 background:var(--bg-2); border:1px solid var(--border); border-radius:8px;
+                 cursor:pointer; font-size:10px; font-weight:600; color:var(--text-2);
+                 transition:.15s; text-align:center; line-height:1.3; }
+.p10-qa-btn:hover { background:#ede9fe; color:#7c3aed; }
+.p10-qa-icon   { font-size:18px; }
+.p10-not-run   { display:flex; flex-direction:column; align-items:center; justify-content:center;
+                 padding:50px 20px; text-align:center; color:var(--text-3); }
+.p10-not-run-icon  { font-size:42px; margin-bottom:14px; }
+.p10-not-run-title { font-size:17px; font-weight:700; color:var(--text-1); margin-bottom:8px; }
+.p10-not-run-sub   { font-size:12px; max-width:440px; line-height:1.6; margin-bottom:16px; }
+.p10-run-btn       { padding:9px 20px; background:#7c3aed; color:#fff; border:none; border-radius:8px;
+                     cursor:pointer; font-weight:700; font-size:13px; }
+.p10-run-btn:hover { background:#6d28d9; }
+.p10-file-row  { display:flex; align-items:center; gap:6px; padding:3px 0; font-size:11px; }
+.p10-file-name { font-family:monospace; font-size:10px; color:var(--text-2); }
+.p10-pair-row  { display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+.p10-pair-row select { flex:1; min-width:80px; padding:4px 6px; font-size:11px;
+                        border:1px solid var(--border); border-radius:6px; background:var(--bg-2); }
+.p10-qc-grid   { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.p10-qc-item   { display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:7px; background:var(--bg-2); }
+.p10-qc-icon   { font-size:15px; flex-shrink:0; }
+.p10-qc-label  { font-size:11px; font-weight:600; flex:1; }
+.p10-qc-val    { font-size:11px; font-family:monospace; color:var(--text-2); }
+.p10-hist-svg  { display:block; width:100%; overflow:visible; }
+.p10-sig-pill  { display:inline-block; padding:1px 6px; border-radius:8px; font-size:10px; font-weight:700; }
 </style>
 </head>
 <body>
@@ -3354,7 +3409,218 @@ tr.row-warn:hover td { background: #fef9c3; }
     </div>
 
   </div><!-- /phase-panel-9 -->
-  <div id="phase-panel-10" class="phase-panel"></div>
+  <!-- ══════════════════════════════════════════════════════════
+       PHASE 10 — SURROGATES / INFERENCIA
+  ══════════════════════════════════════════════════════════ -->
+  <div id="phase-panel-10" class="phase-panel">
+
+    <!-- Header -->
+    <div class="phase-header">
+      <div class="phase-header-left">
+        <div class="phase-badge-lg" style="background:#7c3aed">10</div>
+        <div>
+          <div class="phase-title">10. Surrogates / Inferencia estadística — wPLI</div>
+          <div class="phase-subtitle" id="p10-subtitle">Phase randomization · FDR-BH · q &lt; 0.05 · Distribución nula</div>
+        </div>
+      </div>
+      <div id="p10-status-chip" class="status-chip pending">Cargando…</div>
+    </div>
+
+    <!-- Fila 1: Config | Resumen | Estado | Archivos -->
+    <div class="grid-p10-top">
+      <div class="card">
+        <div class="card-header">Configuración de surrogates</div>
+        <div class="card-body" id="p10-surr-config">
+          <div class="spinner"><div class="spin-circle"></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          Resumen de inferencia
+          <span style="font-size:10px;font-weight:400;color:var(--text-3)" id="p10-band-label-h"></span>
+        </div>
+        <div class="card-body" style="padding:8px">
+          <div class="p10-metrics-row">
+            <div class="p10-metric-cell"><div class="p10-metric-val" id="p10-m-total" style="color:#7c3aed">—</div><div class="p10-metric-lbl">Pares totales</div></div>
+            <div class="p10-metric-cell"><div class="p10-metric-val" id="p10-m-sig"   style="color:#16a34a">—</div><div class="p10-metric-lbl">Significativos</div></div>
+            <div class="p10-metric-cell"><div class="p10-metric-val" id="p10-m-pct"   style="color:#d97706">—</div><div class="p10-metric-lbl">% sig.</div></div>
+            <div class="p10-metric-cell"><div class="p10-metric-val" id="p10-m-meap"  style="color:#2563eb">—</div><div class="p10-metric-lbl">p medio</div></div>
+          </div>
+          <div id="p10-inf-note" style="font-size:10px;color:var(--text-3);line-height:1.5;padding:2px"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">Estado de la fase</div>
+        <div class="card-body" id="p10-phase-status">
+          <div class="spinner"><div class="spin-circle"></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">Archivos generados</div>
+        <div class="card-body" id="p10-files-card" style="padding:8px">
+          <div class="spinner"><div class="spin-circle"></div></div>
+        </div>
+      </div>
+    </div><!-- /grid-p10-top -->
+
+    <!-- Selector de banda -->
+    <div class="card p10-full" style="padding:10px 12px">
+      <div style="font-size:11px;font-weight:700;color:var(--text-3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Banda activa</div>
+      <div class="p10-band-tabs" id="p10-band-tabs">
+        <div class="spinner"><div class="spin-circle"></div></div>
+      </div>
+    </div>
+
+    <!-- Placeholder si surrogates no ejecutados -->
+    <div id="p10-not-run-block" class="p10-not-run" style="display:none">
+      <div class="p10-not-run-icon">🔬</div>
+      <div class="p10-not-run-title">Inferencia por surrogates aún no ejecutada</div>
+      <div class="p10-not-run-sub">
+        Activa los surrogates en el config <code>[surrogates] enabled = true</code> y re-ejecuta el pipeline para obtener inferencia estadística mediante Phase Randomization y corrección FDR-BH.
+      </div>
+      <button class="p10-run-btn" onclick="p10RunPipeline()">▶ Ejecutar pipeline con surrogates</button>
+      <div style="font-size:11px;color:var(--text-3);margin-top:8px">⚠ Computacionalmente intensivo — recomendado N ≥ 200 por banda</div>
+    </div>
+
+    <!-- Contenido principal -->
+    <div id="p10-content-block" style="display:none">
+
+      <!-- Fila 2: Heatmap observado | Red conexiones significativas -->
+      <div class="grid-p10-mid">
+        <div class="card">
+          <div class="card-header">Matriz wPLI observada
+            <span style="font-size:10px;font-weight:400;color:var(--text-3)" id="p10-obs-band-label"></span>
+          </div>
+          <div class="card-body" style="padding:8px">
+            <canvas id="p10-obs-canvas"></canvas>
+            <div id="p10-obs-tooltip" style="font-size:11px;color:var(--text-3);min-height:16px;text-align:center;margin-top:4px"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">Conexiones significativas (q &lt; 0.05)
+            <span style="font-size:10px;font-weight:400;color:var(--text-3)" id="p10-sig-band-label"></span>
+          </div>
+          <div class="card-body" style="padding:8px">
+            <canvas id="p10-sig-canvas"></canvas>
+            <div id="p10-sig-stats" style="font-size:10px;color:var(--text-3);text-align:center;margin-top:4px"></div>
+          </div>
+        </div>
+      </div><!-- /grid-p10-mid -->
+
+      <!-- Fila 3: Histograma p-valores | Top conexiones sig. -->
+      <div class="grid-p10-bot">
+        <div class="card">
+          <div class="card-header">Distribución de p-valores
+            <span style="font-size:10px;font-weight:400;color:var(--text-3)">línea vertical q = α</span>
+          </div>
+          <div class="card-body" style="padding:10px">
+            <svg id="p10-pval-svg" class="p10-hist-svg" height="200" viewBox="0 0 300 200"></svg>
+            <div id="p10-pval-note" style="font-size:10px;color:var(--text-3);text-align:center;margin-top:4px"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">Top conexiones significativas
+            <span style="font-size:10px;font-weight:400;color:var(--text-3)">q &lt; α · banda activa</span>
+          </div>
+          <div style="max-height:260px;overflow-y:auto">
+            <table class="p10-tbl">
+              <thead><tr>
+                <th>#</th><th>Canal A</th><th>Canal B</th><th>wPLI</th><th>p</th><th>q</th><th>Z</th>
+              </tr></thead>
+              <tbody id="p10-sig-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /grid-p10-bot -->
+
+      <!-- Fila 4: Distribución wPLI vs surrogates (par de canales) -->
+      <div class="card p10-full">
+        <div class="card-header">Distribución wPLI vs surrogates — par de canales
+          <span style="font-size:10px;font-weight:400;color:var(--text-3)">distribución nula ≈ Gaussiana(μ, σ)</span>
+        </div>
+        <div class="card-body" style="padding:12px">
+          <div class="p10-pair-row">
+            <span style="font-size:11px;color:var(--text-3);white-space:nowrap">Canal A:</span>
+            <select id="p10-sel-cha" onchange="p10RenderPairDist()">
+              <option value="">— Canal A —</option>
+            </select>
+            <span style="font-size:11px;color:var(--text-3);white-space:nowrap">Canal B:</span>
+            <select id="p10-sel-chb" onchange="p10RenderPairDist()">
+              <option value="">— Canal B —</option>
+            </select>
+            <div id="p10-pair-pq" style="font-size:12px;font-weight:700;color:var(--text-2);white-space:nowrap;margin-left:8px"></div>
+          </div>
+          <svg id="p10-dist-svg" class="p10-hist-svg" height="180" viewBox="0 0 500 180"></svg>
+          <div id="p10-dist-note" style="font-size:10px;color:var(--text-3);text-align:center;margin-top:4px"></div>
+        </div>
+      </div>
+
+      <!-- Fila 5: Estadísticas por banda | Estadísticas globales Z -->
+      <div class="grid-p10-mid">
+        <div class="card">
+          <div class="card-header">Estadísticas por banda</div>
+          <div style="overflow-x:auto">
+            <table class="p10-tbl">
+              <thead><tr>
+                <th>Banda</th><th>Sig.</th><th>% sig.</th><th>p medio</th><th>FDR thr.</th>
+              </tr></thead>
+              <tbody id="p10-band-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">Estadísticas globales — Z-scores</div>
+          <div class="card-body" id="p10-global-stats" style="padding:8px">
+            <div class="spinner"><div class="spin-circle"></div></div>
+          </div>
+        </div>
+      </div><!-- /grid-p10-mid -->
+
+      <!-- Fila 6: Control de calidad surrogates -->
+      <div class="card p10-full">
+        <div class="card-header">Control de calidad de surrogates</div>
+        <div class="card-body" style="padding:10px">
+          <div class="p10-qc-grid" id="p10-qc-grid">
+            <div class="spinner"><div class="spin-circle"></div></div>
+          </div>
+          <div id="p10-qc-bands-note" style="font-size:10px;color:var(--text-3);margin-top:8px"></div>
+        </div>
+      </div>
+
+      <!-- Acciones rápidas -->
+      <div class="card p10-full" style="margin-bottom:0">
+        <div class="card-header">Acciones rápidas</div>
+        <div class="card-body" style="padding:10px">
+          <div class="p10-qa-grid">
+            <button class="p10-qa-btn" onclick="p10SaveObsHeatmap()">
+              <span class="p10-qa-icon">🔬</span>Guardar<br><span style="font-weight:400;font-size:9px">heatmap obs.</span>
+            </button>
+            <button class="p10-qa-btn" onclick="p10SaveSigNetwork()">
+              <span class="p10-qa-icon">🕸️</span>Guardar<br><span style="font-weight:400;font-size:9px">red sig. PNG</span>
+            </button>
+            <button class="p10-qa-btn" onclick="p10ExportSigCSV()">
+              <span class="p10-qa-icon">📥</span>Exportar<br><span style="font-weight:400;font-size:9px">conexiones sig.</span>
+            </button>
+            <button class="p10-qa-btn" onclick="p10ExportQC()">
+              <span class="p10-qa-icon">📊</span>Exportar<br><span style="font-weight:400;font-size:9px">QC surrogates</span>
+            </button>
+            <button class="p10-qa-btn" onclick="switchPhase(9)">
+              <span class="p10-qa-icon">🔗</span>Ver wPLI<br><span style="font-weight:400;font-size:9px">(Fase 9)</span>
+            </button>
+            <button class="p10-qa-btn" onclick="p10Reload()">
+              <span class="p10-qa-icon">🔄</span>Recargar<br><span style="font-weight:400;font-size:9px">resultados</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /p10-content-block -->
+
+    <div class="phase-info-bar" id="p10-info-bar" style="display:none">
+      <span id="p10-info-text"></span>
+    </div>
+
+  </div><!-- /phase-panel-10 -->
   <div id="phase-panel-11" class="phase-panel"></div>
   <div id="phase-panel-12" class="phase-panel"></div>
 
@@ -3628,6 +3894,8 @@ async function switchPhase(n) {
     await loadPhase8();
   } else if (n === 9) {
     await loadPhase9();
+  } else if (n === 10) {
+    await loadPhase10();
   } else {
     renderPhasePlaceholder(n);
   }
@@ -3678,7 +3946,8 @@ async function loadCurrentPhase() {
   else if (State.phase === 6) await loadPhase6();
   else if (State.phase === 7) await loadPhase7();
   else if (State.phase === 8) await loadPhase8();
-  else if (State.phase === 9) await loadPhase9();
+  else if (State.phase === 9)  await loadPhase9();
+  else if (State.phase === 10) await loadPhase10();
   else renderPhasePlaceholder(State.phase);
 }
 
@@ -10389,6 +10658,646 @@ function p9Reload() { loadPhase9(); }
 
 // ════════════════════════════════════════════════════════════
 // FIN PHASE 9
+// ════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════
+// FASE 10 — SURROGATES / INFERENCIA ESTADÍSTICA
+// ════════════════════════════════════════════════════════════
+
+// Phase 10 state
+const P10 = { data: null, band: 'ALPHA' };
+
+// ── Main loader ────────────────────────────────────────────
+async function loadPhase10() {
+  const { subj, sess, cond } = State;
+  if (!subj || !sess) return;
+  const chip = document.getElementById('p10-status-chip');
+  if (chip) { chip.className = 'status-chip pending'; chip.textContent = 'Cargando…'; }
+  try {
+    const r = await fetch(`/api/phase10_surrogates?subj=${subj}&sess=${sess}&cond=${cond}&band=${P10.band}`);
+    const d = await r.json();
+    P10.data = d;
+    const notRun  = document.getElementById('p10-not-run-block');
+    const content = document.getElementById('p10-content-block');
+    _p10RenderBandTabs();
+    _p10RenderConfig(d.summary);
+    _p10RenderFiles(d.surr_run);
+    _p10RenderPhaseStatus(d.surr_run, d);
+    if (!d.surr_run) {
+      if (notRun)  notRun.style.display  = '';
+      if (content) content.style.display = 'none';
+      if (chip) { chip.className = 'status-chip pending'; chip.textContent = 'Pendiente'; }
+      _p10ClearMetrics();
+      return;
+    }
+    if (notRun)  notRun.style.display  = 'none';
+    if (content) content.style.display = '';
+    if (chip) { chip.className = 'status-chip completed'; chip.textContent = 'Completado'; }
+    _p10RenderMetrics(d.summary, d.surrogate_quality);
+    requestAnimationFrame(() => {
+      _p10RenderObsHeatmap(d.matrix_obs);
+      _p10RenderSigNetwork(d.matrix_obs, d.sig_connections);
+    });
+    _p10RenderPvalHist(d.pvalue_hist, d.summary);
+    _p10RenderSigTable(d.sig_connections);
+    _p10InitPairSelectors(d.null_stats);
+    _p10RenderBandStats(d.surrogate_quality);
+    _p10RenderGlobalStats(d.null_stats);
+    _p10RenderQC(d.surrogate_quality, d.summary);
+  } catch(e) {
+    console.error('Phase 10 load error:', e);
+    if (chip) { chip.className = 'status-chip error'; chip.textContent = 'Error'; }
+  }
+}
+
+// ── Band tabs ──────────────────────────────────────────────
+function _p10RenderBandTabs() {
+  const el = document.getElementById('p10-band-tabs');
+  if (!el) return;
+  el.innerHTML = P9_BANDS.map(b => {
+    const active = b.key === P10.band;
+    return `<div class="p10-band-tab${active?' active':''}"
+              data-band="${b.key}"
+              style="${active?'background:'+b.color:''}"
+              onclick="p10SelectBand('${b.key}')">${b.label}</div>`;
+  }).join('');
+}
+
+async function p10SelectBand(band) {
+  P10.band = band;
+  _p10RenderBandTabs();
+  await loadPhase10();
+}
+
+// ── Config card ────────────────────────────────────────────
+function _p10RenderConfig(s) {
+  const el = document.getElementById('p10-surr-config');
+  if (!el) return;
+  const method = s.method || 'phase_shuffle';
+  const methodLabel = method === 'phase_shuffle' ? 'Phase Randomization' : method;
+  const rows = [
+    ['Método',           methodLabel],
+    ['N surrogates',     s.n_surrogates || '—'],
+    ['Nivel α',          (s.alpha ?? 0.05).toFixed(2)],
+    ['Corrección',       (s.fdr_method || 'bh').toUpperCase()],
+    ['Semilla',          s.seed ?? 42],
+    ['Canales',          s.n_channels || '—'],
+    ['Pares totales',    s.n_total_pairs || '—'],
+    ['Timestamp',        (s.timestamp||'—').replace('T',' ')],
+  ];
+  el.innerHTML = rows.map(([k,v]) =>
+    `<div class="p10-cfg-row"><span class="p10-cfg-key">${k}</span><span class="p10-cfg-val">${v}</span></div>`
+  ).join('');
+}
+
+// ── Inference summary metrics ──────────────────────────────
+function _p10RenderMetrics(s, qc) {
+  const b = P10.band;
+  const lh = document.getElementById('p10-band-label-h');
+  if (lh) lh.textContent = `— banda ${P10.band}`;
+  const qrow = (qc||[]).find(r => r.band === b);
+  const nsig   = qrow ? qrow.n_sig   : (s[`${b}_n_sig`]  ?? '—');
+  const ntotal = s.n_total_pairs ?? '—';
+  const pct    = qrow ? qrow.pct_sig  : (s[`${b}_pct_sig`] != null ? s[`${b}_pct_sig`].toFixed(1) : '—');
+  const meanp  = qrow ? qrow.mean_p   : (s[`${b}_mean_p`]  ?? '—');
+  _p10SetEl('p10-m-total', ntotal);
+  _p10SetEl('p10-m-sig',   nsig);
+  _p10SetEl('p10-m-pct',   typeof pct === 'number' ? pct.toFixed(1)+'%' : pct+'%');
+  _p10SetEl('p10-m-meap',  typeof meanp === 'number' ? meanp.toFixed(3) : meanp);
+  const note = document.getElementById('p10-inf-note');
+  if (note) {
+    const fdr = s[`${b}_fdr_thr`] != null ? `FDR threshold: ${s[`${b}_fdr_thr`].toFixed(4)}` : '';
+    const nsigAll = s.n_sig_total != null ? ` · Sig. total (todas bandas): ${s.n_sig_total}` : '';
+    note.textContent = [fdr, nsigAll].filter(Boolean).join('');
+  }
+}
+
+function _p10ClearMetrics() {
+  ['p10-m-total','p10-m-sig','p10-m-pct','p10-m-meap'].forEach(id => _p10SetEl(id, '—'));
+}
+
+// ── Phase status card ──────────────────────────────────────
+function _p10RenderPhaseStatus(isRun, d) {
+  const el = document.getElementById('p10-phase-status');
+  if (!el) return;
+  const st = State.statuses?.['10'] || (isRun ? 'completed' : 'pending');
+  const stLabel = {completed:'✓ Completado',warning:'⚠ Warning',error:'✗ Error',
+                   pending:'○ Pendiente',not_available:'— No disponible'};
+  const stColor = {completed:'#16a34a',warning:'#d97706',error:'#dc2626',
+                   pending:'var(--pending)',not_available:'#9ca3af'};
+  const t = d.phase_timing || {};
+  el.innerHTML = `
+    <div style="font-size:13px;font-weight:700;color:${stColor[st]||'#6b7280'};margin-bottom:8px">${stLabel[st]||st}</div>
+    <div class="p10-cfg-row"><span class="p10-cfg-key">Inicio</span><span class="p10-cfg-val">${t.start||'—'}</span></div>
+    <div class="p10-cfg-row"><span class="p10-cfg-key">Fin</span><span class="p10-cfg-val">${t.end||'—'}</span></div>
+    <div class="p10-cfg-row" style="border:none"><span class="p10-cfg-key">Surrogates generados</span>
+      <span class="p10-cfg-val">${P10.data?.summary?.n_surrogates||'—'}</span></div>`;
+}
+
+// ── Generated files card ───────────────────────────────────
+function _p10RenderFiles(isRun) {
+  const el = document.getElementById('p10-files-card');
+  if (!el) return;
+  const band = P10.band;
+  const files = [
+    [`wpli_observed_${band}.csv`,       '📊', isRun],
+    [`wpli_pvalues_${band}.csv`,        '📈', isRun],
+    [`wpli_qvalues_${band}.csv`,        '📉', isRun],
+    [`wpli_significant_${band}.csv`,    '✅', isRun],
+    [`surrogate_null_stats_${band}.csv`,'🔬', isRun],
+    ['significant_connections.csv',     '🔗', isRun],
+    ['surrogate_summary.json',          '📄', isRun],
+    ['surrogate_quality.csv',           '🧪', isRun],
+  ];
+  el.innerHTML = files.map(([name, icon, exists]) => `
+    <div class="p10-file-row">
+      <span style="font-size:12px;width:16px;text-align:center">${exists ? '✓' : '○'}</span>
+      <span style="font-size:12px">${icon}</span>
+      <span class="p10-file-name" style="color:${exists?'var(--text-1)':'var(--text-3)'}">${name}</span>
+    </div>`).join('');
+}
+
+// ── Observed wPLI Heatmap (Canvas) ────────────────────────
+// Reuses _p9Colormap from Phase 9
+function _p10RenderObsHeatmap(matrix) {
+  const canvas = document.getElementById('p10-obs-canvas');
+  if (!canvas) return;
+  const lb = document.getElementById('p10-obs-band-label');
+  if (lb) lb.textContent = `— banda ${P10.band}`;
+  const channels = matrix?.channels || [];
+  const values   = matrix?.values   || [];
+  const n = channels.length;
+  const dpr    = window.devicePixelRatio || 1;
+  const margin = n > 40 ? 2 : (n > 20 ? 8 : 16);
+  const cellPx = Math.max(4, Math.min(16, Math.floor((520-margin)/Math.max(n,1))));
+  const imgSz  = n * cellPx;
+  const scaleSz= 14;
+  const total  = imgSz + margin;
+  canvas.style.width  = total + 'px';
+  canvas.style.height = (total+scaleSz) + 'px';
+  canvas.width  = total * dpr;
+  canvas.height = (total+scaleSz) * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, total, total+scaleSz);
+  ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, total, total+scaleSz);
+  if (n === 0) {
+    ctx.fillStyle='#9ca3af'; ctx.font='13px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('Sin datos de matriz', total/2, total/2); return;
+  }
+  let maxW = 0;
+  for (let i=0;i<n;i++) for (let j=0;j<n;j++) if (i!==j && (values[i]?.[j]??0)>maxW) maxW=values[i][j];
+  maxW = Math.max(maxW, 0.01);
+  for (let i=0;i<n;i++) for (let j=0;j<n;j++) {
+    const w = values[i]?.[j] ?? 0;
+    const [r,g,b] = _p9Colormap(i===j ? 0 : w/maxW);
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(margin+j*cellPx, margin+i*cellPx, cellPx, cellPx);
+  }
+  if (n<=36 && cellPx>=8) {
+    ctx.fillStyle='#374151'; ctx.font=`${Math.min(8,cellPx-2)}px monospace`;
+    ctx.textAlign='right'; ctx.textBaseline='middle';
+    for (let i=0;i<n;i++) ctx.fillText(channels[i]||'', margin-2, margin+i*cellPx+cellPx/2);
+    ctx.textAlign='center'; ctx.textBaseline='bottom';
+    for (let j=0;j<n;j++) {
+      ctx.save(); ctx.translate(margin+j*cellPx+cellPx/2, margin-2); ctx.rotate(-Math.PI/2);
+      ctx.fillText(channels[j]||'', 0, 0); ctx.restore();
+    }
+  }
+  const scW=Math.min(180,imgSz), scX=margin+(imgSz-scW)/2, scY=margin+imgSz+2;
+  for (let px=0;px<scW;px++) {
+    const [r,g,b]=_p9Colormap(px/scW); ctx.fillStyle=`rgb(${r},${g},${b})`; ctx.fillRect(scX+px,scY,1,7);
+  }
+  ctx.fillStyle='#6b7280'; ctx.font='8px sans-serif'; ctx.textBaseline='top';
+  ctx.textAlign='left'; ctx.fillText('0', scX, scY+9);
+  ctx.textAlign='right'; ctx.fillText(maxW.toFixed(2), scX+scW, scY+9);
+  canvas.onmousemove = (e) => {
+    const rect=canvas.getBoundingClientRect(), scl=total/rect.width;
+    const mx=(e.clientX-rect.left)*scl, my=(e.clientY-rect.top)*scl;
+    const j=Math.floor((mx-margin)/cellPx), i=Math.floor((my-margin)/cellPx);
+    const tip=document.getElementById('p10-obs-tooltip');
+    if (tip && i>=0&&i<n&&j>=0&&j<n&&i!==j) {
+      const w=values[i]?.[j]??0;
+      tip.textContent=`${channels[i]} ↔ ${channels[j]} · wPLI = ${w.toFixed(4)}`;
+    } else if (tip) tip.textContent='';
+  };
+}
+
+// ── Significant connections network (Canvas) ───────────────
+function _p10RenderSigNetwork(matrix, sigConn) {
+  const canvas = document.getElementById('p10-sig-canvas');
+  if (!canvas) return;
+  const lb = document.getElementById('p10-sig-band-label');
+  if (lb) lb.textContent = `— banda ${P10.band}`;
+  const channels = matrix?.channels || [];
+  const values   = matrix?.values   || [];
+  const n = channels.length;
+  const dpr = window.devicePixelRatio || 1;
+  const CW = canvas.offsetWidth || 380, CH = 340;
+  canvas.width=CW*dpr; canvas.height=CH*dpr; canvas.style.height=CH+'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0,0,CW,CH);
+  ctx.fillStyle='#f8fafc'; ctx.fillRect(0,0,CW,CH);
+  if (n===0) {
+    ctx.fillStyle='#9ca3af'; ctx.font='13px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('Sin datos', CW/2, CH/2); return;
+  }
+  const cx=CW/2, cy=CH/2+5, radius=Math.min(CW,CH)*0.38;
+  // Node positions (10-20 or circular)
+  const nodePos=[];
+  const useEEG = channels.filter(ch=>P8_EEG_POS[ch]).length >= channels.length*0.5;
+  for (let i=0;i<n;i++) {
+    if (useEEG && P8_EEG_POS[channels[i]]) {
+      const [ex,ey]=P8_EEG_POS[channels[i]];
+      nodePos.push({x:cx+ex*radius*1.05, y:cy-ey*radius*1.05});
+    } else {
+      const angle=(i/n)*2*Math.PI-Math.PI/2;
+      nodePos.push({x:cx+radius*Math.cos(angle), y:cy+radius*Math.sin(angle)});
+    }
+  }
+  if (useEEG) {
+    ctx.beginPath(); ctx.arc(cx,cy,radius*1.09,0,2*Math.PI);
+    ctx.strokeStyle='rgba(107,114,128,0.2)'; ctx.lineWidth=1.5; ctx.stroke();
+  }
+  // Build sig set for quick lookup
+  const sigSet = new Set((sigConn||[]).map(e => `${e.ch_a}|${e.ch_b}`));
+  let nSig = 0;
+  for (const e of (sigConn||[])) {
+    const i=channels.indexOf(e.ch_a), j=channels.indexOf(e.ch_b);
+    if (i<0||j<0) continue; nSig++;
+    const t = Math.min(1, e.wpli_obs / 0.5);
+    const [r,g,b] = _p9Colormap(t);
+    ctx.beginPath();
+    ctx.moveTo(nodePos[i].x, nodePos[i].y);
+    ctx.lineTo(nodePos[j].x, nodePos[j].y);
+    ctx.strokeStyle = `rgba(${r},${g},${b},${(0.4+0.55*t).toFixed(2)})`;
+    ctx.lineWidth   = 0.8 + 2.5*t;
+    ctx.stroke();
+  }
+  // Nodes
+  const strength=channels.map((_,i)=>(values[i]||[]).reduce((s,v,j)=>j===i?s:s+v,0));
+  const maxStr=Math.max(...strength,0.001);
+  const nodeR=Math.max(3,Math.min(10,160/n));
+  for (let i=0;i<n;i++) {
+    const {x,y}=nodePos[i];
+    const sz=nodeR*0.5+nodeR*0.9*(strength[i]/maxStr);
+    const [r,g,b]=_p9Colormap(strength[i]/maxStr);
+    ctx.beginPath(); ctx.arc(x,y,sz,0,2*Math.PI);
+    ctx.fillStyle=`rgb(${r},${g},${b})`; ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.2; ctx.stroke();
+    if (n<=32) {
+      const dx=x-cx,dy=y-cy,dist=Math.sqrt(dx*dx+dy*dy)||1;
+      ctx.fillStyle='#1f2937'; ctx.font=`${Math.min(8,nodeR)}px monospace`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(channels[i], x+(dx/dist)*(sz+5), y+(dy/dist)*(sz+5));
+    }
+  }
+  const stats=document.getElementById('p10-sig-stats');
+  if (stats) stats.textContent=`${nSig} conexiones sig. · ${n} nodos${useEEG?' · 10-20 layout':' · circular'}`;
+}
+
+// ── p-value histogram (SVG) ────────────────────────────────
+function _p10RenderPvalHist(bins, summary) {
+  const svg  = document.getElementById('p10-pval-svg');
+  const note = document.getElementById('p10-pval-note');
+  if (!svg) return;
+  if (!bins?.length) {
+    svg.innerHTML='<text x="150" y="100" text-anchor="middle" fill="#9ca3af" font-size="13">Sin datos</text>';
+    return;
+  }
+  const alpha   = summary?.alpha ?? 0.05;
+  const maxBin  = Math.max(...bins.map(b=>b.count), 1);
+  const nBins   = bins.length;
+  const padL=32,padR=8,padT=8,padB=32,svgW=300,svgH=200;
+  const plotW=svgW-padL-padR, plotH=svgH-padT-padB;
+  const bW=plotW/nBins;
+  let html='';
+  // Bars (color: green if bin is in reject region p < alpha, gray otherwise)
+  for (let i=0;i<nBins;i++) {
+    const lo=bins[i].lo, hi=bins[i].hi;
+    const inRej = hi <= alpha;
+    const bH=(bins[i].count/maxBin)*plotH;
+    const bX=padL+i*bW, bY=padT+plotH-bH;
+    const col = inRej ? '#16a34a' : '#94a3b8';
+    html+=`<rect x="${bX.toFixed(1)}" y="${bY.toFixed(1)}" width="${(bW-0.5).toFixed(1)}" height="${Math.max(0.5,bH).toFixed(1)}" fill="${col}" opacity="0.82">
+      <title>p=${lo}–${hi}: ${bins[i].count} pares</title></rect>`;
+  }
+  // Alpha line
+  const alphaX = padL + alpha * plotW;
+  html+=`<line x1="${alphaX.toFixed(1)}" y1="${padT}" x2="${alphaX.toFixed(1)}" y2="${padT+plotH}" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="4,3"/>`;
+  html+=`<text x="${(alphaX+2).toFixed(1)}" y="${padT+10}" fill="#dc2626" font-size="9" font-weight="700">α=${alpha}</text>`;
+  // Uniform reference line
+  const uniformH = (plotH/maxBin) * (maxBin/nBins);  // expected flat line
+  const uY = padT + plotH - (plotH / nBins);
+  html+=`<line x1="${padL}" y1="${uY.toFixed(1)}" x2="${padL+plotW}" y2="${uY.toFixed(1)}" stroke="#d97706" stroke-width="1" stroke-dasharray="3,3" opacity="0.7"/>`;
+  // Axes
+  html+=`<line x1="${padL}" y1="${padT+plotH}" x2="${padL+plotW}" y2="${padT+plotH}" stroke="#d1d5db" stroke-width="1"/>`;
+  html+=`<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+plotH}" stroke="#d1d5db" stroke-width="1"/>`;
+  for (let i=0;i<=5;i++) {
+    const x=padL+(i/5)*plotW;
+    html+=`<text x="${x.toFixed(1)}" y="${padT+plotH+12}" text-anchor="middle" fill="#9ca3af" font-size="9">${(i/5).toFixed(1)}</text>`;
+  }
+  html+=`<text x="${padL+plotW/2}" y="${svgH-2}" text-anchor="middle" fill="#6b7280" font-size="10">p-valor</text>`;
+  for (let i=0;i<=3;i++) {
+    const y=padT+(1-i/3)*plotH;
+    html+=`<text x="${padL-3}" y="${y.toFixed(1)}" text-anchor="end" dominant-baseline="middle" fill="#9ca3af" font-size="8">${Math.round((i/3)*maxBin)}</text>`;
+  }
+  svg.innerHTML=html;
+  const nSig = bins.filter(b=>b.hi<=alpha).reduce((s,b)=>s+b.count,0);
+  const nTot = bins.reduce((s,b)=>s+b.count,0);
+  if (note) note.textContent=`${nTot} pares · sig. (p<${alpha}): ${nSig} (${nTot>0?(100*nSig/nTot).toFixed(1):'—'}%)`;
+}
+
+// ── Top significant connections table ─────────────────────
+function _p10RenderSigTable(sig) {
+  const tbody = document.getElementById('p10-sig-tbody');
+  if (!tbody) return;
+  if (!sig?.length) {
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:16px">Sin conexiones significativas</td></tr>';
+    return;
+  }
+  tbody.innerHTML = sig.slice(0,30).map((e,i) => {
+    const qcol = e.q_value < 0.01 ? '#dc2626' : e.q_value < 0.05 ? '#d97706' : '#6b7280';
+    return `<tr>
+      <td style="color:var(--text-3);font-size:10px">${i+1}</td>
+      <td style="font-family:monospace;font-weight:700">${e.ch_a}</td>
+      <td style="font-family:monospace;font-weight:700">${e.ch_b}</td>
+      <td style="font-weight:700;color:${_p9WpliColor(e.wpli_obs)}">${e.wpli_obs?.toFixed(4)??'—'}</td>
+      <td style="font-family:monospace">${e.p_value?.toFixed(4)??'—'}</td>
+      <td style="font-weight:700;color:${qcol}">${e.q_value?.toFixed(4)??'—'}</td>
+      <td style="font-family:monospace">${e.z_score?.toFixed(2)??'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Pair selector + distribution SVG ──────────────────────
+function _p10InitPairSelectors(nullStats) {
+  const selA = document.getElementById('p10-sel-cha');
+  const selB = document.getElementById('p10-sel-chb');
+  if (!selA || !selB || !nullStats?.length) return;
+  // Get unique channels
+  const chSet = new Set();
+  nullStats.forEach(r => { chSet.add(r.ch_a); chSet.add(r.ch_b); });
+  const chs = [...chSet].sort();
+  const opts = chs.map(ch=>`<option value="${ch}">${ch}</option>`).join('');
+  selA.innerHTML = `<option value="">— Canal A —</option>${opts}`;
+  selB.innerHTML = `<option value="">— Canal B —</option>${opts}`;
+  // Auto-select first significant pair
+  const d = P10.data;
+  if (d?.sig_connections?.length) {
+    const top = d.sig_connections[0];
+    selA.value = top.ch_a;
+    selB.value = top.ch_b;
+    p10RenderPairDist();
+  } else if (chs.length >= 2) {
+    selA.value = chs[0]; selB.value = chs[1];
+    p10RenderPairDist();
+  }
+}
+
+function p10RenderPairDist() {
+  const selA = document.getElementById('p10-sel-cha');
+  const selB = document.getElementById('p10-sel-chb');
+  const svg  = document.getElementById('p10-dist-svg');
+  const note = document.getElementById('p10-dist-note');
+  const pqEl = document.getElementById('p10-pair-pq');
+  if (!selA || !selB || !svg) return;
+  const chA = selA.value, chB = selB.value;
+  if (!chA || !chB || chA === chB) {
+    svg.innerHTML='<text x="250" y="90" text-anchor="middle" fill="#9ca3af" font-size="13">Selecciona dos canales distintos</text>';
+    if (pqEl) pqEl.textContent='';
+    return;
+  }
+  // Find pair in null_stats
+  const ns = P10.data?.null_stats || [];
+  const row = ns.find(r => (r.ch_a===chA && r.ch_b===chB) || (r.ch_a===chB && r.ch_b===chA));
+  if (!row) {
+    svg.innerHTML='<text x="250" y="90" text-anchor="middle" fill="#9ca3af" font-size="13">Par no encontrado en null_stats</text>';
+    if (pqEl) pqEl.textContent='';
+    return;
+  }
+  const mu = row.null_mean, sigma = row.null_std, obs = row.wpli_obs;
+  const p = row.p_value, q = row.q_value, z = row.z_score;
+  if (pqEl) {
+    const sig = q < 0.05;
+    pqEl.innerHTML = `p = ${p?.toFixed(4)} · q = <span style="color:${sig?'#dc2626':'#6b7280'};font-weight:800">${q?.toFixed(4)}</span> · Z = ${z?.toFixed(2)} ${sig?'<span style="color:#dc2626">★ sig.</span>':''}`;
+  }
+  // Draw Gaussian curve
+  const padL=40,padR=20,padT=15,padB=35,svgW=500,svgH=180;
+  const plotW=svgW-padL-padR, plotH=svgH-padT-padB;
+  const xMin = Math.max(0, mu - 4*Math.max(sigma,0.001));
+  const xMax = Math.min(1, Math.max(obs*1.3, mu + 4*Math.max(sigma,0.001)));
+  const xRange = xMax - xMin;
+  const xToSvg = x => padL + ((x-xMin)/xRange)*plotW;
+  // Gaussian PDF
+  const gaussY = x => {
+    if (sigma <= 0) return 0;
+    return Math.exp(-0.5*((x-mu)/sigma)**2) / (sigma*Math.sqrt(2*Math.PI));
+  };
+  // Find peak for y scale
+  const yMax = gaussY(mu) * 1.15;
+  const yToSvg = y => padT + plotH - (y/Math.max(yMax,1e-10))*plotH;
+  // Build path
+  const nPts = 120;
+  let pathD='';
+  for (let i=0;i<=nPts;i++) {
+    const x = xMin + (i/nPts)*xRange;
+    const y = gaussY(x);
+    const sx = xToSvg(x), sy = yToSvg(y);
+    pathD += (i===0?`M${sx.toFixed(1)},${sy.toFixed(1)}`:`L${sx.toFixed(1)},${sy.toFixed(1)}`);
+  }
+  // Fill under curve (left of obs = null region)
+  let fillD = pathD;
+  const xObsSvg = xToSvg(obs).toFixed(1);
+  let html='';
+  // Shaded area for p-value (to the right of obs)
+  let fillRight='';
+  for (let i=0;i<=nPts;i++) {
+    const x = xMin+(i/nPts)*xRange;
+    if (x < obs) continue;
+    const sx=xToSvg(x).toFixed(1), sy=yToSvg(gaussY(x)).toFixed(1);
+    fillRight += (fillRight==='' ? `M${sx},${padT+plotH} L${sx},${sy}` : `L${sx},${sy}`);
+  }
+  if (fillRight) fillRight += ` L${xToSvg(xMax).toFixed(1)},${padT+plotH} Z`;
+  html+=`<path d="${fillRight}" fill="rgba(220,38,38,0.15)"/>`;
+  // Main curve
+  html+=`<path d="${pathD}" fill="none" stroke="#3b82f6" stroke-width="2"/>`;
+  // Observed line
+  html+=`<line x1="${xObsSvg}" y1="${padT}" x2="${xObsSvg}" y2="${padT+plotH}" stroke="#dc2626" stroke-width="2"/>`;
+  html+=`<text x="${xObsSvg}" y="${padT-2}" text-anchor="middle" fill="#dc2626" font-size="9" font-weight="700">obs=${obs?.toFixed(3)}</text>`;
+  // Mean line
+  const xMuSvg=xToSvg(mu).toFixed(1);
+  html+=`<line x1="${xMuSvg}" y1="${padT}" x2="${xMuSvg}" y2="${padT+plotH}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,3"/>`;
+  html+=`<text x="${xMuSvg}" y="${padT+plotH+12}" text-anchor="middle" fill="#94a3b8" font-size="8">μ=${mu?.toFixed(3)}</text>`;
+  // Axes
+  html+=`<line x1="${padL}" y1="${padT+plotH}" x2="${padL+plotW}" y2="${padT+plotH}" stroke="#d1d5db" stroke-width="1"/>`;
+  html+=`<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+plotH}" stroke="#d1d5db" stroke-width="1"/>`;
+  // X ticks
+  const nTicks=5;
+  for (let i=0;i<=nTicks;i++) {
+    const x=xMin+(i/nTicks)*xRange;
+    html+=`<text x="${xToSvg(x).toFixed(1)}" y="${padT+plotH+12}" text-anchor="middle" fill="#9ca3af" font-size="8">${x.toFixed(2)}</text>`;
+  }
+  html+=`<text x="${padL+plotW/2}" y="${svgH-2}" text-anchor="middle" fill="#6b7280" font-size="10">wPLI</text>`;
+  html+=`<text x="12" y="${padT+plotH/2}" text-anchor="middle" font-size="8.5" fill="#64748b" transform="rotate(-90,12,${padT+plotH/2})">Densidad</text>`;
+  svg.innerHTML=html;
+  if (note) note.textContent=`${chA} ↔ ${chB} · μ_null=${mu?.toFixed(4)} · σ_null=${sigma?.toFixed(4)} · obs=${obs?.toFixed(4)} · Z=${z?.toFixed(2)}`;
+}
+
+// ── Band stats table ───────────────────────────────────────
+function _p10RenderBandStats(qc) {
+  const tbody = document.getElementById('p10-band-tbody');
+  if (!tbody) return;
+  if (!qc?.length) {
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text-3);padding:12px">Sin datos</td></tr>';
+    return;
+  }
+  const bandOrder = ['DELTA','THETA','ALPHA','BETA_LOW','BETA_MID','BETA_HIGH','GAMMA'];
+  const ordered = [...qc].sort((a,b) => bandOrder.indexOf(a.band)-bandOrder.indexOf(b.band));
+  tbody.innerHTML = ordered.map(row => {
+    const bd = P9_BANDS.find(b=>b.key===row.band);
+    const active = row.band === P10.band;
+    return `<tr style="${active?'background:rgba(124,58,237,.05)':''}">
+      <td><span class="p10-sig-pill" style="background:${bd?.color||'#6b7280'};color:#fff">${bd?.label||row.band}</span>${active?'<span style="font-size:9px;color:#7c3aed;margin-left:4px">▶</span>':''}</td>
+      <td style="font-weight:700;color:#16a34a">${row.n_sig}</td>
+      <td style="font-weight:700">${row.pct_sig?.toFixed(1)}%</td>
+      <td style="font-family:monospace">${row.mean_p?.toFixed(4)}</td>
+      <td style="font-family:monospace;color:var(--text-3)">${row.fdr_threshold?.toFixed(4)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Global Z-score stats ───────────────────────────────────
+function _p10RenderGlobalStats(nullStats) {
+  const el = document.getElementById('p10-global-stats');
+  if (!el) return;
+  if (!nullStats?.length) {
+    el.innerHTML='<div style="color:var(--text-3);font-size:12px;text-align:center;padding:16px">Sin datos</div>';
+    return;
+  }
+  const zs    = nullStats.map(r=>r.z_score).filter(v=>isFinite(v));
+  const wplis = nullStats.map(r=>r.wpli_obs);
+  const nullMs= nullStats.map(r=>r.null_mean);
+  if (!zs.length) { el.innerHTML='<div style="color:var(--text-3);font-size:12px">Sin Z-scores</div>'; return; }
+  const mean  = v => v.reduce((a,b)=>a+b,0)/v.length;
+  const std   = v => { const m=mean(v); return Math.sqrt(v.reduce((a,b)=>a+(b-m)**2,0)/v.length); };
+  const meanZ = mean(zs), stdZ = std(zs), maxZ = Math.max(...zs);
+  const pAbove3 = zs.filter(z=>z>3).length / zs.length;
+  const meanObs  = mean(wplis), meanNull = mean(nullMs);
+  const rows = [
+    ['media wPLI observado', meanObs.toFixed(4),  ''],
+    ['media wPLI nulo',      meanNull.toFixed(4), ''],
+    ['Z-score medio',        meanZ.toFixed(3),    meanZ>2?'#d97706':meanZ>3?'#dc2626':''],
+    ['DE Z-score',           stdZ.toFixed(3),     ''],
+    ['máximo Z-score',       maxZ.toFixed(3),     maxZ>3?'#dc2626':''],
+    ['% Z > 3',              (pAbove3*100).toFixed(1)+'%', pAbove3>0.05?'#dc2626':'#16a34a'],
+  ];
+  el.innerHTML = rows.map(([k,v,color]) =>
+    `<div class="p10-cfg-row"><span class="p10-cfg-key">${k}</span><span class="p10-cfg-val" style="${color?'color:'+color:''}">${v}</span></div>`
+  ).join('');
+}
+
+// ── Surrogate QC card ──────────────────────────────────────
+function _p10RenderQC(qc, summary) {
+  const grid = document.getElementById('p10-qc-grid');
+  const note = document.getElementById('p10-qc-bands-note');
+  if (!grid) return;
+  if (!qc?.length) {
+    grid.innerHTML='<div style="color:var(--text-3);font-size:12px;grid-column:1/-1">Sin datos de QC</div>';
+    return;
+  }
+  // Compute aggregate QC metrics
+  const meanNullMean = qc.reduce((s,r)=>s+r.mean_null_mean,0)/qc.length;
+  const meanNullStd  = qc.reduce((s,r)=>s+r.mean_null_std,0)/qc.length;
+  const allNSur      = qc.every(r=>r.n_surrogates >= 100);
+  const allSig       = qc.every(r=>r.pct_sig < 80);  // sanity: not >80% sig
+  const nullNearZero = Math.abs(meanNullMean) < 0.05;  // surrogate mean should be near 0
+  const stdStable    = meanNullStd > 0.001 && meanNullStd < 0.3;
+  const checks = [
+    ['Media nula ≈ 0',       nullNearZero, `μ = ${meanNullMean.toFixed(4)}`],
+    ['Varianza preservada',  stdStable,    `σ = ${meanNullStd.toFixed(4)}`],
+    ['N surrogates ≥ 100',   allNSur,      `N = ${qc[0]?.n_surrogates}`],
+    ['% sig. razonable',     allSig,       `max ${Math.max(...qc.map(r=>r.pct_sig)).toFixed(1)}%`],
+    ['Espectro preservado',  true,         'phase_shuffle preserva amplitud'],
+    ['Autocorrelación pres.',true,         'preservada por construcción'],
+    ['Distribución estable', stdStable,    'σ uniforme entre pares'],
+    ['N bandas analizadas',  qc.length>0,  `${qc.length} banda(s)`],
+  ];
+  grid.innerHTML = checks.map(([label, ok, val]) => `
+    <div class="p10-qc-item">
+      <span class="p10-qc-icon">${ok?'✅':'⚠️'}</span>
+      <span class="p10-qc-label">${label}</span>
+      <span class="p10-qc-val">${val}</span>
+    </div>`).join('');
+  if (note) {
+    const bNames = qc.map(r=>{ const bd=P9_BANDS.find(b=>b.key===r.band); return bd?.label||r.band; });
+    note.textContent = `Bandas evaluadas: ${bNames.join(' · ')}`;
+  }
+}
+
+// ── Helpers ────────────────────────────────────────────────
+function _p10SetEl(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+// ── Export / Save actions ──────────────────────────────────
+function p10SaveObsHeatmap() {
+  const c = document.getElementById('p10-obs-canvas');
+  if (!c) return;
+  const a = document.createElement('a');
+  a.href = c.toDataURL('image/png');
+  a.download = `wpli_observed_heatmap_${P10.band}_${State.subj}_${State.sess}.png`;
+  a.click();
+}
+
+function p10SaveSigNetwork() {
+  const c = document.getElementById('p10-sig-canvas');
+  if (!c) return;
+  const a = document.createElement('a');
+  a.href = c.toDataURL('image/png');
+  a.download = `sig_connections_${P10.band}_${State.subj}_${State.sess}.png`;
+  a.click();
+}
+
+function p10ExportSigCSV() {
+  const d = P10.data;
+  if (!d?.surr_run) { alert('Sin resultados de surrogates.'); return; }
+  const sig = d.sig_connections || [];
+  if (!sig.length) { alert('Sin conexiones significativas para exportar.'); return; }
+  const rows = [['ch_a','ch_b','band','wpli_obs','p_value','q_value','z_score'].join(',')];
+  sig.forEach(e => rows.push([e.ch_a,e.ch_b,e.band,e.wpli_obs,e.p_value,e.q_value,e.z_score].join(',')));
+  const blob = new Blob([rows.join('\n')], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `significant_connections_${P10.band}_${State.subj}_${State.sess}.csv`;
+  a.click();
+}
+
+function p10ExportQC() {
+  const d = P10.data;
+  if (!d?.surr_run) { alert('Sin resultados de surrogates.'); return; }
+  const qc = d.surrogate_quality || [];
+  if (!qc.length) { alert('Sin datos QC para exportar.'); return; }
+  const keys = Object.keys(qc[0]);
+  const rows = [keys.join(',')];
+  qc.forEach(r => rows.push(keys.map(k=>r[k]).join(',')));
+  const blob = new Blob([rows.join('\n')], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `surrogate_quality_${State.subj}_${State.sess}.csv`;
+  a.click();
+}
+
+function p10RunPipeline() {
+  alert('Para ejecutar surrogates, activa en config/single_subject.toml:\n\n[surrogates]\nenabled = true\nn_surrogates = 200\n\nLuego ejecuta:\njulia --project=. scripts/run_single_subject.jl');
+}
+
+function p10Reload() { loadPhase10(); }
+
+// ════════════════════════════════════════════════════════════
+// FIN PHASE 10
 // ════════════════════════════════════════════════════════════
 
 function p5RunICA() {

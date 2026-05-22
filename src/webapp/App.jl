@@ -645,7 +645,8 @@ function launch_webapp(cfg::PipelineConfig;
             "7"  => fe("pipeline_log.txt") ? "completed" : "pending",
             "8"  => fe("psd_by_channel.csv") ? "completed" : "pending",
             "9"  => fe("wpli_ALPHA.csv") ? "completed" : "pending",
-            "10" => "not_available",
+            "10" => fe("surrogate_summary.json") ? "completed" :
+                    fe("significant_connections.csv") ? "completed" : "pending",
             "11" => fe("band_power_summary.csv") ? "completed" : "pending",
             "12" => "pending",
         )
@@ -1957,6 +1958,232 @@ function launch_webapp(cfg::PipelineConfig;
             "edges"           => edges,
             "network_metrics" => network_metrics,
             "phase_timing"    => Dict("start"=>t_start,"end"=>t_end,"duration"=>t_dur),
+        ))
+    end
+
+    # ─── API: Fase 10 — Surrogates / Inferencia ──────────────
+    route("/api/phase10_surrogates") do
+        subj = string(get(getpayload(), :subj, "M05"))
+        sess = string(get(getpayload(), :sess, "T2"))
+        cond = _normalize_cond(string(get(getpayload(), :cond, "EC")))
+        band = string(get(getpayload(), :band, "ALPHA"))
+
+        res_base   = joinpath(bids_root, "sub-$(subj)", "ses-$(sess)", cond)
+        summ_path  = joinpath(res_base, "surrogate_summary.json")
+        sig_path   = joinpath(res_base, "significant_connections.csv")
+        qc_path    = joinpath(res_base, "surrogate_quality.csv")
+        null_path  = joinpath(res_base, "surrogate_null_stats_$(band).csv")
+        obs_path   = joinpath(res_base, "wpli_observed_$(band).csv")
+        pval_path  = joinpath(res_base, "wpli_pvalues_$(band).csv")
+        log_path   = joinpath(res_base, "pipeline_log.txt")
+
+        surr_run = isfile(summ_path) || isfile(sig_path)
+        if !surr_run
+            return json(Dict(
+                "ok"               => true,
+                "surr_run"         => false,
+                "summary"          => Dict{String,Any}(),
+                "matrix_obs"       => Dict("channels"=>String[],"values"=>Vector{Vector{Float64}}(),"band"=>band),
+                "sig_connections"  => Dict{String,Any}[],
+                "null_stats"       => Dict{String,Any}[],
+                "surrogate_quality"=> Dict{String,Any}[],
+                "pvalue_hist"      => Dict{String,Any}[],
+                "phase_timing"     => Dict("start"=>"","end"=>"","duration"=>""),
+            ))
+        end
+
+        # ── Parse surrogate_summary.json ──────────────────────────────────────
+        summary = Dict{String,Any}(
+            "method"        => "phase_shuffle",
+            "n_surrogates"  => 200,
+            "alpha"         => 0.05,
+            "fdr_method"    => "bh",
+            "seed"          => 42,
+            "n_channels"    => 0,
+            "n_total_pairs" => 0,
+            "n_sig_total"   => 0,
+            "timestamp"     => "",
+        )
+        if isfile(summ_path)
+            try
+                txt = read(summ_path, String)
+                for key in ["n_surrogates","seed","n_channels","n_total_pairs","n_sig_total"]
+                    m = match(Regex("\"$(key)\"\\s*:\\s*([0-9]+)"), txt)
+                    m !== nothing && (summary[key] = parse(Int, m.captures[1]))
+                end
+                for key in ["alpha"]
+                    m = match(Regex("\"$(key)\"\\s*:\\s*([0-9.eE+\\-]+)"), txt)
+                    m !== nothing && (summary[key] = parse(Float64, m.captures[1]))
+                end
+                for key in ["method","fdr_method","timestamp"]
+                    m = match(Regex("\"$(key)\"\\s*:\\s*\"([^\"]+)\""), txt)
+                    m !== nothing && (summary[key] = String(m.captures[1]))
+                end
+                # Per-band: BAND_n_sig, BAND_pct_sig, BAND_mean_p, BAND_fdr_thr
+                for bname in ["DELTA","THETA","ALPHA","BETA_LOW","BETA_MID","BETA_HIGH","GAMMA"]
+                    for stat in ["pct_sig","mean_p","fdr_thr"]
+                        key = "$(bname)_$(stat)"
+                        m = match(Regex("\"$(key)\"\\s*:\\s*([0-9.eE+\\-]+)"), txt)
+                        m !== nothing && (summary[key] = parse(Float64, m.captures[1]))
+                    end
+                    for stat in ["n_sig"]
+                        key = "$(bname)_$(stat)"
+                        m = match(Regex("\"$(key)\"\\s*:\\s*([0-9]+)"), txt)
+                        m !== nothing && (summary[key] = parse(Int, m.captures[1]))
+                    end
+                end
+            catch e
+                @warn "surrogate_summary.json parse error: $e"
+            end
+        end
+
+        # ── Parse significant_connections.csv ─────────────────────────────────
+        sig_connections = Dict{String,Any}[]
+        if isfile(sig_path)
+            try
+                df      = CSV.read(sig_path, DataFrame)
+                df_band = filter(r -> string(r.band) == band, df)
+                sort!(df_band, :q_value)
+                for row in eachrow(df_band[1:min(50,nrow(df_band)), :])
+                    push!(sig_connections, Dict{String,Any}(
+                        "ch_a"     => string(row.ch_a),
+                        "ch_b"     => string(row.ch_b),
+                        "band"     => string(row.band),
+                        "wpli_obs" => round(Float64(row.wpli_obs), digits=4),
+                        "p_value"  => round(Float64(row.p_value),  digits=4),
+                        "q_value"  => round(Float64(row.q_value),  digits=4),
+                        "z_score"  => round(Float64(row.z_score),  digits=3),
+                    ))
+                end
+            catch e
+                @warn "significant_connections.csv parse error: $e"
+            end
+        end
+
+        # ── Parse wpli_observed_{band}.csv ────────────────────────────────────
+        matrix_obs = Dict{String,Any}("channels"=>String[],"values"=>Vector{Vector{Float64}}(),"band"=>band)
+        if isfile(obs_path)
+            try
+                df  = CSV.read(obs_path, DataFrame)
+                chs = [string(row.channel) for row in eachrow(df)]
+                val_cols = [c for c in names(df) if c != "channel"]
+                vals = Vector{Vector{Float64}}()
+                for row in eachrow(df)
+                    push!(vals, [round(Float64(getproperty(row, Symbol(c))), digits=4) for c in val_cols])
+                end
+                matrix_obs = Dict{String,Any}("channels"=>chs,"values"=>vals,"band"=>band)
+            catch e
+                @warn "wpli_observed parse error for band=$(band): $e"
+            end
+        end
+
+        # ── Parse surrogate_null_stats_{band}.csv ─────────────────────────────
+        null_stats = Dict{String,Any}[]
+        if isfile(null_path)
+            try
+                df = CSV.read(null_path, DataFrame)
+                for row in eachrow(df)
+                    push!(null_stats, Dict{String,Any}(
+                        "ch_a"      => string(row.ch_a),
+                        "ch_b"      => string(row.ch_b),
+                        "wpli_obs"  => round(Float64(row.wpli_obs),   digits=4),
+                        "null_mean" => round(Float64(row.null_mean), digits=4),
+                        "null_std"  => round(Float64(row.null_std),  digits=4),
+                        "p_value"   => round(Float64(row.p_value),   digits=4),
+                        "q_value"   => round(Float64(row.q_value),   digits=4),
+                        "z_score"   => round(Float64(row.z_score),   digits=3),
+                    ))
+                end
+            catch e
+                @warn "surrogate_null_stats parse error: $e"
+            end
+        end
+
+        # ── Compute p-value histogram from wpli_pvalues_{band}.csv ───────────
+        pvalue_hist = Dict{String,Any}[]
+        if isfile(pval_path)
+            try
+                df       = CSV.read(pval_path, DataFrame)
+                val_cols = [c for c in names(df) if c != "channel"]
+                all_p    = Float64[]
+                for (i, row) in enumerate(eachrow(df))
+                    for (j, col) in enumerate(val_cols)
+                        j <= i && continue   # upper triangle only
+                        v = getproperty(row, Symbol(col))
+                        push!(all_p, Float64(v))
+                    end
+                end
+                n_bins = 20
+                bins   = zeros(Int, n_bins)
+                for p in all_p
+                    b = min(n_bins, max(1, ceil(Int, p * n_bins)))
+                    bins[b] += 1
+                end
+                for i in 1:n_bins
+                    push!(pvalue_hist, Dict{String,Any}(
+                        "lo" => round((i-1)/n_bins, digits=3),
+                        "hi" => round(i/n_bins, digits=3),
+                        "count" => bins[i],
+                    ))
+                end
+            catch e
+                @warn "p-value histogram error: $e"
+            end
+        end
+
+        # ── Parse surrogate_quality.csv ───────────────────────────────────────
+        surrogate_quality = Dict{String,Any}[]
+        if isfile(qc_path)
+            try
+                df = CSV.read(qc_path, DataFrame)
+                for row in eachrow(df)
+                    push!(surrogate_quality, Dict{String,Any}(
+                        "band"           => string(row.band),
+                        "n_surrogates"   => Int(row.n_surrogates),
+                        "n_sig"          => Int(row.n_sig),
+                        "n_total"        => Int(row.n_total),
+                        "pct_sig"        => round(Float64(row.pct_sig),        digits=2),
+                        "mean_p"         => round(Float64(row.mean_p),         digits=4),
+                        "fdr_threshold"  => round(Float64(row.fdr_threshold),  digits=4),
+                        "mean_null_mean" => round(Float64(row.mean_null_mean), digits=4),
+                        "mean_null_std"  => round(Float64(row.mean_null_std),  digits=4),
+                        "obs_mean"       => round(Float64(row.obs_mean),       digits=4),
+                        "obs_max"        => round(Float64(row.obs_max),        digits=4),
+                    ))
+                end
+            catch e
+                @warn "surrogate_quality.csv parse error: $e"
+            end
+        end
+
+        # ── Timing from log ───────────────────────────────────────────────────
+        t_start = ""; t_end = ""; t_dur = ""
+        if isfile(log_path)
+            try
+                txt = read(log_path, String)
+                for line in split(txt, '\n')
+                    if occursin("[SUR]", line) && isempty(t_start)
+                        m = match(r"\[(\d{2}:\d{2}:\d{2})\]", line)
+                        m !== nothing && (t_start = String(m.captures[1]))
+                    end
+                    if occursin("[8/8]", line) && isempty(t_end)
+                        m = match(r"\[(\d{2}:\d{2}:\d{2})\]", line)
+                        m !== nothing && (t_end = String(m.captures[1]))
+                    end
+                end
+            catch; end
+        end
+
+        json(Dict(
+            "ok"               => true,
+            "surr_run"         => true,
+            "summary"          => summary,
+            "matrix_obs"       => matrix_obs,
+            "sig_connections"  => sig_connections,
+            "null_stats"       => null_stats,
+            "surrogate_quality"=> surrogate_quality,
+            "pvalue_hist"      => pvalue_hist,
+            "phase_timing"     => Dict("start"=>t_start,"end"=>t_end,"duration"=>t_dur),
         ))
     end
 
