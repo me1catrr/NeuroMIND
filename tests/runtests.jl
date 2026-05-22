@@ -6,7 +6,8 @@
 using Test
 using NeuroMIND
 using Statistics
-using LinearAlgebra: diag
+using LinearAlgebra: diag, det, I
+using Random
 using DSP: digitalfilter, Bandstop, Highpass, Lowpass, Butterworth, freqresp
 
 # ─── Fixtures ─────────────────────────────────────────────────
@@ -474,6 +475,86 @@ end
     println("  ✓ BR 100 Hz:   < −40 dB en 100 Hz, > −1 dB en 60 Hz")
     println("  ✓ HP 0.5 Hz:   ≈ −6 dB efectivo en fc (filtfilt, ord.efect.8)")
     println("  ✓ LP 150 Hz:   ≈ −6 dB efectivo en fc (filtfilt, ord.efect.8)")
+end
+
+# ─── Tests de ICA — perfil eeg_julia y clasificación ─────────
+
+# Helper: reconstruye mock_config con un dict ica personalizado
+function _cfg_with_ica(ica_dict)
+    c = mock_config()
+    PipelineConfig(c.project, c.study, c.paths, c.recording, c.filtering,
+                   c.segmentation, c.baseline, c.artifact_rejection,
+                   ica_dict, c.spectral, c.bands, c.connectivity,
+                   c.surrogates, c.graph, c.clinical, c.longitudinal,
+                   c.statistics, c.export_cfg, c.root)
+end
+
+@testset "ICA_EEGJulia_Profile" begin
+    n_ch = 8
+    rec  = mock_recording(n_ch, 2000, 500.0)
+    cfg  = _cfg_with_ica(Dict{String,Any}("profile" => "eeg_julia",
+                                           "max_iter" => 512, "tol" => 1e-7, "seed" => 1234))
+    ica  = run_ica(rec, cfg)
+
+    # eeg_julia profile → n_comp must equal n_channels → square matrices
+    A = ica.mixing_matrix
+    W = ica.unmixing_matrix
+    @test size(A) == (n_ch, n_ch)
+    @test size(W) == (n_ch, n_ch)
+
+    # A = inv(W_total) → A * W ≈ I (not just pseudoinverse)
+    @test A * W ≈ Matrix(I, n_ch, n_ch) atol=1e-8
+end
+
+@testset "ICA_Features" begin
+    fs     = 500.0
+    n_ch   = 10
+    n_ic   = 10
+    n_s    = 3000
+    rng    = Random.MersenneTwister(99)
+    A_mat  = randn(rng, n_ch, n_ic)
+    S_mat  = randn(rng, n_ic, n_s)
+    cnames = ["Fp1","Fp2","F3","F4","Fz","C3","C4","T7","T8","Oz"]
+
+    feat = compute_ica_features(A_mat, S_mat, fs, cnames)
+
+    # DataFrame has all 7 required feature columns
+    for col in [:frontal_ratio,:temporal_ratio,:blink_ratio,:emg_ratio,
+                :line_ratio,:kurtosis,:extreme_frac]
+        @test hasproperty(feat, col)
+    end
+    @test size(feat, 1) == n_ic
+
+    # All feature values are finite
+    for col in [:frontal_ratio,:temporal_ratio,:blink_ratio,:emg_ratio,
+                :line_ratio,:kurtosis,:extreme_frac]
+        @test all(isfinite, feat[!, col])
+    end
+
+    eval_df = evaluate_ica_components(feat; artifact_thresh=1.5)
+
+    # evaluate adds score and label columns
+    @test hasproperty(eval_df, :artifact_type)
+    @test hasproperty(eval_df, :artifact_score)
+    @test hasproperty(eval_df, :ocular_score)
+    @test hasproperty(eval_df, :muscle_score)
+    @test size(eval_df, 1) == n_ic
+
+    # All labels belong to the known set
+    valid = Set(["brain","eye/blink","muscle","line_noise","jump","unknown"])
+    @test all(l -> l in valid, eval_df.artifact_type)
+end
+
+@testset "ICA_EEGJulia_Reproducibility" begin
+    n_ch = 6
+    rec  = mock_recording(n_ch, 1500, 500.0)
+    cfg  = _cfg_with_ica(Dict{String,Any}("profile" => "eeg_julia",
+                                           "max_iter" => 512, "tol" => 1e-7, "seed" => 1234))
+    ica1 = run_ica(rec, cfg)
+    ica2 = run_ica(rec, cfg)
+
+    # Same seed (fixed in eeg_julia profile) → identical mixing matrix
+    @test ica1.mixing_matrix ≈ ica2.mixing_matrix atol=1e-10
 end
 
 println("\n✅ Todos los tests completados")

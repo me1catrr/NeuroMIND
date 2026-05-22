@@ -69,7 +69,15 @@ function load_ss_config(path::String)::PipelineConfig
             "gradient_threshold_uv"  => Float64(get(ar, "gradient_threshold_uv",   50.0)),
             "enabled"                => Bool(get(ar,  "enabled", true)),
         ),
-        Dict{String,Any}("n_components" => 30, "method" => "fastica"),
+        Dict{String,Any}(
+            "profile"            => String(get(get(raw, "ica", Dict()), "profile", "default")),
+            "n_components"       => get(get(raw, "ica", Dict()), "n_components", 30),
+            "method"             => "fastica",
+            "max_iter"           => Int(get(get(raw, "ica", Dict()), "max_iter", 500)),
+            "tol"                => Float64(get(get(raw, "ica", Dict()), "tol", 1e-5)),
+            "seed"               => Int(get(get(raw, "ica", Dict()), "seed", 42)),
+            "artifact_threshold" => Float64(get(get(raw, "ica", Dict()), "artifact_threshold", 1.5)),
+        ),
         Dict{String,Any}(
             "nfft"       => Int(get(sp, "nfft", 512)),
             "window_pct" => Float64(get(sp, "window_pct", 10.0)),
@@ -815,6 +823,38 @@ function _save_ica_results(
 )
     n_comp  = size(ica.activations, 1)
     var_pct = clamp.(ica.variance_explained .* 100.0, 0.0, 100.0)
+    fs      = rec_before.meta.fs
+
+    # ── Clasificación automática de componentes ───────────────
+    artifact_thresh = 1.5
+    feat_df = DataFrame()
+    eval_df = DataFrame()
+    try
+        feat_df = compute_ica_features(
+            Float64.(ica.mixing_matrix),
+            Float64.(ica.activations),
+            fs,
+            rec_before.meta.channel_names
+        )
+        eval_df = evaluate_ica_components(feat_df; artifact_thresh=artifact_thresh)
+        CSV.write(joinpath(export_dir, "ica_component_features.csv"), eval_df)
+        _log(log_io, "  Guardado: ica_component_features.csv")
+    catch e
+        @warn "Clasificación ICA falló: $e"
+    end
+
+    # Resuelve artifact_type por componente (desde clasificación o fallback)
+    artifact_types = if !isempty(eval_df) && hasproperty(eval_df, :artifact_type)
+        String.(eval_df.artifact_type)
+    else
+        ["unknown" for _ in 1:n_comp]
+    end
+    # Componentes ya marcados en rejected_components → forzar etiqueta coherente
+    for i in ica.rejected_components
+        if 1 ≤ i ≤ length(artifact_types) && artifact_types[i] == "brain"
+            artifact_types[i] = "unknown"
+        end
+    end
 
     # ── Tabla de componentes ──────────────────────────────────
     df = DataFrame(
@@ -822,16 +862,47 @@ function _save_ica_results(
         variance_pct  = round.(var_pct, digits=2),
         rejected      = [i ∈ ica.rejected_components for i in 1:n_comp],
         label         = ["IC$(i)" for i in 1:n_comp],
-        artifact_type = ["unknown" for _ in 1:n_comp],
+        artifact_type = artifact_types,
     )
     CSV.write(joinpath(export_dir, "ica_components.csv"), df)
     _log(log_io, "  Guardado: ica_components.csv")
+
+    # ── Matrices de mezcla / desmezcla ───────────────────────
+    ch_names = rec_before.meta.channel_names
+    mix_df = DataFrame(ica.mixing_matrix,
+                       [Symbol("IC$(i)") for i in 1:n_comp])
+    mix_df[!, :channel] = ch_names
+    select!(mix_df, :channel, Not(:channel))
+    CSV.write(joinpath(export_dir, "ica_mixing_matrix.csv"), mix_df)
+
+    unmix_df = DataFrame(ica.unmixing_matrix,
+                         [Symbol(c) for c in ch_names])
+    unmix_df[!, :IC] = ["IC$(i)" for i in 1:n_comp]
+    select!(unmix_df, :IC, Not(:IC))
+    CSV.write(joinpath(export_dir, "ica_unmixing_matrix.csv"), unmix_df)
+    _log(log_io, "  Guardado: ica_mixing_matrix.csv + ica_unmixing_matrix.csv")
+
+    # ── Topomaps por componente ───────────────────────────────
+    n_topo = 0
+    figs_dir = joinpath(export_dir, "figures")
+    mkpath(figs_dir)
+    if rec_before.meta.ch_pos !== nothing
+        n_topo = _save_ica_topomaps(ica, rec_before, figs_dir, log_io)
+    else
+        _log(log_io, "  Topomaps: sin posiciones de electrodos, omitido")
+    end
 
     # ── Resumen JSON ──────────────────────────────────────────
     n_rej   = length(ica.rejected_components)
     var_rej = sum(var_pct[i] for i in ica.rejected_components; init=0.0)
     var_ret = round(100.0 - var_rej, digits=1)
     ts      = Dates.format(now(), "yyyy-mm-ddTHH:MM:SS")
+
+    # Conteo de tipos de artefacto
+    type_counts = Dict{String,Int}()
+    for t in artifact_types; type_counts[t] = get(type_counts, t, 0) + 1; end
+    type_json = join(["\"$(k)\": $(v)" for (k,v) in type_counts], ", ")
+
     open(joinpath(export_dir, "ica_summary.json"), "w") do f
         write(f, """{
   "n_components": $(n_comp),
@@ -839,7 +910,10 @@ function _save_ica_results(
   "n_accepted": $(n_comp - n_rej),
   "variance_retained": $(var_ret),
   "timestamp": "$(ts)",
-  "duration_s": $(duration_s)
+  "duration_s": $(duration_s),
+  "artifact_types": {$(type_json)},
+  "n_topomaps": $(n_topo),
+  "has_features": $((!isempty(eval_df)))
 }""")
     end
     _log(log_io, "  Guardado: ica_summary.json")
@@ -867,6 +941,38 @@ function _save_ica_results(
         CSV.write(joinpath(export_dir, "ica_signal_$(label).csv"), sdf)
     end
     _log(log_io, "  Guardado: ica_signal_before.csv + ica_signal_after.csv")
+end
+
+function _save_ica_topomaps(
+    ica::ICAResult,
+    rec::EEGRecording,
+    figs_dir::String,
+    log_io::IO
+)::Int
+    ch_pos   = rec.meta.ch_pos
+    ch_names = rec.meta.channel_names
+    n_comp   = size(ica.mixing_matrix, 2)
+    n_saved  = 0
+
+    for ic in 1:n_comp
+        weights = Float64.(ica.mixing_matrix[:, ic])
+        fname   = "ica_topomap_$(lpad(ic, 3, '0')).png"
+        fpath   = joinpath(figs_dir, fname)
+        try
+            clim_val = maximum(abs.(weights))
+            clim_val == 0.0 && (clim_val = 1.0)
+            fig = plot_topomap(weights, ch_names, ch_pos;
+                               title    = "IC $(lpad(ic, 3, '0'))",
+                               colormap = :RdBu_r,
+                               clims    = (-clim_val, clim_val))
+            CairoMakie.save(fpath, fig)
+            n_saved += 1
+        catch e
+            @warn "Topomap IC$ic falló: $e"
+        end
+    end
+    _log(log_io, "  Topomaps: $(n_saved)/$(n_comp) guardados en figures/")
+    return n_saved
 end
 
 function _save_config_snapshot(config_path::String, export_dir::String)

@@ -1009,6 +1009,25 @@ tr.row-warn:hover td { background: #fef9c3; }
 .p5-comp-sel { padding:4px 8px; border:1px solid var(--border); border-radius:6px; font-size:11px; background:var(--bg-1); cursor:pointer; }
 .p5-legend-item { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-2); margin-bottom:5px; }
 .p5-legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+/* ── Phase 5 — Topomaps & Features ──────────────────────── */
+.p5-topo-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:4px; }
+.p5-topo-cell { display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px; background:var(--bg-2); border-radius:8px; border:1px solid var(--border); cursor:pointer; transition:border-color .15s; }
+.p5-topo-cell:hover { border-color:#7c3aed; }
+.p5-topo-img  { width:100%; aspect-ratio:1/1; object-fit:contain; border-radius:6px; background:#f1f5f9; }
+.p5-topo-ph   { width:100%; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; background:#f1f5f9; border-radius:6px; font-size:11px; color:var(--text-3); flex-direction:column; gap:3px; }
+.p5-topo-lbl  { font-size:11px; font-weight:700; color:var(--text-1); }
+.p5-topo-sub  { font-size:9.5px; color:var(--text-3); }
+.p5-topo-page { display:flex; align-items:center; justify-content:center; gap:12px; padding:8px 0 2px; }
+.p5-topo-btn  { padding:4px 12px; border:1px solid var(--border); border-radius:6px; background:var(--bg-2); cursor:pointer; font-size:11px; }
+.p5-topo-btn:hover { background:#ede9fe; color:#7c3aed; border-color:#7c3aed; }
+.p5-topo-btn:disabled { opacity:.4; cursor:default; }
+.p5-feat-table { width:100%; border-collapse:collapse; font-size:11px; }
+.p5-feat-table th { background:var(--bg-3); color:var(--text-3); font-weight:600; text-align:left; padding:5px 8px; position:sticky; top:0; z-index:1; }
+.p5-feat-table td { padding:4px 8px; border-bottom:1px solid var(--border); font-family:monospace; font-size:10.5px; }
+.p5-feat-table tr:hover td { background:rgba(124,58,237,.04); }
+.p5-profile-badge { display:inline-flex; align-items:center; gap:4px; padding:2px 9px; border-radius:10px; font-size:10px; font-weight:700; }
+.p5-profile-eeg-julia { background:#ede9fe; color:#7c3aed; border:1px solid #c4b5fd; }
+.p5-profile-default   { background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1; }
 /* ── Phase 6 — Segmentación ─────────────────────────────── */
 .grid-p6-top  { display:grid; grid-template-columns:0.95fr 0.95fr 1.7fr 0.9fr; gap:12px; margin-bottom:14px; }
 .grid-p6-mid  { display:grid; grid-template-columns:1.9fr 1fr 1.1fr 0.85fr; gap:12px; margin-bottom:14px; }
@@ -2129,6 +2148,60 @@ tr.row-warn:hover td { background: #fef9c3; }
     <!-- ─── Contenido completo (visible solo cuando ica_run=true) ─── -->
     <div id="p5-content-block" style="display:none">
 
+      <!-- Topomaps de componentes ICA -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">
+          Topomaps de Componentes ICA
+          <span id="p5-topo-profile-badge" class="p5-profile-badge p5-profile-default">FastICA</span>
+          <span class="header-badge" id="p5-topo-count">—</span>
+        </div>
+        <div class="card-body" style="padding:10px">
+          <div id="p5-topo-placeholder" style="display:none;padding:20px;text-align:center">
+            <div style="font-size:36px;opacity:.25">🗺</div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:6px">No hay topomaps generados</div>
+            <div style="font-size:11px;color:var(--text-3);margin-top:3px">Se generan automáticamente cuando hay posiciones de electrodos en el BIDS</div>
+          </div>
+          <div id="p5-topo-grid" class="p5-topo-grid"></div>
+          <div class="p5-topo-page" id="p5-topo-pager" style="display:none">
+            <button class="p5-topo-btn" id="p5-topo-prev" onclick="p5TopoPage(-1)">← Ant</button>
+            <span id="p5-topo-page-lbl" style="font-size:12px;color:var(--text-2)">Pág 1 / 1</span>
+            <button class="p5-topo-btn" id="p5-topo-next" onclick="p5TopoPage(1)">Sig →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Features de clasificación ICA -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">
+          Features de clasificación ICA
+          <span class="header-badge" id="p5-feat-count">—</span>
+        </div>
+        <div id="p5-feat-spinner" style="padding:14px;text-align:center">
+          <div class="spinner"><div class="spin-circle"></div></div>
+        </div>
+        <div id="p5-feat-placeholder" style="display:none;padding:16px;text-align:center;color:var(--text-3);font-size:12px">
+          No hay features de clasificación · Ejecuta el pipeline para generarlos
+        </div>
+        <div style="max-height:240px;overflow-y:auto;display:none" id="p5-feat-table-wrap">
+          <table class="p5-feat-table">
+            <thead>
+              <tr>
+                <th>IC</th>
+                <th>Frontal</th>
+                <th>Temporal</th>
+                <th>Blink</th>
+                <th>EMG</th>
+                <th>Línea</th>
+                <th>Kurtosis</th>
+                <th>Tipo</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody id="p5-feat-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Fila 3: Tabla de componentes + Donut resumen -->
       <div class="grid-p5-wide">
 
@@ -2869,6 +2942,7 @@ const API = {
   bandPower:      (s, se, c)       => API.get(`/api/bids/band_power?subj=${s}&sess=${se}&cond=${c}`),
   phase2Info:     (s, se, c)       => API.get(`/api/phase2_info?subj=${s}&sess=${se}&cond=${c}`),
   phase5IcaInfo:  (s, se, c)       => API.get(`/api/phase5_ica_info?subj=${s}&sess=${se}&cond=${c}`),
+  icaFeatures:    (s, se, c)       => API.get(`/api/ica_features?subj=${s}&sess=${se}&cond=${c}`),
   phase6Seg:      (s, se, c)       => API.get(`/api/phase6_segmentation?subj=${s}&sess=${se}&cond=${c}`),
   phase7AR:       (s, se, c)       => API.get(`/api/phase7_ar?subj=${s}&sess=${se}&cond=${c}`),
   icaActivation:  (s, se, c, comp) => API.get(`/api/ica_activation?subj=${s}&sess=${se}&cond=${c}&comp=${comp}`),
@@ -6500,9 +6574,11 @@ async function loadPhase5() {
   renderP5DonutSvg();
   renderP5ArtifactSummary();
   renderP5QualityMetrics();
+  renderP5TopoGrid();
   _buildP5CompSelector();
   await p5OnCompChange();
   await p5LoadBASignals();
+  await p5LoadFeatures();
 
   const summ = State.p5Info.summary || {};
   if (chip) {
@@ -6970,6 +7046,143 @@ function _p5TypeLabel(type) {
   if (t.includes('noise'))                                               return '〜 Ruido';
   if (!t || t === 'unknown')                                             return '? Desconocido';
   return type;
+}
+
+// ── Phase 5: Topomap grid ────────────────────────────────────
+
+const _p5TopoState = { page: 0, perPage: 6 };
+
+function renderP5TopoGrid() {
+  const comps   = State.p5Info?.components || [];
+  const cfg     = State.p5Info?.ica_config || {};
+  const summ    = State.p5Info?.summary    || {};
+
+  // Profile badge
+  const badge = document.getElementById('p5-topo-profile-badge');
+  if (badge) {
+    const isEJ = cfg.eeg_julia_compatible || cfg.profile === 'eeg_julia';
+    badge.className = 'p5-profile-badge ' + (isEJ ? 'p5-profile-eeg-julia' : 'p5-profile-default');
+    badge.textContent = isEJ ? '★ eeg_julia' : 'default';
+  }
+
+  // Collect topomap-bearing components
+  const withTopo = comps.filter(c => c.topomap_url);
+  const nTopo    = summ.n_topomaps ?? withTopo.length;
+  const countEl  = document.getElementById('p5-topo-count');
+  if (countEl) countEl.textContent = String(nTopo);
+
+  const grid    = document.getElementById('p5-topo-grid');
+  const ph      = document.getElementById('p5-topo-placeholder');
+  const pager   = document.getElementById('p5-topo-pager');
+
+  if (!grid) return;
+
+  if (!withTopo.length) {
+    grid.style.display = 'none';
+    if (ph)    { ph.style.display    = '';      }
+    if (pager) { pager.style.display = 'none';  }
+    return;
+  }
+
+  if (ph) ph.style.display = 'none';
+  grid.style.display = '';
+  _p5TopoState.page = 0;
+  _p5RenderTopoPage(comps);
+}
+
+function _p5RenderTopoPage(comps) {
+  comps = comps || State.p5Info?.components || [];
+  const withTopo = comps.filter(c => c.topomap_url);
+  const { page, perPage } = _p5TopoState;
+  const totalPages = Math.ceil(withTopo.length / perPage);
+  const slice = withTopo.slice(page * perPage, (page + 1) * perPage);
+
+  const grid  = document.getElementById('p5-topo-grid');
+  const pager = document.getElementById('p5-topo-pager');
+  const pageLbl = document.getElementById('p5-topo-page-lbl');
+  const prevBtn = document.getElementById('p5-topo-prev');
+  const nextBtn = document.getElementById('p5-topo-next');
+
+  if (!grid) return;
+
+  grid.innerHTML = slice.map(c => {
+    const tagCls = _p5TagClass(c.type);
+    const lbl    = _p5TypeLabel(c.type);
+    return `<div class="p5-topo-cell" title="IC ${c.index} · ${lbl}">
+      <img class="p5-topo-img" src="${c.topomap_url}" alt="IC ${c.index} topomap"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <div class="p5-topo-ph" style="display:none"><span style="font-size:18px;opacity:.3">🗺</span><span>Sin imagen</span></div>
+      <div class="p5-topo-lbl">IC ${String(c.index).padStart(3,'0')}</div>
+      <span class="p5-tag ${tagCls} p5-topo-sub">${lbl}</span>
+      <div class="p5-topo-sub">${(c.variance_pct ?? 0).toFixed(2)}%${c.rejected ? ' · ✗' : ''}</div>
+    </div>`;
+  }).join('');
+
+  if (totalPages > 1) {
+    if (pager)   pager.style.display = '';
+    if (pageLbl) pageLbl.textContent = `Pág ${page + 1} / ${totalPages}`;
+    if (prevBtn) prevBtn.disabled = page === 0;
+    if (nextBtn) nextBtn.disabled = page >= totalPages - 1;
+  } else {
+    if (pager) pager.style.display = 'none';
+  }
+}
+
+function p5TopoPage(delta) {
+  const comps    = State.p5Info?.components || [];
+  const withTopo = comps.filter(c => c.topomap_url);
+  const total    = Math.ceil(withTopo.length / _p5TopoState.perPage);
+  _p5TopoState.page = Math.max(0, Math.min(_p5TopoState.page + delta, total - 1));
+  _p5RenderTopoPage(comps);
+}
+
+// ── Phase 5: Features table ──────────────────────────────────
+
+async function p5LoadFeatures() {
+  const spinner = document.getElementById('p5-feat-spinner');
+  const wrap    = document.getElementById('p5-feat-table-wrap');
+  const ph      = document.getElementById('p5-feat-placeholder');
+  if (spinner) spinner.style.display = '';
+  if (wrap)    wrap.style.display    = 'none';
+  if (ph)      ph.style.display      = 'none';
+
+  const r = await API.icaFeatures(State.subj, State.sess, State.cond);
+  if (spinner) spinner.style.display = 'none';
+
+  if (!r.ok || !r.rows || !r.rows.length) {
+    if (ph) ph.style.display = '';
+    return;
+  }
+  renderP5FeaturesTable(r.rows);
+}
+
+function renderP5FeaturesTable(rows) {
+  const wrap  = document.getElementById('p5-feat-table-wrap');
+  const tbody = document.getElementById('p5-feat-tbody');
+  const badge = document.getElementById('p5-feat-count');
+  if (badge) badge.textContent = String(rows.length);
+  if (!tbody || !wrap) return;
+
+  const comps = State.p5Info?.components || [];
+  tbody.innerHTML = rows.map(row => {
+    const idx   = parseInt(row.component) || 0;
+    const comp  = comps.find(c => c.index === idx) || {};
+    const type  = row.artifact_type || comp.type || 'unknown';
+    const score = parseFloat(row.artifact_score ?? 0).toFixed(2);
+    const tagCls = _p5TagClass(type);
+    return `<tr>
+      <td style="font-weight:700;color:#7c3aed">IC ${idx}</td>
+      <td>${parseFloat(row.frontal_ratio  ?? 0).toFixed(3)}</td>
+      <td>${parseFloat(row.temporal_ratio ?? 0).toFixed(3)}</td>
+      <td>${parseFloat(row.blink_ratio    ?? 0).toFixed(3)}</td>
+      <td>${parseFloat(row.emg_ratio      ?? 0).toFixed(3)}</td>
+      <td>${parseFloat(row.line_ratio     ?? 0).toFixed(4)}</td>
+      <td>${parseFloat(row.kurtosis       ?? 0).toFixed(2)}</td>
+      <td><span class="p5-tag ${tagCls}">${_p5TypeLabel(type)}</span></td>
+      <td style="font-weight:700">${score}</td>
+    </tr>`;
+  }).join('');
+  wrap.style.display = '';
 }
 
 // ════════════════════════════════════════════════════════════

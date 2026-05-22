@@ -970,17 +970,21 @@ function launch_webapp(cfg::PipelineConfig;
         summ_path = joinpath(res_base, "ica_summary.json")
         log_path  = joinpath(res_base, "pipeline_log.txt")
 
-        n_comp_cfg = Int(get(cfg.ica, "n_components", 30))
-        method_cfg = string(get(cfg.ica, "method", "fastica"))
+        profile_cfg  = string(get(cfg.ica, "profile", "default"))
+        n_comp_cfg   = Int(get(cfg.ica, "n_components", 30))
+        method_cfg   = string(get(cfg.ica, "method", "fastica"))
+        is_eeg_julia = profile_cfg == "eeg_julia"
 
         ica_config = Dict(
-            "n_components" => n_comp_cfg,
+            "profile"      => profile_cfg,
+            "n_components" => is_eeg_julia ? "n_channels" : n_comp_cfg,
             "method"       => uppercase(method_cfg),
-            "algorithm"    => "PCA whitening + FastICA",
+            "algorithm"    => "PCA whitening + FastICA simétrico",
             "library"      => "LinearAlgebra (Julia puro)",
-            "max_iter"     => 500,
-            "tol"          => 1e-5,
-            "seed"         => 42,
+            "max_iter"     => is_eeg_julia ? 512 : Int(get(cfg.ica, "max_iter", 500)),
+            "tol"          => is_eeg_julia ? 1e-7 : Float64(get(cfg.ica, "tol", 1e-5)),
+            "seed"         => is_eeg_julia ? 1234 : Int(get(cfg.ica, "seed", 42)),
+            "eeg_julia_compatible" => is_eeg_julia,
         )
 
         if !isfile(comp_path)
@@ -1002,48 +1006,69 @@ function launch_webapp(cfg::PipelineConfig;
             ))
         end
 
+        # ── Componentes desde ica_components.csv ─────────────────
         components = Dict{String,Any}[]
+        figs_dir   = joinpath(res_base, "figures")
         try
             df = CSV.read(comp_path, DataFrame)
             for row in eachrow(df)
+                ic_idx = Int(get(row, :component, get(row, :index, 0)))
+                # Buscar topomap correspondiente
+                topo_name = "ica_topomap_$(lpad(ic_idx, 3, '0')).png"
+                topo_url  = isfile(joinpath(figs_dir, topo_name)) ?
+                            "/results/figures/sub-$(subj)/ses-$(sess)/$(cond)/$(topo_name)" : ""
                 push!(components, Dict{String,Any}(
-                    "index"        => Int(get(row, :component, get(row, :index, 0))),
+                    "index"        => ic_idx,
                     "label"        => string(get(row, :label, "IC")),
                     "type"         => string(get(row, :artifact_type, get(row, :type, "unknown"))),
                     "variance_pct" => round(Float64(get(row, :variance_pct,
                                                         get(row, :variance, 0.0))), digits=2),
                     "rejected"     => Bool(get(row, :rejected, false)),
+                    "topomap_url"  => topo_url,
                 ))
             end
         catch e
             @warn "ICA components CSV parse error: $e"
         end
 
+        # ── Métricas de resumen ───────────────────────────────
         n_rej   = count(c -> Bool(get(c, "rejected", false)), components)
         n_acc   = length(components) - n_rej
         var_rej = sum(c -> Bool(get(c, "rejected", false)) ?
                              Float64(get(c, "variance_pct", 0.0)) : 0.0,
                      components; init=0.0)
-        var_ret = round(100.0 - var_rej, digits=1)
-        run_ts  = ""; run_dur = 0.0
+        var_ret     = round(100.0 - var_rej, digits=1)
+        run_ts      = ""; run_dur = 0.0
+        has_feat    = false; n_topo = 0; has_summ = false
+        artifact_types_count = Dict{String,Int}()
         if isfile(summ_path)
+            has_summ = true
             try
                 txt   = read(summ_path, String)
                 m_ts  = match(r"\"timestamp\"\s*:\s*\"([^\"]+)\"", txt)
                 m_dur = match(r"\"duration_s\"\s*:\s*([0-9.eE+\-]+)", txt)
-                if m_ts  !== nothing; run_ts  = String(m_ts.captures[1]); end
-                if m_dur !== nothing; run_dur = parse(Float64, m_dur.captures[1]); end
+                m_feat= match(r"\"has_features\"\s*:\s*(true|false)", txt)
+                m_top = match(r"\"n_topomaps\"\s*:\s*(\d+)", txt)
+                if m_ts   !== nothing; run_ts  = String(m_ts.captures[1]); end
+                if m_dur  !== nothing; run_dur = parse(Float64, m_dur.captures[1]); end
+                if m_feat !== nothing; has_feat = m_feat.captures[1] == "true"; end
+                if m_top  !== nothing; n_topo  = parse(Int, m_top.captures[1]); end
             catch; end
         end
 
-        figs_dir = joinpath(res_base, "figures")
+        # Cuenta tipos de artefacto desde components
+        for c in components
+            t = string(get(c, "type", "unknown"))
+            artifact_types_count[t] = get(artifact_types_count, t, 0) + 1
+        end
+
         ica_figs = String[]
         if isdir(figs_dir)
-            ica_figs = filter(
+            ica_figs = sort(filter(
                 f -> occursin(r"ica|ICA|component|IC"i, f) &&
                      (endswith(f, ".png") || endswith(f, ".svg")),
                 readdir(figs_dir)
-            )
+            ))
         end
 
         log_start = ""; log_dur_s = 0.0; log_ok = false
@@ -1063,12 +1088,15 @@ function launch_webapp(cfg::PipelineConfig;
             "ica_config"  => ica_config,
             "components"  => components,
             "summary" => Dict(
-                "n_components"      => length(components),
-                "n_rejected"        => n_rej,
-                "n_accepted"        => n_acc,
-                "variance_retained" => var_ret,
-                "run_timestamp"     => run_ts,
-                "run_duration_s"    => run_dur,
+                "n_components"       => length(components),
+                "n_rejected"         => n_rej,
+                "n_accepted"         => n_acc,
+                "variance_retained"  => var_ret,
+                "run_timestamp"      => run_ts,
+                "run_duration_s"     => run_dur,
+                "has_features"       => has_feat,
+                "n_topomaps"         => n_topo,
+                "artifact_types"     => artifact_types_count,
             ),
             "figures"      => ica_figs,
             "phase_timing" => Dict("start"=>log_start, "duration"=>log_dur_s, "has_log"=>log_ok),
@@ -1115,6 +1143,15 @@ function launch_webapp(cfg::PipelineConfig;
         cols  = [n for n in names(df) if n != "t_s"][1:min(n_ch, ncol(df)-1)]
         channels = [Dict("name"=>c, "values"=>Float64.(df[!, c])) for c in cols]
         json(Dict("ok"=>true, "t"=>t_vec, "channels"=>channels))
+    end
+
+    # ─── API: Features de clasificación ICA ──────────────────
+    route("/api/ica_features") do
+        subj = string(get(getpayload(), :subj, "M05"))
+        sess = string(get(getpayload(), :sess, "T2"))
+        cond = _normalize_cond(string(get(getpayload(), :cond, "EC")))
+        _serve_csv(joinpath(bids_root, "sub-$(subj)", "ses-$(sess)", cond,
+                            "ica_component_features.csv"))
     end
 
     # ─── API: Fase 6 — Segmentación ───────────────────────────

@@ -28,6 +28,17 @@ bandreject_lo    = 99.5         # EEG_Julia: Bandreject_freq=100, bw=1.0 → 99.
 bandreject_hi    = 100.5        # EEG_Julia: mismo
 filter_order     = 4            # EEG_Julia: Notch_order=4, Bandreject_order=4, HP/LP order_design=4
 
+# ─── ICA ──────────────────────────────────────────────────────
+# profile = "eeg_julia" → n_components=n_channels, max_iter=512, tol=1e-7, seed=1234 (EEG_Julia exacto)
+# profile = "default"   → reducido, configurable con los parámetros de abajo
+[ica]
+profile      = "eeg_julia"
+n_components = 0          # 0 = "auto" = todos los canales (solo usado con profile=default)
+max_iter     = 512
+tol          = 1e-7
+seed         = 1234
+artifact_threshold = 1.5  # umbral de score para clasificación automática
+
 # ─── Segmentación ─────────────────────────────────────────────
 [segmentation]
 segment_length_seconds = 2.0    # 2s × 500Hz = 1000 muestras por segmento

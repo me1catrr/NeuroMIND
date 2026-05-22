@@ -27,14 +27,40 @@ end
 
 FastICA simétrico sobre la señal continua filtrada.
 Usa sólo LinearAlgebra y Random; no requiere MultivariateStats.
+
+Perfil `"eeg_julia"` (reproducibilidad estricta con EEG_Julia/src/ICA/ICA.jl):
+  - n_components = n_channels (todos)
+  - max_iter = 512, tol = 1e-7, seed = 1234, a = 1.0
+  - A = inv(W_total)  (exactamente como EEG_Julia)
+
+Perfil `"default"` (modo reducido, configurable):
+  - n_components: de config (0 / "auto" → todos los canales)
+  - max_iter, tol, seed: de config
+  - A = pinv(W_total)
 """
 function run_ica(rec::EEGRecording, cfg::PipelineConfig)::ICAResult
-    ica_cfg  = cfg.ica
-    n_comp   = min(Int(get(ica_cfg, "n_components", 30)), rec.meta.n_channels)
-    max_iter = Int(get(ica_cfg, "max_iter",  500))
-    tol      = Float64(get(ica_cfg, "tol",  1e-5))
-    seed     = Int(get(ica_cfg, "seed",  42))
-    a        = 1.0   # parámetro tanh supergaussiano
+    ica_cfg = cfg.ica
+    profile = String(get(ica_cfg, "profile", "default"))
+    n_ch    = rec.meta.n_channels
+
+    # Parámetros según perfil
+    if profile == "eeg_julia"
+        n_comp   = n_ch     # todos los canales, igual que EEG_Julia
+        max_iter = 512
+        tol      = 1e-7
+        seed     = 1234
+    else
+        n_comp_raw = get(ica_cfg, "n_components", 30)
+        n_comp = if n_comp_raw == 0 || n_comp_raw == "auto"
+            n_ch
+        else
+            min(Int(n_comp_raw), n_ch)
+        end
+        max_iter = Int(get(ica_cfg, "max_iter", 500))
+        tol      = Float64(get(ica_cfg, "tol",  1e-5))
+        seed     = Int(get(ica_cfg, "seed",  42))
+    end
+    a = 1.0   # parámetro tanh supergaussiano (fijo)
 
     # 1) Centrado por canal
     Xc = copy(rec.data)
@@ -67,7 +93,9 @@ function run_ica(rec::EEGRecording, cfg::PipelineConfig)::ICAResult
     # 5) Matrices de salida
     S       = W * Z                          # activaciones  (n_comp × n_samp)
     W_total = W * V_whit                     # unmixing total (n_comp × n_ch)
-    A       = pinv(W_total)                  # mixing         (n_ch × n_comp)
+    # inv() cuando n_comp == n_ch (perfil eeg_julia, exactamente como EEG_Julia);
+    # pinv() en modo reducido (n_comp < n_ch).
+    A = (n_comp == n_ch) ? inv(W_total) : pinv(W_total)
 
     # Varianza explicada: contribución de cada componente a la varianza total de la señal
     # var_i = ||A[:,i]||² × var(S[i,:]) / Σ var(canales originales)

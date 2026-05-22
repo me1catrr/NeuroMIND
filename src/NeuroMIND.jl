@@ -46,8 +46,10 @@ export apply_bandreject, filter_recording, describe_filter_chain
 
 # ─── ICA ──────────────────────────────────────────────────────
 include("ica/ICACore.jl")
+include("ica/ICAClassification.jl")
 include("ica/ICAInspection.jl")
 export run_ica, apply_ica_rejection, load_ica_labels
+export compute_ica_features, evaluate_ica_components
 
 # ─── Segmentación ─────────────────────────────────────────────
 include("segmentation/Epochs.jl")
