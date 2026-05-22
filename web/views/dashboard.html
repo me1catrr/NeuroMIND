@@ -1322,6 +1322,41 @@ tr.row-warn:hover td { background: #fef9c3; }
 .p13-sig-neg     { color:#2563eb; font-weight:700; }
 .p13-inclusion-row { display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:6px;
                      padding:5px 8px; font-size:11px; border-bottom:1px solid var(--border); }
+
+/* ── Phase 14 — Evaluación Longitudinal ────────────────────── */
+.p14-accent      { color:#d97706; }
+.grid-p14-top    { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px; }
+.grid-p14-mats   { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:14px; }
+.grid-p14-mid    { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+.p14-band-tab    { padding:4px 12px; border-radius:16px; font-size:11px; font-weight:600; cursor:pointer;
+                   background:var(--bg-2); color:var(--text-2); border:1.5px solid transparent; transition:all .15s; }
+.p14-band-tab.active { color:#fff; }
+.p14-metric-cell { background:var(--bg-2); border-radius:8px; padding:8px 6px; text-align:center; }
+.p14-metric-val  { font-size:18px; font-weight:800; line-height:1.2; }
+.p14-metric-lbl  { font-size:9px; color:var(--text-3); margin-top:2px; line-height:1.3; }
+.p14-not-run     { display:flex; flex-direction:column; align-items:center; justify-content:center;
+                   padding:60px 20px; text-align:center; }
+.p14-stat-row    { display:flex; justify-content:space-between; align-items:center;
+                   padding:4px 0; border-bottom:1px solid var(--border); font-size:11px; }
+.p14-stat-row:last-child { border-bottom:none; }
+.p14-qa-grid     { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.p14-qa-btn      { padding:8px 12px; border:none; border-radius:7px; font-size:11px; font-weight:600;
+                   cursor:pointer; background:var(--bg-2); color:var(--text-1); transition:background .15s; }
+.p14-qa-btn:hover { background:#fef3c7; color:#92400e; }
+.p14-file-row    { display:flex; align-items:center; gap:6px; padding:3px 0; font-size:11px; }
+.p14-tbl th      { padding:6px 8px; background:var(--bg-2); font-size:11px; font-weight:700;
+                   text-align:left; position:sticky; top:0; }
+.p14-tbl td      { padding:5px 8px; font-size:11px; border-bottom:1px solid var(--border); }
+.p14-tbl tr:last-child td { border-bottom:none; }
+.p14-footer-band { background:linear-gradient(135deg,#d97706,#b45309); color:#fff;
+                   border-radius:10px; padding:12px 18px; font-size:12px; margin-top:14px; }
+.p14-timeline    { display:flex; align-items:center; gap:0; margin:8px 0; }
+.p14-tl-node     { background:var(--bg-2); border:2px solid var(--border); border-radius:8px;
+                   padding:8px 14px; font-size:11px; font-weight:700; text-align:center; min-width:80px; }
+.p14-tl-node.t1  { border-color:#3b82f6; color:#1d4ed8; }
+.p14-tl-node.t2  { border-color:#d97706; color:#92400e; }
+.p14-tl-arrow    { flex:1; height:2px; background:linear-gradient(90deg,#3b82f6,#d97706);
+                   position:relative; margin:0 4px; }
 </style>
 </head>
 <body>
@@ -3884,7 +3919,253 @@ tr.row-warn:hover td { background: #fef9c3; }
     </div>
 
   </div><!-- /phase-panel-13 -->
-  <div id="phase-panel-14" class="phase-panel"></div>
+  <div id="phase-panel-14" class="phase-panel">
+
+    <!-- Header -->
+    <div class="phase-header">
+      <div class="phase-header-left">
+        <div class="phase-badge-lg" style="background:#d97706">14</div>
+        <div>
+          <div class="phase-title">14. Evaluación Longitudinal</div>
+          <div class="phase-subtitle">T1 → T2 · Análisis intra-sujeto · wPLI · FDR-BH · Pacientes EM</div>
+        </div>
+      </div>
+      <div class="phase-header-right">
+        <span id="p14-status-chip" class="status-chip pending">Pendiente</span>
+      </div>
+    </div>
+
+    <!-- Top 4-col grid -->
+    <div class="grid-p14-top">
+      <div class="card">
+        <div class="card-header">Resumen longitudinal</div>
+        <div class="card-body" id="p14-summary-card" style="padding:10px"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">Configuración del análisis</div>
+        <div class="card-body" id="p14-config-card" style="padding:10px"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">Estado de la fase</div>
+        <div class="card-body" id="p14-phase-status" style="padding:10px"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">Archivos generados</div>
+        <div class="card-body" id="p14-files-card" style="padding:8px"></div>
+      </div>
+    </div>
+
+    <!-- Timeline T1 → T2 -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-header">Timeline longitudinal T1 → T2</div>
+      <div class="card-body" id="p14-timeline-body" style="padding:12px">
+        <div class="p14-timeline">
+          <div class="p14-tl-node t1" id="p14-tl-t1">T1<br><span style="font-size:10px;font-weight:400;color:var(--text-3)" id="p14-tl-t1-n">—</span></div>
+          <div class="p14-tl-arrow"></div>
+          <div class="p14-tl-node t2" id="p14-tl-t2">T2<br><span style="font-size:10px;font-weight:400;color:var(--text-3)" id="p14-tl-t2-n">—</span></div>
+        </div>
+        <div id="p14-tl-detail" style="display:flex;gap:16px;margin-top:8px;flex-wrap:wrap;font-size:11px;color:var(--text-2)"></div>
+      </div>
+    </div>
+
+    <!-- Métricas globales -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-header">Resumen estadístico global</div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px" id="p14-global-metrics"></div>
+      </div>
+    </div>
+
+    <!-- Selector de banda + condición -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-body" style="padding:8px 12px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-size:11px;font-weight:700;color:var(--text-3)">BANDA ACTIVA</span>
+          <div id="p14-band-tabs" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+            <label style="font-size:11px;color:var(--text-3)">Condición:</label>
+            <select id="p14-cond-sel" onchange="p14ChangeCond(this.value)"
+              style="font-size:11px;padding:3px 8px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg-2);color:var(--text-1)">
+              <option value="EC">EC — Ojos cerrados</option>
+              <option value="EO">EO — Ojos abiertos</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Not-run placeholder -->
+    <div id="p14-not-run-block" class="p14-not-run" style="display:none">
+      <div style="font-size:44px;margin-bottom:14px">📈</div>
+      <div style="font-size:17px;font-weight:700;color:var(--text-1);margin-bottom:8px">Análisis longitudinal aún no ejecutado</div>
+      <div style="font-size:12px;max-width:520px;line-height:1.7;margin-bottom:18px;color:var(--text-2)">
+        El análisis detecta automáticamente sujetos con sesiones T1 y T2 en
+        <code style="background:var(--bg-2);padding:1px 5px;border-radius:4px">results/subjects/</code>,
+        o puedes crear
+        <code style="background:var(--bg-2);padding:1px 5px;border-radius:4px">data/BIDS/longitudinal_pairs.csv</code>
+        con columnas <code style="background:var(--bg-2);padding:1px 5px;border-radius:4px">subject_id, session_t1, session_t2</code>.<br>
+        Luego ejecuta:
+        <br><code style="background:var(--bg-2);padding:4px 10px;border-radius:4px;display:inline-block;margin-top:8px">
+          julia --project=. scripts/run_longitudinal_analysis.jl
+        </code>
+      </div>
+      <button style="background:#d97706;color:#fff;border:none;padding:10px 26px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer" onclick="p14Reload()">↺ Buscar datos longitudinales</button>
+    </div>
+
+    <!-- Content block -->
+    <div id="p14-content-block" style="display:none">
+
+      <!-- 3 matrices: T1 | T2 | Diferencia -->
+      <div class="grid-p14-mats">
+        <div class="card">
+          <div class="card-header">
+            Matriz media — <span style="color:#2563eb;font-weight:700">T1</span>
+            <span id="p14-t1-lbl" style="font-size:10px;color:var(--text-3);margin-left:4px"></span>
+          </div>
+          <div class="card-body" style="display:flex;justify-content:center;padding:8px;min-height:180px">
+            <canvas id="p14-t1-canvas"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            Matriz media — <span style="color:#d97706;font-weight:700">T2</span>
+            <span id="p14-t2-lbl" style="font-size:10px;color:var(--text-3);margin-left:4px"></span>
+          </div>
+          <div class="card-body" style="display:flex;justify-content:center;padding:8px;min-height:180px">
+            <canvas id="p14-t2-canvas"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            Diferencia T2 − T1
+            <span id="p14-diff-lbl" style="font-size:10px;color:var(--text-3);margin-left:4px"></span>
+          </div>
+          <div class="card-body" style="display:flex;flex-direction:column;align-items:center;padding:8px;min-height:180px">
+            <canvas id="p14-diff-canvas"></canvas>
+            <div style="display:flex;gap:16px;margin-top:4px;font-size:10px">
+              <span style="color:#2563eb">◀ T1 &gt; T2 (disminución)</span>
+              <span style="color:#d97706">T2 &gt; T1 (aumento) ▶</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Red de cambios + Top cambios -->
+      <div class="grid-p14-mid">
+        <div class="card">
+          <div class="card-header">Cambios longitudinales significativos (q &lt; 0.05)</div>
+          <div class="card-body" style="display:flex;justify-content:center;padding:8px">
+            <canvas id="p14-sig-canvas" width="400" height="360" style="max-width:100%"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">Top cambios longitudinales</div>
+          <div class="card-body" style="padding:0;overflow:auto;max-height:380px">
+            <table class="p14-tbl" style="width:100%;border-collapse:collapse">
+              <thead>
+                <tr>
+                  <th>Ch A</th><th>Ch B</th>
+                  <th style="text-align:right">T1</th>
+                  <th style="text-align:right">T2</th>
+                  <th style="text-align:right">Δ</th>
+                  <th style="text-align:right">q</th>
+                  <th style="text-align:right">dz</th>
+                </tr>
+              </thead>
+              <tbody id="p14-top-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Distribución + Estadísticas por banda -->
+      <div class="grid-p14-mid">
+        <div class="card">
+          <div class="card-header">Distribución conectividad por banda (T1 vs T2)</div>
+          <div class="card-body" style="display:flex;justify-content:center;min-height:180px">
+            <svg id="p14-dist-svg" style="width:100%;overflow:visible" height="180"></svg>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">Estadísticas longitudinales por banda</div>
+          <div class="card-body" style="padding:0;overflow:auto;max-height:230px">
+            <table class="p14-tbl" style="width:100%;border-collapse:collapse">
+              <thead>
+                <tr>
+                  <th>Banda</th>
+                  <th style="text-align:right">T1</th>
+                  <th style="text-align:right">T2</th>
+                  <th style="text-align:right">Δ</th>
+                  <th style="text-align:right">p</th>
+                  <th style="text-align:right">Sig.</th>
+                  <th style="text-align:right">dz</th>
+                </tr>
+              </thead>
+              <tbody id="p14-band-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Métricas de red + Seguimiento clínico (placeholder) -->
+      <div class="grid-p14-mid">
+        <div class="card">
+          <div class="card-header">Métricas de red longitudinales</div>
+          <div class="card-body" style="padding:10px;color:var(--text-3);font-size:12px;text-align:center;display:flex;align-items:center;justify-content:center;min-height:120px">
+            Activa el cálculo de métricas de red en el pipeline para ver esta comparativa T1/T2
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">Seguimiento clínico <span style="font-size:10px;color:var(--text-3)">(próximamente)</span></div>
+          <div class="card-body" style="display:flex;align-items:center;justify-content:center;min-height:120px;flex-direction:column;gap:10px;color:var(--text-3)">
+            <div style="font-size:28px">🏥</div>
+            <div style="font-size:12px;text-align:center;max-width:260px">
+              Integración EDSS, fatiga, cognición y carga lesional.<br>
+              <span style="color:#d97706;font-weight:600">Preparado para Fase 15</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sujetos pareados (control calidad) -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">Control calidad longitudinal — Sujetos pareados T1/T2</div>
+        <div class="card-body" style="padding:0">
+          <div style="display:grid;grid-template-columns:1fr 80px 80px 80px 1fr;background:var(--bg-2);padding:6px 10px;font-size:11px;font-weight:700;border-bottom:1px solid var(--border)">
+            <span>Sujeto</span><span style="text-align:center">Ses T1</span>
+            <span style="text-align:center">Ses T2</span><span style="text-align:center">Bandas</span>
+            <span>Estado</span>
+          </div>
+          <div id="p14-paired-list" style="max-height:220px;overflow:auto"></div>
+        </div>
+      </div>
+
+      <!-- Acciones rápidas -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">Acciones rápidas</div>
+        <div class="card-body">
+          <div class="p14-qa-grid">
+            <button class="p14-qa-btn" onclick="p14ExportMatrices()">📊 Exportar matrices T1/T2</button>
+            <button class="p14-qa-btn" onclick="p14ExportEdges()">🔗 Exportar edges significativos</button>
+            <button class="p14-qa-btn" onclick="p14ExportStats()">📈 Exportar estadísticas</button>
+            <button class="p14-qa-btn" onclick="p14ExportFigures()">🖼️ Exportar figuras (Canvas)</button>
+            <button class="p14-qa-btn" onclick="p14ViewPaired()">👥 Ver sujetos pareados</button>
+            <button class="p14-qa-btn" onclick="p14ViewLoss()">⚠️ Ver pérdidas seguimiento</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /p14-content-block -->
+
+    <!-- Footer -->
+    <div class="p14-footer-band">
+      📈 La evaluación longitudinal analiza cambios intra-sujeto en conectividad funcional entre
+      <strong>T1</strong> y <strong>T2</strong> en pacientes con Esclerosis Múltiple mediante
+      <strong>wPLI</strong>, paired t-test y corrección <strong>FDR-BH</strong>. Ejecuta
+      <code style="background:rgba(255,255,255,0.2);padding:1px 5px;border-radius:3px">scripts/run_longitudinal_analysis.jl</code>
+    </div>
+
+  </div><!-- /phase-panel-14 -->
 
 </main>
 </div><!-- /#layout -->
@@ -4164,6 +4445,8 @@ async function switchPhase(n) {
     await loadPhase10();
   } else if (n === 13) {
     await loadPhase13();
+  } else if (n === 14) {
+    await loadPhase14();
   } else {
     renderPhasePlaceholder(n);
   }
@@ -4217,6 +4500,7 @@ async function loadCurrentPhase() {
   else if (State.phase === 9)  await loadPhase9();
   else if (State.phase === 10) await loadPhase10();
   else if (State.phase === 13) await loadPhase13();
+  else if (State.phase === 14) await loadPhase14();
   else renderPhasePlaceholder(State.phase);
 }
 
@@ -12100,6 +12384,449 @@ function p13Reload() { loadPhase13(); }
 
 // ════════════════════════════════════════════════════════════
 // FIN PHASE 13
+// ════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════
+// PHASE 14 — EVALUACIÓN LONGITUDINAL
+// ═══════════════════════════════════════════════════════════
+
+const P14 = { band: 'ALPHA', cond: 'EC', data: null };
+
+async function loadPhase14() {
+  const chip = document.getElementById('p14-status-chip');
+  if (chip) { chip.className = 'status-chip pending'; chip.textContent = 'Cargando…'; }
+  try {
+    const r = await fetch(`/api/phase14_longitudinal?cond=${P14.cond}&band=${P14.band}`);
+    const d = await r.json();
+    P14.data = d;
+
+    const notRun  = document.getElementById('p14-not-run-block');
+    const content = document.getElementById('p14-content-block');
+
+    _p14RenderBandTabs();
+    _p14RenderSummaryCard(d.summary);
+    _p14RenderConfigCard(d.summary);
+    _p14RenderPhaseStatus(d.run, d);
+    _p14RenderFiles(d.run);
+    _p14RenderTimeline(d.summary, d.paired_subjects);
+    _p14RenderGlobalMetrics(d.band_stats, d.summary);
+
+    if (!d.run) {
+      if (notRun)  notRun.style.display  = '';
+      if (content) content.style.display = 'none';
+      if (chip) { chip.className = 'status-chip pending'; chip.textContent = 'Pendiente'; }
+      return;
+    }
+
+    if (notRun)  notRun.style.display  = 'none';
+    if (content) content.style.display = '';
+    if (chip) { chip.className = 'status-chip completed'; chip.textContent = 'Completado'; }
+
+    requestAnimationFrame(() => {
+      _p14RenderMatrix('p14-t1-canvas',   d.matrix_t1,   'p14-t1-lbl');
+      _p14RenderMatrix('p14-t2-canvas',   d.matrix_t2,   'p14-t2-lbl');
+      _p14RenderDiffMatrix('p14-diff-canvas', d.matrix_diff, 'p14-diff-lbl');
+      _p14RenderSigNetwork(d.sig_edges, d.matrix_t1);
+    });
+    _p14RenderTopTable(d.sig_edges);
+    _p14RenderDistribution(d.subject_means, d.band_stats);
+    _p14RenderBandStats(d.band_stats);
+    _p14RenderPaired(d.paired_subjects);
+  } catch(e) {
+    console.error('Phase 14 error:', e);
+    if (chip) { chip.className = 'status-chip error'; chip.textContent = 'Error'; }
+  }
+}
+
+function _p14RenderBandTabs() {
+  const el = document.getElementById('p14-band-tabs');
+  if (!el) return;
+  el.innerHTML = P9_BANDS.map(b => {
+    const act = b.key === P14.band;
+    return `<div class="p14-band-tab${act?' active':''}"
+              style="${act?'background:'+b.color+';color:#fff':''}"
+              onclick="p14SelectBand('${b.key}')">${b.label}</div>`;
+  }).join('');
+}
+
+async function p14SelectBand(band) { P14.band = band; _p14RenderBandTabs(); await loadPhase14(); }
+async function p14ChangeCond(cond) { P14.cond = cond; await loadPhase14(); }
+
+function _p14RenderSummaryCard(s) {
+  const el = document.getElementById('p14-summary-card');
+  if (!el) return;
+  const rows = [
+    ['Sujetos T1',      s.n_t1     ?? '—'],
+    ['Sujetos T2',      s.n_t2     ?? '—'],
+    ['Pares completos', s.n_paired ?? '—'],
+    ['Pérdidas',        s.n_loss   ?? '—'],
+    ['Condición',       s.cond || P14.cond],
+    ['Bandas',          s.n_bands  ?? '—'],
+  ];
+  el.innerHTML = rows.map(([k,v]) => `
+    <div class="p14-stat-row">
+      <span style="color:var(--text-3)">${k}</span>
+      <span style="font-weight:700">${v}</span>
+    </div>`).join('');
+}
+
+function _p14RenderConfigCard(s) {
+  const el = document.getElementById('p14-config-card');
+  if (!el) return;
+  const rows = [
+    ['Comparación',    'T1 → T2 (intra-sujeto)'],
+    ['Métrica',        'wPLI'],
+    ['Estadístico',    'Paired t-test'],
+    ['Corrección',     'FDR-BH (q < 0.05)'],
+    ['Effect size',    "Cohen's dz"],
+    ['Banda activa',   P14.band],
+  ];
+  el.innerHTML = rows.map(([k,v]) => `
+    <div class="p14-stat-row">
+      <span style="color:var(--text-3)">${k}</span>
+      <span style="font-weight:600;font-size:11px">${v}</span>
+    </div>`).join('');
+}
+
+function _p14RenderPhaseStatus(run, d) {
+  const el = document.getElementById('p14-phase-status');
+  if (!el) return;
+  const s = d.summary || {};
+  const rows = [
+    ['Estado',       run ? '● Completado' : '○ Pendiente'],
+    ['Timestamp',    s.timestamp ? s.timestamp.replace('T',' ') : '—'],
+    ['Pares usados', run ? (s.n_paired ?? '—') : '—'],
+    ['Sig. total',   run ? (s.n_total_sig ?? '—') : '—'],
+    ['Mejor banda',  run ? (s.best_band || '—') : '—'],
+  ];
+  el.innerHTML = rows.map(([k,v],i) => `
+    <div class="p14-stat-row">
+      <span style="color:var(--text-3)">${k}</span>
+      <span style="font-weight:${i===0?'700':'600'};color:${i===0&&run?'#d97706':'inherit'}">${v}</span>
+    </div>`).join('');
+}
+
+function _p14RenderFiles(run) {
+  const el = document.getElementById('p14-files-card');
+  if (!el) return;
+  const b = P14.band;
+  const files = [
+    [`longitudinal_connectivity_t1_${b}.csv`, '📊'],
+    [`longitudinal_connectivity_t2_${b}.csv`, '📊'],
+    [`longitudinal_difference_${b}.csv`,      '📉'],
+    [`longitudinal_statistics_${b}.csv`,      '📈'],
+    [`significant_longitudinal_edges_${b}.csv`,'🔗'],
+    ['band_statistics_longitudinal.csv',       '📋'],
+    ['paired_subjects.csv',                    '👥'],
+    ['longitudinal_summary.json',              '📄'],
+  ];
+  el.innerHTML = files.map(([name, icon]) => `
+    <div class="p14-file-row">
+      <span style="font-size:12px;width:16px;text-align:center">${run?'✓':'○'}</span>
+      <span style="font-size:12px">${icon}</span>
+      <span style="font-size:11px;color:${run?'var(--text-1)':'var(--text-3)'}">${name}</span>
+    </div>`).join('');
+}
+
+function _p14RenderTimeline(s, paired) {
+  const nPaired = s?.n_paired ?? 0;
+  const nLoss   = s?.n_loss   ?? 0;
+  const el1 = document.getElementById('p14-tl-t1-n');
+  const el2 = document.getElementById('p14-tl-t2-n');
+  if (el1) el1.textContent = `${s?.n_t1 ?? '—'} sujetos`;
+  if (el2) el2.textContent = `${nPaired} pareados`;
+
+  const detail = document.getElementById('p14-tl-detail');
+  if (!detail) return;
+  detail.innerHTML = [
+    `<span>✅ <strong>${nPaired}</strong> pares completos</span>`,
+    nLoss > 0 ? `<span style="color:#ef4444">⚠️ <strong>${nLoss}</strong> pérdidas de seguimiento</span>` : '',
+    s?.best_band ? `<span>📊 Mayor cambio: <strong style="color:#d97706">${s.best_band}</strong></span>` : '',
+    s?.timestamp ? `<span style="color:var(--text-3)">⏱ ${s.timestamp.replace('T',' ')}</span>` : '',
+  ].filter(Boolean).join('');
+}
+
+function _p14RenderGlobalMetrics(bandStats, summary) {
+  const el = document.getElementById('p14-global-metrics');
+  if (!el) return;
+  const s   = summary  || {};
+  const bs  = bandStats || [];
+  const nSig  = s.n_total_sig ?? 0;
+  const nPairs= bs.reduce((a,r) => a+(r.n_pairs||0), 0);
+  const bestB = s.best_band || '—';
+  const meanD = bs.length ? (bs.reduce((a,r)=>a+Math.abs(r.mean_d||0),0)/bs.length).toFixed(3):'—';
+  const t1G   = bs.length ? (bs.reduce((a,r)=>a+(r.t1_mean||0),0)/bs.length).toFixed(3):'—';
+  const t2G   = bs.length ? (bs.reduce((a,r)=>a+(r.t2_mean||0),0)/bs.length).toFixed(3):'—';
+  const nBands= bs.filter(r=>r.n_sig>0).length;
+  const metrics = [
+    { val:nSig,            lbl:'Edges\nSignificativos',   col:nSig>0?'#059669':'var(--text-2)' },
+    { val:nPairs||'—',     lbl:'Pares\nAnalizados',       col:'var(--text-1)' },
+    { val:`${nBands}/${bs.length}`, lbl:'Bandas con\ncambio sig.', col:nBands>0?'#d97706':'var(--text-2)' },
+    { val:meanD,           lbl:"Cohen's dz\nmedio",       col:'var(--text-1)' },
+    { val:bestB,           lbl:'Banda mayor\ncambio',     col:'#7c3aed' },
+    { val:t1G,             lbl:'wPLI medio\nT1',          col:'#2563eb' },
+    { val:t2G,             lbl:'wPLI medio\nT2',          col:'#d97706' },
+  ];
+  el.innerHTML = metrics.map(m => `
+    <div class="p14-metric-cell">
+      <div class="p14-metric-val" style="color:${m.col}">${m.val}</div>
+      <div class="p14-metric-lbl">${m.lbl.replace('\n','<br>')}</div>
+    </div>`).join('');
+}
+
+// Heatmaps (reutiliza _p9Colormap)
+function _p14RenderMatrix(canvasId, matrix, labelId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  if (labelId) { const lb=document.getElementById(labelId); if(lb) lb.textContent=`— ${P14.band}`; }
+  const channels=matrix?.channels||[], values=matrix?.values||[], n=channels.length;
+  if (n===0) {
+    const ctx=canvas.getContext('2d'); canvas.width=200; canvas.height=200;
+    ctx.fillStyle='#f1f5f9'; ctx.fillRect(0,0,200,200);
+    ctx.fillStyle='#9ca3af'; ctx.font='12px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('Sin datos',100,100); return;
+  }
+  const dpr=window.devicePixelRatio||1, cellPx=Math.max(3,Math.min(14,Math.floor(420/n))), sz=n*cellPx;
+  canvas.style.width=sz+'px'; canvas.style.height=sz+'px';
+  canvas.width=sz*dpr; canvas.height=sz*dpr;
+  const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr);
+  let maxW=0;
+  for(let i=0;i<n;i++) for(let j=0;j<n;j++) if(i!==j) maxW=Math.max(maxW,values[i]?.[j]??0);
+  maxW=Math.max(maxW,0.01);
+  for(let i=0;i<n;i++) for(let j=0;j<n;j++) {
+    const w=values[i]?.[j]??0;
+    ctx.fillStyle=i===j?'#e2e8f0':_p9Colormap(w/maxW);
+    ctx.fillRect(j*cellPx,i*cellPx,cellPx,cellPx);
+  }
+}
+
+// Diverging diff matrix (amber+ = T2>T1, blue- = T1>T2)
+function _p14RenderDiffMatrix(canvasId, matrix, labelId) {
+  const canvas=document.getElementById(canvasId);
+  if(!canvas) return;
+  if(labelId){const lb=document.getElementById(labelId); if(lb) lb.textContent=`— ${P14.band}`;}
+  const channels=matrix?.channels||[], values=matrix?.values||[], n=channels.length;
+  if(n===0){
+    const ctx=canvas.getContext('2d'); canvas.width=200; canvas.height=200;
+    ctx.fillStyle='#f1f5f9'; ctx.fillRect(0,0,200,200);
+    ctx.fillStyle='#9ca3af'; ctx.font='12px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('Sin datos',100,100); return;
+  }
+  const dpr=window.devicePixelRatio||1, cellPx=Math.max(3,Math.min(14,Math.floor(420/n))), sz=n*cellPx;
+  canvas.style.width=sz+'px'; canvas.style.height=sz+'px';
+  canvas.width=sz*dpr; canvas.height=sz*dpr;
+  const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr);
+  let maxAbs=0;
+  for(let i=0;i<n;i++) for(let j=0;j<n;j++) if(i!==j) maxAbs=Math.max(maxAbs,Math.abs(values[i]?.[j]??0));
+  maxAbs=Math.max(maxAbs,1e-4);
+  for(let i=0;i<n;i++) for(let j=0;j<n;j++){
+    const v=values[i]?.[j]??0;
+    if(i===j){ctx.fillStyle='#e2e8f0'; ctx.fillRect(j*cellPx,i*cellPx,cellPx,cellPx); continue;}
+    const t=v/maxAbs;
+    let r,g,b;
+    if(t>0){r=230; g=Math.round(180*(1-t*0.7)); b=Math.round(100*(1-t));}   // amber
+    else   {const at=-t; r=Math.round(200*(1-at)); g=Math.round(200*(1-at)); b=220;}  // blue
+    ctx.fillStyle=`rgb(${r},${g},${b})`;
+    ctx.fillRect(j*cellPx,i*cellPx,cellPx,cellPx);
+  }
+}
+
+function _p14RenderSigNetwork(sigEdges, matrixT1) {
+  const canvas=document.getElementById('p14-sig-canvas');
+  if(!canvas) return;
+  const W=400, H=360, dpr=window.devicePixelRatio||1;
+  canvas.width=W*dpr; canvas.height=H*dpr;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr);
+  ctx.fillStyle='#f8fafc'; ctx.fillRect(0,0,W,H);
+  const channels=matrixT1?.channels||[], n=channels.length;
+  if(n===0||!sigEdges?.length){
+    ctx.fillStyle='#9ca3af'; ctx.font='13px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(n===0?'Sin datos':'Sin cambios significativos',W/2,H/2); return;
+  }
+  const cx=W/2, cy=H/2, rad=Math.min(W,H)*0.42;
+  const pos={};
+  for(let i=0;i<n;i++){
+    const ch=channels[i];
+    if(P8_EEG_POS&&P8_EEG_POS[ch]) pos[ch]={x:cx+P8_EEG_POS[ch][0]*rad*1.1,y:cy-P8_EEG_POS[ch][1]*rad};
+    else{const a=(2*Math.PI*i/n)-Math.PI/2; pos[ch]={x:cx+Math.cos(a)*rad,y:cy+Math.sin(a)*rad};}
+  }
+  const strength={};
+  for(const e of sigEdges){strength[e.ch_a]=(strength[e.ch_a]||0)+Math.abs(e.diff); strength[e.ch_b]=(strength[e.ch_b]||0)+Math.abs(e.diff);}
+  const maxStr=Math.max(...Object.values(strength),1e-4);
+  const maxAbs=Math.max(...sigEdges.map(e=>Math.abs(e.diff)),1e-4);
+  for(const e of sigEdges){
+    const pa=pos[e.ch_a], pb=pos[e.ch_b]; if(!pa||!pb) continue;
+    const t=Math.abs(e.diff)/maxAbs;
+    const col=e.diff>0?`rgba(217,119,6,${0.3+t*0.6})`:`rgba(37,99,235,${0.3+t*0.6})`;
+    ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y);
+    ctx.strokeStyle=col; ctx.lineWidth=1+t*4; ctx.stroke();
+  }
+  for(const ch of channels){
+    const p=pos[ch]; if(!p) continue;
+    const s=(strength[ch]||0)/maxStr, r=3+s*5;
+    ctx.beginPath(); ctx.arc(p.x,p.y,r,0,2*Math.PI);
+    ctx.fillStyle=ch in strength?'#d97706':'#cbd5e1'; ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.stroke();
+  }
+  ctx.font='9px sans-serif'; ctx.textAlign='left';
+  ctx.fillStyle='#d97706'; ctx.fillRect(8,H-28,12,3);
+  ctx.fillStyle='#374151'; ctx.fillText('T2 > T1 (aumento)',24,H-24);
+  ctx.fillStyle='#2563eb'; ctx.fillRect(8,H-18,12,3);
+  ctx.fillStyle='#374151'; ctx.fillText('T1 > T2 (disminución)',24,H-14);
+}
+
+function _p14RenderTopTable(sigEdges) {
+  const tbody=document.getElementById('p14-top-tbody');
+  if(!tbody) return;
+  if(!sigEdges?.length){
+    tbody.innerHTML=`<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--text-3)">Sin cambios significativos</td></tr>`;
+    return;
+  }
+  tbody.innerHTML=sigEdges.slice(0,25).map(e=>{
+    const dCol=e.diff>0?'#d97706':'#2563eb';
+    const qCls=e.q_value<0.01?'color:#059669;font-weight:700':'';
+    return `<tr>
+      <td>${e.ch_a}</td><td>${e.ch_b}</td>
+      <td style="text-align:right;font-family:monospace">${e.t1_mean.toFixed(3)}</td>
+      <td style="text-align:right;font-family:monospace">${e.t2_mean.toFixed(3)}</td>
+      <td style="text-align:right;font-family:monospace;color:${dCol};font-weight:700">${(e.diff>0?'+':'')+e.diff.toFixed(3)}</td>
+      <td style="text-align:right;font-family:monospace;${qCls}">${e.q_value.toFixed(3)}</td>
+      <td style="text-align:right;font-family:monospace">${e.effect_d.toFixed(2)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function _p14RenderDistribution(subjectMeans, bandStats) {
+  const svg=document.getElementById('p14-dist-svg');
+  if(!svg) return;
+  const bs=bandStats||[];
+  if(!bs.length){
+    svg.innerHTML=`<text x="50%" y="50%" text-anchor="middle" fill="#9ca3af" font-size="12">Sin datos</text>`; return;
+  }
+  const W=svg.parentElement?.clientWidth||420, H=180;
+  const pad={l:36,r:12,t:16,b:40}, nB=bs.length;
+  const bw=Math.max(8,(W-pad.l-pad.r)/(nB*2.5));
+  const gap=(W-pad.l-pad.r-nB*bw*2)/(nB+1);
+  const allVals=bs.flatMap(r=>[r.t1_mean||0,r.t2_mean||0]);
+  const maxV=Math.max(...allVals,0.001);
+  let bars='',labels='',axes='';
+  for(let i=0;i<nB;i++){
+    const r=bs[i], x0=pad.l+gap+i*(bw*2+gap);
+    const ht1=((r.t1_mean||0)/maxV)*(H-pad.t-pad.b);
+    const ht2=((r.t2_mean||0)/maxV)*(H-pad.t-pad.b);
+    const yB=H-pad.b;
+    bars+=`<rect x="${x0}" y="${yB-ht1}" width="${bw}" height="${ht1}" fill="#2563eb" opacity="0.75" rx="2"/>`;
+    bars+=`<rect x="${x0+bw}" y="${yB-ht2}" width="${bw}" height="${ht2}" fill="#d97706" opacity="0.75" rx="2"/>`;
+    const sl=r.band.replace('BETA_','β').replace('DELTA','δ').replace('THETA','θ').replace('ALPHA','α').replace('GAMMA','γ');
+    labels+=`<text x="${x0+bw}" y="${H-pad.b+14}" text-anchor="middle" font-size="9" fill="#6b7280">${sl}</text>`;
+  }
+  for(let t=0;t<=4;t++){
+    const v=(maxV*t/4), y=H-pad.b-(v/maxV)*(H-pad.t-pad.b);
+    axes+=`<line x1="${pad.l-4}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="#e2e8f0" stroke-width="1"/>`;
+    axes+=`<text x="${pad.l-6}" y="${y+4}" text-anchor="end" font-size="8" fill="#9ca3af">${v.toFixed(2)}</text>`;
+  }
+  const lX=W/2-50, lY=H-8;
+  const legend=`<rect x="${lX}" y="${lY-8}" width="10" height="8" fill="#2563eb" opacity="0.75" rx="1"/>
+    <text x="${lX+13}" y="${lY}" font-size="9" fill="#374151">T1</text>
+    <rect x="${lX+40}" y="${lY-8}" width="10" height="8" fill="#d97706" opacity="0.75" rx="1"/>
+    <text x="${lX+53}" y="${lY}" font-size="9" fill="#374151">T2</text>`;
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`); svg.setAttribute('height',H);
+  svg.innerHTML=axes+bars+labels+legend;
+}
+
+function _p14RenderBandStats(bandStats) {
+  const tbody=document.getElementById('p14-band-tbody');
+  if(!tbody) return;
+  if(!bandStats?.length){
+    tbody.innerHTML=`<tr><td colspan="7" style="padding:12px;text-align:center;color:var(--text-3)">Sin datos</td></tr>`; return;
+  }
+  tbody.innerHTML=bandStats.map(r=>{
+    const d=r.diff_mean||0, dCol=d>0?'#d97706':(d<0?'#2563eb':'var(--text-2)');
+    const sig=r.n_sig>0;
+    const band=r.band.replace('BETA_','β').replace('DELTA','δ').replace('THETA','θ').replace('ALPHA','α').replace('GAMMA','γ').replace('_',' ');
+    return `<tr>
+      <td style="font-weight:700;color:#d97706">${band}</td>
+      <td style="text-align:right;font-family:monospace">${(r.t1_mean||0).toFixed(4)}</td>
+      <td style="text-align:right;font-family:monospace">${(r.t2_mean||0).toFixed(4)}</td>
+      <td style="text-align:right;font-family:monospace;color:${dCol};font-weight:700">${(d>0?'+':'')+d.toFixed(4)}</td>
+      <td style="text-align:right;font-family:monospace">${(r.mean_p||1).toFixed(3)}</td>
+      <td style="text-align:right;font-weight:${sig?'700':'400'};color:${sig?'#059669':'var(--text-2)'}">
+        ${r.n_sig} sig</td>
+      <td style="text-align:right;font-family:monospace">${(r.mean_d||0).toFixed(3)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function _p14RenderPaired(paired) {
+  const el=document.getElementById('p14-paired-list');
+  if(!el) return;
+  if(!paired?.length){
+    el.innerHTML=`<div style="padding:12px;color:var(--text-3);font-size:12px;text-align:center">Sin datos</div>`; return;
+  }
+  el.innerHTML=paired.map(r=>{
+    const ok=r.included;
+    return `<div style="display:grid;grid-template-columns:1fr 80px 80px 80px 1fr;padding:5px 10px;font-size:11px;border-bottom:1px solid var(--border);align-items:center">
+      <span style="font-family:monospace">${r.subject_id}</span>
+      <span style="text-align:center;color:#3b82f6;font-weight:600">${r.session_t1}</span>
+      <span style="text-align:center;color:#d97706;font-weight:600">${r.session_t2}</span>
+      <span style="text-align:center">${r.n_bands_ok}/7</span>
+      <span style="color:${ok?'#059669':'#dc2626'};font-weight:600">${ok?'✓ Incluido':'✗ '+r.excluded_reason}</span>
+    </div>`;
+  }).join('');
+}
+
+// Exports
+function p14ExportMatrices() {
+  if(!P14.data?.run){alert('Sin datos longitudinales.'); return;}
+  ['p14-t1-canvas','p14-t2-canvas','p14-diff-canvas'].forEach((id,i)=>{
+    const c=document.getElementById(id); if(!c) return;
+    const a=document.createElement('a');
+    a.href=c.toDataURL('image/png');
+    a.download=['matrix_t1','matrix_t2','matrix_diff'][i]+`_${P14.band}.png`;
+    a.click();
+  });
+}
+function p14ExportEdges() {
+  const d=P14.data;
+  if(!d?.run||!d.sig_edges?.length){alert('Sin edges significativos.'); return;}
+  const h=['ch_a','ch_b','t1_mean','t2_mean','diff','p_value','q_value','effect_d'];
+  const rows=d.sig_edges.map(e=>h.map(k=>e[k]??'').join(','));
+  const blob=new Blob([h.join(',')+'\n'+rows.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=`sig_longitudinal_${P14.band}_${P14.cond}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function p14ExportStats() {
+  const d=P14.data;
+  if(!d?.run||!d.band_stats?.length){alert('Sin estadísticas.'); return;}
+  const h=['band','t1_mean','t2_mean','diff_mean','mean_p','n_sig','mean_d'];
+  const rows=d.band_stats.map(r=>h.map(k=>r[k]??'').join(','));
+  const blob=new Blob([h.join(',')+'\n'+rows.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=`band_stats_longitudinal_${P14.cond}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function p14ExportFigures() {
+  const c=document.getElementById('p14-sig-canvas'); if(!c) return;
+  const a=document.createElement('a');
+  a.href=c.toDataURL('image/png'); a.download=`longitudinal_network_${P14.band}_${P14.cond}.png`;
+  a.click();
+}
+function p14ViewPaired() {
+  const inc=(P14.data?.paired_subjects||[]).filter(r=>r.included);
+  if(!inc.length){alert('Sin sujetos pareados'); return;}
+  alert('Pares T1/T2 incluidos:\n\n'+inc.map(r=>`${r.subject_id}: ${r.session_t1} → ${r.session_t2}`).join('\n'));
+}
+function p14ViewLoss() {
+  const exc=(P14.data?.paired_subjects||[]).filter(r=>!r.included);
+  if(!exc.length){alert('Sin pérdidas de seguimiento'); return;}
+  alert('Pérdidas de seguimiento:\n\n'+exc.map(r=>`${r.subject_id}: ${r.excluded_reason}`).join('\n'));
+}
+function p14Reload() { loadPhase14(); }
+
+// ════════════════════════════════════════════════════════════
+// FIN PHASE 14
 // ════════════════════════════════════════════════════════════
 
 function p5RunICA() {

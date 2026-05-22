@@ -2435,6 +2435,160 @@ function launch_webapp(cfg::PipelineConfig;
         ))
     end
 
+    # ─── API: Fase 14 — Evaluación Longitudinal ─────────────────
+    route("/api/phase14_longitudinal") do
+        cond_raw = string(get(getpayload(), :cond, "EC"))
+        cond     = _normalize_cond(cond_raw)
+        band     = uppercase(string(get(getpayload(), :band, "ALPHA")))
+        cond_short = cond == "eyesclosed" ? "EC" : (cond == "eyesopen" ? "EO" : uppercase(cond_raw))
+        grp_dir    = joinpath(res_root, "group", "longitudinal", cond_short)
+
+        gfe(f) = isfile(joinpath(grp_dir, f))
+
+        empty_resp = Dict{String,Any}(
+            "ok"            => true,
+            "run"           => false,
+            "cond"          => cond_short,
+            "band"          => band,
+            "summary"       => Dict{String,Any}(),
+            "matrix_t1"     => Dict("channels"=>String[],"values"=>Vector{Vector{Float64}}()),
+            "matrix_t2"     => Dict("channels"=>String[],"values"=>Vector{Vector{Float64}}()),
+            "matrix_diff"   => Dict("channels"=>String[],"values"=>Vector{Vector{Float64}}()),
+            "sig_edges"     => Dict{String,Any}[],
+            "band_stats"    => Dict{String,Any}[],
+            "subject_means" => Dict{String,Any}[],
+            "paired_subjects"=> Dict{String,Any}[],
+        )
+
+        gfe("longitudinal_summary.json") || return json(empty_resp)
+
+        summ = Dict{String,Any}(
+            "n_paired"=>0,"n_t1"=>0,"n_t2"=>0,"n_loss"=>0,
+            "n_total_sig"=>0,"n_bands"=>0,"best_band"=>"","timestamp"=>"",
+        )
+        try
+            txt = read(joinpath(grp_dir, "longitudinal_summary.json"), String)
+            for key in ["n_paired","n_t1","n_t2","n_loss","n_total_sig","n_bands"]
+                m = match(Regex("\"$(key)\"\\s*:\\s*([0-9]+)"), txt)
+                m !== nothing && (summ[key] = parse(Int, m.captures[1]))
+            end
+            for key in ["best_band","cond","timestamp"]
+                m = match(Regex("\"$(key)\"\\s*:\\s*\"([^\"]+)\""), txt)
+                m !== nothing && (summ[key] = m.captures[1])
+            end
+            for m in eachmatch(r"\"([A-Z_]+)_(n_sig|t1|t2)\"\s*:\s*([0-9.]+)", txt)
+                summ["$(m.captures[1])_$(m.captures[2])"] = tryparse(Float64, m.captures[3])
+            end
+        catch e; @warn "longitudinal_summary.json parse error: $e"; end
+
+        function read_matrix_csv(fname)
+            p = joinpath(grp_dir, fname)
+            isfile(p) || return Dict("channels"=>String[],"values"=>Vector{Vector{Float64}}())
+            try
+                df  = CSV.read(p, DataFrame)
+                ch  = string.(df[!, 1]); n = length(ch)
+                vals = [[Float64(df[i, j+1]) for j in 1:n] for i in 1:n]
+                Dict{String,Any}("channels"=>ch,"values"=>vals)
+            catch; Dict("channels"=>String[],"values"=>Vector{Vector{Float64}}()); end
+        end
+
+        matrix_t1   = read_matrix_csv("longitudinal_connectivity_t1_$(band).csv")
+        matrix_t2   = read_matrix_csv("longitudinal_connectivity_t2_$(band).csv")
+        matrix_diff = read_matrix_csv("longitudinal_difference_$(band).csv")
+
+        sig_edges = Dict{String,Any}[]
+        try
+            p = joinpath(grp_dir, "significant_longitudinal_edges_$(band).csv")
+            if isfile(p)
+                df = CSV.read(p, DataFrame)
+                for row in eachrow(df)
+                    push!(sig_edges, Dict{String,Any}(
+                        "ch_a"    => string(row.ch_a),
+                        "ch_b"    => string(row.ch_b),
+                        "t1_mean" => Float64(row.t1_mean),
+                        "t2_mean" => Float64(row.t2_mean),
+                        "diff"    => Float64(row.diff),
+                        "p_value" => Float64(row.p_value),
+                        "q_value" => Float64(row.q_value),
+                        "effect_d"=> Float64(row.effect_d),
+                    ))
+                end
+                sort!(sig_edges, by=r->abs(r["effect_d"]), rev=true)
+            end
+        catch e; @warn "sig longitudinal edges: $e"; end
+
+        band_stats = Dict{String,Any}[]
+        try
+            p = joinpath(grp_dir, "band_statistics_longitudinal.csv")
+            if isfile(p)
+                df = CSV.read(p, DataFrame)
+                for row in eachrow(df)
+                    push!(band_stats, Dict{String,Any}(
+                        "band"      => string(row.band),
+                        "n_channels"=> Int(row.n_channels),
+                        "n_pairs"   => Int(row.n_pairs),
+                        "n_sig"     => Int(row.n_sig),
+                        "pct_sig"   => Float64(row.pct_sig),
+                        "t1_mean"   => Float64(row.t1_mean),
+                        "t2_mean"   => Float64(row.t2_mean),
+                        "diff_mean" => Float64(row.diff_mean),
+                        "mean_p"    => Float64(row.mean_p),
+                        "mean_d"    => Float64(row.mean_d),
+                    ))
+                end
+            end
+        catch e; @warn "band stats longitudinal: $e"; end
+
+        subject_means = Dict{String,Any}[]
+        try
+            p = joinpath(grp_dir, "subject_band_means.csv")
+            if isfile(p)
+                df = CSV.read(p, DataFrame)
+                for row in eachrow(df)
+                    push!(subject_means, Dict{String,Any}(
+                        "subject_id"=> string(row.subject_id),
+                        "timepoint" => string(row.timepoint),
+                        "band"      => string(row.band),
+                        "mean_wpli" => Float64(row.mean_wpli),
+                    ))
+                end
+            end
+        catch e; @warn "subject means longitudinal: $e"; end
+
+        paired_subjects = Dict{String,Any}[]
+        try
+            p = joinpath(grp_dir, "paired_subjects.csv")
+            if isfile(p)
+                df = CSV.read(p, DataFrame)
+                for row in eachrow(df)
+                    push!(paired_subjects, Dict{String,Any}(
+                        "subject_id"     => string(row.subject_id),
+                        "session_t1"     => string(row.session_t1),
+                        "session_t2"     => string(row.session_t2),
+                        "n_bands_ok"     => Int(row.n_bands_ok),
+                        "included"       => Bool(row.included),
+                        "excluded_reason"=> string(row.excluded_reason),
+                    ))
+                end
+            end
+        catch e; @warn "paired subjects: $e"; end
+
+        json(Dict(
+            "ok"             => true,
+            "run"            => true,
+            "cond"           => cond_short,
+            "band"           => band,
+            "summary"        => summ,
+            "matrix_t1"      => matrix_t1,
+            "matrix_t2"      => matrix_t2,
+            "matrix_diff"    => matrix_diff,
+            "sig_edges"      => sig_edges[1:min(50, end)],
+            "band_stats"     => band_stats,
+            "subject_means"  => subject_means,
+            "paired_subjects"=> paired_subjects,
+        ))
+    end
+
     # ─── Iniciar servidor ─────────────────────────────────────
     @info "NeuroMIND Dashboard → http://localhost:$(port)"
     open_browser && _try_open_browser("http://localhost:$(port)")
