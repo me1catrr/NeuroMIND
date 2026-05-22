@@ -2443,7 +2443,7 @@ tr.row-warn:hover td { background: #fef9c3; }
       </div>
       <button class="p5-run-btn" onclick="p6RunPipeline()">▶ Ejecutar pipeline</button>
       <div style="font-size:11px;color:var(--text-3);margin-top:4px">
-        Requiere señal filtrada (Fase 4) · época 2 s · rechazo por amplitud/gradiente
+        Requiere señal filtrada (Fase 4) · Perfil eeg_julia: épocas 1 s · ±70 µV · 30 canales · baseline doble
       </div>
     </div>
 
@@ -7280,12 +7280,19 @@ function _p6RenderSummary() {
   _t('p6-retention', `${summ.retention_pct || 0}%`);
   const msg = document.getElementById('p6-summary-msg');
   if (msg) {
-    const ok = (summ.retention_pct || 0) >= 90;
+    const ok       = (summ.retention_pct || 0) >= 90;
+    const isEJ_seg = (summ.profile || 'default') === 'eeg_julia';
+    const isEJ_ar  = (summ.artifact_profile || 'default') === 'eeg_julia';
+    const note = (isEJ_seg || isEJ_ar)
+      ? `<div style="margin-top:5px;padding:4px 7px;background:#ede9fe;border-radius:5px;font-size:10px;color:#6d28d9">` +
+        `⚡ Modo EEG_Julia — ${isEJ_seg ? `épocas 1 s · ` : ''}` +
+        `${isEJ_ar ? `AR ±${Math.abs(summ.min_amplitude_uv ?? 70)} µV · ${summ.n_channels_used_for_rejection ?? 30} canales · ` : ''}` +
+        `${(summ.n_baseline_passes ?? 1) >= 2 ? 'baseline doble (pre/post-AR)' : 'baseline único'}</div>` : '';
     msg.innerHTML = ok
       ? `<span class="p6-status-ok">✓ Segmentación completada correctamente</span><br>` +
-        `Se generaron ${summ.n_total} épocas de ${summ.epoch_length_s} s con ${summ.overlap_pct}% de solapamiento.`
+        `${summ.n_total} épocas de ${summ.epoch_length_s} s · ${summ.overlap_pct}% solapamiento.${note}`
       : `<span class="p6-status-warn">⚠ Retención baja (${summ.retention_pct}%)</span><br>` +
-        `Revisar umbrales de rechazo de artefactos.`;
+        `Revisar umbrales de rechazo de artefactos.${note}`;
   }
 }
 
@@ -7294,15 +7301,44 @@ function _p6RenderParams() {
   if (!el) return;
   if (!State.p6Data) { el.innerHTML = '<div class="spinner"><div class="spin-circle"></div></div>'; return; }
   const s = State.p6Data.summary || {};
+
+  // Profile badges
+  const segProf  = s.profile || 'default';
+  const arProf   = s.artifact_profile || 'default';
+  const isEJ_seg = segProf === 'eeg_julia';
+  const isEJ_ar  = arProf  === 'eeg_julia';
+  const segBadge = `<span class="p5-profile-badge ${isEJ_seg ? 'p5-profile-eeg-julia' : 'p5-profile-default'}">${isEJ_seg ? '⚡ eeg_julia' : '⚙ default'}</span>`;
+  const arBadge  = `<span class="p5-profile-badge ${isEJ_ar  ? 'p5-profile-eeg-julia' : 'p5-profile-default'}">${isEJ_ar  ? '⚡ eeg_julia' : '⚙ default'}</span>`;
+
+  // Baseline description
+  let blDesc = s.baseline_method ?? 'mean';
+  if (s.baseline_method === 'first_window_mean') {
+    blDesc = `first_window_mean [${s.baseline_start_s ?? 0}–${s.baseline_end_s ?? 0.1} s]`;
+  }
+  const blPasses = s.n_baseline_passes ?? 1;
+  const blPassTxt = blPasses >= 2 ? `${blPasses}× (pre-AR + post-AR)` : '1× (solo pre-AR)';
+
+  // AR threshold description
+  let arThr;
+  if (isEJ_ar) {
+    const nCh = s.n_channels_used_for_rejection ?? 30;
+    arThr = `±${Math.abs(s.min_amplitude_uv ?? 70)} µV · ${nCh} canales · sin gradiente`;
+  } else {
+    arThr = `±${s.amp_threshold_uv ?? 100} µV + grad ${s.grad_threshold_uv ?? 50} µV/muestra · todos los canales`;
+  }
+
   const rows = [
-    ['Longitud de época',   `${s.epoch_length_s ?? '—'} s`],
-    ['Solapamiento',        `${s.overlap_pct ?? 0}% (${s.overlap_s ?? 0} s)`],
-    ['Paso (step)',         `${s.step_s ?? '—'} s`],
-    ['Referencia temporal', s.baseline_method ? `Inicio de época (${s.baseline_method})` : '—'],
-    ['Canales utilizados',  s.n_channels ?? '—'],
-    ['Señal de entrada',    s.signal_input ?? '—'],
-    ['Fs (muestreo)',       `${s.fs ?? '—'} Hz`],
-    ['Muestras por época',  s.samples_per_epoch ?? '—'],
+    ['Perfil segmentación',  segBadge],
+    ['Longitud de época',    `${s.epoch_length_s ?? '—'} s`],
+    ['Solapamiento',         `${s.overlap_pct ?? 0}% (${s.overlap_s ?? 0} s)`],
+    ['Paso (step)',          `${s.step_s ?? '—'} s`],
+    ['Muestras por época',   s.samples_per_epoch ?? '—'],
+    ['Baseline',             `${blDesc}`],
+    ['Pasadas baseline',     blPassTxt],
+    ['Perfil AR',            arBadge],
+    ['Criterio AR',          arThr],
+    ['Señal de entrada',     s.signal_input ?? '—'],
+    ['Fs (muestreo)',        `${s.fs ?? '—'} Hz`],
   ];
   el.innerHTML = rows.map(([k, v]) =>
     `<div class="p6-cfg-row"><span class="p6-cfg-key">${k}</span><span class="p6-cfg-val">${v}</span></div>`

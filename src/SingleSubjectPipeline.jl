@@ -34,9 +34,10 @@ function load_ss_config(path::String)::PipelineConfig
         k => (Float64(v[1]), Float64(v[2])) for (k, v) in bands_raw
     )
 
-    overlap_s  = Float64(get(seg, "overlap_seconds", 0.0))
-    seg_len_s  = Float64(get(seg, "segment_length_seconds", 2.0))
+    overlap_s    = Float64(get(seg, "overlap_seconds", 0.0))
+    seg_len_s    = Float64(get(seg, "segment_length_seconds", 2.0))
     overlap_frac = seg_len_s > 0.0 ? overlap_s / seg_len_s : 0.0
+    bl_raw       = get(raw, "baseline", Dict{String,Any}())
 
     PipelineConfig(
         Dict{String,Any}("name" => "SingleSubject"),
@@ -59,15 +60,27 @@ function load_ss_config(path::String)::PipelineConfig
             "filter_order"  => Int(get(filt,     "filter_order",     4)),
         ),
         Dict{String,Any}(
+            "profile"        => String(get(seg, "profile",       "default")),
             "epoch_length_s" => seg_len_s,
             "epoch_overlap"  => overlap_frac,
-            "min_epochs"     => Int(get(seg, "min_segments", 10)),
+            "min_epochs"     => Int(get(seg, "min_segments",       10)),
         ),
-        Dict{String,Any}("apply" => true, "method" => "mean"),
         Dict{String,Any}(
+            "apply"            => true,
+            "method"           => String(get(bl_raw, "method",           "mean")),
+            "baseline_start_s" => Float64(get(bl_raw, "baseline_start_s", 0.0)),
+            "baseline_end_s"   => Float64(get(bl_raw, "baseline_end_s",   0.10)),
+            "n_passes"         => Int(get(bl_raw,     "n_passes",          1)),
+        ),
+        Dict{String,Any}(
+            "profile"                => String(get(ar, "profile",                "default")),
             "amplitude_threshold_uv" => Float64(get(ar, "amplitude_threshold_uv", 100.0)),
             "gradient_threshold_uv"  => Float64(get(ar, "gradient_threshold_uv",   50.0)),
-            "enabled"                => Bool(get(ar,  "enabled", true)),
+            "min_amplitude_uv"       => Float64(get(ar, "min_amplitude_uv",        -70.0)),
+            "max_amplitude_uv"       => Float64(get(ar, "max_amplitude_uv",         70.0)),
+            "n_channels_used"        => Int(get(ar,    "n_channels_used",           30)),
+            "use_gradient"           => Bool(get(ar,   "use_gradient",             true)),
+            "enabled"                => Bool(get(ar,   "enabled",                  true)),
         ),
         Dict{String,Any}(
             "profile"            => String(get(get(raw, "ica", Dict()), "profile", "default")),
@@ -325,18 +338,23 @@ function run_single_subject_pipeline(config_path::String)
     # ── Segmentación sobre señal limpiada (o filtrada si sin ICA) ──
     println("[5/8] Segmentación y rechazo de artefactos...")
     _log(log_io, "\n[5/8] Segmentación")
-    t_seg      = now()
-    epochs_raw = segment_recording(rec_ica, cfg)
-    epochs_bl  = apply_baseline(epochs_raw, cfg)   # todos los epochs, baseline corregido
-    epochs     = reject_artifacts(epochs_bl, cfg)  # solo epochs válidos
+    t_seg       = now()
+    n_passes    = Int(get(cfg.baseline, "n_passes", 1))
+    seg_profile = String(get(cfg.segmentation, "profile", "default"))
+    ar_profile  = String(get(cfg.artifact_rejection, "profile", "default"))
+    epochs_raw  = segment_recording(rec_ica, cfg)
+    epochs_bl1  = apply_baseline(epochs_raw, cfg)   # 1ª pasada: todos los epochs
+    epochs_ar   = reject_artifacts(epochs_bl1, cfg) # solo epochs válidos
+    epochs      = n_passes >= 2 ? apply_baseline(epochs_ar, cfg) : epochs_ar   # 2ª pasada post-AR
     n_total    = n_epochs(epochs_raw)
     n_valid    = epochs.n_valid
-    n_rejected = length(epochs.rejected_idx)
+    n_rejected = length(epochs_ar.rejected_idx)
     seg_dur    = round(Dates.value(now() - t_seg) / 1000, digits=1)
+    _log(log_io, "  Perfil segmentación: $(seg_profile) | Perfil AR: $(ar_profile) | Baseline passes: $(n_passes)")
     _log(log_io, "  Segmentos totales: $(n_total) | Válidos: $(n_valid) | Rechazados: $(n_rejected) ($(round(100*n_rejected/n_total, digits=1))%)")
     _log(log_io, "  Duración segmentación: $(seg_dur) s")
     seg_signal_label = (ica_result !== nothing && !isempty(ica_result.rejected_components)) ? "ICA-limpiada" : "filtrada"
-    _save_segmentation_results(epochs_bl, epochs, rec_ica, cfg, export_dir, t_seg, log_io, seg_signal_label)
+    _save_segmentation_results(epochs_bl1, epochs, rec_ica, cfg, export_dir, t_seg, log_io, seg_signal_label)
 
     # ── 8. Análisis espectral ─────────────────────────────────
     println("[6/8] Análisis espectral (PSD)...")
@@ -407,11 +425,20 @@ function _save_segmentation_results(
     step_s    = round(epoch_s * (1.0 - overlap_f), digits=3)
     samp_ep   = round(Int, epoch_s * fs)
     sig_dur   = round(n_samples(rec) / fs, digits=2)
-    amp_thr   = Float64(get(cfg.artifact_rejection, "amplitude_threshold_uv", 100.0))
-    grad_thr  = Float64(get(cfg.artifact_rejection, "gradient_threshold_uv",  50.0))
-    bl_method = String(get(cfg.baseline, "method", "mean"))
-    ts        = Dates.format(now(), "yyyy-mm-ddTHH:MM:SS")
-    dur_s     = round(Dates.value(now() - t_start) / 1000, digits=1)
+    seg_profile  = String(get(cfg.segmentation,       "profile",  "default"))
+    ar_profile   = String(get(cfg.artifact_rejection, "profile",  "default"))
+    amp_thr      = Float64(get(cfg.artifact_rejection, "amplitude_threshold_uv", 100.0))
+    grad_thr     = Float64(get(cfg.artifact_rejection, "gradient_threshold_uv",   50.0))
+    min_amp_uv   = Float64(get(cfg.artifact_rejection, "min_amplitude_uv",        -70.0))
+    max_amp_uv   = Float64(get(cfg.artifact_rejection, "max_amplitude_uv",          70.0))
+    n_ch_ar      = Int(get(cfg.artifact_rejection,     "n_channels_used",           30))
+    use_grad_ar  = Bool(get(cfg.artifact_rejection,    "use_gradient",             true))
+    bl_method    = String(get(cfg.baseline, "method",           "mean"))
+    bl_start_s   = Float64(get(cfg.baseline, "baseline_start_s", 0.0))
+    bl_end_s     = Float64(get(cfg.baseline, "baseline_end_s",   0.10))
+    n_bl_passes  = Int(get(cfg.baseline,     "n_passes",          1))
+    ts           = Dates.format(now(), "yyyy-mm-ddTHH:MM:SS")
+    dur_s        = round(Dates.value(now() - t_start) / 1000, digits=1)
 
     # ── Informe de calidad por época ──────────────────────────────────────────
     qr = try
@@ -451,6 +478,7 @@ function _save_segmentation_results(
     # 1) segmentation_summary.json
     open(joinpath(export_dir, "segmentation_summary.json"), "w") do f
         write(f, """{
+  "profile": "$(seg_profile)",
   "n_total": $(n_total),
   "n_valid": $(n_valid),
   "n_rejected": $(n_rejected),
@@ -464,9 +492,17 @@ function _save_segmentation_results(
   "samples_per_epoch": $(samp_ep),
   "signal_duration_s": $(sig_dur),
   "signal_input": "$(signal_input)",
+  "baseline_method": "$(bl_method)",
+  "baseline_start_s": $(bl_start_s),
+  "baseline_end_s": $(bl_end_s),
+  "n_baseline_passes": $(n_bl_passes),
+  "artifact_profile": "$(ar_profile)",
+  "min_amplitude_uv": $(min_amp_uv),
+  "max_amplitude_uv": $(max_amp_uv),
+  "n_channels_used_for_rejection": $(n_ch_ar),
+  "use_gradient": $(use_grad_ar),
   "amp_threshold_uv": $(amp_thr),
   "grad_threshold_uv": $(grad_thr),
-  "baseline_method": "$(bl_method)",
   "n_rejected_amplitude": $(n_rej_amp),
   "n_rejected_gradient": $(n_rej_grad),
   "quality_mean": $(q_mean),

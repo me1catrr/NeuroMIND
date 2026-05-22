@@ -213,6 +213,140 @@ end
     @test length(ep_ar.rejection_reasons) == length(ep_ar.rejected_idx)
 end
 
+# ─── Helpers para configuraciones personalizadas de segmentación ──
+
+function _cfg_seg(seg_dict, bl_dict, ar_dict)
+    c = mock_config()
+    PipelineConfig(
+        c.project, c.study, c.paths, c.recording, c.filtering,
+        seg_dict, bl_dict, ar_dict,
+        c.ica, c.spectral, c.bands, c.connectivity,
+        c.surrogates, c.graph, c.clinical, c.longitudinal,
+        c.statistics, c.export_cfg, c.root
+    )
+end
+
+# ─── Tests: segmentación perfil eeg_julia ────────────────────
+
+@testset "Segmentation_EEGJulia_Profile" begin
+    # Con profile="eeg_julia" siempre genera épocas de 1 s sin solapamiento
+    seg = Dict{String,Any}("profile" => "eeg_julia",
+                           "epoch_length_s" => 5.0,   # debe ignorarse
+                           "epoch_overlap"  => 0.5,   # debe ignorarse
+                           "min_epochs"     => 2)
+    bl  = Dict{String,Any}("apply" => true, "method" => "mean")
+    ar  = Dict{String,Any}("enabled" => false, "profile" => "default",
+                           "amplitude_threshold_uv" => 100.0,
+                           "gradient_threshold_uv"  => 50.0)
+    cfg = _cfg_seg(seg, bl, ar)
+    rec = mock_recording(10, 2000, 500.0)   # 4 s a 500 Hz
+
+    epochs = segment_recording(rec, cfg)
+    @test epochs.epoch_length_s == 1.0              # forzado por profile
+    @test n_samples_epoch(epochs) == 500            # 1 s × 500 Hz
+    @test n_epochs(epochs) == 4                     # 4 s / 1 s = 4 épocas
+end
+
+# ─── Tests: baseline first_window_mean ───────────────────────
+
+@testset "Baseline_FirstWindowMean" begin
+    fs  = 500.0
+    rec = mock_recording(10, 2000, fs)
+    seg = Dict{String,Any}("epoch_length_s" => 1.0, "epoch_overlap" => 0.0,
+                           "min_epochs" => 2, "profile" => "default")
+    bl  = Dict{String,Any}("apply" => true, "method" => "first_window_mean",
+                           "baseline_start_s" => 0.0, "baseline_end_s" => 0.10)
+    ar  = Dict{String,Any}("enabled" => false, "profile" => "default",
+                           "amplitude_threshold_uv" => 100.0,
+                           "gradient_threshold_uv"  => 50.0)
+    cfg    = _cfg_seg(seg, bl, ar)
+    epochs = segment_recording(rec, cfg)
+    ep_bl  = apply_baseline(epochs, cfg)
+
+    # La media de las muestras 1..50 (0–100 ms a 500 Hz) debe ser ≈ 0 en todos los canales/épocas
+    bl_end_idx = round(Int, 0.10 * fs)   # = 50
+    for ep in 1:n_epochs(ep_bl), ch in 1:5
+        @test abs(mean(ep_bl.data[ch, 1:bl_end_idx, ep])) < 1e-10
+    end
+
+    # La media del epoch COMPLETO no es necesariamente cero (solo la ventana baseline lo es)
+    # Verificar que el método "mean" daría media total ≈ 0 y first_window_mean no necesariamente
+    bl_mean = Dict{String,Any}("apply" => true, "method" => "mean")
+    cfg2    = _cfg_seg(seg, bl_mean, ar)
+    ep_bl2  = apply_baseline(epochs, cfg2)
+    for ep in 1:n_epochs(ep_bl2), ch in 1:5
+        @test abs(mean(ep_bl2.data[ch, :, ep])) < 1e-10
+    end
+end
+
+# ─── Tests: rechazo artefactos perfil eeg_julia ───────────────
+
+@testset "AR_EEGJulia_Profile" begin
+    fs  = 500.0
+    # 35 canales, 1000 muestras → 2 épocas de 500 muestras (0.5 s a 500 Hz nrow_step=500)
+    # Canal 3, época 2 (muestras 501-1000): plateau de 75 µV (amplitude > ±70 pero < ±100,
+    # gradiente = 0 → el test es limpio independiente del perfil de gradiente).
+    data = zeros(35, 1000)
+    data[3, 501:1000] .= 75.0    # 75 µV: supera ±70 (eeg_julia) pero NO ±100 (default)
+    meta  = RecordingMeta("T01", "T1", "EC", 1, fs, 35,
+                          ["Ch$i" for i in 1:35], nothing, "dummy.tsv")
+    rec   = EEGRecording(meta, data, collect(0:(1/fs):(1000-1)/fs))
+    seg   = Dict{String,Any}("profile" => "default", "epoch_length_s" => 0.5,
+                             "epoch_overlap" => 0.0, "min_epochs" => 1)
+    bl    = Dict{String,Any}("apply" => false)
+
+    ar_ej = Dict{String,Any}("profile" => "eeg_julia", "enabled" => true,
+                             "min_amplitude_uv" => -70.0, "max_amplitude_uv" => 70.0,
+                             "n_channels_used" => 30,
+                             "amplitude_threshold_uv" => 100.0,
+                             "gradient_threshold_uv"  => 50.0)
+    cfg_ej = _cfg_seg(seg, bl, ar_ej)
+    epochs = segment_recording(rec, cfg_ej)
+    # Con eeg_julia: ±70 µV, canal 3 en época 2 = 75 µV → rechazada
+    ep_ej = reject_artifacts(epochs, cfg_ej)
+    @test ep_ej.n_valid < n_epochs(epochs)
+    @test length(ep_ej.rejected_idx) >= 1
+
+    # Con profile "default" (±100 µV, sin gradiente relevante porque plateau): sin rechazo
+    ar_def = Dict{String,Any}("profile" => "default", "enabled" => true,
+                              "amplitude_threshold_uv" => 100.0,
+                              "gradient_threshold_uv"  => 200.0,  # umbral alto para gradient
+                              "use_gradient" => false)
+    cfg_def = _cfg_seg(seg, bl, ar_def)
+    ep_def  = reject_artifacts(epochs, cfg_def)
+    @test ep_def.n_valid == n_epochs(epochs)   # 75 µV < 100 µV → sin rechazo
+end
+
+# ─── Tests: doble pasada baseline (n_passes = 2) ─────────────
+
+@testset "Baseline_DoublePass" begin
+    fs  = 500.0
+    rec = mock_recording(10, 2000, fs)
+    seg = Dict{String,Any}("profile" => "default", "epoch_length_s" => 1.0,
+                           "epoch_overlap" => 0.0, "min_epochs" => 2)
+    ar  = Dict{String,Any}("enabled" => true, "profile" => "default",
+                           "amplitude_threshold_uv" => 100.0,
+                           "gradient_threshold_uv"  => 50.0)
+    bl  = Dict{String,Any}("apply" => true, "method" => "first_window_mean",
+                           "baseline_start_s" => 0.0, "baseline_end_s" => 0.10,
+                           "n_passes" => 2)
+    cfg = _cfg_seg(seg, bl, ar)
+
+    epochs   = segment_recording(rec, cfg)
+    epochs1  = apply_baseline(epochs, cfg)       # 1ª pasada
+    epochs_ar = reject_artifacts(epochs1, cfg)   # AR
+    epochs2  = apply_baseline(epochs_ar, cfg)    # 2ª pasada post-AR
+
+    # Tras la 2ª pasada, la ventana baseline de cada época válida debe tener media ≈ 0
+    bl_end_idx = round(Int, 0.10 * fs)
+    for ep in 1:n_epochs(epochs2), ch in 1:5
+        @test abs(mean(epochs2.data[ch, 1:bl_end_idx, ep])) < 1e-10
+    end
+
+    # La 2ª pasada opera solo sobre las épocas válidas (mismas dimensiones que epochs_ar)
+    @test size(epochs2.data, 3) == epochs_ar.n_valid
+end
+
 # ─── Tests espectrales ────────────────────────────────────────
 
 @testset "Spectral" begin
