@@ -1357,6 +1357,76 @@ tr.row-warn:hover td { background: #fef9c3; }
 .p14-tl-node.t2  { border-color:#d97706; color:#92400e; }
 .p14-tl-arrow    { flex:1; height:2px; background:linear-gradient(90deg,#3b82f6,#d97706);
                    position:relative; margin:0 4px; }
+
+/* ─── Phase 11 — Resultados Finales (emerald) ────────────── */
+.p11-accent      { color:#059669; }
+.grid-p11-kpi    { display:grid; grid-template-columns:repeat(6,1fr); gap:.65rem; margin-bottom:.9rem; }
+.grid-p11-main   { display:grid; grid-template-columns:2fr 1fr; gap:.9rem; margin-bottom:.9rem; }
+.grid-p11-mid    { display:grid; grid-template-columns:1fr 1fr; gap:.9rem; margin-bottom:.9rem; }
+@media(max-width:900px){ .grid-p11-kpi{ grid-template-columns:repeat(3,1fr); }
+  .grid-p11-main,.grid-p11-mid{ grid-template-columns:1fr; } }
+.p11-kpi-card    { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px;
+                   padding:.7rem .8rem; text-align:center; }
+.p11-kpi-val     { font-size:1.45rem; font-weight:700; color:#059669; }
+.p11-kpi-lbl     { font-size:.67rem; color:#6b7280; text-transform:uppercase; letter-spacing:.04em; }
+.p11-hdr-btns    { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+.p11-btn         { background:#e2e8f0; border:none; border-radius:6px; padding:.38rem .85rem;
+                   cursor:pointer; font-size:.78rem; font-weight:600; color:#374151; }
+.p11-btn-accent  { background:#059669; color:#fff; }
+.p11-btn-accent:hover { background:#047857; }
+.p11-check       { display:flex; align-items:center; gap:.45rem; padding:.28rem 0;
+                   border-bottom:1px solid #f3f4f6; font-size:.78rem; }
+.p11-check:last-of-type { border-bottom:none; }
+.p11-ch-icon     { width:17px; height:17px; border-radius:50%; display:flex; align-items:center;
+                   justify-content:center; font-size:.62rem; font-weight:700; flex-shrink:0; }
+.p11-ch-icon.ok  { background:#d1fae5; color:#059669; }
+.p11-ch-icon.warn{ background:#fef9c3; color:#a16207; }
+.p11-ch-icon.pend{ background:#f3f4f6; color:#9ca3af; }
+.p11-gauge-wrap  { display:flex; flex-direction:column; align-items:center;
+                   justify-content:center; padding:1rem; }
+.p11-conn-tbl    { width:100%; border-collapse:collapse; font-size:.73rem; }
+.p11-conn-tbl th { color:#374151; font-weight:600; padding:.28rem .45rem;
+                   border-bottom:1px solid #e5e7eb; text-align:left; background:#f9fafb; }
+.p11-conn-tbl td { padding:.22rem .45rem; border-bottom:1px solid #f3f4f6; }
+.p11-conn-tbl tr:last-child td { border-bottom:none; }
+.p11-footer      { display:flex; gap:.5rem; justify-content:center; flex-wrap:wrap; margin-top:.9rem; }
+.p11-footer-btn  { background:#f3f4f6; border:1px solid #e5e7eb; border-radius:6px;
+                   padding:.38rem .85rem; cursor:pointer; font-size:.76rem; font-weight:600; color:#374151; }
+.p11-footer-btn:hover { background:#e2e8f0; }
+.p11-not-run     { display:flex; flex-direction:column; align-items:center;
+                   justify-content:center; gap:.9rem; padding:3rem; color:#9ca3af; text-align:center; }
+
+/* ─── Phase 12 — Exportación / Reporte (sky blue) ─────────── */
+.p12-accent      { color:#0369a1; }
+.grid-p12-cats   { display:grid; grid-template-columns:repeat(3,1fr); gap:.75rem; margin-bottom:.9rem; }
+@media(max-width:900px){ .grid-p12-cats{ grid-template-columns:1fr 1fr; } }
+.p12-cat-card    { background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:.75rem; }
+.p12-cat-title   { font-weight:700; color:#0369a1; font-size:.8rem; margin-bottom:.35rem; }
+.p12-cat-stat    { font-size:.72rem; color:#6b7280; margin-bottom:.4rem; }
+.p12-file-row    { display:flex; align-items:center; gap:.35rem; padding:.12rem 0; font-size:.7rem; }
+.p12-file-dot    { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.p12-file-dot.ok { background:#059669; }
+.p12-file-dot.miss{ background:#d1d5db; }
+.p12-file-name   { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#374151; }
+.p12-file-sz     { color:#9ca3af; white-space:nowrap; }
+.p12-action-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:.75rem; margin-bottom:.9rem; }
+@media(max-width:700px){ .p12-action-grid{ grid-template-columns:repeat(2,1fr); } }
+.p12-action-btn  { background:#0369a1; color:#fff; border:none; border-radius:8px;
+                   padding:.85rem .5rem; cursor:pointer; font-size:.78rem; font-weight:600;
+                   text-align:center; transition:background .15s; }
+.p12-action-btn:hover { background:#0284c7; }
+.p12-action-btn.sec  { background:#f3f4f6; color:#374151; border:1px solid #e5e7eb; }
+.p12-action-btn.sec:hover { background:#e2e8f0; }
+.p12-action-icon { font-size:1.3rem; margin-bottom:.25rem; display:block; }
+.p12-stat-strip  { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:.9rem; }
+.p12-stat-chip   { background:#f0f9ff; border:1px solid #bae6fd; border-radius:6px;
+                   padding:.35rem .75rem; font-size:.76rem; }
+.p12-stat-val    { font-weight:700; color:#0369a1; margin-right:.2rem; }
+.p12-report-box  { font-family:monospace; font-size:.72rem; background:#f8fafc;
+                   border:1px solid #e2e8f0; border-radius:6px; padding:.9rem;
+                   max-height:260px; overflow:auto; white-space:pre-wrap; color:#1e293b; }
+.p12-not-run     { display:flex; flex-direction:column; align-items:center;
+                   justify-content:center; gap:.9rem; padding:3rem; color:#9ca3af; text-align:center; }
 </style>
 </head>
 <body>
@@ -3687,8 +3757,94 @@ tr.row-warn:hover td { background: #fef9c3; }
     </div>
 
   </div><!-- /phase-panel-10 -->
-  <div id="phase-panel-11" class="phase-panel"></div>
-  <div id="phase-panel-12" class="phase-panel"></div>
+  <!-- ═══════════════════════════════════════════════════════ PHASE 11 -->
+  <div id="phase-panel-11" class="phase-panel">
+    <div class="phase-header">
+      <div class="phase-header-left">
+        <div class="phase-badge-lg" style="background:#059669">11</div>
+        <div>
+          <h2 class="phase-title">Resultados Finales</h2>
+          <p class="phase-subtitle" id="p11Subtitle">Cargando…</p>
+        </div>
+      </div>
+      <div class="p11-hdr-btns">
+        <button class="p11-btn" onclick="p11Reload()">↺ Actualizar</button>
+        <button class="p11-btn p11-btn-accent" onclick="switchPhase(12)">⬇ Exportar →</button>
+      </div>
+    </div>
+
+    <!-- KPI strip -->
+    <div class="grid-p11-kpi" id="p11KpiStrip"></div>
+
+    <!-- Pipeline checklist + quality gauge -->
+    <div class="grid-p11-main">
+      <div class="card">
+        <div class="card-title p11-accent">Estado del pipeline</div>
+        <div id="p11Pipeline"></div>
+      </div>
+      <div class="card">
+        <div class="card-title p11-accent">Score de calidad</div>
+        <div id="p11Quality"></div>
+      </div>
+    </div>
+
+    <!-- Spectral profile + top connections -->
+    <div class="grid-p11-mid">
+      <div class="card">
+        <div class="card-title p11-accent">Perfil espectral (potencia media por banda)</div>
+        <svg id="p11SpecChart" style="width:100%;height:160px;display:block"></svg>
+      </div>
+      <div class="card">
+        <div class="card-title p11-accent">Top conexiones significativas</div>
+        <div id="p11TopConn"></div>
+      </div>
+    </div>
+
+    <!-- Connectivity summary by band -->
+    <div class="card">
+      <div class="card-title p11-accent">Conectividad wPLI por banda</div>
+      <div id="p11ConnSummary"></div>
+    </div>
+
+    <!-- Footer navigation -->
+    <div class="p11-footer">
+      <button class="p11-footer-btn" onclick="switchPhase(10)">← Surrogates</button>
+      <button class="p11-footer-btn" onclick="switchPhase(12)">Exportar resultados →</button>
+      <button class="p11-footer-btn" onclick="switchPhase(13)">Análisis transversal →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ PHASE 12 -->
+  <div id="phase-panel-12" class="phase-panel">
+    <div class="phase-header">
+      <div class="phase-header-left">
+        <div class="phase-badge-lg" style="background:#0369a1">12</div>
+        <div>
+          <h2 class="phase-title">Exportación / Reporte</h2>
+          <p class="phase-subtitle" id="p12Subtitle">Cargando…</p>
+        </div>
+      </div>
+      <div class="p11-hdr-btns">
+        <button class="p11-btn" onclick="p12Reload()">↺ Actualizar</button>
+        <button class="p11-btn" style="background:#0369a1;color:#fff" onclick="switchPhase(11)">← Resultados</button>
+      </div>
+    </div>
+
+    <!-- Stats strip -->
+    <div class="p12-stat-strip" id="p12StatStrip"></div>
+
+    <!-- Export action buttons -->
+    <div class="p12-action-grid" id="p12Actions"></div>
+
+    <!-- File categories grid -->
+    <div class="grid-p12-cats" id="p12CatsGrid"></div>
+
+    <!-- Report text preview -->
+    <div class="card">
+      <div class="card-title p12-accent">Resumen del registro (texto exportable)</div>
+      <div class="p12-report-box" id="p12ReportContent"></div>
+    </div>
+  </div>
   <div id="phase-panel-13" class="phase-panel">
 
     <!-- Header -->
@@ -4443,6 +4599,10 @@ async function switchPhase(n) {
     await loadPhase9();
   } else if (n === 10) {
     await loadPhase10();
+  } else if (n === 11) {
+    await loadPhase11();
+  } else if (n === 12) {
+    await loadPhase12();
   } else if (n === 13) {
     await loadPhase13();
   } else if (n === 14) {
@@ -11851,6 +12011,432 @@ function p10Reload() { loadPhase10(); }
 
 // ════════════════════════════════════════════════════════════
 // FIN PHASE 10
+// ════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════
+// PHASE 11 — RESULTADOS FINALES
+// ═══════════════════════════════════════════════════════════
+
+const P11 = { data: null };
+
+async function loadPhase11() {
+  if (!State.subj) { renderPhasePlaceholder(11); return; }
+  const panel = document.getElementById('phase-panel-11');
+
+  const res = await fetch(
+    `/api/phase11_summary?subj=${State.subj}&sess=${State.sess}&cond=${State.cond}`);
+  const d = await res.json();
+  P11.data = d;
+
+  if (!d.run) {
+    panel.innerHTML = `
+      <div class="p11-not-run">
+        <div style="font-size:3rem">📋</div>
+        <div style="font-size:1.1rem;font-weight:600">Sin resultados para este sujeto</div>
+        <div style="font-size:.85rem;max-width:400px">
+          Ejecuta primero el pipeline con
+          <code style="background:#f3f4f6;padding:.15rem .4rem;border-radius:4px">
+            julia --project=. scripts/run_single_subject.jl</code>
+        </div>
+        <button class="p11-btn p11-btn-accent" onclick="switchPhase(0)">
+          Ir a configuración →
+        </button>
+      </div>`;
+    return;
+  }
+
+  _p11RenderSubtitle(d);
+  _p11RenderKpi(d);
+  _p11RenderPipeline(d.statuses, d.timing);
+  _p11RenderQuality(d.quality_score);
+  _p11RenderSpectral(d.band_powers);
+  _p11RenderTopConn(d.top_connections);
+  _p11RenderConnSummary(d.connectivity, d.surrogates);
+}
+
+function _p11RenderSubtitle(d) {
+  const el = document.getElementById('p11Subtitle');
+  if (!el) return;
+  const c = (d.cond || '').replace('eyesclosed','EC').replace('eyesopen','EO');
+  el.textContent =
+    `sub-${d.subject} · ses-${d.session} · ${c} · ` +
+    `${d.timing.phases_done}/10 fases · duración: ${d.timing.duration || '—'}`;
+}
+
+function _p11RenderKpi(d) {
+  const el = document.getElementById('p11KpiStrip');
+  if (!el) return;
+  const r  = d.recording || {};
+  const ic = d.ica       || {};
+  const s  = d.surrogates || {};
+  const nAct = (r.n_channels||0) - (r.n_bad_ch||0);
+  const kpis = [
+    { val: nAct,                         lbl: 'Canales activos' },
+    { val: r.n_epochs_accepted || '—',   lbl: 'Epochs aceptados' },
+    { val: `${ic.n_rejected||0}/${ic.n_comp||0}`, lbl: 'ICA rechazados' },
+    { val: s.n_sig_total || 0,           lbl: 'Conexiones sig.' },
+    { val: d.dominant_band || d.connectivity?.best_band || '—', lbl: 'Banda dominante' },
+    { val: `${Math.round((d.quality_score||0)*100)}%`, lbl: 'Score calidad' },
+  ];
+  el.innerHTML = kpis.map(k =>
+    `<div class="p11-kpi-card">
+       <div class="p11-kpi-val">${k.val}</div>
+       <div class="p11-kpi-lbl">${k.lbl}</div>
+     </div>`
+  ).join('');
+}
+
+function _p11RenderPipeline(statuses, timing) {
+  const el = document.getElementById('p11Pipeline');
+  if (!el) return;
+  const NAMES = {
+    0:'Config', 1:'BIDS', 2:'Señal cruda', 3:'QC inicial',
+    4:'Filtrado', 5:'ICA', 6:'Segmentación', 7:'Rechazo AR',
+    8:'Espectral', 9:'wPLI', 10:'Surrogates',
+  };
+  let html = '';
+  for (let i = 0; i <= 10; i++) {
+    const st  = (statuses||{})[String(i)] || 'pending';
+    const cls = st === 'completed' ? 'ok' : st === 'warning' ? 'warn' : 'pend';
+    const ico = st === 'completed' ? '✓' : st === 'warning' ? '!' : '○';
+    const col = st === 'completed' ? '#059669' : st === 'warning' ? '#d97706' : '#9ca3af';
+    html += `<div class="p11-check">
+      <div class="p11-ch-icon ${cls}">${ico}</div>
+      <span style="font-weight:700;min-width:1.6rem;color:#374151">${i}</span>
+      <span style="flex:1;color:#4b5563">${NAMES[i]}</span>
+      <span style="color:${col};font-size:.68rem;font-weight:600">${st}</span>
+    </div>`;
+  }
+  if (timing?.start) {
+    html += `<div style="margin-top:.6rem;font-size:.69rem;color:#9ca3af">
+      Ejecutado: ${timing.start}
+      ${timing.duration ? ` · Duración: ${timing.duration}` : ''}
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+function _p11RenderQuality(score) {
+  const el = document.getElementById('p11Quality');
+  if (!el) return;
+  const pct   = Math.round((score||0) * 100);
+  const color = pct >= 80 ? '#059669' : pct >= 60 ? '#d97706' : '#dc2626';
+  const label = pct >= 80 ? 'Excelente' : pct >= 60 ? 'Aceptable' : 'Revisar';
+  // Arc gauge SVG
+  const r = 52, cx = 80, cy = 80;
+  const startAngle = -210 * Math.PI / 180;
+  const totalAngle = (210 + 30) * Math.PI / 180;   // -210° → +30°
+  const fillAngle  = startAngle + totalAngle * (pct / 100);
+  const sin = Math.sin, cos = Math.cos;
+  const ex  = cx + r * cos(startAngle + totalAngle);
+  const ey  = cy + r * sin(startAngle + totalAngle);
+  const fx  = cx + r * cos(fillAngle);
+  const fy  = cy + r * sin(fillAngle);
+  const sx  = cx + r * cos(startAngle);
+  const sy  = cy + r * sin(startAngle);
+  const la1 = totalAngle > Math.PI ? 1 : 0;
+  const la2 = (fillAngle - startAngle) > Math.PI ? 1 : 0;
+  el.innerHTML = `<div class="p11-gauge-wrap">
+    <svg width="160" height="110" viewBox="0 0 160 110">
+      <path d="M${sx.toFixed(1)},${sy.toFixed(1)} A${r},${r} 0 ${la1},1 ${ex.toFixed(1)},${ey.toFixed(1)}"
+            fill="none" stroke="#e5e7eb" stroke-width="11" stroke-linecap="round"/>
+      <path d="M${sx.toFixed(1)},${sy.toFixed(1)} A${r},${r} 0 ${la2},1 ${fx.toFixed(1)},${fy.toFixed(1)}"
+            fill="none" stroke="${color}" stroke-width="11" stroke-linecap="round"/>
+      <text x="${cx}" y="${cy+4}" text-anchor="middle" font-size="22"
+            font-weight="700" fill="${color}">${pct}%</text>
+      <text x="${cx}" y="${cy+20}" text-anchor="middle" font-size="11"
+            fill="#9ca3af">${label}</text>
+    </svg>
+    <div style="font-size:.72rem;color:#6b7280;margin-top:-.4rem">
+      Calidad global del registro
+    </div>
+    <div style="font-size:.68rem;color:#9ca3af;margin-top:.3rem;text-align:center;max-width:140px">
+      Basado en canales, epochs, varianza ICA y fases completadas
+    </div>
+  </div>`;
+}
+
+function _p11RenderSpectral(bandPowers) {
+  const svg = document.getElementById('p11SpecChart');
+  if (!svg) return;
+  if (!bandPowers || !bandPowers.length) {
+    svg.innerHTML = `<text x="50%" y="50%" text-anchor="middle" font-size="12"
+      fill="#9ca3af" dominant-baseline="middle">Sin datos espectrales</text>`;
+    return;
+  }
+  const W = svg.clientWidth || 460, H = 160;
+  const pad = { l:42, r:10, t:14, b:28 };
+  const maxP = Math.max(...bandPowers.map(b => b.power||0), 1e-9);
+  const bw   = (W - pad.l - pad.r) / bandPowers.length;
+  const COLS  = {DELTA:'#6366f1',THETA:'#8b5cf6',ALPHA:'#059669',
+                 BETA_LOW:'#0891b2',BETA_MID:'#0369a1',BETA_HIGH:'#1d4ed8',GAMMA:'#7c3aed'};
+  let bars='', lbls='', axes='';
+  axes += `<line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${H-pad.b}" stroke="#e5e7eb"/>`;
+  axes += `<line x1="${pad.l}" y1="${H-pad.b}" x2="${W-pad.r}" y2="${H-pad.b}" stroke="#e5e7eb"/>`;
+  [0,.25,.5,.75,1].forEach(v => {
+    const y = pad.t + (H-pad.t-pad.b)*(1-v);
+    axes += `<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="#f3f4f6"/>`;
+    axes += `<text x="${pad.l-4}" y="${y+4}" text-anchor="end" font-size="8"
+                   fill="#9ca3af">${(maxP*v).toFixed(1)}</text>`;
+  });
+  bandPowers.forEach((b,i) => {
+    const x = pad.l + i*bw;
+    const h = Math.max(1, ((b.power||0)/maxP) * (H-pad.t-pad.b));
+    const y = H - pad.b - h;
+    const c = COLS[b.band] || '#059669';
+    bars += `<rect x="${x+2}" y="${y}" width="${bw-4}" height="${h}"
+              fill="${c}" opacity=".85" rx="2">
+               <title>${b.band}: ${b.power}</title></rect>`;
+    const lbl = (b.band||'').replace('_LOW','L').replace('_MID','M').replace('_HIGH','H');
+    lbls += `<text x="${x+bw/2}" y="${H-pad.b+11}" text-anchor="middle"
+               font-size="8" fill="#6b7280">${lbl}</text>`;
+  });
+  svg.innerHTML =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}"
+          width="${W}" height="${H}">${axes}${bars}${lbls}</svg>`;
+}
+
+function _p11RenderTopConn(conns) {
+  const el = document.getElementById('p11TopConn');
+  if (!el) return;
+  if (!conns || !conns.length) {
+    el.innerHTML = `<div style="color:#9ca3af;font-size:.8rem;padding:.5rem">
+      Sin conexiones significativas. Ejecuta los surrogates (Fase 10).</div>`;
+    return;
+  }
+  const maxW = Math.max(...conns.map(c => c.wpli||0), 0.01);
+  const rows = conns.slice(0,8).map(c => {
+    const bp = Math.round(((c.wpli||0)/maxW)*100);
+    return `<tr>
+      <td style="font-weight:600">${c.ch_a}–${c.ch_b}</td>
+      <td><span style="background:#dbeafe;color:#1d4ed8;padding:.1rem .3rem;
+                border-radius:3px;font-size:.68rem">${c.band}</span></td>
+      <td>${(c.wpli||0).toFixed(3)}</td>
+      <td style="width:50px">
+        <div style="height:5px;background:#e5e7eb;border-radius:3px">
+          <div style="width:${bp}%;height:100%;background:#059669;border-radius:3px"></div>
+        </div>
+      </td>
+      <td style="color:#059669">${(c.q_value||0).toFixed(3)}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `<table class="p11-conn-tbl">
+    <thead><tr><th>Par</th><th>Banda</th><th>wPLI</th><th></th><th>q-val</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function _p11RenderConnSummary(conn, surr) {
+  const el = document.getElementById('p11ConnSummary');
+  if (!el) return;
+  const BANDS = ['DELTA','THETA','ALPHA','BETA_LOW','BETA_MID','BETA_HIGH','GAMMA'];
+  const COLS  = {DELTA:'#6366f1',THETA:'#8b5cf6',ALPHA:'#059669',
+                 BETA_LOW:'#0891b2',BETA_MID:'#0369a1',BETA_HIGH:'#1d4ed8',GAMMA:'#7c3aed'};
+  const wpli  = (conn||{}).mean_wpli || {};
+  const maxW  = Math.max(...Object.values(wpli).map(Number), 1e-9);
+  let html = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:.5rem;
+                          text-align:center;align-items:flex-end;">`;
+  BANDS.forEach(b => {
+    const w    = Number(wpli[b] || 0);
+    const nsig = Number((surr||{})[`${b}_n_sig`] || 0);
+    const barH = Math.max(4, Math.round((w/maxW)*80));
+    const best = b === (conn||{}).best_band;
+    html += `<div style="${best ? 'background:#f0fdf4;border-radius:6px;padding:.25rem' : ''}">
+      <div style="height:80px;display:flex;align-items:flex-end;justify-content:center">
+        <div style="width:22px;height:${barH}px;background:${COLS[b]||'#059669'};
+                    border-radius:3px 3px 0 0;opacity:.85"></div>
+      </div>
+      <div style="font-size:.63rem;color:#374151;font-weight:600">
+        ${b.replace('_LOW','L').replace('_MID','M').replace('_HIGH','H')}</div>
+      <div style="font-size:.63rem;color:#6b7280">${w.toFixed(3)}</div>
+      ${nsig > 0 ? `<div style="font-size:.6rem;color:#059669;font-weight:700">${nsig}✓</div>` : ''}
+    </div>`;
+  });
+  html += '</div>';
+  const bestBand = (conn||{}).best_band;
+  if (bestBand || (surr||{}).has_surrogates) {
+    html += `<div style="font-size:.74rem;color:#059669;margin-top:.5rem;text-align:center">
+      ${bestBand ? `Banda más conectada: <strong>${bestBand}</strong>` : ''}
+      ${(surr||{}).has_surrogates
+        ? ` · Conexiones significativas totales: <strong>${surr.n_sig_total||0}</strong>`
+        : ' · (Surrogates no ejecutados)'}
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+function p11Reload() { P11.data = null; loadPhase11(); }
+
+// FIN PHASE 11
+// ════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════
+// PHASE 12 — EXPORTACIÓN / REPORTE
+// ═══════════════════════════════════════════════════════════
+
+const P12 = { data: null };
+
+async function loadPhase12() {
+  if (!State.subj) { renderPhasePlaceholder(12); return; }
+  const panel = document.getElementById('phase-panel-12');
+
+  const res = await fetch(
+    `/api/phase12_files?subj=${State.subj}&sess=${State.sess}&cond=${State.cond}`);
+  const d = await res.json();
+  P12.data = d;
+
+  if (!d.run) {
+    panel.innerHTML = `
+      <div class="p12-not-run">
+        <div style="font-size:3rem">📦</div>
+        <div style="font-size:1.1rem;font-weight:600">Sin archivos para este sujeto</div>
+        <div style="font-size:.85rem;max-width:400px">
+          Ejecuta primero el pipeline completo (Fases 0–10) para generar los resultados.
+        </div>
+        <button class="p11-btn" style="background:#0369a1;color:#fff" onclick="switchPhase(0)">
+          Ir a configuración →
+        </button>
+      </div>`;
+    return;
+  }
+
+  _p12RenderSubtitle(d);
+  _p12RenderStats(d);
+  _p12RenderActions(d);
+  _p12RenderCategories(d.categories);
+  _p12RenderReport(d);
+}
+
+function _p12RenderSubtitle(d) {
+  const el = document.getElementById('p12Subtitle');
+  if (!el) return;
+  const c = (d.cond||'').replace('eyesclosed','EC').replace('eyesopen','EO');
+  el.textContent =
+    `sub-${d.subject} · ses-${d.session} · ${c} · ` +
+    `${d.total_files} archivos · ${d.total_size_kb} KB`;
+}
+
+function _p12RenderStats(d) {
+  const el = document.getElementById('p12StatStrip');
+  if (!el) return;
+  const cats = d.categories || [];
+  const nCats = cats.length;
+  const nMiss = cats.reduce((a,c) => a + (c.n_total - c.n_present), 0);
+  el.innerHTML = [
+    { val: d.total_files,     lbl: 'archivos generados' },
+    { val: d.total_size_kb + ' KB', lbl: 'tamaño total' },
+    { val: nCats,             lbl: 'categorías' },
+    { val: nMiss,             lbl: 'archivos ausentes' },
+  ].map(s =>
+    `<div class="p12-stat-chip">
+       <span class="p12-stat-val">${s.val}</span>${s.lbl}
+     </div>`
+  ).join('');
+}
+
+function _p12RenderActions(d) {
+  const el = document.getElementById('p12Actions');
+  if (!el) return;
+  el.innerHTML = `
+    <button class="p12-action-btn" onclick="p12CopyJson()">
+      <span class="p12-action-icon">📋</span>Copiar JSON
+    </button>
+    <button class="p12-action-btn" onclick="p12DownloadCsv()">
+      <span class="p12-action-icon">⬇</span>CSV inventario
+    </button>
+    <button class="p12-action-btn sec" onclick="switchPhase(11)">
+      <span class="p12-action-icon">📊</span>Ver resultados
+    </button>
+    <button class="p12-action-btn sec" onclick="p12Reload()">
+      <span class="p12-action-icon">↺</span>Actualizar
+    </button>`;
+}
+
+function _p12RenderCategories(cats) {
+  const el = document.getElementById('p12CatsGrid');
+  if (!el || !cats) return;
+  el.innerHTML = cats.map(cat => {
+    const fRows = cat.files.slice(0, 8).map(f =>
+      `<div class="p12-file-row">
+         <div class="p12-file-dot ${f.exists?'ok':'miss'}"></div>
+         <span class="p12-file-name" title="${f.name}">${f.name}</span>
+         ${f.exists ? `<span class="p12-file-sz">${f.size_kb}KB</span>` : ''}
+       </div>`
+    ).join('');
+    const more = cat.files.length > 8
+      ? `<div style="font-size:.65rem;color:#9ca3af;margin-top:.25rem">
+           +${cat.files.length - 8} más archivos</div>` : '';
+    const pct = cat.n_total > 0 ? Math.round(cat.n_present/cat.n_total*100) : 0;
+    const barColor = pct === 100 ? '#059669' : pct >= 50 ? '#d97706' : '#dc2626';
+    return `<div class="p12-cat-card">
+      <div class="p12-cat-title">${cat.name}</div>
+      <div class="p12-cat-stat">${cat.n_present}/${cat.n_total} presentes</div>
+      <div style="height:4px;background:#e0f2fe;border-radius:2px;margin-bottom:.5rem">
+        <div style="width:${pct}%;height:100%;background:${barColor};border-radius:2px"></div>
+      </div>
+      ${fRows}${more}
+    </div>`;
+  }).join('');
+}
+
+function _p12RenderReport(d) {
+  const el = document.getElementById('p12ReportContent');
+  if (!el) return;
+  const c   = (d.cond||'').replace('eyesclosed','EC').replace('eyesopen','EO');
+  const ts  = new Date().toLocaleString('es-ES');
+  const cats = (d.categories||[]).map(
+    cat => `  ${cat.name.padEnd(24)} ${cat.n_present}/${cat.n_total} archivos`
+  ).join('\n');
+  el.textContent =
+`NeuroMIND — Inventario de resultados
+=====================================
+Sujeto   : ${d.subject}
+Sesión   : ${d.session}
+Condición: ${c}
+Generado : ${ts}
+
+ARCHIVOS POR CATEGORÍA
+----------------------
+${cats}
+
+TOTAL: ${d.total_files} archivos (${d.total_size_kb} KB)
+
+Directorio:
+  results/subjects/sub-${d.subject}/ses-${d.session}/${d.cond}/`;
+}
+
+async function p12CopyJson() {
+  if (!P12.data) return;
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(P12.data, null, 2));
+    const el = document.getElementById('p12Actions');
+    if (el) {
+      const orig = el.innerHTML;
+      el.querySelector('button').textContent = '✓ Copiado';
+      setTimeout(() => _p12RenderActions(P12.data), 1500);
+    }
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+function p12DownloadCsv() {
+  if (!P12.data) return;
+  const rows = [['categoria','archivo','existe','size_kb','tipo']];
+  for (const cat of (P12.data.categories||[])) {
+    for (const f of cat.files) {
+      rows.push([`"${cat.name}"`, f.name, f.exists ? '1' : '0', f.size_kb, f.type]);
+    }
+  }
+  const csv  = rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = `neuro_files_${P12.data.subject}_${P12.data.session}.csv`;
+  a.click();
+}
+
+function p12Reload() { P12.data = null; loadPhase12(); }
+
+// FIN PHASE 12
 // ════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════

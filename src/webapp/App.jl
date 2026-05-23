@@ -2265,6 +2265,300 @@ function launch_webapp(cfg::PipelineConfig;
         end
     end
 
+    # ─── API: Fase 11 — Resultados Finales ──────────────────────
+    route("/api/phase11_summary") do
+        subj = string(get(getpayload(), :subj, "M05"))
+        sess = string(get(getpayload(), :sess, "T2"))
+        cond = _normalize_cond(string(get(getpayload(), :cond, "EC")))
+
+        base = joinpath(bids_root, "sub-$(subj)", "ses-$(sess)", cond)
+        fe(f) = isfile(joinpath(base, f))
+
+        run = fe("overview.csv") || fe("pipeline_log.txt")
+        if !run
+            return json(Dict("ok" => true, "run" => false,
+                             "subject" => subj, "session" => sess, "cond" => cond))
+        end
+
+        # ── Recording info ──────────────────────────────────────
+        recording = Dict{String,Any}(
+            "n_channels" => 0, "n_bad_ch" => 0, "bad_channels" => "",
+            "duration_s" => 0.0, "fs" => 500.0,
+            "n_epochs" => 0, "n_epochs_accepted" => 0, "pct_epochs_retained" => 0.0,
+        )
+        if fe("overview.csv")
+            try
+                df = CSV.read(joinpath(base, "overview.csv"), DataFrame)
+                r  = df[1, :]
+                for (k, sym) in [("n_channels",:n_channels),("n_bad_ch",:n_bad_ch),
+                                  ("duration_s",:duration_s),("fs",:fs)]
+                    hasproperty(df, sym) || continue
+                    v = r[sym]
+                    v isa Missing || (recording[k] = Float64(v))
+                end
+                hasproperty(df, :bad_channels) &&
+                    (recording["bad_channels"] = string(r[:bad_channels]))
+            catch; end
+        end
+
+        # ── Epoch info from log ─────────────────────────────────
+        log_txt = fe("pipeline_log.txt") ? read(joinpath(base, "pipeline_log.txt"), String) : ""
+        if !isempty(log_txt)
+            m = match(r"Epochs aceptados[:\s]+(\d+)/(\d+)", log_txt)
+            if m !== nothing
+                n_acc = parse(Int, m.captures[1])
+                n_tot = parse(Int, m.captures[2])
+                recording["n_epochs_accepted"] = n_acc
+                recording["n_epochs"]          = n_tot
+                recording["pct_epochs_retained"] = n_tot > 0 ?
+                    round(100.0 * n_acc / n_tot, digits=1) : 0.0
+            end
+        end
+
+        # ── ICA info ────────────────────────────────────────────
+        ica = Dict{String,Any}("n_comp" => 0, "n_rejected" => 0,
+                                "variance_retained" => 1.0, "has_features" => false)
+        if fe("ica_summary.json")
+            try
+                txt = read(joinpath(base, "ica_summary.json"), String)
+                for key in ["n_comp","n_rej","n_topomaps"]
+                    m = match(Regex("\"$(key)\"\\s*:\\s*([0-9]+)"), txt)
+                    m !== nothing &&
+                        (ica[key == "n_rej" ? "n_rejected" : key] = parse(Int, m.captures[1]))
+                end
+                m = match(r"\"variance_retained\"\s*:\s*([0-9.eE+\-]+)", txt)
+                m !== nothing && (ica["variance_retained"] = parse(Float64, m.captures[1]))
+                m = match(r"\"has_features\"\s*:\s*(true|false)", txt)
+                m !== nothing && (ica["has_features"] = m.captures[1] == "true")
+            catch; end
+        end
+
+        # ── Spectral (band_power_summary.csv) ───────────────────
+        band_powers    = Dict{String,Any}[]
+        dominant_band  = ""
+        dominant_power = -1.0
+        if fe("band_power_summary.csv")
+            try
+                df = CSV.read(joinpath(base, "band_power_summary.csv"), DataFrame)
+                for row in eachrow(df)
+                    bname = string(row[:band])
+                    pval  = hasproperty(df, :mean_power) ? Float64(row[:mean_power]) :
+                            hasproperty(df, :power_db)   ? Float64(row[:power_db])   : 0.0
+                    rval  = hasproperty(df, :rel_power)  ? Float64(row[:rel_power])  : 0.0
+                    push!(band_powers, Dict("band" => bname,
+                        "power"     => round(pval, digits=3),
+                        "rel_power" => round(rval, digits=4)))
+                    if pval > dominant_power
+                        dominant_power = pval; dominant_band = bname
+                    end
+                end
+            catch; end
+        end
+
+        # ── Connectivity summary ─────────────────────────────────
+        connectivity = Dict{String,Any}("best_band" => "", "mean_wpli" => Dict{String,Any}())
+        if fe("connectivity_summary.json")
+            try
+                txt = read(joinpath(base, "connectivity_summary.json"), String)
+                m = match(r"\"best_band\"\s*:\s*\"([^\"]+)\"", txt)
+                m !== nothing && (connectivity["best_band"] = m.captures[1])
+                for bn in ["DELTA","THETA","ALPHA","BETA_LOW","BETA_MID","BETA_HIGH","GAMMA"]
+                    mk = match(Regex("\"$(bn)_mean_wpli\"\\s*:\\s*([0-9.eE+\\-]+)"), txt)
+                    mk !== nothing &&
+                        (connectivity["mean_wpli"][bn] = parse(Float64, mk.captures[1]))
+                end
+            catch; end
+        end
+
+        # ── Surrogate summary ────────────────────────────────────
+        surrogates = Dict{String,Any}("n_sig_total" => 0, "best_band" => "",
+                                       "has_surrogates" => false)
+        if fe("surrogate_summary.json")
+            try
+                txt = read(joinpath(base, "surrogate_summary.json"), String)
+                surrogates["has_surrogates"] = true
+                m = match(r"\"n_sig_total\"\s*:\s*([0-9]+)", txt)
+                m !== nothing && (surrogates["n_sig_total"] = parse(Int, m.captures[1]))
+                m = match(r"\"best_band\"\s*:\s*\"([^\"]+)\"", txt)
+                m !== nothing && (surrogates["best_band"] = m.captures[1])
+                for bn in ["DELTA","THETA","ALPHA","BETA_LOW","BETA_MID","BETA_HIGH","GAMMA"]
+                    for (sfx, T) in [("pct_sig",Float64),("n_sig",Int)]
+                        key = "$(bn)_$(sfx)"
+                        mk = match(Regex("\"$(key)\"\\s*:\\s*([0-9.eE+\\-]+)"), txt)
+                        mk !== nothing && (surrogates[key] =
+                            T == Int ? parse(Int, mk.captures[1]) :
+                                       parse(Float64, mk.captures[1]))
+                    end
+                end
+            catch; end
+        end
+
+        # ── Top significant connections ──────────────────────────
+        top_connections = Dict{String,Any}[]
+        if fe("significant_connections.csv")
+            try
+                df = CSV.read(joinpath(base, "significant_connections.csv"), DataFrame)
+                sort!(df, :q_value)
+                for row in eachrow(df[1:min(10, nrow(df)), :])
+                    push!(top_connections, Dict{String,Any}(
+                        "ch_a"    => string(row.ch_a),
+                        "ch_b"    => string(row.ch_b),
+                        "band"    => string(row.band),
+                        "wpli"    => round(Float64(row.wpli_obs), digits=4),
+                        "q_value" => round(Float64(row.q_value),  digits=4),
+                    ))
+                end
+            catch; end
+        end
+
+        # ── Pipeline timing ──────────────────────────────────────
+        timing = Dict{String,Any}("start" => "", "duration" => "", "phases_done" => 0)
+        if !isempty(log_txt)
+            m = match(r"NeuroMIND pipeline — (\S+)", log_txt)
+            m !== nothing && (timing["start"] = m.captures[1])
+            m2 = match(r"completado en ([\d.]+) s", log_txt)
+            m2 !== nothing && (timing["duration"] = m2.captures[1] * " s")
+        end
+
+        # ── Phase statuses ───────────────────────────────────────
+        statuses = Dict{String,String}(
+            "0"  => "completed",
+            "1"  => fe("overview.csv")           ? "completed" : "pending",
+            "2"  => fe("overview.csv")           ? "completed" : "pending",
+            "3"  => fe("channel_statistics.csv") ? "completed" : "pending",
+            "4"  => !isempty(log_txt)            ? "completed" : "pending",
+            "5"  => fe("ica_summary.json")       ? "completed" : "pending",
+            "6"  => !isempty(log_txt)            ? "completed" : "pending",
+            "7"  => !isempty(log_txt)            ? "completed" : "pending",
+            "8"  => fe("psd_by_channel.csv")     ? "completed" : "pending",
+            "9"  => fe("wpli_ALPHA.csv") || fe("connectivity_summary.json") ?
+                    "completed" : "pending",
+            "10" => fe("surrogate_summary.json") ? "completed" : "pending",
+        )
+        n_done = count(v -> v == "completed", values(statuses))
+        timing["phases_done"] = n_done
+
+        # ── Quality score ────────────────────────────────────────
+        score_parts = Float64[]
+        n_ch  = max(Int(round(get(recording, "n_channels", 31.0))), 1)
+        n_bad = Int(round(get(recording, "n_bad_ch", 0.0)))
+        push!(score_parts, max(0.0, 1.0 - n_bad / n_ch * 2.0))
+
+        pct_ep = Float64(get(recording, "pct_epochs_retained", 80.0))
+        push!(score_parts, clamp(pct_ep / 100.0, 0.0, 1.0))
+
+        var_ret = Float64(get(ica, "variance_retained", 1.0))
+        push!(score_parts, clamp(var_ret, 0.0, 1.0))
+
+        push!(score_parts, min(n_done / 10.0, 1.0))
+
+        quality_score = round(mean(score_parts), digits=3)
+
+        json(Dict(
+            "ok"              => true,
+            "run"             => true,
+            "subject"         => subj,
+            "session"         => sess,
+            "cond"            => cond,
+            "recording"       => recording,
+            "ica"             => ica,
+            "band_powers"     => band_powers,
+            "dominant_band"   => dominant_band,
+            "connectivity"    => connectivity,
+            "surrogates"      => surrogates,
+            "top_connections" => top_connections,
+            "timing"          => timing,
+            "statuses"        => statuses,
+            "quality_score"   => quality_score,
+        ))
+    end
+
+    # ─── API: Fase 12 — Exportación / Reporte ────────────────────
+    route("/api/phase12_files") do
+        subj = string(get(getpayload(), :subj, "M05"))
+        sess = string(get(getpayload(), :sess, "T2"))
+        cond = _normalize_cond(string(get(getpayload(), :cond, "EC")))
+
+        base    = joinpath(bids_root, "sub-$(subj)", "ses-$(sess)", cond)
+        fig_dir = joinpath(base, "figures")
+        run     = isdir(base)
+
+        if !run
+            return json(Dict("ok" => true, "run" => false, "categories" => Dict{String,Any}[],
+                             "total_files" => 0, "total_size_kb" => 0.0,
+                             "subject" => subj, "session" => sess, "cond" => cond))
+        end
+
+        BANDS = ["DELTA","THETA","ALPHA","BETA_LOW","BETA_MID","BETA_HIGH","GAMMA"]
+
+        categories_def = [
+            ("Registros y QC", [
+                "overview.csv","qc_summary.csv","channel_statistics.csv",
+                "pipeline_log.txt","config_snapshot.toml"]),
+            ("ICA", [
+                "ica_summary.json","ica_components.csv","ica_component_features.csv",
+                "ica_mixing_matrix.csv","ica_unmixing_matrix.csv",
+                "ica_activations.csv","ica_signal_before.csv","ica_signal_after.csv"]),
+            ("Espectral", ["psd_by_channel.csv","band_power_summary.csv"]),
+            ("Conectividad wPLI", ["connectivity_summary.json","connectivity_edges.csv"]),
+            ("Surrogates", [
+                "surrogate_summary.json","surrogate_quality.csv",
+                "significant_connections.csv"]),
+            ("wPLI por banda", vcat([
+                ["wpli_$(b).csv","wpli_observed_$(b).csv","wpli_pvalues_$(b).csv",
+                 "wpli_qvalues_$(b).csv","wpli_significant_$(b).csv",
+                 "surrogate_null_stats_$(b).csv"]
+                for b in BANDS]...)),
+        ]
+
+        # Figures (from figures/ subdir)
+        fig_files = isdir(fig_dir) ? readdir(fig_dir) : String[]
+        push!(categories_def, ("Figuras", fig_files))
+
+        result_cats = Dict{String,Any}[]
+        total_files = 0
+        total_size  = 0.0
+
+        for (cat_name, file_list) in categories_def
+            is_fig = cat_name == "Figuras"
+            files_info = Dict{String,Any}[]
+            for f in file_list
+                fpath  = is_fig ? joinpath(fig_dir, f) : joinpath(base, f)
+                exists = isfile(fpath)
+                sz     = exists ? round(filesize(fpath) / 1024, digits=1) : 0.0
+                ext    = endswith(f,".csv") ? "csv" : endswith(f,".json") ? "json" :
+                         endswith(f,".png") ? "png" : endswith(f,".txt")  ? "txt"  :
+                         endswith(f,".toml") ? "toml" : "other"
+                push!(files_info, Dict{String,Any}(
+                    "name"    => f,
+                    "exists"  => exists,
+                    "size_kb" => sz,
+                    "type"    => ext,
+                    "path"    => is_fig ? "figures/$(f)" : f,
+                ))
+                if exists; total_files += 1; total_size += sz; end
+            end
+            n_ok = count(f -> f["exists"], files_info)
+            push!(result_cats, Dict{String,Any}(
+                "name"      => cat_name,
+                "files"     => files_info,
+                "n_total"   => length(files_info),
+                "n_present" => n_ok,
+            ))
+        end
+
+        json(Dict(
+            "ok"            => true,
+            "run"           => true,
+            "subject"       => subj,
+            "session"       => sess,
+            "cond"          => cond,
+            "categories"    => result_cats,
+            "total_files"   => total_files,
+            "total_size_kb" => round(total_size, digits=1),
+        ))
+    end
+
     # ─── API: Fase 13 — Evaluación Transversal ──────────────────
     route("/api/phase13_transversal") do
         cond_raw = string(get(getpayload(), :cond, "EC"))
