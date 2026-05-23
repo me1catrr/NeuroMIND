@@ -2,7 +2,7 @@
 
 > Este archivo es leído automáticamente por Claude Code al inicio de cada sesión.
 > Contiene todo el contexto necesario para trabajar en el proyecto desde cualquier ordenador.
-> **Mantenerlo actualizado es prioritario.** Última actualización: 2026-05-22 (Phase 14 Evaluación Longitudinal completa).
+> **Mantenerlo actualizado es prioritario.** Última actualización: 2026-05-23 (Paneles 11-12 completos — todos los paneles del dashboard implementados).
 
 ---
 
@@ -89,8 +89,7 @@ La señal limpiada `rec_ica` alimenta directamente la segmentación y todo lo po
 
 ## 4. Dashboard web (Genie.jl)
 
-15 paneles (Phase 0–14). Implementados completamente: **0–10, 13–14**.
-Paneles 11–12: placeholder vacío (próximos a implementar).
+15 paneles (Phase 0–14). **Todos completamente implementados** ✅.
 
 | Panel | Nombre | Estado |
 |-------|--------|--------|
@@ -105,8 +104,8 @@ Paneles 11–12: placeholder vacío (próximos a implementar).
 | 8 | Análisis espectral | ✓ |
 | 9 | Conectividad wPLI | ✓ |
 | 10 | Surrogates / Inferencia | ✓ |
-| 11 | Resultados finales | placeholder |
-| 12 | Exportación / Reporte | placeholder |
+| 11 | Resultados finales | ✓ |
+| 12 | Exportación / Reporte | ✓ |
 | 13 | Evaluación Transversal | ✓ |
 | 14 | Evaluación Longitudinal | ✓ |
 
@@ -250,6 +249,12 @@ git push -u origin <rama>
 - [x] `compute_ica_features`, `evaluate_ica_components`, `_save_ica_topomaps`
 - [x] Dashboard Phase 8: espectro PSD, topomaps IDW Canvas, bandpower por banda, comparativa
 - [x] Dashboard Phase 9: heatmap wPLI Canvas (reusa `_p9Colormap`), red de conectividad con posiciones EEG, band tabs
+- [x] **Phase 11 Resultados Finales** (tema #059669 emerald):
+  - `/api/phase11_summary`: agrega overview, ica_summary, band_power_summary, connectivity_summary, surrogate_summary, significant_connections; calcula `quality_score` ponderado (canales, epochs, varianza ICA, fases completas) y `statuses` por fase
+  - Dashboard: 6 KPIs, checklist 0–10 con iconos (ok/warn/pend), gauge SVG de calidad, perfil espectral SVG, tabla top 8 conexiones sig., grid wPLI por banda con barras comparativas
+- [x] **Phase 12 Exportación / Reporte** (tema #0369a1 sky blue):
+  - `/api/phase12_files`: escanea el directorio del sujeto, agrupa archivos en 7 categorías (QC, ICA, Espectral, wPLI, Surrogates, wPLI-por-banda, Figuras), devuelve tamaños y estado
+  - Dashboard: 4 botones de acción (copiar JSON, CSV inventario, ver resultados, actualizar), grid de categorías con barra de progreso y lista de archivos, panel de texto exportable con inventario completo
 - [x] **Phase 13 Evaluación Transversal** (tema #0891b2, 13 secciones):
   - `scripts/run_transversal_analysis.jl`: lee `groups.csv` + wPLI individuales → genera archivos grupales
   - Archivos: `group_connectivity_{ctrl|ms}_{band}.csv`, `group_difference_{band}.csv`, `group_statistics_{band}.csv`, `significant_edges_{band}.csv`, `band_statistics.csv`, `subject_inclusion.csv`, `subject_band_means.csv`, `transversal_summary.json`
@@ -280,10 +285,9 @@ git push -u origin <rama>
 - `feat/phase7-ar-eeg-julia` — Phase 7 AR
 - `feat/phase8-spectral` — Phase 8 espectral
 - `feat/phase9-wpli` — Phase 9 conectividad wPLI
-- `feat/phase10-surrogates` — Phase 10 + Phase 13 + Phase 14 ← **rama actual**
+- `feat/phase10-surrogates` — Phases 10–14 completos ← **rama actual**
 
 ### Pendiente / próximo
-- [ ] Dashboard paneles 11–12 (Resultados finales, Exportación/Reporte)
 - [ ] Push ramas feat/phase8, feat/phase9, feat/phase10 + PR a main
 - [ ] Tests de integración pipeline completo
 - [ ] GitHub Actions CI (syntax check + tests)
@@ -334,7 +338,7 @@ StatsBase, TOML
 
 ## 12. Notas para Claude Code
 
-- El dashboard es una **SPA de ~14 200 líneas** (`web/views/dashboard.html`). Siempre leer la sección relevante antes de editar; no releer completo.
+- El dashboard es una **SPA de ~13 500 líneas** (`web/views/dashboard.html`). Siempre leer la sección relevante antes de editar; no releer completo.
 - `App.jl` tiene las rutas API y helpers de filtrado para el viewer interactivo de la Fase 4.
 - `SingleSubjectPipeline.jl` contiene el pipeline + visualizaciones + helpers de guardado en un solo archivo.
 - Al tocar lógica científica (filtrado, ICA, wPLI, PSD), **comparar siempre** con el original en `EEG_Julia/` antes de cambiar comportamiento.
