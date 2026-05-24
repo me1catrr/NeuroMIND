@@ -2,7 +2,7 @@
 
 > Este archivo es leído automáticamente por Claude Code al inicio de cada sesión.
 > Contiene todo el contexto necesario para trabajar en el proyecto desde cualquier ordenador.
-> **Mantenerlo actualizado es prioritario.** Última actualización: 2026-05-23 (Paneles 11-12 completos — todos los paneles del dashboard implementados).
+> **Mantenerlo actualizado es prioritario.** Última actualización: 2026-05-24 (BrainVision loader + pipeline en lote para dataset completo MINDEM-IMIBIC, 78 sujetos).
 
 ---
 
@@ -136,10 +136,16 @@ Si ICA no se ha ejecutado → placeholder elegante con botón de acción.
 | `src/spectral/PowerSpectrum.jl` | `compute_psd`, `plot_spectrum_grid` |
 | `src/connectivity/wPLI.jl` | `compute_wpli` (Hilbert analítica, across-segments) |
 | `src/connectivity/CSD.jl` | `apply_csd` (opcional, `use_csd = false` por defecto) |
+| `src/io/BrainVisionLoader.jl` | Lector nativo BrainVision binario (.vhdr+.eeg IEEE_FLOAT_32); `load_eeg_brainvision()` → `EEGRecording` |
 | `config/single_subject.toml` | Parámetros para `run_single_subject.jl` |
+| `config/batch_pipeline.toml` | Parámetros para `run_batch_pipeline.jl` (surrogates activados) |
 | `scripts/run_single_subject.jl` | Entrada CLI del pipeline |
+| `scripts/audit_full_dataset.jl` | **Fase A** — audita los 212 .vhdr del dataset completo, genera inventory.csv, participants.tsv, groups.csv, longitudinal_pairs.csv |
+| `scripts/build_bids_full.jl` | **Fase B** — crea metadata JSON en data/bids/raw/ (referencia a .vhdr original, sin copiar datos binarios) |
+| `scripts/run_batch_pipeline.jl` | **Fase C** — ejecuta run_single_subject_pipeline() para todos los sujetos válidos con filtros CLI |
 | `scripts/launch_dashboard.jl` | Lanza Genie en http://localhost:8080 |
 | `tests/runtests.jl` | Suite de tests unitarios |
+| `docs/ROADMAP_FULL_DATASET.md` | Plan maestro de 8 fases (A-H) para el dataset completo |
 | `docs/GITHUB_WORKFLOW.md` | Flujo de ramas y commits |
 | `docs/MIGRATION_GUIDE.md` | Guía de migración desde EEG_Julia |
 
@@ -234,7 +240,21 @@ git push -u origin <rama>
 
 ---
 
-## 9. Estado actual del proyecto (2026-05-22)
+## 9. Estado actual del proyecto (2026-05-24)
+
+### Dataset completo: MINDEM-IMIBIC
+- **41 pacientes EM** (M4–M44) + **37 controles** (MC1–MC40) = 78 sujetos
+- **212 grabaciones** (.vhdr BrainVision), 206 válidas para pipeline
+- **27 pares longitudinales** completos (T1+T2, EC+EO)
+- `data/full_data/inventory.csv` — inventario auditado
+- `data/bids/` — estructura BIDS ligera (metadata JSON + electrodes TSV, sin copiar datos)
+- Fases A+B completadas; Fase C (pipeline en lote) lista para ejecutar
+
+### Flujo de datos (input formats)
+| Formato | Cómo carga |
+|---------|------------|
+| TSV (sub-M05 original) | `load_single_subject()` → TSV directo |
+| BrainVision binario (dataset completo) | metadata JSON con `data_format=brainvision` → `load_eeg_brainvision()` |
 
 ### Implementado y funcionando
 - [x] Pipeline 8 pasos completo con ICA + paso opcional [SUR] surrogates
@@ -278,6 +298,11 @@ git push -u origin <rama>
 - [x] **Phase 6 EEG_Julia profile**: `"first_window_mean"` baseline, ±70 µV AR, doble baseline pass
 - [x] **Phase 7 AR EEG_Julia profile**: enriquecimiento completo de AR summary, señal real epoch
 - [x] README.md completo; `.gitignore` estricto; CLAUDE.md actualizado
+- [x] **BrainVisionLoader** (`src/io/BrainVisionLoader.jl`): lector nativo IEEE_FLOAT_32/INT_16
+- [x] **Fase A — Auditoría** (`scripts/audit_full_dataset.jl`): 212 vhdr → 0 errores, 27 pares longitudinales
+- [x] **Fase B — BIDS ligero** (`scripts/build_bids_full.jl`): 205 metadata JSON creados
+- [x] **Fase C — Batch runner** (`scripts/run_batch_pipeline.jl`): filtros CLI, log CSV, skip-done
+- [x] wPLI paper LaTeX template (`wPLI_paper/`) con 13 referencias BibTeX reales
 
 ### Ramas activas (pendientes push/PR)
 - `feat/phase5-ica-classification` — Phase 5 ICA
@@ -285,9 +310,12 @@ git push -u origin <rama>
 - `feat/phase7-ar-eeg-julia` — Phase 7 AR
 - `feat/phase8-spectral` — Phase 8 espectral
 - `feat/phase9-wpli` — Phase 9 conectividad wPLI
-- `feat/phase10-surrogates` — Phases 10–14 completos ← **rama actual**
+- `feat/phase10-surrogates` — Phases 10–14 + BrainVision loader + Batch pipeline ← **rama actual**
 
 ### Pendiente / próximo
+- [ ] Ejecutar Fase C para dataset completo (`run_batch_pipeline.jl`) — ~18-50 h
+- [ ] Ejecutar análisis transversal y longitudinal con cohorte completa
+- [ ] MNE-Python replication pipeline (`EEG_MNE_Python/`)
 - [ ] Push ramas feat/phase8, feat/phase9, feat/phase10 + PR a main
 - [ ] Tests de integración pipeline completo
 - [ ] GitHub Actions CI (syntax check + tests)
