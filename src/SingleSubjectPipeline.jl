@@ -170,14 +170,30 @@ function load_single_subject(
     end
     elec_path = joinpath(elec_dir, "sub-$(subj_id)_ses-$(sess_id)_electrodes.tsv")
 
-    isfile(data_path) || error("EEG no encontrado: $data_path")
     isfile(meta_path) || error("Metadata no encontrado: $meta_path")
 
-    # Metadata JSON (campos reales: "fs", "channel_names", etc.)
+    # ── Metadata JSON ──────────────────────────────────────────
     meta_raw = _parse_bids_json(meta_path)
+
+    # ── Formato BrainVision: carga desde binario nativo ───────
+    # Cuando build_bids_full.jl genera el BIDS ligero (sin TSV),
+    # pone data_format="brainvision" y vhdr_path en el JSON.
+    data_fmt = _parse_json_string_field(meta_path, "data_format")
+    if data_fmt == "brainvision" && !isfile(data_path)
+        vhdr_path = _parse_json_string_field(meta_path, "vhdr_path")
+        if !isempty(vhdr_path) && isfile(vhdr_path)
+            ch_pos = isfile(elec_path) ? _load_electrode_positions(elec_path) : nothing
+            return load_eeg_brainvision(vhdr_path, subj_id, sess_id, task;
+                                        run=run, ch_pos=ch_pos)
+        end
+        error("data_format=brainvision pero vhdr_path no existe o no está en metadata: $meta_path")
+    end
+
+    isfile(data_path) || error("EEG no encontrado: $data_path")
+
+    # ── Formato TSV (comportamiento original) ─────────────────
     fs = Float64(get(meta_raw, "fs", cfg.recording["fs"]))
 
-    # TSV: filas=canales, primera col="Channel", resto=muestras
     df       = CSV.read(data_path, DataFrame; delim='\t')
     ch_names = string.(df[:, 1])
     data     = Float64.(Matrix(df[:, 2:end]))   # (channels × samples)
@@ -193,6 +209,16 @@ function load_single_subject(
     times = collect(0.0:(1/fs):(n_samp - 1) / fs)
 
     return EEGRecording(meta, data, times)
+end
+
+# ── Helper: extrae un campo string de un JSON sin JSON3 ───────
+
+function _parse_json_string_field(json_path::String, field::String)::String
+    isfile(json_path) || return ""
+    raw = read(json_path, String)
+    pat = Regex("\"$(field)\"\\s*:\\s*\"([^\"]+)\"")
+    m   = match(pat, raw)
+    m === nothing ? "" : String(m[1])
 end
 
 # ─── Validación de electrodos ─────────────────────────────────

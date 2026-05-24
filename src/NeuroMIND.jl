@@ -31,9 +31,11 @@ export n_channels, n_samples, n_epochs, n_samples_epoch, duration
 # ─── I/O y configuración ──────────────────────────────────────
 include("io/Config.jl")
 include("io/BIDSLoader.jl")
+include("io/BrainVisionLoader.jl")
 include("io/Serializer.jl")
 export load_config, load_subjects, load_eeg_bids, save_result, load_result, result_exists
 export results_dir, subject_results_dir, ensure_dirs
+export read_vhdr_header, load_eeg_brainvision, bv_electrode_positions
 
 # ─── Quality Control ──────────────────────────────────────────
 include("qc/QualityControl.jl")

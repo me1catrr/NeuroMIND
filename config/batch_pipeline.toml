@@ -1,0 +1,116 @@
+# NeuroMIND — Configuración para análisis en lote (batch)
+# Usado por scripts/run_batch_pipeline.jl para procesar el dataset completo
+# MINDEM-IMIBIC (41 pacientes EM + 37 controles).
+#
+# El script sobreescribe [subject] en cada llamada; los demás parámetros
+# son compartidos por todos los sujetos del lote.
+
+# ─── Identificación del sujeto ────────────────────────────────
+# (sobreescrito automáticamente por run_batch_pipeline.jl)
+[subject]
+subject_id = "auto"
+session_id = "T1"
+task       = "eyesclosed"
+run        = 1
+
+# ─── Parámetros de grabación ──────────────────────────────────
+[recording]
+sampling_rate = 500.0    # Hz — confirmado en .vhdr de todos los sujetos
+
+# ─── Filtrado (perfil eeg_julia — coincide con EEG_Julia original) ────────
+[filtering]
+profile          = "eeg_julia"
+highpass_hz      = 0.5
+lowpass_hz       = 150.0
+notch_hz         = 50.0
+notch_bw_hz      = 1.0
+bandreject_lo    = 99.5
+bandreject_hi    = 100.5
+filter_order     = 4
+
+# ─── ICA ──────────────────────────────────────────────────────
+[ica]
+profile            = "eeg_julia"
+n_components       = 0       # 0 = automático (= n_channels)
+max_iter           = 512
+tol                = 1e-7
+seed               = 1234
+artifact_threshold = 1.5
+
+# ─── Segmentación ─────────────────────────────────────────────
+[segmentation]
+profile                = "eeg_julia"
+segment_length_seconds = 1.0    # ignorado con perfil eeg_julia
+overlap_seconds        = 0.0
+min_segments           = 10
+
+# ─── Corrección de baseline ───────────────────────────────────
+[baseline]
+method           = "first_window_mean"
+baseline_start_s = 0.0
+baseline_end_s   = 0.10
+n_passes         = 2
+
+# ─── Rechazo de artefactos ────────────────────────────────────
+[artifact_rejection]
+profile               = "eeg_julia"
+min_amplitude_uv      = -70.0
+max_amplitude_uv      =  70.0
+n_channels_used       = 30
+amplitude_threshold_uv = 100.0
+gradient_threshold_uv  = 50.0
+use_gradient           = true
+before_event_ms        = 200
+after_event_ms         = 300
+enabled                = true
+
+# ─── Análisis espectral ───────────────────────────────────────
+[spectral]
+nfft       = 1024
+window_pct = 10.0
+
+# ─── Bandas de frecuencia ─────────────────────────────────────
+[bands]
+DELTA     = [0.5,  4.0]
+THETA     = [4.0,  8.0]
+ALPHA     = [7.8, 11.7]
+BETA_LOW  = [12.0, 15.0]
+BETA_MID  = [15.0, 18.0]
+BETA_HIGH = [18.0, 30.0]
+GAMMA     = [30.0, 50.0]
+
+# ─── Conectividad ─────────────────────────────────────────────
+[connectivity]
+filter_order = 8
+use_csd      = false
+
+# ─── Control de calidad ───────────────────────────────────────
+[qc]
+bad_channel_zscore_threshold = 3.0
+
+# ─── Surrogates / Inferencia estadística ─────────────────────
+# ACTIVADO para análisis de publicación (computacionalmente costoso)
+# Aprox. 2-5 min extra por sujeto; total ~8-17 h para el dataset completo.
+# Para un primer pasado rápido, cambiar a enabled = false.
+[surrogates]
+enabled      = true
+n_surrogates = 200
+method       = "phase_shuffle"
+alpha        = 0.05
+fdr_method   = "bh"
+seed         = 42
+
+# ─── Rutas ────────────────────────────────────────────────────
+[paths]
+bids_root = "data/bids"
+results   = "results"
+
+# ─── Salida ───────────────────────────────────────────────────
+[output]
+figure_format = "png"
+figure_dpi    = 150
+
+# ─── Dashboard ────────────────────────────────────────────────
+[dashboard]
+port         = 8080
+open_browser = false    # no abrir navegador automáticamente en batch
