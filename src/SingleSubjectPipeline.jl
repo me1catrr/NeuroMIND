@@ -2,7 +2,39 @@
 # Pipeline mínimo para análisis de un solo sujeto EEG.
 # Fase inicial antes de escalar a análisis transversal y longitudinal.
 
-using CairoMakie
+using CairoMakie, Serialization
+
+# ── Helper: hash de config ICA para invalidar caché ──────────
+
+"""
+    _ica_config_hash(cfg) -> String
+
+Devuelve un string identificador del subconjunto de config que
+afecta al resultado de ICA (perfil, n_components, seed, tol, max_iter).
+El caché del ICAResult se invalida automáticamente si cambia alguno de estos.
+"""
+function _ica_config_hash(cfg::PipelineConfig)::String
+    ica = get(cfg.ica, "", Dict{String,Any}())
+    flt = get(cfg.filtering, "", Dict{String,Any}())
+    # Incluir también params de filtrado porque ICA se calcula sobre la señal filtrada
+    key = string(
+        get(ica, "profile",      "default"),   "_",
+        get(ica, "n_components", 0),           "_",
+        get(ica, "seed",         42),          "_",
+        get(ica, "tol",          1e-5),        "_",
+        get(ica, "max_iter",     500),         "_",
+        get(flt, "profile",      "default"),   "_",
+        get(flt, "highpass_hz",  0.5),         "_",
+        get(flt, "lowpass_hz",   150.0),       "_",
+        get(flt, "filter_order", 4),
+    )
+    # Hash simple pero suficiente para detectar cambios de config
+    h = zero(UInt32)
+    for c in key
+        h = xor(h * 31, UInt32(c))
+    end
+    return string(h, base=16)
+end
 
 # ─── Configuración ────────────────────────────────────────────
 
@@ -341,13 +373,36 @@ function run_single_subject_pipeline(config_path::String)
     # ── ICA: antes de segmentar (señal continua filtrada) ─────
     println("[4/8] ICA (separación de fuentes)...")
     _log(log_io, "\n[4/8] ICA")
-    t_ica = now()
-    ica_result = try
-        run_ica(rec_filt, cfg)
-    catch e
-        @warn "ICA falló: $e · continuando sin ICA"
-        nothing
+    t_ica     = now()
+    cache_dir = joinpath(subj_dir, "cache")
+    ica_cache = joinpath(cache_dir, "ica_result.jls")
+    ica_cfg_hash = _ica_config_hash(cfg)
+    ica_hash_path = joinpath(cache_dir, "ica_config.hash")
+
+    # Cache válido si: archivo existe Y el hash de config ICA coincide
+    cache_valid = isfile(ica_cache) &&
+                  isfile(ica_hash_path) &&
+                  strip(read(ica_hash_path, String)) == ica_cfg_hash
+
+    ica_result = if cache_valid
+        println("  ↩ ICA cargado desde caché (config sin cambios)")
+        _log(log_io, "  ICA cargado desde caché")
+        try Serialization.deserialize(ica_cache) catch; nothing end
+    else
+        res = try
+            run_ica(rec_filt, cfg)
+        catch e
+            @warn "ICA falló: $e · continuando sin ICA"
+            nothing
+        end
+        if res !== nothing
+            mkpath(cache_dir)
+            Serialization.serialize(ica_cache, res)
+            write(ica_hash_path, ica_cfg_hash)
+        end
+        res
     end
+
     rec_ica = rec_filt   # señal que va a segmentación (filtrada o limpiada)
     if ica_result !== nothing
         n_comp_ica = size(ica_result.activations, 1)
