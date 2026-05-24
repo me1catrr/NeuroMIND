@@ -4,8 +4,10 @@
 # Soporta IEEE_FLOAT_32 en orientación MULTIPLEXED (el formato estándar
 # del amplificador BrainAmp usado en este proyecto).
 #
-# Valores ya en µV para IEEE_FLOAT_32 (no se aplica escala de resolución).
-# Para INT_16: value_µV = raw_int16 × resolution_from_vhdr.
+# IMPORTANTE: BrainVision Recorder guarda los datos en unidades digitales
+# (ADC) incluso en formato IEEE_FLOAT_32. La resolución del .vhdr DEBE
+# aplicarse siempre: value_µV = raw_value × resolution_from_vhdr.
+# Esto aplica tanto para IEEE_FLOAT_32 como para INT_16.
 
 # ─── Lectura de cabecera .vhdr ────────────────────────────────
 
@@ -17,7 +19,7 @@ Claves devueltas:
   "n_channels"     Int     — número de canales en el .eeg
   "fs"             Float64 — tasa de muestreo en Hz
   "ch_names"       Vector{String}  — nombres de canales (en orden del fichero)
-  "resolutions"    Vector{Float64} — factor de escala µV/bit (solo INT_16)
+  "resolutions"    Vector{Float64} — factor de escala µV/unidad (aplicar siempre)
   "binary_format"  String  — "IEEE_FLOAT_32" | "INT_16" | ...
   "orientation"    String  — "MULTIPLEXED" | "VECTORIZED"
   "eeg_file"       String  — ruta relativa/absoluta al archivo .eeg
@@ -97,7 +99,8 @@ Lee una grabación EEG completa desde formato BrainVision binario.
 - `ch_pos`     Diccionario de posiciones de electrodos (opcional)
 
 # Notas de formato
-- Soporta IEEE_FLOAT_32 (valores ya en µV) y INT_16 (escala × resolución).
+- Soporta IEEE_FLOAT_32 e INT_16. En ambos casos se aplica la resolución
+  del .vhdr (µV/unidad) para convertir unidades ADC a µV.
 - La orientación esperada es MULTIPLEXED: [ch₁t₁, ch₂t₁, …, chₙtₙ].
   En Julia (column-major), `reshape(raw, n_ch, n_samples)` produce la
   matriz correcta con ch como primer índice.
@@ -139,7 +142,13 @@ function load_eeg_brainvision(
         raw     = Vector{Float32}(undef, n_ch * n_t)
         read!(eeg_path, raw)
         # MULTIPLEXED → column-major reshape produce (n_ch × n_t) correcto
-        Float64.(reshape(raw, n_ch, n_t))
+        d = Float64.(reshape(raw, n_ch, n_t))
+        # BrainVision Recorder guarda en unidades ADC (no µV) incluso como
+        # float32. Aplicar resolución canal a canal para convertir a µV.
+        for i in 1:n_ch
+            d[i, :] .*= ch_res[i]
+        end
+        d
 
     elseif binfmt == "INT_16"
         bytes_per_sample = 2
