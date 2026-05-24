@@ -157,12 +157,17 @@ function write_temp_config(job::BatchJob, base_cfg_raw::Dict)::String
         "run"        => 1,
     )
 
-    # Asegura que bids_root apunta al BIDS del proyecto
+    # Asegura que bids_root y results apuntan al BIDS del proyecto.
+    # IMPORTANTE: se usan rutas ABSOLUTAS porque load_ss_config calcula
+    # cfg.root = dirname(dirname(config_path)) y los configs temporales
+    # viven en config/.batch_tmp/ (un nivel más profundo que config/).
+    # En Julia, joinpath(cualquier_root, "/ruta/absoluta") devuelve la ruta
+    # absoluta, por lo que los paths absolutos ignorarán el root relativo.
     if !haskey(cfg, "paths")
         cfg["paths"] = Dict{String,Any}()
     end
-    cfg["paths"]["bids_root"] = relpath(BIDS_DIR, PROJ_ROOT)
-    cfg["paths"]["results"]   = relpath(RESULTS,  PROJ_ROOT)
+    cfg["paths"]["bids_root"] = BIDS_DIR    # ruta absoluta
+    cfg["paths"]["results"]   = RESULTS     # ruta absoluta
 
     # Guardar en directorio temporal del proyecto
     tmp_dir = joinpath(PROJ_ROOT, "config", ".batch_tmp")
