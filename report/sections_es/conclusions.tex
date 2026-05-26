@@ -1,0 +1,23 @@
+\section{Conclusiones operativas y próximos pasos}
+
+El estado actual de NeuroMIND permite cerrar una conclusión operativa clara: el pipeline ya es funcional, trazable y reproducible a nivel de ejecución individual. La cadena cubre ingestión/IO, control de calidad, filtrado, ICA, segmentación, baseline, rechazo de artefactos, análisis espectral, matrices wPLI e inferencia mediante surrogates de fase aleatorizada con corrección FDR. La sección de resultados muestra que las salidas principales pueden incorporarse al informe con figuras, tablas y lectura técnica prudente.
+
+\begin{ideaclave}
+\small
+Los resultados actuales son preliminares y corresponden a una ejecución concreta: \texttt{sub-M05}, \texttt{ses-T2}, condición \texttt{eyesclosed}, con \texttt{use\_csd=false}. Por ello, sirven para validar la operación del pipeline y la trazabilidad de outputs, pero no para formular una conclusión clínica general sobre conectividad en esclerosis múltiple.
+\end{ideaclave}
+
+La ausencia de aristas significativas tras FDR en esta ejecución individual no debe interpretarse como evidencia de ausencia de alteraciones funcionales en EM. Técnicamente indica que, bajo la configuración exploratoria revisada, las aristas wPLI observadas no se separan de forma suficiente de la distribución nula surrogate tras controlar multiplicidad. Esta lectura depende de la calidad de señal, longitud de registro, número de épocas, número de surrogates, uso o no de CSD, bandas analizadas y estrategia de corrección.
+
+Los próximos pasos deberían ejecutarse en este orden:
+
+\begin{enumerate}[leftmargin=*]
+\item Congelar una configuración de referencia con snapshot explícito, semilla, número de surrogates, versión de código y etiqueta de ejecución.
+\item Activar CSD si se mantiene como parte de la hipótesis metodológica final, y comparar de forma controlada salidas sensor--sensor frente a CSD+wPLI.
+\item Aumentar el número de surrogates hasta una resolución de p-valores compatible con los contrastes previstos y el coste computacional asumible.
+\item Ejecutar todos los sujetos, sesiones y condiciones EO/EC con la misma configuración congelada.
+\item Construir tablas agregadas para comparaciones EM T1 frente a controles y EM T1 frente a EM T2, evitando mezclar análisis exploratorios con inferencia confirmatoria.
+\item Integrar variables clínicas como EDSS o MSFC solo cuando estén disponibles, armonizadas y vinculadas de forma trazable con cada sesión EEG.
+\end{enumerate}
+
+Hasta completar esos pasos, el informe debe leerse como un documento científico-técnico vivo: suficientemente riguroso para orientar decisiones de análisis y suficientemente prudente para no convertir una ejecución preliminar en resultado clínico.

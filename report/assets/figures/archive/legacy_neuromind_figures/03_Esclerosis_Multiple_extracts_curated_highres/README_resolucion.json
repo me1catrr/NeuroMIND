@@ -1,0 +1,106 @@
+[
+  {
+    "archivo": "figures/NeuroMIND/03_Esclerosis_Multiple_extracts_curated_highres/01_que_es_la_EM_y_epidemiologia.png",
+    "origen": "ad887c48-17b4-5ccb-858b-d05b340ba75d.png",
+    "crop_box_original_px": [
+      10,
+      78,
+      710,
+      460
+    ],
+    "original_crop_px": "700x382",
+    "final_px": "3500x1910",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/03_Esclerosis_Multiple_extracts_curated_highres/02_fisiopatologia.png",
+    "origen": "ad887c48-17b4-5ccb-858b-d05b340ba75d.png",
+    "crop_box_original_px": [
+      710,
+      78,
+      1098,
+      460
+    ],
+    "original_crop_px": "388x382",
+    "final_px": "1940x1910",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/03_Esclerosis_Multiple_extracts_curated_highres/03_formas_clinicas_principales.png",
+    "origen": "ad887c48-17b4-5ccb-858b-d05b340ba75d.png",
+    "crop_box_original_px": [
+      1098,
+      78,
+      1528,
+      460
+    ],
+    "original_crop_px": "430x382",
+    "final_px": "2150x1910",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/03_Esclerosis_Multiple_extracts_curated_highres/04_sintomas_mas_frecuentes.png",
+    "origen": "ad887c48-17b4-5ccb-858b-d05b340ba75d.png",
+    "crop_box_original_px": [
+      10,
+      466,
+      430,
+      800
+    ],
+    "original_crop_px": "420x334",
+    "final_px": "2100x1670",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/03_Esclerosis_Multiple_extracts_curated_highres/05_diagnostico.png",
+    "origen": "ad887c48-17b4-5ccb-858b-d05b340ba75d.png",
+    "crop_box_original_px": [
+      430,
+      466,
+      850,
+      800
+    ],
+    "original_crop_px": "420x334",
+    "final_px": "2100x1670",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/03_Esclerosis_Multiple_extracts_curated_highres/06_tratamiento_y_pronostico.png",
+    "origen": "ad887c48-17b4-5ccb-858b-d05b340ba75d.png",
+    "crop_box_original_px": [
+      850,
+      466,
+      1528,
+      800
+    ],
+    "original_crop_px": "678x334",
+    "final_px": "3390x1670",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/03_Esclerosis_Multiple_extracts_curated_highres/07_resumen_visual_de_la_inflamacion_al_dano_neurologico.png",
+    "origen": "ad887c48-17b4-5ccb-858b-d05b340ba75d.png",
+    "crop_box_original_px": [
+      10,
+      810,
+      1005,
+      985
+    ],
+    "original_crop_px": "995x175",
+    "final_px": "4975x875",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/03_Esclerosis_Multiple_extracts_curated_highres/08_idea_clave.png",
+    "origen": "ad887c48-17b4-5ccb-858b-d05b340ba75d.png",
+    "crop_box_original_px": [
+      1005,
+      810,
+      1528,
+      985
+    ],
+    "original_crop_px": "523x175",
+    "final_px": "2615x875",
+    "dpi": 600
+  }
+]

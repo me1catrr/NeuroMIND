@@ -1,0 +1,50 @@
+\section{Resumen ejecutivo y propósito del cuaderno}
+
+Este informe científico-técnico documenta el estado operativo de \textbf{NeuroMIND}, el pipeline en \Julia{} para EEG en reposo orientado al estudio de conectividad funcional sensorial en esclerosis múltiple mediante wPLI e inferencia con surrogates de fase aleatorizada. CSD se mantiene como etapa metodológica prevista para reducir contaminación espacial, pero la ejecución preliminar revisada se interpreta explícitamente en espacio de sensores cuando \texttt{use\_csd=false}. Su objetivo no es presentar un artículo cerrado ni extraer conclusiones clínicas definitivas, sino reunir en un único documento la lógica metodológica, las decisiones de implementación, los controles de calidad y los artefactos necesarios para depurar, interpretar y relanzar el análisis de forma trazable.
+
+\begin{ideaclave}
+El documento debe leerse como el reporte vivo del proyecto NeuroMIND: cada fase describe qué entra, qué transforma el código Julia, qué se guarda, qué controles QC sostienen la decisión y qué queda pendiente antes de congelar una ejecución de referencia.
+\end{ideaclave}
+
+La narrativa se organiza de lo general a lo operativo. Primero se resume el estudio y su diseño, después se introduce el marco clínico y metodológico, se despliega el pipeline fase a fase (BIDS/IO, filtrado, ICA, segmentación, baseline, rechazo de artefactos, CSD/FFT, wPLI y surrogates/FDR) y se añade una lectura técnica de los resultados exportados por NeuroMIND para una ejecución individual. Los apéndices concentran el material de soporte sobre BIDS, \Julia{}, \LaTeX{}, \Git{}/\GitHub{} y el uso transparente de herramientas de IA.
+
+\subsection{Mapa visual del estudio}
+
+\begin{fullwidth}
+\begin{figure}[H]
+\centering
+\resizebox{0.98\fulltextwidth}{!}{\NSStudyMap}
+\caption{Mapa operativo del estudio: grupos y tiempos de adquisición, condiciones de reposo EO/EC y flujo desde EEG raw hasta matrices de conectividad, inferencia y salidas de control. La figura resume la ruta de datos sin introducir resultados científicos nuevos.}
+\label{fig:generated-study-map}
+\end{figure}
+\end{fullwidth}
+
+\subsection{Diseño de comparación}
+
+\begin{fullwidth}
+\begin{figure}[H]
+\centering
+\resizebox{0.86\fulltextwidth}{!}{\NSExperimentalDesign}
+\caption{Diseño analítico previsto: comparación transversal entre pacientes con EM en T1 y controles, y seguimiento longitudinal EM T1 frente a EM T2 cuando existe segunda visita. Las condiciones EO y EC se conservan separadas para evitar mezclar estados fisiológicos distintos.}
+\label{fig:generated-experimental-design}
+\end{figure}
+\end{fullwidth}
+
+\begin{decisionmetodologica}
+La conectividad se interpreta como conectividad funcional no dirigida a nivel de sensores. wPLI reduce el peso de acoplamientos de desfase cero; CSD se conserva como mejora espacial prevista, pero los resultados actuales con \texttt{use\_csd=false} son una validación operativa sensor--sensor. En ningún caso las matrices wPLI deben leerse como conectividad anatómica ni causal.
+\end{decisionmetodologica}
+
+\subsection{Pipeline de un vistazo}
+
+\begin{fullwidth}
+\begin{figure}[H]
+\centering
+\resizebox{0.98\fulltextwidth}{!}{\NSPipelineGlobal}
+\caption{Pipeline global del cuaderno: las fases se agrupan en armonización/limpieza, preparación de señal por segmentos y análisis de conectividad con inferencia. La separación por fases facilita relanzamientos locales y auditoría de outputs.}
+\label{fig:generated-global-pipeline}
+\end{figure}
+\end{fullwidth}
+
+\begin{pendiente}
+La ejecución revisada ya exporta contraste wPLI con surrogates de fase aleatorizada y FDR. Sigue pendiente congelar la configuración final de referencia: activar CSD si procede, fijar el número definitivo de surrogates y repetir la lectura en sujetos, sesiones y condiciones comparables.
+\end{pendiente}

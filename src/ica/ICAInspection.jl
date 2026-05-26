@@ -5,7 +5,13 @@
     load_ica_labels(cfg, subject_id, session_id, condition) -> Vector{Int}
 
 Carga los índices de componentes ICA rechazados desde un CSV de inspección manual.
-Formato esperado: CSV con columna `component` (int) y `label` (artifact/brain).
+Formato esperado: CSV con columnas `component` (int) y `label` (artifact/brain).
+
+Busca en múltiples rutas candidatas (pipeline nuevo y legacy):
+  1. results/subjects/sub-{id}/ses-{sess}/{cond}/ica_labels.csv
+  2. results/subjects/sub-{id}/ses-{sess}/{cond}/ICA_labels.csv
+  3. results/subjects/sub-{id}/ses-{sess}/{cond}/tables/ICA_labels_{cond}.csv
+  4. results/{id}/{sess}/tables/ICA_labels_{cond}.csv   (legacy)
 """
 function load_ica_labels(
     cfg::PipelineConfig,
@@ -13,14 +19,23 @@ function load_ica_labels(
     session_id::String,
     condition::String
 )::Vector{Int}
-    path = joinpath(
-        results_dir(cfg), subject_id, session_id,
-        "tables", "ICA_labels_$(condition).csv"
-    )
-    isfile(path) || return Int[]
+    res = results_dir(cfg)
+    subj_base  = joinpath(res, "subjects", "sub-$(subject_id)", "ses-$(session_id)", condition)
+    legacy_base = joinpath(res, subject_id, session_id, "tables")
 
-    df = CSV.read(path, DataFrame)
-    hasproperty(df, :label) || return Int[]
+    candidates = [
+        joinpath(subj_base, "ica_labels.csv"),
+        joinpath(subj_base, "ICA_labels.csv"),
+        joinpath(subj_base, "tables", "ICA_labels_$(condition).csv"),
+        joinpath(legacy_base, "ICA_labels_$(condition).csv"),
+    ]
+
+    idx = findfirst(isfile, candidates)
+    idx === nothing && return Int[]
+
+    df = CSV.read(candidates[idx], DataFrame)
+    hasproperty(df, :label)     || return Int[]
+    hasproperty(df, :component) || return Int[]
 
     rejected = df[df.label .== "artifact", :component]
     return convert(Vector{Int}, rejected)

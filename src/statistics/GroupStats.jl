@@ -158,8 +158,16 @@ function _assign_ranks(v::Vector{Float64})::Vector{Float64}
     return ranks
 end
 
+# Abramowitz & Stegun 7.1.26 — max |ε| ≤ 1.5×10⁻⁷ (no SpecialFunctions needed)
+function _erf_approx(x::Float64)::Float64
+    t = 1.0 / (1.0 + 0.3275911 * abs(x))
+    poly = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 +
+               t * (-1.453152027 + t * 1.061405429))))
+    sign(x) * (1.0 - poly * exp(-x * x))
+end
+
 function _norm_cdf(z::Float64)::Float64
-    0.5 * (1.0 + erf(z / sqrt(2.0)))
+    0.5 * (1.0 + _erf_approx(z / sqrt(2.0)))
 end
 
 function _t_cdf(t::Float64, df::Real)::Float64

@@ -1,0 +1,189 @@
+"""Run Phase 4 ICA for the M05/T2/EC pilot recording."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+import numpy as np
+import pandas as pd
+
+from mne_brain import load_config
+from mne_brain.common.types import RecordingMeta
+from mne_brain.ica import (
+    apply_ica_rejection,
+    compute_ica_features,
+    evaluate_ica_components,
+    load_filtered_recording,
+    mne_artifact_suggestions,
+    run_ica,
+    suggest_rejected_components,
+)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--subject", default="M05")
+    parser.add_argument("--session", default="T2")
+    parser.add_argument("--condition", default="EC")
+    parser.add_argument("--artifact-threshold", type=float, default=1.5)
+    parser.add_argument(
+        "--apply-suggestions",
+        action="store_true",
+        help="Also save cleaned_EC.npz using NeuroMIND-style suggested components.",
+    )
+    args = parser.parse_args()
+
+    cfg = load_config()
+    task = "eyesclosed" if args.condition == "EC" else "eyesopen"
+    base_dir = (
+        Path(cfg.root)
+        / str(cfg.paths.get("results", "results"))
+        / "subjects"
+        / f"sub-{args.subject}"
+        / f"ses-{args.session}"
+        / task
+    )
+    cache_dir = base_dir / "cache"
+    tables_dir = base_dir / "tables"
+    figures_dir = base_dir / "figures" / "ica"
+    tables_dir.mkdir(parents=True, exist_ok=True)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    figures_dir.mkdir(parents=True, exist_ok=True)
+
+    filtered_path = cache_dir / f"filtered_{args.condition}.npz"
+    meta = RecordingMeta(
+        subject_id=args.subject,
+        session_id=args.session,
+        condition=args.condition,
+        run=1,
+        fs=float(cfg.recording.get("fs", 500.0)),
+        n_channels=0,
+        channel_names=[],
+        channel_positions=None,
+        bids_path=str(filtered_path),
+    )
+    rec = load_filtered_recording(filtered_path, meta)
+    fitted = run_ica(rec, cfg)
+
+    features = compute_ica_features(
+        fitted.component_maps,
+        fitted.sources,
+        rec.meta.fs,
+        rec.meta.channel_names,
+    )
+    evaluated = evaluate_ica_components(features, artifact_thresh=args.artifact_threshold)
+    custom_suggestions = suggest_rejected_components(evaluated)
+    mne_suggestions = mne_artifact_suggestions(fitted.ica, fitted.raw)
+
+    evaluated.to_csv(tables_dir / f"ica_component_features_{args.condition}.csv", index=False)
+    _save_matrix(tables_dir / f"ica_component_maps_{args.condition}.csv", fitted.component_maps, rec.meta.channel_names)
+    _save_matrix(
+        tables_dir / f"ica_mixing_matrix_{args.condition}.csv",
+        fitted.result.mixing_matrix,
+        rec.meta.channel_names,
+    )
+    _save_matrix(tables_dir / f"ica_unmixing_matrix_{args.condition}.csv", fitted.result.unmixing_matrix)
+    np.savez_compressed(
+        cache_dir / f"ica_activations_{args.condition}.npz",
+        activations=fitted.sources,
+        times=rec.times,
+        fs=rec.meta.fs,
+    )
+    fitted.ica.save(cache_dir / f"ica_{args.condition}-ica.fif", overwrite=True)
+    topomap_files = _save_topomaps(fitted.ica, figures_dir, args.condition)
+
+    summary = {
+        "subject": args.subject,
+        "session": args.session,
+        "condition": args.condition,
+        "method": str(cfg.ica.get("method", "fastica")),
+        "library": "MNE-Python",
+        "n_channels": rec.meta.n_channels,
+        "n_components": int(fitted.sources.shape[0]),
+        "random_seed": int(cfg.ica.get("random_seed", 42)),
+        "max_iter": int(cfg.ica.get("max_iter", 500)),
+        "tolerance": float(cfg.ica.get("tolerance", 1e-5)),
+        "artifact_threshold": args.artifact_threshold,
+        "suggested_rejected_components": custom_suggestions,
+        "mne_suggestions": mne_suggestions,
+        "topomap_files": topomap_files,
+        "note": (
+            "MNE FastICA is expected to differ component-by-component from NeuroMIND's "
+            "custom symmetric FastICA; compare cleaned signal and downstream metrics."
+        ),
+    }
+    (tables_dir / f"ica_summary_{args.condition}.json").write_text(
+        json.dumps(summary, indent=2),
+        encoding="utf-8",
+    )
+
+    if args.apply_suggestions:
+        cleaned = apply_ica_rejection(rec, fitted, custom_suggestions)
+        np.savez_compressed(
+            cache_dir / f"cleaned_{args.condition}.npz",
+            data=cleaned.data,
+            times=cleaned.times,
+            fs=cleaned.meta.fs,
+            channel_names=np.asarray(cleaned.meta.channel_names, dtype=object),
+            rejected_components=np.asarray(custom_suggestions, dtype=int),
+        )
+        print(f"Cleaned cache: {cache_dir / f'cleaned_{args.condition}.npz'}")
+        # Add post_ica_uv to signal_preview JSON (generated by phase 3)
+        preview_path = tables_dir / f"signal_preview_{args.condition}.json"
+        if preview_path.exists():
+            with open(preview_path, encoding="utf-8") as fh:
+                preview = json.load(fh)
+            n_prev = len(preview.get("times", []))
+            n_avail = cleaned.data.shape[1]
+            preview["post_ica_uv"] = cleaned.data[:, :min(n_prev, n_avail)].round(6).tolist()
+            preview_path.write_text(json.dumps(preview), encoding="utf-8")
+            print(f"Updated signal_preview with post_ica_uv: {preview_path.name}")
+
+    print(f"ICA fitted: {fitted.sources.shape[0]} components from {rec.meta.n_channels} channels")
+    print(f"Suggested rejected components: {custom_suggestions}")
+    print(f"MNE suggestions: {mne_suggestions}")
+    print(f"Summary: {tables_dir / f'ica_summary_{args.condition}.json'}")
+
+
+def _save_matrix(path: Path, matrix: np.ndarray, index: list[str] | None = None) -> None:
+    df = pd.DataFrame(matrix)
+    if index is not None and len(index) == matrix.shape[0]:
+        df.insert(0, "channel", index)
+    df.to_csv(path, index=False)
+
+
+def _save_topomaps(ica, figures_dir: Path, condition: str) -> list[str]:
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ModuleNotFoundError:
+        return []
+
+    saved: list[str] = []
+    n_components = int(ica.n_components_)
+    for start in range(0, n_components, 10):
+        picks = list(range(start, min(start + 10, n_components)))
+        try:
+            figs = ica.plot_components(picks=picks, show=False)
+            if not isinstance(figs, list):
+                figs = [figs]
+            for idx, fig in enumerate(figs):
+                name = f"ica_topomaps_{condition}_{start + idx:02d}.png"
+                path = figures_dir / name
+                fig.savefig(path, dpi=150, bbox_inches="tight")
+                plt.close(fig)
+                saved.append(str(path))
+        except Exception:
+            continue
+    return saved
+
+
+if __name__ == "__main__":
+    main()

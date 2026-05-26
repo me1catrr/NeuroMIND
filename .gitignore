@@ -45,6 +45,11 @@
 .cache/
 tmp/
 temp/
+logs/
+config/.batch_tmp/
+config/results/
+report/build/
+wPLI_paper/
 __pycache__/
 .ipynb_checkpoints/
 **/pluto_export/**

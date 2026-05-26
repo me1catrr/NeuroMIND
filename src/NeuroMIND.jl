@@ -26,14 +26,16 @@ export PipelineConfig, RecordingMeta, EEGRecording, EpochSet
 export ICAResult, SpectralResult, ConnectivityMatrix, SurrogateResult
 export GraphMetrics, Session, Subject, GroupAnalysis, LongitudinalAnalysis
 export ClinicalData, StatResult
-export n_channels, n_samples, n_epochs, duration
+export n_channels, n_samples, n_epochs, n_samples_epoch, duration
 
 # ─── I/O y configuración ──────────────────────────────────────
 include("io/Config.jl")
 include("io/BIDSLoader.jl")
+include("io/BrainVisionLoader.jl")
 include("io/Serializer.jl")
 export load_config, load_subjects, load_eeg_bids, save_result, load_result, result_exists
 export results_dir, subject_results_dir, ensure_dirs
+export read_vhdr_header, load_eeg_brainvision, bv_electrode_positions
 
 # ─── Quality Control ──────────────────────────────────────────
 include("qc/QualityControl.jl")
@@ -42,16 +44,19 @@ export compute_channel_stats, flag_bad_channels, qc_report
 # ─── Preprocessing ────────────────────────────────────────────
 include("preprocessing/Filtering.jl")
 export apply_highpass, apply_lowpass, apply_notch, apply_bandpass
-export apply_bandreject, filter_recording
+export apply_bandreject, filter_recording, describe_filter_chain
 
 # ─── ICA ──────────────────────────────────────────────────────
 include("ica/ICACore.jl")
+include("ica/ICAClassification.jl")
 include("ica/ICAInspection.jl")
 export run_ica, apply_ica_rejection, load_ica_labels
+export compute_ica_features, evaluate_ica_components
 
 # ─── Segmentación ─────────────────────────────────────────────
 include("segmentation/Epochs.jl")
 export segment_recording, apply_baseline, reject_artifacts
+export compute_epoch_quality_report, compute_channel_coverage
 
 # ─── Spectral ─────────────────────────────────────────────────
 include("spectral/PowerSpectrum.jl")
@@ -68,6 +73,7 @@ include("statistics/Surrogates.jl")
 include("statistics/FDR.jl")
 include("statistics/GroupStats.jl")
 export surrogate_test, fdr_correction, threshold_connectivity
+export validate_connectivity_matrix, validate_surrogate_result
 export mann_whitney_test, wilcoxon_signed_rank, spearman_correlation
 export compare_groups_stats
 

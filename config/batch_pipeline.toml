@@ -1,0 +1,168 @@
+# NeuroMIND — Configuración para análisis en lote (batch)
+# Usado por scripts/run_batch_pipeline.jl para procesar el dataset completo
+# MINDEM-IMIBIC (41 pacientes EM + 37 controles).
+#
+# El script sobreescribe [subject] en cada llamada; los demás parámetros
+# son compartidos por todos los sujetos del lote.
+
+# ─── Identificación del sujeto ────────────────────────────────
+# (sobreescrito automáticamente por run_batch_pipeline.jl)
+[subject]
+subject_id = "auto"
+session_id = "T1"
+task       = "eyesclosed"
+run        = 1
+
+# ─── Parámetros de grabación ──────────────────────────────────
+[recording]
+sampling_rate = 500.0    # Hz — confirmado en .vhdr de todos los sujetos
+
+# ─── Filtrado (perfil eeg_julia — coincide con EEG_Julia original) ────────
+[filtering]
+profile          = "eeg_julia"
+highpass_hz      = 0.5
+lowpass_hz       = 150.0
+notch_hz         = 50.0
+notch_bw_hz      = 1.0
+bandreject_lo    = 99.5
+bandreject_hi    = 100.5
+filter_order     = 4
+
+# ─── ICA ──────────────────────────────────────────────────────
+[ica]
+profile            = "eeg_julia"
+n_components       = 0       # 0 = automático (= n_channels)
+max_iter           = 512
+tol                = 1e-7
+seed               = 1234
+artifact_threshold = 1.5
+
+# ─── Segmentación ─────────────────────────────────────────────
+[segmentation]
+profile                = "default"
+segment_length_seconds = 2.0    # ignorado con perfil eeg_julia
+overlap_seconds        = 0.0
+min_segments           = 10
+
+# ─── Corrección de baseline ───────────────────────────────────
+[baseline]
+method           = "mean"
+baseline_start_s = 0.0
+baseline_end_s   = 0.10
+n_passes         = 2
+
+# ─── Montaje principal ────────────────────────────────────────
+# Fp2 se excluye en TODOS los sujetos por ser un canal sistemáticamente
+# problemático en el dataset (artefactos oculares / contacto deficiente).
+# El análisis principal trabaja con 30 canales → 435 aristas wPLI por banda.
+# Para análisis de sensibilidad cambiar exclude_fp2 = false.
+[montage]
+exclude_channels    = ["Fp2"]
+exclude_fp2         = true
+n_channels_analysis = 30
+
+# ─── Rechazo de artefactos ────────────────────────────────────
+# Umbral del protocolo original RS-MIND: ±70 µV.
+# Los registros con filtro online OFF (σ >20 µV en crudo) recibirán
+# una alerta de amplitud (amplitude_warning) pero NO se excluyen
+# automáticamente; la decisión final queda en la tabla QC.
+[artifact_rejection]
+profile               = "eeg_julia"
+min_amplitude_uv      = -70.0
+max_amplitude_uv      =  70.0
+n_channels_used       = 30
+amplitude_threshold_uv = 100.0
+gradient_threshold_uv  = 50.0
+use_gradient           = true
+before_event_ms        = 200
+after_event_ms         = 300
+enabled                = true
+
+# ─── Análisis espectral ───────────────────────────────────────
+[spectral]
+nfft       = 1024
+window_pct = 10.0
+
+# ─── Bandas de frecuencia ─────────────────────────────────────
+[bands]
+DELTA     = [0.5,  4.0]
+THETA     = [4.0,  8.0]
+ALPHA     = [7.8, 11.7]
+BETA_LOW  = [12.0, 15.0]
+BETA_MID  = [15.0, 18.0]
+BETA_HIGH = [18.0, 30.0]
+GAMMA     = [30.0, 50.0]
+
+# ─── Conectividad ─────────────────────────────────────────────
+[connectivity]
+
+# Método de cálculo del wPLI:
+#   "hilbert"      — Filtrado Butterworth + señal analítica Hilbert (más rápido)
+#   "fourier_csd"  — Espectro cruzado FFT con ventana (definición espectral directa)
+#   "multitaper"   — DPSS multitaper, equivalente MNE spectral_connectivity (mejor varianza-sesgo)
+wpli_method = "fourier_csd"
+
+# Estimador de conectividad:
+#   false → wPLI  = |E[Im]| / E[|Im|]                          rango [0, 1], sesgado
+#   true  → dwPLI = (E[Im]²−E[Im²]) / (E[|Im|]²−E[Im²])       rango [−1, 1], no sesgado
+# Recomendado true para comparaciones grupales (n_epochs variable entre sujetos).
+use_dwpli    = true
+
+# Ciclos mínimos por época para considerar la estimación fiable.
+# Con epoch_length_s=1.0s: DELTA (0.5 Hz × 1s = 0.5 ciclos) generará @warn.
+min_cycles_for_wpli      = 4.0
+exclude_unreliable_bands = true # si true, omite bandas con < min_cycles (no solo advierte)
+
+use_csd      = false  # Current Source Density — opcional, no recomendado hasta validación
+filter_order = 8      # solo para wpli_method="hilbert"
+
+# ── Opciones para wpli_method = "fourier_csd" ─────────────────
+[connectivity.fourier_csd]
+window = "hann"  # "hann" | "hamming" | "rect"
+nfft   = 0       # 0 = usar la longitud completa de la época
+
+# ── Opciones para wpli_method = "multitaper" ──────────────────
+[connectivity.multitaper]
+nw       = 4.0   # time-bandwidth product (típico: 2.0–5.0; mayor = más suavizado)
+n_tapers = 0     # 0 = automático: floor(2*nw) − 1  (con nw=4.0 → 7 tapers)
+low_bias = true  # descartar tapers con concentración espectral λ < 0.9
+
+# ─── Control de calidad ───────────────────────────────────────
+[qc]
+bad_channel_zscore_threshold = 3.0
+
+# ─── Surrogates / Inferencia estadística ─────────────────────
+# ACTIVADO para análisis de publicación (computacionalmente costoso)
+# Aprox. 2-5 min extra por sujeto; total ~8-17 h para el dataset completo.
+# Para un primer pasado rápido, cambiar a enabled = false.
+[surrogates]
+enabled      = false
+n_surrogates = 20
+method       = "circular_shift"
+alpha        = 0.05
+fdr_method   = "bh"
+seed         = 42
+
+# ─── Métricas de grafo ────────────────────────────────────────
+# El umbral aquí es SOLO para las métricas binarias (path_length, efficiency, degree).
+# Las métricas ponderadas (strength, clustering) siempre usan la matriz wPLI completa.
+# "proportional": mantener el density×100% de aristas más fuertes (comparable entre sujetos).
+# "absolute":     umbral en valor absoluto de wPLI (depende de n_epochs, menos recomendado).
+[graph]
+density          = 0.1
+threshold_method = "proportional"
+
+# ─── Rutas ────────────────────────────────────────────────────
+[paths]
+bids_root = "data/bids"
+results   = "results"
+
+# ─── Salida ───────────────────────────────────────────────────
+[output]
+figure_format = "png"
+figure_dpi    = 150
+
+# ─── Dashboard ────────────────────────────────────────────────
+[dashboard]
+port         = 8080
+open_browser = false    # no abrir navegador automáticamente en batch

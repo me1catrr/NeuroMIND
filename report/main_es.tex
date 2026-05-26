@@ -1,0 +1,304 @@
+% Compilar con pdfLaTeX + biber (ver Makefile y .latexmkrc).
+
+% --- Clase y paquetes ---
+
+\documentclass[a4paper,%unnumberedsections, % Descomentar para ocultar numeracion de secciones
+  ]{report}
+
+\addbibresource{refs.bib}
+
+% --- Paquetes adicionales ---
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{amsthm}
+\usepackage{siunitx}
+% Nota: se desactiva multicol para evitar que \begin{multicols}{1}
+% fuerce dos columnas en esta plantilla (comportamiento observado en log).
+\newenvironment{multicols}[1]{}{}
+\usepackage{graphicx}
+\graphicspath{{./assets/}{./assets/figures/}{./}} % Recursos gráficos (logo y figuras)
+\usepackage{subcaption}
+\usepackage{adjustbox}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{float}
+\usepackage{placeins}
+\usepackage{xurl} % permite cortar en / _ - . en rutas y evita desbordes en dos columnas
+\newcommand{\bids}[1]{\path{#1}} % nombres BIDS: monoespaciado y cortes automáticos
+\usepackage{microtype}
+\setlength{\emergencystretch}{2em} % más elasticidad para evitar desbordes en dos columnas
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{arrows.meta,positioning,calc,shapes,patterns,trees,decorations.pathreplacing}
+\usepackage{forest}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\algrenewcommand\algorithmiccomment[1]{\hfill$\triangleright$ #1}
+\makeatletter
+\renewcommand{\theALG@line}{\thealgorithm.\arabic{ALG@line}}
+\providecommand{\theHALG@line}{}
+\renewcommand{\theHALG@line}{\thealgorithm.\arabic{ALG@line}}
+\makeatother
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable,skins}
+\usepackage{listings}
+\definecolor{codegray}{RGB}{248,248,248}
+\definecolor{coderule}{RGB}{220,220,220}
+\definecolor{keywordgreen}{RGB}{0,100,50}
+\definecolor{commentgray}{RGB}{100,100,100}
+\definecolor{stringteal}{RGB}{0,80,90}
+\lstdefinelanguage{Julia}{
+  morekeywords={abstract,break,case,catch,const,continue,do,else,elseif,end,export,false,for,function,global,if,import,let,local,macro,module,mutable,primitive,quote,return,struct,true,try,using,where,while},
+  sensitive=true,
+  morecomment=[l]\#,
+  morecomment=[n]{\#=}{=\#},
+  morestring=[b]",
+}
+\lstset{
+  language=Julia,
+  backgroundcolor=\color{white},
+  basicstyle=\small\ttfamily,
+  keywordstyle=\color{keywordgreen}\bfseries,
+  commentstyle=\color{commentgray}\itshape,
+  stringstyle=\color{stringteal},
+  numbers=left,
+  numberstyle=\tiny\ttfamily\color{black!50},
+  stepnumber=1,
+  numbersep=8pt,
+  breaklines=true,
+  showstringspaces=false,
+  frame=single,
+  framerule=0.3pt,
+  rulecolor=\color{black!20},
+  columns=fullflexible,
+  keepspaces=true
+}
+\usepackage{enumitem}
+\usepackage{titlesec}
+
+% Ajuste de página: una sola columna real, sin margen lateral de sidenotes.
+\geometry{
+  left=2.25cm,
+  right=2.25cm,
+  top=3cm,
+  bottom=3cm,
+  marginparwidth=0pt,
+  marginparsep=0pt
+}
+\setlength{\fulltextwidth}{\textwidth}
+\setlength{\marginparpush}{0pt}
+\setlength{\marginoffset}{0pt}
+\fancyheadoffset[R]{0pt}
+\fancyfootoffset[R]{0pt}
+
+% Referencias cruzadas (hyperref y cleveref cerca del final para evitar warnings)
+\usepackage{hyperref}
+\usepackage[nameinlink,capitalise,noabbrev]{cleveref}
+
+% La plantilla original usa notas al margen. Para este informe técnico se
+% convierten en notas al pie: las figuras, fórmulas y tablas respiran mejor.
+\RenewDocumentCommand{\sidenote}{o o +m}{\footnote{#3}}
+\RenewDocumentCommand{\nonumsidenote}{O{} +m}{\footnote{#2}}
+\RenewDocumentCommand{\sidenotequote}{O{} +m}{\footnote{\itshape #2}}
+
+% --- Gestión robusta de floats en dos columnas ---
+\usepackage{dblfloatfix} % mejora figure*/table* en modo twocolumn
+
+% Colocación por defecto más razonable para todas las figuras/tablas
+\makeatletter
+\def\fps@figure{!htbp}
+\def\fps@table {!htbp}
+\makeatother
+
+% Alias explícito para barrera de floats
+\newcommand{\FloatsBarrier}{\FloatBarrier}
+
+% --- Macros utilitarias para figuras y tablas ---
+
+% Figura de UNA columna
+% Uso: \figcol[etiqueta]{ruta/figura}{texto de pie}
+\newcommand{\figcol}[3][]{%
+  \begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=\columnwidth]{#2}%
+    \caption{#3}%
+    \ifx\relax#1\relax\else\label{#1}\fi
+  \end{figure}%
+}
+
+% Figura a DOBLE columna (usa figure* en modo twocolumn)
+\makeatletter
+\newcommand{\figwide}[3][]{%
+  \if@twocolumn
+    \begin{figure*}[t]
+      \centering
+      \includegraphics[width=\textwidth]{#2}%
+      \caption{#3}%
+      \ifx\relax#1\relax\else\label{#1}\fi
+    \end{figure*}%
+  \else
+    \begin{figure}[!htbp]
+      \centering
+      \includegraphics[width=\textwidth]{#2}%
+      \caption{#3}%
+      \ifx\relax#1\relax\else\label{#1}\fi
+    \end{figure}%
+  \fi
+}
+\makeatother
+
+% Tabla de UNA columna ajustada al ancho
+% Uso: \tabcol[etiqueta]{texto de pie}{<tabular>}
+\newcommand{\tabcol}[3][]{%
+  \begin{table}[!htbp]
+    \centering
+    \caption{#2}%
+    \ifx\relax#1\relax\else\label{#1}\fi
+    \begin{adjustbox}{max width=\columnwidth}
+      #3%
+    \end{adjustbox}
+  \end{table}%
+}
+
+% Tabla a DOBLE columna (usa table* en modo twocolumn)
+\makeatletter
+\newcommand{\tabwide}[3][]{%
+  \if@twocolumn
+    \begin{table*}[t]
+      \centering
+      \caption{#2}%
+      \ifx\relax#1\relax\else\label{#1}\fi
+      #3%
+    \end{table*}%
+  \else
+    \begin{table}[!htbp]
+      \centering
+      \caption{#2}%
+      \ifx\relax#1\relax\else\label{#1}\fi
+      \begin{adjustbox}{max width=\textwidth}
+        #3%
+      \end{adjustbox}
+    \end{table}%
+  \fi
+}
+\makeatother
+
+% Fuente monoespaciada opcional con XeLaTeX (descomentar si tienes la fuente instalada):
+% \usepackage{fontspec}
+% \setmonofont{JetBrains Mono} % alternativas: Fira Code, Source Code Pro
+
+% Rutas para \input: assets/tables/ y raíz
+\makeatletter
+\def\input@path{{./assets/tables/}{./}}
+\makeatother
+
+\newcommand{\Julia}{\textbf{Julia}}
+\newcommand{\Git}{\textbf{Git}}
+\newcommand{\GitHub}{\textbf{GitHub}}
+\newcommand{\PGF}{\textbf{PGF}}
+\newcommand{\TikZ}{\textbf{TikZ}}
+
+\input{macros/neurosmart_style}
+\input{assets/figures/generated/neurosmart_generated_figures}
+
+% --- Datos del informe ---
+
+\reporttitle{NeuroMIND: Conectividad Funcional Sensorial basada en wPLI e Inferencia con Surrogates de Fase Aleatorizada en EEG de Reposo de Pacientes con Esclerosis Múltiple}
+
+\reportsubtitle{Informe científico-técnico oficial del proyecto}
+
+\reportauthors{%
+  \begin{minipage}[t]{0.32\linewidth}
+    \centering
+    \textbf{Rafael Castro-Triguero}\\[0.3em]
+    University of Córdoba
+  \end{minipage}\hfill
+  \begin{minipage}[t]{0.32\linewidth}
+    \centering
+    \textbf{Alejandro Galvao}\\[0.2em]
+    \textbf{Clara Nieto}\\[0.3em]
+    Universidad Loyola
+  \end{minipage}\hfill
+  \begin{minipage}[t]{0.32\linewidth}
+    \centering
+    \textbf{Javier Espuny}\\[0.3em]
+    Universidad Complutense
+  \end{minipage}%
+}
+
+\reportdate{\today}
+
+% Logo de cabecera ligeramente más pequeño para evitar recortes.
+\rightheadercontent{\includegraphics[width=2.6cm]{logo_EPSC.pdf}}
+
+% Evita solapes en cabecera: el título largo no cabe en el encabezado izquierdo.
+\fancyhead[L]{NeuroMIND · Informe EEG wPLI}
+\setlength{\headheight}{61.4pt}
+% Cabecera normal: no se reserva margen lateral.
+\setlength{\marginoffset}{0pt}
+\fancyheadoffset[R]{0pt}
+\fancyfootoffset[R]{0pt}
+
+% --- Documento ---
+
+\begin{document}
+\justifying
+
+% --- Portada ---
+\newgeometry{left=2.1cm,right=2.1cm,top=1.35cm,bottom=1.45cm}
+\thispagestyle{empty} % Sin encabezados ni pie en portada
+
+\begin{fullwidth}
+  \hfill\includegraphics[width=3.35cm]{logo_EPSC.png}
+
+  \vspace{0.7cm}
+  \begin{center}
+    \resizebox{0.82\fulltextwidth}{!}{\NSCoverVisual}
+  \end{center}
+
+  \vspace{0.85cm}
+
+  {\color{NSBlue}\fontsize{23.5pt}{27.5pt}\selectfont\raggedright\textbf{\reporttitle}\par}
+
+  \vspace{0.45cm}
+
+  {\large\color{NSPetrol}\textbf{\reportsubtitle}\par}
+  {\normalsize\color{NSInk}Pipeline reproducible para EEG de reposo, wPLI, CSD opcional/metodológico, surrogates y FDR\par}
+
+  \vfill
+  {\normalsize\reportauthors\par}
+  \vspace{0.35cm}
+  {\normalsize\reportdate\par}
+\end{fullwidth}
+
+\newpage
+\restoregeometry
+
+% --- Índice ---
+% Forzamos un TOC estándar visible (el .toc sí se genera correctamente).
+\tableofcontents
+
+\newpage
+
+% --- Cuerpo ---
+\begin{multicols}{1} % Balancea cierres heredados dentro de sections/methods.tex
+
+% --- Secciones modulares del informe ---
+\input{sections_es/summary}
+\input{sections_es/intro}
+\input{sections_es/data}
+\input{sections_es/methods}
+\input{sections_es/results}
+\input{sections_es/notes}
+\input{sections_es/conclusions}
+\input{sections_es/appendix}
+
+\end{multicols}
+
+\nocite{*}
+\addcontentsline{toc}{section}{Referencias}
+\printbibliography[title=Referencias]
+
+\end{document}

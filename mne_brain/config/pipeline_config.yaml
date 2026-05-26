@@ -1,0 +1,125 @@
+# mne_brain mirror of NeuroMIND/config/pipeline.toml
+# Keep scientific parameters synchronized with the Julia pipeline.
+
+project:
+  name: BRAIN_MS_EEG_Connectivity
+  version: "1.0"
+  pi: Rafael Castro Triguero
+  date: "2026-05-06"
+
+study:
+  n_ms_t1: 44
+  n_ms_t2: 30
+  n_controls: 40
+  n_dropouts: 14
+  conditions: [EO, EC]
+  groups: [MS, Control]
+  sessions: [T1, T2]
+  design: transversal+longitudinal
+
+paths:
+  bids_root: data/BIDS
+  raw_data_root: /Users/rafa/Library/Mobile Documents/com~apple~CloudDocs/Universidad/Investigación/BRAIN/Programación/EEG_Julia/NeuroMIND/data/full_data/Pacientes MINDEM_IMIBIC_27 03 25
+  results: results
+  data_cache: data/cache
+  web_public: web/public
+
+recording:
+  fs: 500.0
+  duration_s: 100.0
+  n_channels: 32
+  reference: average
+  montage: 10-20
+  ground: Fpz
+
+filtering:
+  profile: eeg_julia
+  highpass_hz: 0.5
+  lowpass_hz: 150.0
+  notch_hz: 50.0
+  notch_bw_hz: 1.0
+  bandreject_lo: 99.5
+  bandreject_hi: 100.5
+  filter_order: 4
+
+segmentation:
+  epoch_length_s: 1.0
+  epoch_overlap: 0.0
+  min_epochs: 20
+
+baseline:
+  method: mean
+  apply: true
+  n_passes: 2
+
+artifact_rejection:
+  profile: eeg_julia
+  max_amplitude_uv: 70.0
+  amplitude_threshold_uv: 100.0
+  gradient_threshold_uv: 50.0
+  enabled: true
+
+ica:
+  n_components: 30
+  method: fastica
+  random_seed: 42
+  max_iter: 500
+  tolerance: 1.0e-5
+
+spectral:
+  nfft: 512
+  window: hamming
+  window_pct: 10.0
+  zero_padding: true
+  output_unit: uV2
+
+bands:
+  DELTA: [0.5, 4.0]
+  THETA: [4.0, 8.0]
+  ALPHA: [7.8, 11.7]
+  BETA_LOW: [12.0, 15.0]
+  BETA_MID: [15.0, 18.0]
+  BETA_HIGH: [18.0, 30.0]
+  GAMMA: [30.0, 50.0]
+
+connectivity:
+  method: wpli
+  filter_order: 8
+  aggregation: across_segments
+  use_csd: false
+  csd_method: spline
+  min_epochs_wpli: 20
+
+surrogates:
+  n_surrogates: 200
+  method: phase_shuffle
+  alpha: 0.05
+  fdr_method: bh
+
+graph:
+  threshold_method: proportional
+  density: 0.1
+  metrics: [strength, clustering, path_length, efficiency, modularity]
+
+clinical:
+  variables: [EDSS, fatigue, cognition, lesion_load]
+  covariates: [age, sex, disease_duration, medication]
+
+longitudinal:
+  sessions_ms: [T1, T2]
+  min_visits: 2
+  time_unit: months
+
+statistics:
+  group_test: mann_whitney
+  paired_test: wilcoxon
+  correlation: spearman
+  parametric_alt: t_test
+  fdr_q: 0.05
+  bonferroni_alt: true
+
+export:
+  figure_format: png
+  figure_dpi: 300
+  table_format: csv
+  report_format: html

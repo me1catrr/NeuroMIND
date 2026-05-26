@@ -15,25 +15,67 @@ run        = 1
 sampling_rate = 500.0    # Hz (leído de metadata si está disponible)
 
 # ─── Filtrado ─────────────────────────────────────────────────
+# profile = "eeg_julia"  → orden y parámetros idénticos a EEG_Julia/src/Preprocessing/filtering.jl
+#   Cadena: Notch(filt) → Bandreject(filt) → Highpass(filtfilt) → Lowpass(filtfilt)
+# profile = "default"    → orden legacy: Highpass(filtfilt) → Lowpass(filtfilt) → Notch(filtfilt) → Bandreject(filtfilt)
 [filtering]
-highpass_hz      = 0.5
-lowpass_hz       = 48.0
-notch_hz         = 50.0
-notch_bw_hz      = 2.0
-bandreject_lo    = 100.0
-bandreject_hi    = 120.0
-filter_order     = 4
+profile          = "eeg_julia"
+highpass_hz      = 0.5          # EEG_Julia: Highpass_cutoff = 0.5, order_design = 4
+lowpass_hz       = 150.0        # EEG_Julia: Lowpass_cutoff = 150, order_design = 4
+notch_hz         = 50.0         # EEG_Julia: Notch_cutoff = 50, order = 4
+notch_bw_hz      = 1.0          # EEG_Julia: Notch_width = 1.0  (→ 49.5–50.5 Hz)
+bandreject_lo    = 99.5         # EEG_Julia: Bandreject_freq=100, bw=1.0 → 99.5–100.5 Hz
+bandreject_hi    = 100.5        # EEG_Julia: mismo
+filter_order     = 4            # EEG_Julia: Notch_order=4, Bandreject_order=4, HP/LP order_design=4
+
+# ─── ICA ──────────────────────────────────────────────────────
+# profile = "eeg_julia" → n_components=n_channels, max_iter=512, tol=1e-7, seed=1234 (EEG_Julia exacto)
+# profile = "default"   → reducido, configurable con los parámetros de abajo
+[ica]
+profile      = "eeg_julia"
+n_components = 0          # 0 = "auto" = todos los canales (solo usado con profile=default)
+max_iter     = 512
+tol          = 1e-7
+seed         = 1234
+artifact_threshold = 1.5  # umbral de score para clasificación automática
 
 # ─── Segmentación ─────────────────────────────────────────────
+# profile = "eeg_julia" → fuerza epoch_length_s=1.0, overlap=0.0 (EEG_Julia exacto)
+# profile = "default"   → usa segment_length_seconds y overlap_seconds de abajo
 [segmentation]
-segment_length_seconds = 2.0    # 2s × 500Hz = 1000 muestras por segmento
-overlap_seconds        = 0.0    # Sin solapamiento
+profile                = "eeg_julia"
+segment_length_seconds = 2.0    # ignorado cuando profile="eeg_julia"
+overlap_seconds        = 0.0    # ignorado cuando profile="eeg_julia"
 min_segments           = 10     # Mínimo para análisis válido
 
+# ─── Corrección de baseline ───────────────────────────────────
+# method = "first_window_mean" → media de [baseline_start_s, baseline_end_s] por canal
+#                                 (EEG_Julia: 0.00–0.10 s → muestras 1–50 a 500 Hz)
+# method = "mean"              → media de todo el epoch (NeuroMIND default)
+# method = "median"            → mediana de todo el epoch
+# n_passes = 2                 → doble pasada: antes del AR y después (EEG_Julia exacto)
+[baseline]
+method           = "first_window_mean"
+baseline_start_s = 0.0     # inicio ventana baseline (s)
+baseline_end_s   = 0.10    # fin ventana baseline (s)  — EEG_Julia: 0–100 ms
+n_passes         = 2       # 1 = solo pre-AR;  2 = pre-AR + post-AR (EEG_Julia exacto)
+
 # ─── Rechazo de artefactos ────────────────────────────────────
+# profile = "eeg_julia" → ±70 µV, primeros n_channels_used canales, sin gradiente
+# profile = "default"   → amplitude_threshold_uv + gradient_threshold_uv, todos los canales
 [artifact_rejection]
+profile               = "eeg_julia"
+# Parámetros EEG_Julia (activos cuando profile="eeg_julia"):
+min_amplitude_uv      = -70.0   # umbral mínimo de amplitud (µV)
+max_amplitude_uv      =  70.0   # umbral máximo de amplitud (µV)
+n_channels_used       = 30      # solo los primeros N canales para el rechazo
+# Parámetros NeuroMIND default (activos cuando profile="default"):
 amplitude_threshold_uv = 100.0
 gradient_threshold_uv  = 50.0
+use_gradient           = true
+# Parámetros EEG_Julia — guardados pero NO aplicados (before/after event):
+before_event_ms        = 200   # almacenado por compatibilidad con EEG_Julia; no usado en detección
+after_event_ms         = 300   # almacenado por compatibilidad con EEG_Julia; no usado en detección
 enabled                = true
 
 # ─── Análisis espectral ───────────────────────────────────────
@@ -53,8 +95,30 @@ GAMMA     = [30.0, 50.0]
 
 # ─── Conectividad ─────────────────────────────────────────────
 [connectivity]
-filter_order = 8
-use_csd      = false     # CSD OPCIONAL — false por defecto para primer caso
+
+# Método de cálculo del wPLI:
+#   "hilbert"      — Filtrado Butterworth + señal analítica Hilbert (más rápido, default)
+#   "fourier_csd"  — Espectro cruzado FFT con ventana (definición espectral directa)
+#   "multitaper"   — DPSS multitaper, equivalente MNE spectral_connectivity (mejor varianza-sesgo)
+wpli_method = "hilbert"
+
+use_dwpli               = false  # true → dwPLI no sesgado; recomendado para análisis grupal
+min_cycles_for_wpli     = 4.0
+exclude_unreliable_bands = false
+
+use_csd      = false  # CSD OPCIONAL — false por defecto
+filter_order = 8      # solo para wpli_method="hilbert"
+
+# ── Opciones para wpli_method = "fourier_csd" ─────────────────
+[connectivity.fourier_csd]
+window = "hann"  # "hann" | "hamming" | "rect"
+nfft   = 0       # 0 = usar la longitud completa de la época
+
+# ── Opciones para wpli_method = "multitaper" ──────────────────
+[connectivity.multitaper]
+nw       = 4.0   # time-bandwidth product
+n_tapers = 0     # 0 = automático: floor(2*nw) − 1
+low_bias = true  # descartar tapers con λ < 0.9
 
 # ─── Control de calidad ───────────────────────────────────────
 [qc]
@@ -69,6 +133,18 @@ results   = "results"
 [output]
 figure_format = "png"
 figure_dpi    = 150
+
+# ─── Surrogates / Inferencia estadística ─────────────────────
+# enabled = true  → ejecuta inferencia por phase randomization tras wPLI
+# enabled = false → omite el paso (por defecto; computacionalmente intensivo)
+# Recomendado: n_surrogates ≥ 200 por banda para distribución nula estable
+[surrogates]
+enabled      = false         # cambiar a true para activar inferencia
+n_surrogates = 200           # número de permutaciones de fase por banda
+method       = "phase_shuffle"  # único método disponible actualmente
+alpha        = 0.05          # nivel de significancia
+fdr_method   = "bh"          # corrección FDR: "bh" (Benjamini-Hochberg) o "bonferroni"
+seed         = 42            # semilla para reproducibilidad
 
 # ─── Dashboard ────────────────────────────────────────────────
 [dashboard]
