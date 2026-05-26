@@ -31,8 +31,11 @@ function compute_psd(epochs::EpochSet, cfg::PipelineConfig)::SpectralResult
         xpad    = vcat(xw, zeros(nfft - n_samp))
         X       = rfft(xpad)
         Pseg    = abs2.(X) ./ mw2
-        Pseg[2:end-1] .*= 2.0       # folding: Use Full Spectrum
-        Pseg  ./= nfft^2
+        Pseg[2:end-1] .*= 2.0       # folding: one-sided spectrum
+        # Standard PSD normalisation: µV²/Hz  (invariant to zero-padding level)
+        # Correct formula: PSD = 2·|X|² / (fs · Σw²)  which equals 2·|X|² / (mw2·n_samp·fs)
+        # Bug fixed: was ./= nfft^2 which underestimates by (n_samp·fs/nfft²) when nfft>n_samp
+        Pseg  ./= (Float64(n_samp) * fs)
         P_all[ch, :, ep] = Pseg
     end
 

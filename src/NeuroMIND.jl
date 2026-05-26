@@ -73,6 +73,7 @@ include("statistics/Surrogates.jl")
 include("statistics/FDR.jl")
 include("statistics/GroupStats.jl")
 export surrogate_test, fdr_correction, threshold_connectivity
+export validate_connectivity_matrix, validate_surrogate_result
 export mann_whitney_test, wilcoxon_signed_rank, spearman_correlation
 export compare_groups_stats
 

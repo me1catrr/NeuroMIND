@@ -888,4 +888,339 @@ end
     @test ica1.mixing_matrix ≈ ica2.mixing_matrix atol=1e-10
 end
 
+# ─── Helper: config con n_surrogates personalizado ────────────
+
+function _cfg_with_surrogates(n_sur::Int; seed::Int=42, alpha::Float64=0.05)
+    c = mock_config()
+    PipelineConfig(
+        c.project, c.study, c.paths, c.recording, c.filtering,
+        c.segmentation, c.baseline, c.artifact_rejection,
+        c.ica, c.spectral, c.bands, c.connectivity,
+        Dict{String,Any}("n_surrogates" => n_sur, "alpha" => alpha,
+                         "method" => "circular_shift", "fdr_method" => "bh",
+                         "seed" => seed),
+        c.graph, c.clinical, c.longitudinal, c.statistics, c.export_cfg, c.root
+    )
+end
+
+# ─── Tests de surrogates ──────────────────────────────────────
+
+@testset "Surrogates_PValue_Bounds" begin
+    # Los p-valores nunca deben ser 0.0 ni > 1.0.
+    # Con corrección Monte Carlo (+1): p ∈ [1/(n+1), 1.0].
+    n_sur = 20
+    cfg   = _cfg_with_surrogates(n_sur)
+    rec   = mock_recording(4, 2000, 500.0)
+    ep    = segment_recording(rec, cfg)
+    ep_bl = apply_baseline(ep, cfg)
+    conn  = compute_wpli(ep_bl, cfg)
+    sr    = surrogate_test(ep_bl, conn, "ALPHA", cfg)
+
+    p_min = 1.0 / (n_sur + 1)
+    n_ch  = size(sr.p_values, 1)
+
+    # Extraer solo los pares off-diagonal (los tests de conectividad)
+    p_offdiag = [sr.p_values[i,j] for i in 1:n_ch, j in 1:n_ch if i != j]
+
+    # Ningún p-valor off-diagonal debe ser 0 (corrección +1)
+    @test !any(iszero, p_offdiag)
+    # Ningún p-valor debe superar 1
+    @test all(p -> p <= 1.0 + 1e-10, p_offdiag)
+    # Todos deben respetar el mínimo teórico 1/(n_sur+1)
+    @test all(p -> p >= p_min - 1e-10, p_offdiag)
+    # La diagonal debe ser 1.0 (no hay test de auto-conectividad)
+    @test all(sr.p_values[i,i] ≈ 1.0 for i in 1:n_ch)
+
+    println("  ✓ p_min_observado=$(round(minimum(p_offdiag), digits=4))  " *
+            "p_min_teórico=$(round(p_min, digits=4))")
+end
+
+@testset "Surrogates_Coupling_Detected" begin
+    # Señal sintética: 2 canales con lag de π/2 a 10 Hz (dentro de ALPHA 7.8-11.7).
+    # wPLI observado debe ser alto (~1); la distribución nula (circular shift) debe
+    # ser baja; el par debe quedar significativo tras FDR.
+    fs       = 500.0
+    f0       = 10.0               # Hz, dentro de ALPHA
+    n_ch     = 2
+    n_ep     = 30
+    n_samp   = 500                # 1 s = 10 ciclos completos de f0 → circshift exacto
+    n_sur    = 50                 # p_min = 1/51 ≈ 0.02 < FDR_threshold_k1 = 0.05
+
+    delay_s  = round(Int, fs / (4 * f0))  # π/2 a 10 Hz → 12 muestras (24 ms)
+    rng_data = MersenneTwister(77)
+    data     = zeros(n_ch, n_samp, n_ep)
+    t        = (0:n_samp-1) ./ fs
+
+    for ep in 1:n_ep
+        base        = sin.(2π * f0 .* t) .+ 0.05 .* randn(rng_data, n_samp)
+        data[1, :, ep] = base
+        data[2, :, ep] = circshift(base, delay_s)   # lag fijo → wPLI ≈ 1
+    end
+
+    meta   = RecordingMeta("SYN", "T1", "EC", 1, fs, n_ch,
+                           ["Ch1", "Ch2"], nothing, "synthetic")
+    epochs = EpochSet(meta, data, 1.0, n_ep, Int[])
+    cfg    = _cfg_with_surrogates(n_sur)
+    conn   = compute_wpli(epochs, cfg)
+
+    W_obs_12 = conn.matrices["ALPHA"][1, 2]
+    println("  wPLI observado Ch1-Ch2 en ALPHA = $(round(W_obs_12, digits=3))")
+
+    # wPLI alto: el acoplamiento de fase π/2 debe ser detectable
+    @test W_obs_12 > 0.5
+
+    sr = surrogate_test(epochs, conn, "ALPHA", cfg)
+
+    # La distribución nula (shift independiente) debe tener media << W_obs
+    W_null_mean = mean(sr.null_distribution[1, 2, :])
+    println("  wPLI nulo medio    Ch1-Ch2 en ALPHA = $(round(W_null_mean, digits=3))")
+    @test W_null_mean < W_obs_12
+
+    # p-valor del par acoplado: con n_sur=50 y 1 sola hipótesis, p_min=1/51≈0.02 < 0.05
+    println("  p-valor Ch1-Ch2 = $(round(sr.p_values[1,2], digits=4))")
+    @test sr.p_values[1, 2] < 0.05
+
+    # El par debe quedar significativo tras FDR (1 hipótesis → umbral = alpha = 0.05)
+    @test sr.sig_mask[1, 2]
+
+    # El par no acoplado con sí mismo (diagonal) es 0
+    @test sr.observed[1, 1] < 1e-10
+    @test sr.observed[2, 2] < 1e-10
+end
+
+@testset "Surrogates_Uncoupled_No_FalseDiscoveries" begin
+    # Canales sin acoplamiento (ruido blanco independiente).
+    # La distribución nula debe parecerse a la distribución observada
+    # y casi ningún par debe superar el umbral FDR.
+    n_sur = 30
+    cfg   = _cfg_with_surrogates(n_sur)
+    rec   = mock_recording(4, 3000, 500.0)   # ruido blanco (randn)
+    ep    = segment_recording(rec, cfg)
+    ep_bl = apply_baseline(ep, cfg)
+    conn  = compute_wpli(ep_bl, cfg)
+    sr    = surrogate_test(ep_bl, conn, "ALPHA", cfg)
+
+    n_pairs = size(sr.sig_mask, 1) * (size(sr.sig_mask, 1) - 1) ÷ 2   # 6 pares
+    n_sig   = count(sr.sig_mask) ÷ 2   # dividido por 2 porque la máscara es simétrica
+    println("  Pares significativos (FDR) en señal no acoplada: $(n_sig) / $(n_pairs)")
+
+    # Bajo la hipótesis nula, se esperan 0 false discoveries (FDR controla la tasa)
+    # Permitimos hasta 1 para no depender de la semilla exacta del ruido
+    @test n_sig <= 1
+
+    # Todos los p-valores deben ser válidos
+    @test all(p -> p >= 1.0/(n_sur+1) - 1e-10, sr.p_values)
+    @test all(p -> p <= 1.0 + 1e-10, sr.p_values)
+end
+
+@testset "Surrogates_RNG_Reproducibility" begin
+    # Misma semilla + mismos datos → distribución nula idéntica bit a bit.
+    # Distinta banda → distribución nula diferente.
+    cfg  = _cfg_with_surrogates(15; seed=99)
+    rec  = mock_recording(3, 2000, 500.0)
+    ep   = segment_recording(rec, cfg)
+    ep_bl = apply_baseline(ep, cfg)
+    conn = compute_wpli(ep_bl, cfg)
+
+    sr1 = surrogate_test(ep_bl, conn, "ALPHA", cfg)
+    sr2 = surrogate_test(ep_bl, conn, "ALPHA", cfg)
+
+    # Mismo seed → W_null idéntico
+    @test sr1.null_distribution == sr2.null_distribution
+    @test sr1.p_values == sr2.p_values
+
+    # Distinta banda → seed distinto → W_null diferente
+    if haskey(conn.matrices, "BETA_LOW")
+        sr3 = surrogate_test(ep_bl, conn, "BETA_LOW", cfg)
+        # Las distribuciones nulas de distintas bandas no deberían ser idénticas
+        @test sr1.null_distribution != sr3.null_distribution
+        println("  ✓ ALPHA y BETA_LOW tienen distribuciones nulas distintas")
+    end
+end
+
+@testset "Surrogates_Validation_Functions" begin
+    # validate_connectivity_matrix no debe emitir warnings con datos limpios.
+    # validate_surrogate_result no debe emitir warnings con SurrogateResult válido.
+    n_sur = 15
+    cfg   = _cfg_with_surrogates(n_sur)
+    rec   = mock_recording(4, 2000, 500.0)
+    ep    = segment_recording(rec, cfg)
+    ep_bl = apply_baseline(ep, cfg)
+    conn  = compute_wpli(ep_bl, cfg)
+    sr    = surrogate_test(ep_bl, conn, "ALPHA", cfg)
+
+    W = conn.matrices["ALPHA"]
+
+    # Propiedades básicas de la matriz observada
+    @test all(isfinite, W)
+    @test all(x -> x >= 0.0 - 1e-8, W)
+    @test all(x -> x <= 1.0 + 1e-8, W)
+    @test W ≈ W'                       # simétrica
+    @test all(x -> abs(x) < 1e-10, diag(W))   # diagonal cero
+
+    # validate_connectivity_matrix no lanza error ni warning para datos limpios
+    @test_nowarn validate_connectivity_matrix(W, "ALPHA")
+
+    # validate_surrogate_result no lanza error ni warning para SurrogateResult válido
+    @test_nowarn validate_surrogate_result(sr)
+
+    # validate_connectivity_matrix detecta NaN.
+    # Al solo poner NaN en [1,2] la matriz también pierde simetría → 2 warnings.
+    W_nan = copy(W); W_nan[1, 2] = NaN
+    @test_logs (:warn, r"NaN") (:warn, r"simétric") validate_connectivity_matrix(W_nan, "ALPHA")
+
+    # validate_connectivity_matrix detecta valores fuera de [0,1].
+    # Al solo poner 1.5 en [1,2] también pierde simetría → 2 warnings.
+    W_oor = copy(W); W_oor[1, 2] = 1.5
+    @test_logs (:warn, r"fuera de") (:warn, r"simétric") validate_connectivity_matrix(W_oor, "ALPHA")
+
+    println("  ✓ p_min_observado=$(round(minimum(sr.p_values[sr.p_values.>0]), digits=5))  " *
+            "p_min_teórico=$(round(1.0/(n_sur+1), digits=5))")
+end
+
+# ─── Tests dwPLI ──────────────────────────────────────────────
+
+@testset "wPLI_dwPLI_Uncoupled" begin
+    # Para ruido blanco independiente, dwPLI debe ser cercano a 0
+    # (estimador no sesgado: E[dwPLI] = 0 bajo H0), mientras que
+    # wPLI clásico tiene sesgo positivo para muestras pequeñas.
+    rng = MersenneTwister(7)
+    fs  = 500.0; n_samp = 500; n_seg = 30; n_ch = 3
+    epoch_s = n_samp / fs   # 1.0 s
+
+    cfg_wpli  = mock_config()   # use_dwpli = false (default)
+    cfg_dwpli = PipelineConfig(
+        cfg_wpli.project, cfg_wpli.study, cfg_wpli.paths,
+        cfg_wpli.recording, cfg_wpli.filtering, cfg_wpli.segmentation,
+        cfg_wpli.baseline, cfg_wpli.artifact_rejection, cfg_wpli.ica,
+        cfg_wpli.spectral, cfg_wpli.bands,
+        Dict{String,Any}("filter_order" => 8, "use_csd" => false,
+                         "use_dwpli" => true, "method" => "dwpli"),
+        cfg_wpli.surrogates, cfg_wpli.graph, cfg_wpli.clinical,
+        cfg_wpli.longitudinal, cfg_wpli.statistics, cfg_wpli.export_cfg,
+        cfg_wpli.root
+    )
+
+    meta = RecordingMeta("T01", "T1", "EC", 1, fs, n_ch,
+                         ["Ch$i" for i in 1:n_ch], nothing, "dummy.tsv")
+    data = randn(rng, n_ch, n_samp, n_seg)
+    ep   = EpochSet(meta, data, epoch_s, n_seg, Int[])
+
+    conn_w  = compute_wpli(ep, cfg_wpli)
+    conn_dw = compute_wpli(ep, cfg_dwpli)
+
+    @test conn_w.method  == "wpli"
+    @test conn_dw.method == "dwpli"
+
+    Ww  = conn_w.matrices["ALPHA"]
+    Wdw = conn_dw.matrices["ALPHA"]
+
+    # wPLI en [0,1]; dwPLI en [-1,1] con valores negativos posibles bajo H0
+    @test all(Ww  .>= -1e-8)
+    @test all(Ww  .<= 1.0 + 1e-8)
+    @test all(Wdw .>= -1.0 - 1e-8)
+    @test all(Wdw .<=  1.0 + 1e-8)
+
+    # Diagonal nula en ambos
+    @test all(abs.(diag(Ww))  .< 1e-10)
+    @test all(abs.(diag(Wdw)) .< 1e-10)
+
+    # Simetría
+    @test Ww  ≈ Ww'
+    @test Wdw ≈ Wdw'
+
+    # Para ruido blanco, dwPLI debe ser más cercano a 0 que wPLI
+    # (dwPLI corrige el sesgo positivo de wPLI)
+    off_diag = [(i,j) for i in 1:n_ch for j in (i+1):n_ch]
+    mean_wpli  = mean(abs(Ww[i,j])  for (i,j) in off_diag)
+    mean_dwpli = mean(abs(Wdw[i,j]) for (i,j) in off_diag)
+    @test mean_dwpli < mean_wpli   # dwPLI menos sesgado bajo H0
+end
+
+@testset "wPLI_dwPLI_Coupled" begin
+    # Para señales acopladas a 10 Hz con lag π/2, dwPLI debe detectar
+    # el acoplamiento (valor positivo significativo).
+    fs    = 500.0; n_samp = 500; n_seg = 20; n_ch = 2
+    epoch_s = n_samp / fs
+    t     = range(0.0, step=1/fs, length=n_samp)
+    data  = zeros(Float64, n_ch, n_samp, n_seg)
+    rng2  = MersenneTwister(99)
+    for s in 1:n_seg
+        φ = randn(rng2) * 0.1
+        data[1, :, s] .= sin.(2π * 10 .* t .+ φ)
+        data[2, :, s] .= sin.(2π * 10 .* t .+ φ .+ π/2)
+    end
+    meta = RecordingMeta("T01", "T1", "EC", 1, fs, n_ch,
+                         ["Ch1", "Ch2"], nothing, "dummy.tsv")
+    ep   = EpochSet(meta, data, epoch_s, n_seg, Int[])
+
+    cfg  = mock_config()
+    cfg_dw = PipelineConfig(
+        cfg.project, cfg.study, cfg.paths, cfg.recording, cfg.filtering,
+        cfg.segmentation, cfg.baseline, cfg.artifact_rejection, cfg.ica,
+        cfg.spectral,
+        Dict{String,Tuple{Float64,Float64}}("ALPHA" => (8.0, 12.0)),
+        Dict{String,Any}("filter_order" => 8, "use_csd" => false,
+                         "use_dwpli" => true, "method" => "dwpli"),
+        cfg.surrogates, cfg.graph, cfg.clinical, cfg.longitudinal,
+        cfg.statistics, cfg.export_cfg, cfg.root
+    )
+
+    conn_dw = compute_wpli(ep, cfg_dw)
+    Wdw = conn_dw.matrices["ALPHA"]
+
+    # Para señal 10 Hz acoplada con π/2: dwPLI ≈ wPLI² para acoplamiento fuerte
+    @test Wdw[1, 2] > 0.5   # acoplamiento detectado
+    @test Wdw ≈ Wdw'
+end
+
+@testset "wPLI_BandDuration_Warning" begin
+    # DELTA (0.5 Hz) con epoch_length_s = 1.0 s → 0.5 ciclos/época < 4.0 mínimo.
+    # compute_wpli debe emitir @warn.
+    rng  = MersenneTwister(13)
+    fs   = 500.0; n_samp = 500; n_seg = 10; n_ch = 3
+    epoch_s = n_samp / fs
+    meta = RecordingMeta("T01", "T1", "EC", 1, fs, n_ch,
+                         ["Ch$i" for i in 1:n_ch], nothing, "dummy.tsv")
+    ep   = EpochSet(meta, randn(rng, n_ch, n_samp, n_seg), epoch_s, n_seg, Int[])
+
+    c = mock_config()
+    cfg_delta = PipelineConfig(
+        c.project, c.study, c.paths, c.recording, c.filtering,
+        c.segmentation, c.baseline, c.artifact_rejection, c.ica,
+        c.spectral,
+        Dict{String,Tuple{Float64,Float64}}(
+            "DELTA" => (0.5, 4.0),    # 0.5 Hz × 1 s = 0.5 ciclos → warn
+            "ALPHA" => (7.8, 11.7),   # 7.8 × 1 s = 7.8 ciclos → ok
+        ),
+        Dict{String,Any}("filter_order" => 8, "use_csd" => false,
+                         "use_dwpli" => false, "min_cycles_for_wpli" => 4.0),
+        c.surrogates, c.graph, c.clinical, c.longitudinal,
+        c.statistics, c.export_cfg, c.root
+    )
+
+    # DELTA debe producir @warn con "DELTA" y "ciclos" en el mensaje
+    @test_logs (:warn, r"DELTA.*ciclos") compute_wpli(ep, cfg_delta)
+end
+
+@testset "GraphMetrics_ChannelNames" begin
+    # compute_graph_metrics debe propagar channel_names desde ConnectivityMatrix.
+    cfg    = mock_config()
+    rec    = mock_recording(5, 2000)
+    ep     = segment_recording(rec, cfg)
+    ep_bl  = apply_baseline(ep, cfg)
+    conn   = compute_wpli(ep_bl, cfg)
+
+    gm = compute_graph_metrics(conn, "ALPHA", cfg)
+
+    @test gm.band == "ALPHA"
+    @test length(gm.channel_names) == 5
+    @test gm.channel_names == conn.channel_names
+    @test length(gm.strength)   == 5
+    @test length(gm.clustering) == 5
+    @test all(gm.strength .>= 0.0)
+    @test gm.density >= 0.0
+    @test gm.density <= 1.0
+end
+
 println("\n✅ Todos los tests completados")

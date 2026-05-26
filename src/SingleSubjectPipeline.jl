@@ -132,8 +132,11 @@ function load_ss_config(path::String)::PipelineConfig
         ),
         bands,
         Dict{String,Any}(
-            "filter_order" => Int(get(conn, "filter_order", 8)),
-            "use_csd"      => Bool(get(conn, "use_csd", false)),
+            "filter_order"       => Int(get(conn,   "filter_order",       8)),
+            "use_csd"            => Bool(get(conn,  "use_csd",            false)),
+            "use_dwpli"          => Bool(get(conn,  "use_dwpli",          false)),
+            "min_cycles_for_wpli"=> Float64(get(conn,"min_cycles_for_wpli", 4.0)),
+            "method"             => String(get(conn, "method",            "wpli")),
         ),
         Dict{String,Any}(
             "enabled"      => Bool(get(surr, "enabled",      false)),
@@ -287,18 +290,18 @@ Genera resultados en results/{subj}/{sess}/ y results/subjects/.
 """
 function run_single_subject_pipeline(config_path::String)
     t0 = now()
-    println("=" ^ 62)
-    println(" NeuroMIND — Pipeline Sujeto Individual")
-    println(" $(t0)")
-    println("=" ^ 62)
+    println("  " * "═"^60)
+    println("  NeuroMIND · Pipeline individual · $(Dates.format(t0, "yyyy-mm-dd HH:MM:SS"))")
+    println("  " * "═"^60)
 
     # ── 1. Configuración ──────────────────────────────────────
     cfg = load_ss_config(config_path)
-    raw_cfg = TOML.parsefile(isabspath(config_path) ? config_path : abspath(config_path))
-    sub_cfg = get(raw_cfg, "subject", Dict{String,Any}())
-    out_cfg = get(raw_cfg, "output",  Dict{String,Any}())
-    qc_cfg  = get(raw_cfg, "qc",      Dict{String,Any}())
-    dpi     = Int(get(out_cfg, "figure_dpi", 150))
+    raw_cfg     = TOML.parsefile(isabspath(config_path) ? config_path : abspath(config_path))
+    sub_cfg     = get(raw_cfg, "subject",  Dict{String,Any}())
+    out_cfg     = get(raw_cfg, "output",   Dict{String,Any}())
+    qc_cfg      = get(raw_cfg, "qc",       Dict{String,Any}())
+    montage_cfg = get(raw_cfg, "montage",  Dict{String,Any}())
+    dpi         = Int(get(out_cfg, "figure_dpi", 150))
 
     # ── 2. Detección / resolución del sujeto ──────────────────
     raw_dir = joinpath(bids_root_dir(cfg), "raw")
@@ -311,7 +314,7 @@ function run_single_subject_pipeline(config_path::String)
         sid, sess_id, task, run_n = detect_first_subject(raw_dir)
         println("▶ Sujeto detectado automáticamente: sub-$(sid) / ses-$(sess_id) / $(task)")
     else
-        println("▶ Sujeto configurado: sub-$(sid) / ses-$(sess_id) / $(task)")
+        println("  ▶  sub-$(sid)  ·  ses-$(sess_id)  ·  $(task)")
     end
 
     condition = task == "eyesclosed" ? "EC" : (task == "eyesopen" ? "EO" : task)
@@ -335,9 +338,11 @@ function run_single_subject_pipeline(config_path::String)
     _log(log_io, "Config: $(config_path)")
 
     # ── 4. Carga de datos ─────────────────────────────────────
-    println("\n[1/8] Cargando datos EEG...")
     _log(log_io, "\n[1/8] Carga de datos")
+    t_step = now()
+    print("  [1/8] Cargando EEG... ")
     rec = load_single_subject(cfg, sid, sess_id, task, run_n)
+    println("✓  $(rec.meta.n_channels) ch · $(n_samples(rec)) muestras · $(rec.meta.fs) Hz · $(round(duration(rec),digits=1)) s  ($(round(Dates.value(now()-t_step)/1000,digits=1)) s)")
     _log(log_io, "  Canales: $(rec.meta.n_channels) | Muestras: $(n_samples(rec)) | fs: $(rec.meta.fs) Hz")
     _log(log_io, "  Duración: $(round(duration(rec), digits=2)) s")
 
@@ -348,12 +353,25 @@ function run_single_subject_pipeline(config_path::String)
     _log(log_io, "  Electrodos: $(val.msg)")
 
     # ── 5. QC básico ──────────────────────────────────────────
-    println("[2/8] Control de calidad...")
     _log(log_io, "\n[2/8] QC de canales")
+    t_step    = now()
+    print("  [2/8] QC canales... ")
     qc_stats  = compute_channel_stats(rec)
     z_thresh  = Float64(get(qc_cfg, "bad_channel_zscore_threshold", 3.0))
     bad_ch    = flag_bad_channels(rec; z_threshold=z_thresh)
     qc_stats[!, :is_bad] = [ch in bad_ch for ch in qc_stats.channel]
+    amplitude_warn_thr = Float64(get(qc_cfg, "amplitude_warning_sigma_uv", 20.0))
+    raw_sigma_mean     = mean(std(rec.data[ch, :]) for ch in 1:rec.meta.n_channels)
+    amplitude_warning  = raw_sigma_mean > amplitude_warn_thr
+    _bad_str  = isempty(bad_ch) ? "ninguno" : join(bad_ch, ", ")
+    _amp_str  = amplitude_warning ? "⚠ amplitude_warning" : "✓ filtro OK"
+    println("✓  σ̄=$(round(raw_sigma_mean,digits=1)) µV · $(_amp_str) · bad: $(_bad_str)  ($(round(Dates.value(now()-t_step)/1000,digits=1)) s)")
+    if amplitude_warning
+        println("       ⚠  Amplitud elevada: posible grabación sin filtro online (σ̄ > $(amplitude_warn_thr) µV)")
+        _log(log_io, "  ⚠ amplitude_warning: σ̄_raw=$(round(raw_sigma_mean, digits=1)) µV > $(amplitude_warn_thr) µV (posible filtro online OFF)")
+    else
+        _log(log_io, "  amplitude_warning: false (σ̄_raw=$(round(raw_sigma_mean, digits=1)) µV)")
+    end
     if isempty(bad_ch)
         _log(log_io, "  Sin canales sospechosos (umbral z=$(z_thresh))")
     else
@@ -361,17 +379,21 @@ function run_single_subject_pipeline(config_path::String)
     end
 
     # ── 6. Filtrado ───────────────────────────────────────────
-    println("[3/8] Filtrado...")
     _log(log_io, "\n[3/8] Filtrado")
+    t_step = now()
+    print("  [3/8] Filtrado... ")
     rec_filt = filter_recording(rec, cfg)
     _filt_profile = get(cfg.filtering, "profile", "default")
+    _hp  = Float64(get(cfg.filtering, "highpass_hz",  0.5))
+    _lp  = Float64(get(cfg.filtering, "lowpass_hz", 150.0))
+    _ntc = Float64(get(cfg.filtering, "notch_hz",    50.0))
+    println("✓  HP $(round(_hp,digits=2)) Hz · LP $(_lp) Hz · Notch $(_ntc) Hz  ($(round(Dates.value(now()-t_step)/1000,digits=1)) s)")
     _log(log_io, "  Perfil: $(_filt_profile)")
     for step in describe_filter_chain(cfg)
         _log(log_io, "    [$(step.step)] $(step.name) $(step.freq)  ord=$(step.order)  método=$(step.method)")
     end
 
     # ── ICA: antes de segmentar (señal continua filtrada) ─────
-    println("[4/8] ICA (separación de fuentes)...")
     _log(log_io, "\n[4/8] ICA")
     t_ica     = now()
     cache_dir = joinpath(subj_dir, "cache")
@@ -384,8 +406,10 @@ function run_single_subject_pipeline(config_path::String)
                   isfile(ica_hash_path) &&
                   strip(read(ica_hash_path, String)) == ica_cfg_hash
 
+    ica_from_cache = false
+    print("  [4/8] ICA... ")
     ica_result = if cache_valid
-        println("  ↩ ICA cargado desde caché (config sin cambios)")
+        ica_from_cache = true
         _log(log_io, "  ICA cargado desde caché")
         try Serialization.deserialize(ica_cache) catch; nothing end
     else
@@ -421,91 +445,185 @@ function run_single_subject_pipeline(config_path::String)
         end
         ica_dur = round(Dates.value(now() - t_ica) / 1000, digits=1)
         _log(log_io, "  Duración ICA: $(ica_dur) s")
+        _rej_str = isempty(rej_labels) ? "ninguno" : join(rej_labels, ", ")
+        _cache_str = ica_from_cache ? " [CACHÉ]" : " [NUEVO]"
+        println("✓  $(n_comp_ica) comp · rechazados: $(_rej_str)$(_cache_str)  ($(ica_dur) s)")
         _save_ica_results(ica_result, rec_filt, rec_ica, export_dir, ica_dur, log_io)
+        _save_raw_signal(rec, export_dir, log_io)
     else
+        ica_dur = round(Dates.value(now() - t_ica) / 1000, digits=1)
+        println("⚠  ICA omitido por error — continuando con señal filtrada  ($(ica_dur) s)")
         _log(log_io, "  ICA omitido por error · continuando con señal filtrada")
     end
 
+    # ── Construir montaje de análisis: excluir Fp2 + canales malos ──
+    # (a) Montaje principal: Fp2 siempre excluido (política de dataset).
+    # (b) Bad channels por QC (z-score ≥ 3.0 en señal cruda).
+    # rec_ica permanece intacto (se usa en _save_segmentation_results y _save_all_results).
+    exclude_fp2    = Bool(get(montage_cfg, "exclude_fp2", true))
+    montage_excl   = String.(get(montage_cfg, "exclude_channels", String[]))
+    if !exclude_fp2
+        montage_excl = filter(c -> c != "Fp2", montage_excl)
+    end
+    all_excl       = unique(vcat(montage_excl, bad_ch))
+    fp2_in_signal  = "Fp2" ∈ rec_ica.meta.channel_names
+    fp2_excluded   = exclude_fp2 && fp2_in_signal
+
+    rec_for_seg = if !isempty(all_excl)
+        excl_idx   = findall(ch -> ch ∈ Set(all_excl), rec_ica.meta.channel_names)
+        good_idx   = setdiff(1:rec_ica.meta.n_channels, excl_idx)
+        good_names = rec_ica.meta.channel_names[good_idx]
+        new_meta   = RecordingMeta(
+            rec_ica.meta.subject_id, rec_ica.meta.session_id,
+            rec_ica.meta.condition, rec_ica.meta.run,
+            rec_ica.meta.fs, length(good_idx), good_names,
+            rec_ica.meta.channel_positions, rec_ica.meta.bids_path
+        )
+        montage_note = fp2_excluded ? "Fp2 (montaje principal)" : ""
+        qc_note      = isempty(bad_ch) ? "" : join(bad_ch, ", ") * " (QC)"
+        excl_note    = filter(!isempty, [montage_note, qc_note])
+        _log(log_io, "  Canales excluidos del análisis: $(join(excl_note, "; ")) → $(length(good_idx)) canales activos")
+        EEGRecording(new_meta, rec_ica.data[good_idx, :], rec_ica.times)
+    else
+        fp2_excluded = false
+        rec_ica
+    end
+    n_ch_analysis  = rec_for_seg.meta.n_channels
+    bad_ch_non_fp2 = filter(c -> c != "Fp2", bad_ch)   # canales malos distintos de Fp2
+
     # ── Segmentación sobre señal limpiada (o filtrada si sin ICA) ──
-    println("[5/8] Segmentación y rechazo de artefactos...")
     _log(log_io, "\n[5/8] Segmentación")
     t_seg       = now()
+    print("  [5/8] Segmentación + AR... ")
     n_passes    = Int(get(cfg.baseline, "n_passes", 1))
     seg_profile = String(get(cfg.segmentation, "profile", "default"))
     ar_profile  = String(get(cfg.artifact_rejection, "profile", "default"))
-    epochs_raw  = segment_recording(rec_ica, cfg)
-    epochs_bl1  = apply_baseline(epochs_raw, cfg)   # 1ª pasada: todos los epochs
-    epochs_ar   = reject_artifacts(epochs_bl1, cfg) # solo epochs válidos
-    epochs      = n_passes >= 2 ? apply_baseline(epochs_ar, cfg) : epochs_ar   # 2ª pasada post-AR
+    epochs_raw  = segment_recording(rec_for_seg, cfg)
+    epochs_bl1  = apply_baseline(epochs_raw, cfg)
+    epochs_ar   = reject_artifacts(epochs_bl1, cfg)
+    epochs      = n_passes >= 2 ? apply_baseline(epochs_ar, cfg) : epochs_ar
     n_total    = n_epochs(epochs_raw)
     n_valid    = epochs.n_valid
     n_rejected = length(epochs_ar.rejected_idx)
     seg_dur    = round(Dates.value(now() - t_seg) / 1000, digits=1)
+    _valid_pct = n_total > 0 ? round(100*n_valid/n_total, digits=1) : 0.0
+    _ar_thr    = Float64(get(cfg.artifact_rejection, "max_amplitude_uv", 70.0))
+    _fp2_note  = fp2_excluded ? " · Fp2 excluido" : ""
+    _epoch_icon = n_valid == 0 ? "✗" : (n_valid < 10 ? "⚠" : "✓")
+    println("$(_epoch_icon)  $(n_valid)/$(n_total) epochs válidos ($(_valid_pct)%) · ±$(_ar_thr) µV · $(n_ch_analysis) ch$(_fp2_note)  ($(seg_dur) s)")
+    if n_valid == 0
+        println("       ✗  Sin epochs válidos — grabación no utilizable con umbral ±$(_ar_thr) µV")
+    end
     _log(log_io, "  Perfil segmentación: $(seg_profile) | Perfil AR: $(ar_profile) | Baseline passes: $(n_passes)")
-    _log(log_io, "  Segmentos totales: $(n_total) | Válidos: $(n_valid) | Rechazados: $(n_rejected) ($(round(100*n_rejected/n_total, digits=1))%)")
+    _log(log_io, "  Segmentos totales: $(n_total) | Válidos: $(n_valid) | Rechazados: $(n_rejected) ($(_valid_pct)%)")
     _log(log_io, "  Duración segmentación: $(seg_dur) s")
     seg_signal_label = (ica_result !== nothing && !isempty(ica_result.rejected_components)) ? "ICA-limpiada" : "filtrada"
     _save_segmentation_results(epochs_bl1, epochs, rec_ica, cfg, export_dir, t_seg, log_io, seg_signal_label)
 
     # ── 8. Análisis espectral ─────────────────────────────────
-    println("[6/8] Análisis espectral (PSD)...")
     _log(log_io, "\n[6/8] Espectral")
+    t_step = now()
+    print("  [6/8] PSD... ")
     spectra = compute_psd(epochs, cfg)
     _log(log_io, "  nfft=$(spectra.params["nfft"]) | Bins: $(length(spectra.freqs)) | Resolución: $(round(spectra.freqs[2]-spectra.freqs[1], digits=3)) Hz")
+    _psd_summary = join([
+        "$(band)=$(round(mean(spectra.band_power[band]),digits=2))"
+        for (band,_) in sort(collect(cfg.bands))
+    ], " · ")
+    println("✓  $(_psd_summary) µV²  ($(round(Dates.value(now()-t_step)/1000,digits=1)) s)")
     for (band, _) in sort(collect(cfg.bands))
         bp_mean = mean(spectra.band_power[band])
         _log(log_io, "  Potencia $(lpad(band,9)): $(round(bp_mean, digits=4)) μV² (media canales)")
     end
 
     # ── 9. Conectividad wPLI ──────────────────────────────────
-    println("[7/8] Conectividad wPLI...")
     _log(log_io, "\n[7/8] Conectividad wPLI")
+    t_step = now()
+    print("  [7/8] wPLI... ")
     use_csd = Bool(get(cfg.connectivity, "use_csd", false))
     epochs_conn = use_csd ? apply_csd(epochs, cfg) : epochs
     conn = compute_wpli(epochs_conn, cfg)
+    _n_edges = n_ch_analysis * (n_ch_analysis - 1) ÷ 2
+    println("✓  $(n_ch_analysis)×$(n_ch_analysis) · $(length(conn.matrices)) bandas · $(_n_edges) aristas  ($(round(Dates.value(now()-t_step)/1000,digits=1)) s)")
     _log(log_io, "  Espacio: $(conn.space) | Bandas: " * join(sort(collect(keys(conn.matrices))), ", "))
 
     # ── 9b. Surrogates (opcional — activar en config [surrogates] enabled=true) ─
+    surr_results = SurrogateResult[]
     if Bool(get(cfg.surrogates, "enabled", false))
-        println("[SUR] Inferencia por surrogates…")
-        _log(log_io, "\n[SUR] Inferencia por surrogates")
         n_sur  = Int(get(cfg.surrogates, "n_surrogates", 200))
+        println("  [SUR] Surrogates ($(n_sur) permutaciones × $(length(conn.matrices)) bandas)...")
+        _log(log_io, "\n[SUR] Inferencia por surrogates")
         _log(log_io, "  Método: $(get(cfg.surrogates,"method","phase_shuffle")) | N=$(n_sur) | FDR: $(get(cfg.surrogates,"fdr_method","bh"))")
-        surr_results = SurrogateResult[]
+        t_sur = now()
+        _sig_strs = String[]
         for band in sort(collect(keys(conn.matrices)))
+            print("        $(lpad(band,9))... ")
             try
                 sr = surrogate_test(epochs_conn, conn, band, cfg)
                 push!(surr_results, sr)
                 n_sig = count(sr.sig_mask) ÷ 2
+                push!(_sig_strs, "$(band): $(n_sig)/$(n_sig == 0 ? _n_edges : _n_edges)")
+                println("$(n_sig) pares sig  (FDR p<$(round(sr.fdr_threshold,digits=3)))")
                 _log(log_io, "  Banda $(lpad(band,9)): $(n_sig) pares significativos  FDR-thr=$(round(sr.fdr_threshold,digits=4))")
             catch e
+                println("⚠ fallido: $e")
                 @warn "Surrogate fallido para $band: $e"
                 _log(log_io, "  WARN: surrogate $(band) fallido: $e")
             end
         end
+        sur_dur = round(Dates.value(now()-t_sur)/1000, digits=1)
+        println("        total surrogates: $(sur_dur) s")
         if !isempty(surr_results)
             _save_surrogate_results(surr_results, conn, export_dir, cfg, log_io)
         end
     end
 
     # ── 10. Guardar resultados ────────────────────────────────
-    println("[8/8] Guardando resultados...")
+    print("  [8/8] Guardando resultados... ")
     _log(log_io, "\n[8/8] Guardando resultados")
+    t_step = now()
     _save_all_results(rec, rec_filt, qc_stats, bad_ch, spectra, conn, val,
                       subj_dir, export_dir, condition, cfg, dpi, log_io)
-
-    # Snapshot de config
     _save_config_snapshot(config_path, export_dir)
-
-    # subjects_index.csv
     _update_subjects_index(results_dir(cfg), sid, sess_id, task, rec, n_valid, n_rejected)
+
+    # Tabla QC global (results/qc/qc_decision_table.csv)
+    _update_qc_decision_table(
+        results_dir(cfg), sid, sess_id, condition,
+        amplitude_warning, raw_sigma_mean,
+        bad_ch, bad_ch_non_fp2, fp2_excluded, n_ch_analysis,
+        Float64(get(cfg.artifact_rejection, "max_amplitude_uv", 70.0)),
+        n_total, n_rejected, n_valid,
+        Int(get(cfg.segmentation, "min_epochs", 10)),
+        log_io
+    )
+    println("✓  tablas · figuras · BIDS export · QC table  ($(round(Dates.value(now()-t_step)/1000,digits=1)) s)")
 
     elapsed = round(Dates.value(now() - t0) / 1000, digits=1)
     _log(log_io, "\n✓ Pipeline completado en $(elapsed) s")
     close(log_io)
 
-    println("\n" * "=" ^ 62)
-    println("✅ Pipeline completado en $(elapsed) s")
+    # ── Resumen final ──────────────────────────────────────────
+    _valid_pct_f  = n_total > 0 ? round(100*n_valid/n_total, digits=1) : 0.0
+    _qc_decision  = n_valid == 0 ? "exclude" :
+                    (amplitude_warning || !isempty(bad_ch_non_fp2)) ?
+                    (n_valid < 10 ? "manual_review" : "include_with_warning") : "include"
+    _decision_icon = _qc_decision == "include" ? "✅" :
+                     _qc_decision == "include_with_warning" ? "🟡" :
+                     _qc_decision == "manual_review" ? "🟠" : "❌"
+    _bad_summary  = isempty(bad_ch_non_fp2) ? "ninguno" : join(bad_ch_non_fp2, ", ")
+    _warn_flag    = amplitude_warning ? " · ⚠ amplitude_warning" : ""
+    println()
+    println("  " * "─"^60)
+    println("  $(_decision_icon)  sub-$(sid) / ses-$(sess_id) / $(condition)  →  $(_qc_decision)   ($(elapsed) s total)")
+    println("     Epochs  : $(n_valid)/$(n_total) válidos ($(_valid_pct_f)%) · rechazados: $(n_rejected)")
+    println("     Montaje : $(n_ch_analysis) canales$(fp2_excluded ? " (Fp2 excluido)" : "") · bad no-Fp2: $(_bad_summary)$(_warn_flag)")
+    println("     PSD     : " * join(["$(b)=$(round(mean(spectra.band_power[b]),digits=2))" for (b,_) in sort(collect(cfg.bands))], " · ") * " µV²")
+    if !isempty(surr_results)
+        _sig_counts = ["$(sr.band): $(count(sr.sig_mask)÷2)" for sr in surr_results]
+        println("     Sig wPLI: " * join(_sig_counts, " · ") * " pares (FDR 5%)")
+    end
+    println("  " * "─"^60)
     println()
     println("Resultados principales:")
     println("  Dashboard:  results/$(sid)/$(sess_id)/")
@@ -953,12 +1071,13 @@ end
 function _save_connectivity_extras(
     conn::ConnectivityMatrix,
     export_dir::String,
-    log_io::IO
+    log_io::IO,
+    cfg::PipelineConfig
 )
-    bands   = sort(collect(keys(conn.matrices)))
+    bands    = sort(collect(keys(conn.matrices)))
     ch_names = conn.channel_names
     n        = length(ch_names)
-    thr      = 0.1   # densidad a umbral 0.1
+    thr      = Float64(get(cfg.graph, "density", 0.1))
 
     # ── Flat JSON summary ─────────────────────────────────────
     pairs = String[
@@ -1227,11 +1346,16 @@ function _save_all_results(
     cp(ov_path, joinpath(export_dir, "overview.csv"); force=true)
 
     # ── Tabla PSD ─────────────────────────────────────────────
-    ch_names = rec.meta.channel_names
-    n_freqs  = length(spectra.freqs)
+    ch_names = spectra.meta.channel_names
+    n_ch_psd, n_freqs_psd = size(spectra.psd)
+    n_ch     = min(length(ch_names), n_ch_psd)
+    n_freqs  = min(length(spectra.freqs), n_freqs_psd)
+    if n_ch != length(ch_names) || n_freqs != length(spectra.freqs)
+        _log(log_io, "  WARN: PSD dims ajustadas al guardar: psd=$(size(spectra.psd)), canales=$(length(ch_names)), freqs=$(length(spectra.freqs))")
+    end
     psd_rows = [(channel=ch_names[c], freq_hz=round(spectra.freqs[f], digits=3),
                  power_uv2=round(spectra.psd[c,f], digits=6))
-                for c in 1:length(ch_names) for f in 1:n_freqs]
+                for c in 1:n_ch for f in 1:n_freqs]
     psd_df = DataFrame(psd_rows)
     psd_path = joinpath(tbl_dir, "psd_by_channel_$(condition).csv")
     CSV.write(psd_path, psd_df)
@@ -1240,9 +1364,9 @@ function _save_all_results(
 
     # ── Tabla band power ──────────────────────────────────────
     band_names = sort(collect(keys(spectra.band_power)))
-    bp_df = DataFrame(channel = ch_names)
+    bp_df = DataFrame(channel = ch_names[1:n_ch])
     for b in band_names
-        bp_df[!, b] = round.(spectra.band_power[b], digits=6)
+        bp_df[!, b] = round.(spectra.band_power[b][1:n_ch], digits=6)
     end
     bp_path = joinpath(tbl_dir, "band_power_$(condition).csv")
     CSV.write(bp_path, bp_df)
@@ -1283,7 +1407,7 @@ function _save_all_results(
     _log(log_io, "  Guardado: matrices y edges wPLI por banda")
 
     # ── Extras de conectividad (summary JSON + network metrics) ──
-    _save_connectivity_extras(conn, export_dir, log_io)
+    _save_connectivity_extras(conn, export_dir, log_io, cfg)
 
     # ── Figura: señal preview ─────────────────────────────────
     try
@@ -1542,6 +1666,24 @@ function _save_ica_results(
     _log(log_io, "  Guardado: ica_signal_before.csv + ica_signal_after.csv")
 end
 
+function _save_raw_signal(
+    rec::EEGRecording,
+    export_dir::String,
+    log_io::IO
+)
+    fs      = rec.meta.fs
+    n_total = size(rec.data, 2)
+    # Save the full raw (pre-filter) signal for cross-pipeline validation
+    # (no length cap — serves any window the dashboard requests)
+    t_vec   = collect(range(0.0, step=1.0/fs, length=n_total))
+    sdf     = DataFrame(:t_s => t_vec)
+    for (ci, ch) in enumerate(rec.meta.channel_names)
+        sdf[!, Symbol(ch)] = round.(rec.data[ci, :], digits=4)
+    end
+    CSV.write(joinpath(export_dir, "raw_signal.csv"), sdf)
+    _log(log_io, "  Guardado: raw_signal.csv ($(n_total) muestras = $(round(n_total/fs, digits=1))s)")
+end
+
 function _save_ica_topomaps(
     ica::ICAResult,
     rec::EEGRecording,
@@ -1645,4 +1787,107 @@ function load_dashboard_data(
         filter(f -> endswith(f, ".png"), readdir(fig_dir)) : String[]
 
     return d
+end
+
+# ─── Tabla QC global ──────────────────────────────────────────
+
+"""
+    _update_qc_decision_table(results_dir, ...)
+
+Escribe o actualiza results/qc/qc_decision_table.csv con la decisión
+de inclusión/exclusión de cada grabación procesada.
+
+### Criterios de `final_decision`
+- `include`              — válido sin alertas
+- `include_with_warning` — válido pero con amplitude_warning o canales malos adicionales
+- `manual_review`        — amplitude_warning Y epochs cerca del mínimo, o canales malos graves
+- `exclude`              — 0 epochs válidos o duración insuficiente
+"""
+function _update_qc_decision_table(
+    res_dir        ::String,
+    subject_id     ::String,
+    session_id     ::String,
+    condition      ::String,
+    amplitude_warning ::Bool,
+    raw_sigma_uv   ::Float64,
+    bad_ch_original::Vector{String},
+    bad_ch_non_fp2 ::Vector{String},
+    fp2_excluded   ::Bool,
+    n_ch_analysis  ::Int,
+    ar_threshold_uv::Float64,
+    n_epochs_total ::Int,
+    n_epochs_rejected::Int,
+    n_epochs_valid ::Int,
+    min_epochs     ::Int,
+    log_io         ::IO
+)
+    qc_dir  = joinpath(res_dir, "qc")
+    mkpath(qc_dir)
+    out_path = joinpath(qc_dir, "qc_decision_table.csv")
+
+    valid_pct = n_epochs_total > 0 ?
+        round(100.0 * n_epochs_valid / n_epochs_total, digits=1) : 0.0
+
+    # ── Decisión final ────────────────────────────────────────
+    # Exclusión dura: sin epochs utilizables
+    exclusion_reason = ""
+    notes_list       = String[]
+
+    final_decision = if n_epochs_valid == 0
+        exclusion_reason = "0 epochs válidos tras AR ±$(ar_threshold_uv) µV"
+        "exclude"
+    elseif n_epochs_valid < min_epochs
+        exclusion_reason = "$(n_epochs_valid) epochs < mínimo requerido ($(min_epochs))"
+        "exclude"
+    elseif amplitude_warning && length(bad_ch_non_fp2) >= 2
+        push!(notes_list, "amplitude_warning + $(length(bad_ch_non_fp2)) canales malos adicionales")
+        "manual_review"
+    elseif amplitude_warning && valid_pct < 50.0
+        push!(notes_list, "amplitude_warning + solo $(valid_pct)% epochs válidos")
+        "manual_review"
+    elseif amplitude_warning || !isempty(bad_ch_non_fp2)
+        amplitude_warning && push!(notes_list, "amplitude_warning (σ̄=$(round(raw_sigma_uv,digits=1)) µV)")
+        !isempty(bad_ch_non_fp2) && push!(notes_list, "canales malos adicionales: $(join(bad_ch_non_fp2, ", "))")
+        "include_with_warning"
+    else
+        "include"
+    end
+
+    notes = join(notes_list, "; ")
+
+    new_row = DataFrame(
+        subject_id               = [subject_id],
+        session_id               = [session_id],
+        condition                = [condition],
+        amplitude_warning        = [amplitude_warning],
+        raw_sigma_mean_uv        = [round(raw_sigma_uv, digits=2)],
+        bad_channels_original    = [isempty(bad_ch_original) ? "" : join(bad_ch_original, "; ")],
+        fp2_removed              = [fp2_excluded],
+        n_channels_analysis      = [n_ch_analysis],
+        n_bad_channels_non_fp2   = [length(bad_ch_non_fp2)],
+        bad_channels_non_fp2     = [isempty(bad_ch_non_fp2) ? "" : join(bad_ch_non_fp2, "; ")],
+        ar_threshold_uv          = [ar_threshold_uv],
+        n_epochs_initial         = [n_epochs_total],
+        n_epochs_rejected        = [n_epochs_rejected],
+        n_epochs_valid           = [n_epochs_valid],
+        valid_epochs_pct         = [valid_pct],
+        final_decision           = [final_decision],
+        exclusion_reason         = [exclusion_reason],
+        notes                    = [notes],
+        processed_at             = [string(now())],
+    )
+
+    if isfile(out_path)
+        old = CSV.read(out_path, DataFrame)
+        mask = .!(old.subject_id .== subject_id .&&
+                  old.session_id .== session_id .&&
+                  old.condition  .== condition)
+        CSV.write(out_path, vcat(old[mask, :], new_row))
+    else
+        CSV.write(out_path, new_row)
+    end
+
+    _log(log_io, "  QC decision: $(final_decision)" *
+        (isempty(exclusion_reason) ? "" : " ($(exclusion_reason))") *
+        (isempty(notes) ? "" : " | $(notes)"))
 end

@@ -1358,6 +1358,59 @@ tr.row-warn:hover td { background: #fef9c3; }
 .p14-tl-arrow    { flex:1; height:2px; background:linear-gradient(90deg,#3b82f6,#d97706);
                    position:relative; margin:0 4px; }
 
+/* ── Phase 15 — MNE-Python Validation (teal) ─────────────── */
+.p15-accent      { color:#0f766e; }
+.grid-p15-top    { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px; }
+.grid-p15-mats   { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+.grid-p15-figs   { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+.p15-band-tab    { padding:4px 12px; border-radius:16px; font-size:11px; font-weight:600;
+                   cursor:pointer; background:var(--bg-2); border:1.5px solid var(--border);
+                   color:var(--text-2); transition:all .15s; }
+.p15-band-tab.active { background:#0f766e; border-color:#0f766e; color:#fff; }
+.p15-metric-cell { background:var(--bg-2); border-radius:8px; padding:8px 6px; text-align:center; }
+.p15-metric-val  { font-size:18px; font-weight:800; line-height:1.2; }
+.p15-metric-lbl  { font-size:9px; color:var(--text-3); margin-top:2px; line-height:1.3; }
+.p15-tbl th      { padding:6px 10px; background:var(--bg-2); font-size:11px; font-weight:700;
+                   text-align:left; border-bottom:2px solid var(--border); white-space:nowrap; }
+.p15-tbl td      { padding:5px 10px; font-size:11px; border-bottom:1px solid var(--border); }
+.p15-tbl tr:last-child td { border-bottom:none; }
+.p15-r-good      { color:#059669; font-weight:700; }
+.p15-r-mid       { color:#d97706; font-weight:700; }
+.p15-r-low       { color:#dc2626; font-weight:700; }
+.p15-chip-julia  { background:#dbeafe; color:#1e40af; border-radius:12px;
+                   padding:2px 8px; font-size:10px; font-weight:700; }
+.p15-chip-mne    { background:#d1fae5; color:#065f46; border-radius:12px;
+                   padding:2px 8px; font-size:10px; font-weight:700; }
+.p15-not-run     { display:flex; flex-direction:column; align-items:center; justify-content:center;
+                   padding:48px 24px; text-align:center; }
+.grid-p15-qc     { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+.p15-qc-row      { display:flex; justify-content:space-between; align-items:center;
+                   padding:5px 0; border-bottom:1px solid var(--border); font-size:11px; }
+.p15-qc-row:last-child { border-bottom:none; }
+.p15-qc-lbl      { color:var(--text-3); }
+.p15-qc-val      { font-weight:700; }
+.p15-filter-chip { display:inline-flex; align-items:center; gap:4px; background:var(--bg-2);
+                   border:1px solid var(--border); border-radius:14px; padding:3px 9px;
+                   font-size:10px; font-weight:600; margin:3px 3px 0 0; }
+.p15-filter-method { background:#f0fdf4; color:#065f46; border-radius:8px;
+                     padding:1px 5px; font-size:9px; font-weight:700; }
+.p15-ch-tbl th   { padding:5px 8px; background:var(--bg-2); font-size:10px; font-weight:700;
+                   text-align:center; border-bottom:2px solid var(--border); white-space:nowrap; }
+.p15-ch-tbl td   { padding:4px 8px; font-size:10px; text-align:center;
+                   border-bottom:1px solid var(--border); }
+.p15-ch-tbl tr:last-child td { border-bottom:none; }
+.p15-ch-tbl td:first-child { text-align:left; font-weight:600; }
+.p15-delta-pos   { color:#dc2626; }
+.p15-delta-neg   { color:#2563eb; }
+.p15-delta-ok    { color:#059669; }
+.p15-bad-yes     { background:#fee2e2; color:#991b1b; border-radius:8px;
+                   padding:1px 6px; font-size:9px; font-weight:700; }
+.p15-bad-no      { color:var(--text-3); }
+.p15-bp-bar      { display:inline-block; height:10px; border-radius:3px; vertical-align:middle; }
+.p15-footer      { background:linear-gradient(135deg,#0f766e,#0d9488); color:#fff;
+                   border-radius:10px; padding:12px 18px; font-size:11.5px; margin-top:14px;
+                   line-height:1.7; }
+
 /* ─── Phase 11 — Resultados Finales (emerald) ────────────── */
 .p11-accent      { color:#059669; }
 .grid-p11-kpi    { display:grid; grid-template-columns:repeat(6,1fr); gap:.65rem; margin-bottom:.9rem; }
@@ -4323,6 +4376,342 @@ tr.row-warn:hover td { background: #fef9c3; }
 
   </div><!-- /phase-panel-14 -->
 
+  <!-- ═══════════════════════════════════════════════════════════
+       PHASE 15 — MNE-PYTHON · VALIDACIÓN CRUZADA
+  ════════════════════════════════════════════════════════════ -->
+  <div id="phase-panel-15" class="phase-panel">
+
+    <div class="phase-header">
+      <div class="phase-header-left">
+        <div class="phase-badge-lg" style="background:#0f766e">15</div>
+        <div>
+          <div class="phase-title">15. MNE-Python · Validación Cruzada</div>
+          <div class="phase-subtitle">NeuroMIND (Julia / Hilbert) vs mne_brain (MNE / CSD) · wPLI · PSD · Potencia de banda</div>
+        </div>
+      </div>
+      <div class="phase-header-right">
+        <span id="p15-status-chip" class="status-chip pending">Pendiente</span>
+      </div>
+    </div>
+
+    <!-- Top 4-col KPIs -->
+    <div class="grid-p15-top">
+      <div class="card">
+        <div class="card-header">Estado mne_brain</div>
+        <div class="card-body" id="p15-kpi-status" style="padding:10px"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">Correlación wPLI — ALPHA</div>
+        <div class="card-body" id="p15-kpi-alpha" style="padding:10px;text-align:center"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">Correlación PSD</div>
+        <div class="card-body" id="p15-kpi-psd" style="padding:10px;text-align:center"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">Canales comparados</div>
+        <div class="card-body" id="p15-kpi-ch" style="padding:10px;text-align:center"></div>
+      </div>
+    </div>
+
+    <!-- Band + condition selector -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-body" style="padding:8px 12px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-size:11px;font-weight:700;color:var(--text-3)">BANDA</span>
+          <div id="p15-band-tabs" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+            <label style="font-size:11px;color:var(--text-3)">Condición:</label>
+            <select id="p15-cond-sel" onchange="p15ChangeCond(this.value)"
+              style="font-size:11px;padding:3px 8px;border-radius:6px;border:1.5px solid var(--border);
+                     background:var(--bg-2);color:var(--text-1)">
+              <option value="EC">EC — Ojos cerrados</option>
+              <option value="EO">EO — Ojos abiertos</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Not-run placeholder -->
+    <div id="p15-not-run-block" class="p15-not-run" style="display:none">
+      <div style="font-size:44px;margin-bottom:14px">🐍</div>
+      <div style="font-size:17px;font-weight:700;color:var(--text-1);margin-bottom:8px">mne_brain aún no ejecutado para este sujeto</div>
+      <div style="font-size:12px;max-width:540px;line-height:1.7;margin-bottom:18px;color:var(--text-2)">
+        Ejecuta el pipeline Python y la validación cruzada:
+        <br><code style="background:var(--bg-2);padding:4px 10px;border-radius:4px;display:inline-block;margin-top:8px">
+          cd mne_brain &amp;&amp; python scripts/run_full_pipeline_m05.py
+        </code>
+        <br><code style="background:var(--bg-2);padding:4px 10px;border-radius:4px;display:inline-block;margin-top:6px">
+          python scripts/run_phase8_validation.py --condition EC
+        </code>
+      </div>
+    </div>
+
+    <!-- Main content (shown when run) -->
+    <div id="p15-content-block" style="display:none">
+
+      <!-- Metrics table -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">
+          Métricas de concordancia por banda
+          <span style="float:right;font-size:10px;color:var(--text-3)">
+            <span class="p15-chip-julia">NeuroMIND (Julia)</span> &nbsp;vs&nbsp;
+            <span class="p15-chip-mne">mne_brain (MNE)</span>
+          </span>
+        </div>
+        <div class="card-body" style="padding:0;overflow-x:auto">
+          <table class="p15-tbl" style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr>
+                <th>Banda</th><th>Rango Hz</th>
+                <th>Pearson r</th><th>Spearman ρ</th>
+                <th>MAE</th><th>RMSE</th>
+                <th>Bias (MNE−Julia)</th><th>Interpretación</th>
+              </tr>
+            </thead>
+            <tbody id="p15-metrics-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Heatmaps side-by-side -->
+      <div class="grid-p15-mats">
+        <div class="card">
+          <div class="card-header">
+            Heatmap wPLI — <span class="p15-chip-julia">NeuroMIND (Julia)</span>
+            <span id="p15-band-label-julia" style="float:right;font-size:10px;color:var(--text-3)"></span>
+          </div>
+          <div class="card-body" style="padding:8px;display:flex;flex-direction:column;align-items:center">
+            <canvas id="p15-canvas-julia" style="max-width:100%;border-radius:6px"></canvas>
+            <div id="p15-colorbar-julia" style="margin-top:6px;width:200px;height:12px;border-radius:4px;
+              background:linear-gradient(90deg,#f7f7f7,#74add1,#fee090,#f46d43,#a50026)"></div>
+            <div style="display:flex;justify-content:space-between;width:200px;font-size:9px;color:var(--text-3);margin-top:2px">
+              <span>0</span><span id="p15-vmax-julia">1.0</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            Heatmap wPLI — <span class="p15-chip-mne">mne_brain (MNE)</span>
+            <span id="p15-band-label-mne" style="float:right;font-size:10px;color:var(--text-3)"></span>
+          </div>
+          <div class="card-body" style="padding:8px;display:flex;flex-direction:column;align-items:center">
+            <canvas id="p15-canvas-mne" style="max-width:100%;border-radius:6px"></canvas>
+            <div id="p15-colorbar-mne" style="margin-top:6px;width:200px;height:12px;border-radius:4px;
+              background:linear-gradient(90deg,#f7f7f7,#74add1,#fee090,#f46d43,#a50026)"></div>
+            <div style="display:flex;justify-content:space-between;width:200px;font-size:9px;color:var(--text-3);margin-top:2px">
+              <span>0</span><span id="p15-vmax-mne">1.0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scatter + Band power PNGs -->
+      <div class="grid-p15-figs">
+        <div class="card">
+          <div class="card-header">Scatter wPLI + Bland-Altman — todas las bandas</div>
+          <div class="card-body" style="padding:8px;text-align:center">
+            <img id="p15-fig-wpli" src="" alt="wPLI comparison"
+              style="max-width:100%;border-radius:6px;cursor:pointer"
+              onclick="openLightbox(this.src)">
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">Potencia de banda — comparativa</div>
+          <div class="card-body" style="padding:8px;text-align:center">
+            <img id="p15-fig-bp" src="" alt="Band power comparison"
+              style="max-width:100%;border-radius:6px;cursor:pointer"
+              onclick="openLightbox(this.src)">
+          </div>
+        </div>
+      </div>
+
+      <!-- PSD overlay (compacta + señal por canal) -->
+      <div class="grid-p15-mats" style="align-items:start">
+        <div class="card">
+          <div class="card-header">
+            Overlay PSD + log-ratio (MNE / Julia)
+            <span style="float:right;font-size:9px;color:var(--text-3)">click → ampliar</span>
+          </div>
+          <div class="card-body" style="padding:8px;text-align:center">
+            <img id="p15-fig-psd" src="" alt="PSD comparison"
+              style="max-width:100%;border-radius:6px;cursor:pointer"
+              onclick="openLightbox(this.src)">
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            Señal EEG por canal
+            <span id="p15-sig-status" style="float:right;font-size:10px;color:var(--text-3)">—</span>
+          </div>
+          <div class="card-body" style="padding:8px">
+            <!-- Row 1: Canal + Modo + Leyenda -->
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+              <label style="font-size:11px;color:var(--text-3)">Canal:</label>
+              <select id="p15-sig-ch-sel" onchange="p15LoadSignal()"
+                style="font-size:11px;padding:3px 8px;border-radius:6px;
+                       border:1.5px solid var(--border);background:var(--bg-2);color:var(--text-1)">
+              </select>
+              <!-- Modo señal toggle: 3 etapas -->
+              <div id="p15-sig-mode-toggle" style="display:flex;border-radius:6px;overflow:hidden;
+                   border:1.5px solid var(--border);font-size:10px;flex-shrink:0">
+                <button id="p15-sig-btn-raw" onclick="p15SetSignalMode('raw')"
+                  style="padding:3px 9px;border:none;cursor:pointer;font-size:10px;
+                         background:#3b82f6;color:#fff;font-weight:600">Cruda</button>
+                <button id="p15-sig-btn-pre_ica" onclick="p15SetSignalMode('pre_ica')"
+                  style="padding:3px 9px;border:none;cursor:pointer;font-size:10px;
+                         background:var(--bg-2);color:var(--text-3)">Pre-ICA</button>
+                <button id="p15-sig-btn-post_ica" onclick="p15SetSignalMode('post_ica')"
+                  style="padding:3px 9px;border:none;cursor:pointer;font-size:10px;
+                         background:var(--bg-2);color:var(--text-3)">Post-ICA</button>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+                <span style="width:12px;height:3px;background:#3b82f6;display:inline-block;border-radius:2px"></span>
+                <span style="font-size:10px;color:var(--text-3)" id="p15-sig-lbl-julia">Julia</span>
+                <span style="width:12px;height:3px;background:#10b981;display:inline-block;border-radius:2px;margin-left:6px"></span>
+                <span style="font-size:10px;color:var(--text-3)" id="p15-sig-lbl-mne">MNE</span>
+              </div>
+            </div>
+            <!-- Row 2: Ventana temporal -->
+            <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
+              <span style="font-size:10px;color:var(--text-3);flex-shrink:0">Ventana:</span>
+              <div id="p15-win-btns" style="display:flex;gap:3px">
+                <button onclick="p15SetWindow(1)"   id="p15-win-1"   style="padding:2px 7px;font-size:9px;border:1.5px solid var(--border);border-radius:4px;background:var(--bg-2);color:var(--text-2);cursor:pointer">1s</button>
+                <button onclick="p15SetWindow(2)"   id="p15-win-2"   style="padding:2px 7px;font-size:9px;border:1.5px solid var(--border);border-radius:4px;background:var(--bg-2);color:var(--text-2);cursor:pointer">2s</button>
+                <button onclick="p15SetWindow(5)"   id="p15-win-5"   style="padding:2px 7px;font-size:9px;border:1.5px solid var(--border);border-radius:4px;background:#3b82f6;color:#fff;font-weight:600;cursor:pointer">5s</button>
+                <button onclick="p15SetWindow(10)"  id="p15-win-10"  style="padding:2px 7px;font-size:9px;border:1.5px solid var(--border);border-radius:4px;background:var(--bg-2);color:var(--text-2);cursor:pointer">10s</button>
+                <button onclick="p15SetWindow(null)" id="p15-win-all" style="padding:2px 7px;font-size:9px;border:1.5px solid var(--border);border-radius:4px;background:var(--bg-2);color:var(--text-2);cursor:pointer">Todo</button>
+              </div>
+              <span id="p15-sig-note" style="font-size:9px;color:#f59e0b;margin-left:8px"></span>
+            </div>
+            <canvas id="p15-sig-canvas" style="width:100%;height:200px;border-radius:6px;
+              background:var(--bg-1);display:block"></canvas>
+            <div id="p15-sig-info" style="font-size:9px;color:var(--text-3);margin-top:4px;text-align:center"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- QC + Filtrado comparison -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">
+          QC Pipeline — Epochs &amp; Artefactos
+          <span style="float:right;font-size:10px;color:var(--text-3)">
+            <span class="p15-chip-julia">NeuroMIND (Julia)</span> &nbsp;vs&nbsp;
+            <span class="p15-chip-mne">mne_brain (MNE)</span>
+          </span>
+        </div>
+        <div class="card-body" style="padding:10px">
+          <div class="grid-p15-qc">
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#1e40af;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid #dbeafe">
+                🔵 NeuroMIND (Julia)
+              </div>
+              <div id="p15-qc-julia-body"></div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#065f46;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid #d1fae5">
+                🟢 mne_brain (MNE-Python)
+              </div>
+              <div id="p15-qc-mne-body"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter chain comparison -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">Cadena de Filtrado</div>
+        <div class="card-body" style="padding:10px">
+          <div class="grid-p15-qc">
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#1e40af;margin-bottom:8px">🔵 NeuroMIND (Julia)</div>
+              <div id="p15-filter-julia-body"></div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#065f46;margin-bottom:8px">🟢 mne_brain (MNE-Python)</div>
+              <div id="p15-filter-mne-body"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Per-channel statistics comparison -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">
+          Estadísticas por Canal — Cruda vs Post-ICA
+          <span style="float:right;font-size:10px;color:var(--text-3)">RMS, Std, Rango · µV</span>
+        </div>
+        <div class="card-body" style="padding:0;overflow-x:auto">
+          <table class="p15-ch-tbl" style="width:100%;border-collapse:collapse;font-size:10px">
+            <thead>
+              <tr style="border-bottom:none">
+                <th rowspan="2" style="vertical-align:bottom">Canal</th>
+                <th colspan="2" style="text-align:center;background:rgba(239,68,68,0.07);border-bottom:2px solid #ef4444;padding-bottom:2px"
+                    title="Señal antes de cualquier filtrado — compara lectura BrainVision">RMS Cruda (µV)</th>
+                <th colspan="2" style="text-align:center;background:rgba(245,158,11,0.07);border-bottom:2px solid #f59e0b;padding-bottom:2px"
+                    title="Señal filtrada (HP/LP/Notch), antes de ICA">RMS Pre-ICA (µV)</th>
+                <th colspan="2" style="text-align:center;background:rgba(16,185,129,0.07);border-bottom:2px solid #10b981;padding-bottom:2px"
+                    title="Señal limpiada por ICA">RMS Post-ICA (µV)</th>
+                <th colspan="2" style="text-align:center;background:rgba(234,88,12,0.07);border-bottom:2px solid #ea580c;padding-bottom:2px">
+                  Reducción ICA</th>
+                <th colspan="2" rowspan="1" style="vertical-align:bottom;text-align:center">Mala</th>
+              </tr>
+              <tr>
+                <th style="background:rgba(239,68,68,0.05)"><span class="p15-chip-julia">J</span></th>
+                <th style="background:rgba(239,68,68,0.05)"><span class="p15-chip-mne">M</span></th>
+                <th style="background:rgba(245,158,11,0.05)"><span class="p15-chip-julia">J</span></th>
+                <th style="background:rgba(245,158,11,0.05)"><span class="p15-chip-mne">M</span></th>
+                <th style="background:rgba(16,185,129,0.05)"><span class="p15-chip-julia">J</span></th>
+                <th style="background:rgba(16,185,129,0.05)"><span class="p15-chip-mne">M</span></th>
+                <th style="background:rgba(234,88,12,0.05)" title="Reducción de RMS tras ICA (Julia)">Δ <span class="p15-chip-julia">J</span></th>
+                <th style="background:rgba(234,88,12,0.05)" title="Reducción de RMS tras ICA (MNE)">Δ <span class="p15-chip-mne">M</span></th>
+                <th><span class="p15-chip-julia">J</span></th>
+                <th><span class="p15-chip-mne">M</span></th>
+              </tr>
+            </thead>
+            <tbody id="p15-ch-stats-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Per-channel band power comparison -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">
+          Potencia por Canal — banda activa
+          <span id="p15-bp-band-label" style="float:right;font-size:10px;color:var(--text-3)"></span>
+        </div>
+        <div class="card-body" style="padding:0;overflow-x:auto">
+          <table class="p15-ch-tbl" style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr>
+                <th>Canal</th>
+                <th>Potencia <span class="p15-chip-julia">Julia</span> µV²/Hz</th>
+                <th>Potencia <span class="p15-chip-mne">MNE</span> µV²/Hz</th>
+                <th>Ratio MNE/Julia</th>
+                <th>Visualización comparativa</th>
+              </tr>
+            </thead>
+            <tbody id="p15-bp-ch-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /p15-content-block -->
+
+    <!-- Footer note -->
+    <div class="p15-footer">
+      🔬 <strong>Nota metodológica:</strong>
+      NeuroMIND implementa wPLI en dominio temporal via transformada de Hilbert (Vinck 2011).
+      mne_brain usa <code style="background:rgba(255,255,255,0.2);padding:1px 5px;border-radius:3px">spectral_connectivity_epochs(method='wpli')</code>
+      de MNE-Python basado en densidad espectral cruzada (CSD). Ambos estimadores son equivalentes en expectativa
+      pero difieren en varianza. Se espera r &gt; 0.85 en bandas de alta SNR (α, β-high, γ).
+      Ejecuta <code style="background:rgba(255,255,255,0.2);padding:1px 5px;border-radius:3px">python scripts/run_phase8_validation.py</code>
+      para actualizar las métricas.
+    </div>
+
+  </div><!-- /phase-panel-15 -->
+
 </main>
 </div><!-- /#layout -->
 
@@ -4365,6 +4754,7 @@ const PHASES = [
   { id: 12, name: 'Exportación / Reporte',    icon: 'EX' },
   { id: 13, name: 'Evaluación Transversal',   icon: 'TX' },
   { id: 14, name: 'Evaluación Longitudinal',  icon: 'LG' },
+  { id: 15, name: 'MNE-Python · Validación', icon: 'PY' },
 ];
 
 const PHASE_DESC = {
@@ -4382,6 +4772,7 @@ const PHASE_DESC = {
   12: 'Exportación de tablas, figuras e informe HTML final.',
   13: 'Comparación de conectividad funcional entre pacientes EM y controles sanos.',
   14: 'Análisis longitudinal intra-sujeto T1 → T2 en pacientes EM.',
+  15: 'Validación cruzada NeuroMIND (Julia) vs mne_brain (MNE-Python) — wPLI, PSD y potencia de banda.',
 };
 
 // ── Estado global ─────────────────────────────────
@@ -4607,6 +4998,8 @@ async function switchPhase(n) {
     await loadPhase13();
   } else if (n === 14) {
     await loadPhase14();
+  } else if (n === 15) {
+    await loadPhase15();
   } else {
     renderPhasePlaceholder(n);
   }
@@ -4661,6 +5054,7 @@ async function loadCurrentPhase() {
   else if (State.phase === 10) await loadPhase10();
   else if (State.phase === 13) await loadPhase13();
   else if (State.phase === 14) await loadPhase14();
+  else if (State.phase === 15) await loadPhase15();
   else renderPhasePlaceholder(State.phase);
 }
 
@@ -13449,6 +13843,660 @@ function p5ExportReport() {
   a.download = `ICA_reporte_${State.subj}_${State.sess}_${State.cond}.csv`;
   a.click();
 }
+
+// Phase 0 is activated in the primary DOMContentLoaded listener above.
+
+// ════════════════════════════════════════════════════════════════════════════
+// Phase 15 — Validación cruzada NeuroMIND (Julia) vs mne_brain (MNE-Python)
+// ════════════════════════════════════════════════════════════════════════════
+
+const P15 = { band: 'ALPHA', cond: 'EC', data: null, signalMode: 'raw', sigWindow: 5.0, _lastSignalData: null };
+
+async function loadPhase15() {
+  const { subj, sess } = State;
+  if (!subj || !sess) return;
+  const chip = document.getElementById('p15-status-chip');
+  if (chip) { chip.className = 'status-chip pending'; chip.textContent = 'Cargando…'; }
+  try {
+    const r = await fetch(`/api/phase15_validation?subj=${subj}&sess=${sess}&cond=${P15.cond}&band=${P15.band}`);
+    const d = await r.json();
+    P15.data = d;
+
+    const notRun  = document.getElementById('p15-not-run-block');
+    const content = document.getElementById('p15-content-block');
+
+    _p15RenderBandTabs();
+    _p15RenderKPIs(d);
+
+    // Sync condition selector value
+    const sel = document.getElementById('p15-cond-sel');
+    if (sel) sel.value = d.cond || P15.cond;
+
+    if (!d.run) {
+      if (notRun)  notRun.style.display  = '';
+      if (content) content.style.display = 'none';
+      if (chip) { chip.className = 'status-chip pending'; chip.textContent = 'Pendiente'; }
+      return;
+    }
+
+    if (notRun)  notRun.style.display  = 'none';
+    if (content) content.style.display = '';
+    if (chip) { chip.className = 'status-chip completed'; chip.textContent = 'Completado'; }
+
+    _p15RenderMetricsTable(d);
+    _p15RenderFigures(d);
+    _p15RenderQC(d);
+    _p15RenderFilterChain(d);
+    _p15RenderChannelStats(d);
+    _p15RenderBandPowerCh(d);
+    _p15InitSignalSelector(d);
+
+    requestAnimationFrame(() => {
+      _p15DrawHeatmap('p15-canvas-julia', d.matrix_julia, 'p15-band-label-julia', 'p15-vmax-julia');
+      _p15DrawHeatmap('p15-canvas-mne',   d.matrix_mne,   'p15-band-label-mne',   'p15-vmax-mne');
+    });
+  } catch(e) {
+    console.error('Phase 15 error:', e);
+    if (chip) { chip.className = 'status-chip error'; chip.textContent = 'Error'; }
+  }
+}
+
+function _p15RenderBandTabs() {
+  const el = document.getElementById('p15-band-tabs');
+  if (!el) return;
+  el.innerHTML = P9_BANDS.map(b => {
+    const act = b.key === P15.band;
+    return `<div class="p15-band-tab${act ? ' active' : ''}"
+              style="${act ? 'background:#0f766e;border-color:#0f766e;color:#fff' : ''}"
+              onclick="p15ChangeBand('${b.key}')">${b.label}</div>`;
+  }).join('');
+}
+
+async function p15ChangeBand(band) { P15.band = band; _p15RenderBandTabs(); await loadPhase15(); }
+async function p15ChangeCond(cond) { P15.cond = cond; await loadPhase15(); }
+
+function _p15RenderKPIs(d) {
+  // KPI 1: Estado mne_brain
+  const kpiStatus = document.getElementById('p15-kpi-status');
+  if (kpiStatus) {
+    if (d.run) {
+      kpiStatus.innerHTML = `
+        <div style="text-align:center">
+          <div style="font-size:32px;font-weight:800;color:#0f766e;line-height:1">✓</div>
+          <div style="font-size:12px;font-weight:700;color:#0f766e;margin-top:4px">Ejecutado</div>
+          <div style="font-size:10px;color:var(--text-3);margin-top:4px">${d.subj || '—'} / ${d.sess || '—'} · ${d.cond || '—'}</div>
+        </div>`;
+    } else {
+      kpiStatus.innerHTML = `
+        <div style="text-align:center">
+          <div style="font-size:32px;font-weight:800;color:#9ca3af;line-height:1">○</div>
+          <div style="font-size:12px;font-weight:700;color:#9ca3af;margin-top:4px">Pendiente</div>
+          <div style="font-size:10px;color:var(--text-3);margin-top:4px">Sin resultados</div>
+        </div>`;
+    }
+  }
+
+  // KPI 2: Correlación wPLI ALPHA
+  const kpiAlpha = document.getElementById('p15-kpi-alpha');
+  if (kpiAlpha) {
+    const r   = d.summary ? d.summary['ALPHA_pearson_r'] : null;
+    const val = r != null ? r.toFixed(3) : '—';
+    const cls = r == null ? '' : (r >= 0.85 ? 'p15-r-good' : r >= 0.60 ? 'p15-r-mid' : 'p15-r-low');
+    kpiAlpha.innerHTML = `
+      <div class="p15-metric-val ${cls}" style="font-size:22px">${val}</div>
+      <div class="p15-metric-lbl">Pearson r · wPLI α</div>`;
+  }
+
+  // KPI 3: Correlación PSD
+  const kpiPsd = document.getElementById('p15-kpi-psd');
+  if (kpiPsd) {
+    const r   = d.summary ? d.summary['psd_pearson_r'] : null;
+    const val = r != null ? r.toFixed(3) : '—';
+    const cls = r == null ? '' : (r >= 0.90 ? 'p15-r-good' : r >= 0.70 ? 'p15-r-mid' : 'p15-r-low');
+    kpiPsd.innerHTML = `
+      <div class="p15-metric-val ${cls}" style="font-size:22px">${val}</div>
+      <div class="p15-metric-lbl">Pearson r · PSD</div>`;
+  }
+
+  // KPI 4: Canales
+  const kpiCh = document.getElementById('p15-kpi-ch');
+  if (kpiCh) {
+    const n = (d.matrix_mne && d.matrix_mne.channels) ? d.matrix_mne.channels.length
+              : (d.summary && d.summary['ALPHA_n']) ? d.summary['ALPHA_n'] : '—';
+    kpiCh.innerHTML = `
+      <div class="p15-metric-val" style="font-size:22px;color:#0f766e">${n}</div>
+      <div class="p15-metric-lbl">Canales comparados</div>`;
+  }
+}
+
+function _p15RenderMetricsTable(d) {
+  const tbody = document.getElementById('p15-metrics-tbody');
+  if (!tbody) return;
+  const s = d.summary || {};
+
+  tbody.innerHTML = P9_BANDS.map(b => {
+    const r    = s[`${b.key}_pearson_r`];
+    const sr   = s[`${b.key}_spearman_r`];
+    const mae  = s[`${b.key}_mae`];
+    const rmse = s[`${b.key}_rmse`];
+    const bias = s[`${b.key}_bias`];
+
+    const fmtR = v => v != null ? v.toFixed(3) : '—';
+    const fmtV = v => v != null ? v.toFixed(4) : '—';
+
+    const rCls = r == null ? '' : (r >= 0.85 ? 'p15-r-good' : r >= 0.60 ? 'p15-r-mid' : 'p15-r-low');
+    let interp = '—';
+    if (r != null) {
+      if      (r >= 0.85) interp = '✓ Alta concordancia';
+      else if (r >= 0.60) interp = '△ Concordancia media';
+      else                interp = '✗ Baja concordancia';
+    }
+
+    const biasStr = bias != null ? (bias > 0 ? '+' : '') + fmtV(bias) : '—';
+    const biasCls = bias != null ? (bias > 0.02 ? 'color:#dc2626' : bias < -0.02 ? 'color:#2563eb' : 'color:#059669') : '';
+    const isActive = b.key === P15.band;
+
+    return `<tr style="${isActive ? 'background:rgba(15,118,110,0.07)' : ''}">
+      <td style="font-weight:${isActive ? '700' : '600'};color:${isActive ? '#0f766e' : 'inherit'}">${b.label}</td>
+      <td style="color:var(--text-3);font-size:10px">${b.range}</td>
+      <td class="${rCls}">${fmtR(r)}</td>
+      <td style="color:var(--text-2)">${fmtR(sr)}</td>
+      <td style="color:var(--text-2)">${fmtV(mae)}</td>
+      <td style="color:var(--text-2)">${fmtV(rmse)}</td>
+      <td style="${biasCls}">${biasStr}</td>
+      <td style="font-size:10px;color:${r>=0.85?'#059669':r>=0.60?'#d97706':r!=null?'#dc2626':'var(--text-3)'}">${interp}</td>
+    </tr>`;
+  }).join('');
+}
+
+function _p15DrawHeatmap(canvasId, matData, labelId, vmaxId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !matData) return;
+
+  const channels = matData.channels || [];
+  const values   = matData.values   || [];
+  const vmax     = matData.vmax     || 1.0;
+  const n = channels.length;
+  if (!n) { canvas.width = 0; canvas.height = 0; return; }
+
+  // Update band label and vmax
+  const bd = P9_BANDS.find(b => b.key === P15.band);
+  const lbl = document.getElementById(labelId);
+  if (lbl && bd) lbl.textContent = `${bd.label} · ${bd.range}`;
+  const vmaxEl = document.getElementById(vmaxId);
+  if (vmaxEl) vmaxEl.textContent = vmax.toFixed(3);
+
+  const cellSz = Math.max(12, Math.min(20, Math.floor(440 / n)));
+  const labelW = 34;
+  const W = labelW + n * cellSz;
+  const H = labelW + n * cellSz;
+  canvas.width  = W;
+  canvas.height = H;
+
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg-1').trim() || '#f8f9fa';
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, W, H);
+
+  // Channel labels
+  const fontSize = Math.max(7, cellSz - 6);
+  ctx.font = `${fontSize}px sans-serif`;
+
+  for (let i = 0; i < n; i++) {
+    const shortName = channels[i].replace(/^EEG\s+/i, '').replace(/\s+/g, '').substring(0, 4);
+    ctx.fillStyle = '#777';
+    // Top labels (rotated)
+    ctx.save();
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.translate(labelW + i * cellSz + cellSz / 2, labelW - 2);
+    ctx.rotate(-Math.PI / 3);
+    ctx.fillText(shortName, 0, 0);
+    ctx.restore();
+    // Left labels
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(shortName, labelW - 3, labelW + i * cellSz + cellSz / 2);
+  }
+
+  // Cells
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      const w = (values[i] && values[i][j] != null) ? values[i][j] : 0;
+      const t = (vmax > 0 && i !== j) ? Math.min(1, Math.max(0, w / vmax)) : 0;
+      const [r, g, b] = _p9Colormap(t);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(labelW + j * cellSz, labelW + i * cellSz, cellSz, cellSz);
+    }
+  }
+}
+
+function _p15RenderFigures(d) {
+  const figs = d.figures || {};
+  [
+    ['p15-fig-wpli', figs.wpli || figs.heatmaps],
+    ['p15-fig-bp',   figs.band_power],
+    ['p15-fig-psd',  figs.psd],
+  ].forEach(([id, b64]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (b64) {
+      el.src = 'data:image/png;base64,' + b64;
+      el.style.display = '';
+    } else {
+      el.style.display = 'none';
+    }
+  });
+}
+
+// ── QC Pipeline comparison ─────────────────────────────────
+function _p15RenderQC(d) {
+  const qj = d.qc_julia || {};
+  const qm = d.qc_mne   || {};
+
+  function _qcRows(rows) {
+    return rows.map(([lbl, val, note]) => `
+      <div class="p15-qc-row">
+        <span class="p15-qc-lbl">${lbl}</span>
+        <span class="p15-qc-val">${val}${note ? `<span style="color:var(--text-3);font-weight:400;margin-left:4px">${note}</span>` : ''}</span>
+      </div>`).join('');
+  }
+
+  const jTot  = qj.n_total   != null ? qj.n_total   : '—';
+  const jVal  = qj.n_valid   != null ? qj.n_valid   : '—';
+  const jRej  = qj.n_rejected!= null ? qj.n_rejected: '—';
+  const jRet  = qj.retention_pct != null ? qj.retention_pct.toFixed(1) + ' %' : '—';
+  const jP2p  = qj.p2p_mean_uv   != null ? qj.p2p_mean_uv.toFixed(1) + ' µV' : '—';
+  const jQual = qj.quality_mean  != null ? qj.quality_mean.toFixed(3) : '—';
+  const jAmpThr = qj.min_amplitude_uv != null
+      ? `±${Math.abs(qj.min_amplitude_uv)} µV` : '—';
+  const jRejAmp = qj.n_rejected_amplitude != null ? qj.n_rejected_amplitude : '—';
+
+  const mTot  = qm.n_initial  != null ? qm.n_initial  : '—';
+  const mVal  = qm.n_valid    != null ? qm.n_valid    : '—';
+  const mRej  = qm.n_rejected != null ? qm.n_rejected : '—';
+  const mRate = qm.rejection_rate != null ? (qm.rejection_rate * 100).toFixed(1) + ' %' : '—';
+  const mCh   = qm.n_channels != null ? qm.n_channels : '—';
+  const mFs   = qm.sfreq_hz   != null ? qm.sfreq_hz + ' Hz' : '—';
+
+  const elJ = document.getElementById('p15-qc-julia-body');
+  const elM = document.getElementById('p15-qc-mne-body');
+
+  if (elJ) elJ.innerHTML = _qcRows([
+    ['Epochs totales',       jTot],
+    ['Epochs válidos',       jVal,  `(retención ${jRet})`],
+    ['Epochs rechazados',    jRej,  `(amplitud: ${jRejAmp})`],
+    ['P2P medio',            jP2p],
+    ['Umbral artefacto',     jAmpThr],
+    ['Quality score medio',  jQual],
+    ['Perfil',               qj.profile || 'eeg_julia'],
+  ]);
+  if (elM) elM.innerHTML = _qcRows([
+    ['Epochs totales',    mTot],
+    ['Epochs válidos',    mVal,  `(retención ${mRate === '0.0 %' ? '100 %' : 100 - parseFloat(mRate) + ' %'})`],
+    ['Epochs rechazados', mRej],
+    ['Canales',           mCh],
+    ['Frecuencia muestreo', mFs],
+    ['Método rechazo', 'p2p ±70 µV (peak-to-peak)'],
+    ['Nota', qm.n_rejected == 0 ? 'Sin rechazos (p2p < 140 µV)' : ''],
+  ]);
+}
+
+// ── Filter chain comparison ─────────────────────────────────
+function _p15RenderFilterChain(d) {
+  function _filterChips(chain) {
+    if (!chain || !chain.length) return '<span style="color:var(--text-3);font-size:11px">No disponible</span>';
+    return chain.map(f => {
+      const method = f.method || f.type || '';
+      const name   = f.name || `Paso ${f.step}`;
+      const freq   = f.freq || '';
+      const order  = f.order != null ? `ord.${f.order}` : '';
+      return `<span class="p15-filter-chip">
+        <span style="font-weight:700">${name}</span>
+        <span style="color:var(--text-3)">${freq}</span>
+        ${order ? `<span style="color:var(--text-3)">${order}</span>` : ''}
+        ${method ? `<span class="p15-filter-method">${method}</span>` : ''}
+      </span>`;
+    }).join('');
+  }
+  const elJ = document.getElementById('p15-filter-julia-body');
+  const elM = document.getElementById('p15-filter-mne-body');
+  if (elJ) elJ.innerHTML = _filterChips(d.filter_julia);
+  if (elM) elM.innerHTML = _filterChips(d.filter_mne);
+}
+
+// ── Per-channel statistics table ────────────────────────────
+function _p15RenderChannelStats(d) {
+  const tbody = document.getElementById('p15-ch-stats-tbody');
+  if (!tbody) return;
+
+  const s6   = d.ch_stats_4way || {};  // key kept as ch_stats_4way for compat; now has 6 entries
+  const artJ = d.ch_art_julia  || {};
+
+  const statsJ = d.ch_stats_julia || [];
+  const statsM = d.ch_stats_mne   || [];
+  const mapJ = {}, mapM = {};
+  statsJ.forEach(r => { const ch = r.channel || r.Channel; if (ch) mapJ[String(ch)] = r; });
+  statsM.forEach(r => { const ch = r.channel || r.Channel; if (ch) mapM[String(ch)] = r; });
+
+  const channels = [...new Set([
+    ...Object.keys(s6), ...Object.keys(mapJ), ...Object.keys(mapM)
+  ])].sort();
+  if (!channels.length) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--text-3)">Sin datos de señal — re-ejecuta el pipeline para generar raw_signal.csv</td></tr>';
+    return;
+  }
+
+  const fmt1 = v => (v != null && isFinite(v)) ? Number(v).toFixed(1) : '—';
+  const fmtPct = (pre, post) => {
+    if (pre == null || post == null || !isFinite(pre) || !isFinite(post) || pre === 0) return '<td>—</td>';
+    const pct = ((post - pre) / pre) * 100;
+    const cls = pct < -20 ? 'p15-delta-neg' : pct < -5 ? 'p15-delta-ok' : 'p15-delta-pos';
+    return `<td class="${cls}" style="font-size:9px">${pct.toFixed(0)}%</td>`;
+  };
+  const fmtBad = (val, hasArt) => {
+    const bad = String(val).toLowerCase() === 'true' || val === true;
+    if (bad) return '<span class="p15-bad-yes">MALA</span>';
+    if (hasArt) return '<span style="color:#d97706;font-size:9px;font-weight:700">artefactos</span>';
+    return '<span class="p15-bad-no">ok</span>';
+  };
+
+  tbody.innerHTML = channels.map(ch => {
+    const sx = s6[ch] || {};
+    const jRaw  = sx.julia_raw,    mRaw  = sx.mne_raw;
+    const jPre  = sx.julia_preica, mPre  = sx.mne_preica;
+    const jPost = sx.julia_ica,    mPost = sx.mne_ica;
+    const art   = artJ[ch];
+    const jOld  = mapJ[ch] || {}, mOld = mapM[ch] || {};
+    return `<tr>
+      <td style="font-weight:500">${ch}${art ? ` <span style="font-size:9px;color:#d97706">(${art.n_bad}ep)</span>` : ''}</td>
+      <td style="background:rgba(239,68,68,0.04)">${fmt1(jRaw?.rms)}</td>
+      <td style="background:rgba(239,68,68,0.04)">${fmt1(mRaw?.rms)}</td>
+      <td style="background:rgba(245,158,11,0.04)">${fmt1(jPre?.rms)}</td>
+      <td style="background:rgba(245,158,11,0.04)">${fmt1(mPre?.rms)}</td>
+      <td style="background:rgba(16,185,129,0.05);font-weight:600">${fmt1(jPost?.rms)}</td>
+      <td style="background:rgba(16,185,129,0.05);font-weight:600">${fmt1(mPost?.rms)}</td>
+      ${fmtPct(jPre?.rms, jPost?.rms)}
+      ${fmtPct(mPre?.rms, mPost?.rms)}
+      <td>${fmtBad(jOld.is_bad, !!art)}</td>
+      <td>${fmtBad(mOld.is_bad, false)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Per-channel band power table ────────────────────────────
+function _p15RenderBandPowerCh(d) {
+  const tbody = document.getElementById('p15-bp-ch-tbody');
+  const lbl   = document.getElementById('p15-bp-band-label');
+  if (!tbody) return;
+
+  const bd = P9_BANDS.find(b => b.key === P15.band);
+  if (lbl && bd) lbl.textContent = `${bd.label} · ${bd.range}`;
+
+  const bpJ = d.bp_julia || {};
+  const bpM = d.bp_mne   || {};
+
+  // Collect channels from both
+  const channels = [...new Set([...Object.keys(bpJ), ...Object.keys(bpM)])].sort();
+  if (!channels.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-3)">Sin datos</td></tr>';
+    return;
+  }
+
+  // Extract values for active band (try both key formats)
+  const bkey = P15.band;   // e.g. "ALPHA"
+  const vals = channels.map(ch => {
+    const j = bpJ[ch] ? (bpJ[ch][bkey] ?? null) : null;
+    const m = bpM[ch] ? (bpM[ch][bkey] ?? null) : null;
+    return { ch, j, m };
+  });
+
+  // Max for bar scaling
+  const maxJ = Math.max(...vals.map(v => v.j || 0), 1e-9);
+  const maxM = Math.max(...vals.map(v => v.m || 0), 1e-9);
+  const maxAll = Math.max(maxJ, maxM);
+
+  tbody.innerHTML = vals.map(({ ch, j, m }) => {
+    const jStr = j != null ? j.toFixed(4) : '—';
+    const mStr = m != null ? m.toFixed(4) : '—';
+    const ratio = (j != null && m != null && j > 0) ? (m / j).toFixed(2) + '×' : '—';
+    const ratioCls = (j != null && m != null && j > 0)
+      ? (m/j > 3 ? 'p15-delta-pos' : m/j < 0.5 ? 'p15-delta-neg' : 'p15-delta-ok') : '';
+
+    const barJ = j != null ? Math.round((j / maxAll) * 90) : 0;
+    const barM = m != null ? Math.round((m / maxAll) * 90) : 0;
+    const bars = `<span class="p15-bp-bar" style="width:${barJ}px;background:#3b82f6;opacity:0.7"></span>
+                  <span class="p15-bp-bar" style="width:${barM}px;background:#10b981;opacity:0.7;margin-left:3px"></span>`;
+    return `<tr>
+      <td>${ch}</td>
+      <td>${jStr}</td>
+      <td>${mStr}</td>
+      <td class="${ratioCls}">${ratio}</td>
+      <td>${bars}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Signal viewer ───────────────────────────────────────────
+function _p15InitSignalSelector(d) {
+  const sel = document.getElementById('p15-sig-ch-sel');
+  if (!sel) return;
+  // Use channel list from Julia matrix (or MNE)
+  const chs = (d.matrix_julia?.channels || d.matrix_mne?.channels || []).slice().sort();
+  if (!chs.length) return;
+  sel.innerHTML = chs.map(ch => `<option value="${ch}">${ch}</option>`).join('');
+  // Default to Fz or first channel
+  const defCh = chs.includes('Fz') ? 'Fz' : chs[0];
+  sel.value = defCh;
+  // Init legend labels and warning note for current mode
+  _p15SyncSignalUI();
+  p15LoadSignal();
+}
+
+function _p15SyncSignalUI() {
+  const mode = P15.signalMode;
+  // Legend labels per mode
+  const lblJ = document.getElementById('p15-sig-lbl-julia');
+  const lblM = document.getElementById('p15-sig-lbl-mne');
+  const lblMap = {
+    raw:      { j: 'Julia (cruda)',         m: 'MNE (cruda)'         },
+    pre_ica:  { j: 'Julia (filt. pre-ICA)', m: 'MNE (filt. pre-ICA)' },
+    post_ica: { j: 'Julia (post-ICA)',      m: 'MNE (post-ICA)'      },
+  };
+  const lbl = lblMap[mode] || lblMap.raw;
+  if (lblJ) lblJ.textContent = lbl.j;
+  if (lblM) lblM.textContent = lbl.m;
+  // Warning note — only in raw mode (both truly unfiltered, may differ due to reader)
+  const note = document.getElementById('p15-sig-note');
+  if (note) {
+    if (mode === 'raw') {
+      note.textContent = '⚠ Señal sin filtrar · MNE encima de Julia · si se solapan = lectura BrainVision idéntica ✓';
+      note.style.display = 'inline';
+    } else {
+      note.textContent = '';
+      note.style.display = 'none';
+    }
+  }
+  // Window buttons highlight
+  const wins = { '1':'p15-win-1', '2':'p15-win-2', '5':'p15-win-5', '10':'p15-win-10', 'null':'p15-win-all' };
+  Object.entries(wins).forEach(([k, id]) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    const isActive = (k === 'null') ? (P15.sigWindow === null) : (Number(k) === P15.sigWindow);
+    btn.style.background  = isActive ? '#3b82f6' : '';
+    btn.style.color       = isActive ? '#fff'    : '';
+    btn.style.fontWeight  = isActive ? '600'     : '400';
+    btn.style.borderColor = isActive ? '#3b82f6' : '';
+  });
+  // 3-button toggle: raw=blue, pre_ica=amber, post_ica=green
+  const modeColors = { raw: '#3b82f6', pre_ica: '#f59e0b', post_ica: '#10b981' };
+  ['raw','pre_ica','post_ica'].forEach(m => {
+    const btn = document.getElementById(`p15-sig-btn-${m}`);
+    if (!btn) return;
+    btn.style.background = (m === mode) ? modeColors[m] : '';
+    btn.style.color      = (m === mode) ? '#fff' : '';
+    btn.style.fontWeight = (m === mode) ? '600'  : '400';
+  });
+}
+
+async function p15LoadSignal() {
+  const { subj, sess } = State;
+  if (!subj || !sess) return;
+  const ch   = document.getElementById('p15-sig-ch-sel')?.value || 'Fz';
+  const mode = P15.signalMode || 'raw';
+  const st   = document.getElementById('p15-sig-status');
+  if (st) { st.textContent = 'Cargando…'; st.style.color = 'var(--text-3)'; }
+  try {
+    const r = await fetch(`/api/phase15_signal?subj=${subj}&sess=${sess}&cond=${P15.cond}&channel=${ch}&mode=${mode}`);
+    const d = await r.json();
+    const nJ = d.julia?.n_samples || 0;
+    if (st) { st.textContent = nJ ? `${ch.toUpperCase()} · ${nJ} muestras` : ch.toUpperCase(); st.style.color = 'var(--text-3)'; }
+    P15._lastSignalData = d;
+    requestAnimationFrame(() => _p15DrawSignal(d));
+  } catch(e) {
+    console.error('p15LoadSignal:', e);
+    if (st) { st.textContent = 'Error'; st.style.color = '#dc2626'; }
+  }
+}
+
+function p15SetWindow(secs) {
+  P15.sigWindow = secs;  // null = show all available data
+  _p15SyncSignalUI();
+  // Redraw from cached data (no network round-trip needed)
+  if (P15._lastSignalData) requestAnimationFrame(() => _p15DrawSignal(P15._lastSignalData));
+}
+
+function p15SetSignalMode(mode) {
+  P15.signalMode = mode;
+  _p15SyncSignalUI();
+  p15LoadSignal();
+}
+
+function _p15DrawSignal(d) {
+  const canvas = document.getElementById('p15-sig-canvas');
+  if (!canvas) return;
+
+  const julia = d.julia || {};
+  const mne   = d.mne   || {};
+  const jTimes = julia.times || [];
+  const jSig   = julia.signal || [];
+  const mTimes = mne.times   || [];
+  const mSig   = mne.signal  || [];
+
+  const W = canvas.offsetWidth || 400;
+  const H = 180;
+  canvas.width  = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg-1').trim() || '#f8f9fa';
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  if (!jSig.length && !mSig.length) {
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Sin datos de señal', W/2, H/2);
+    return;
+  }
+
+  // DC-center each signal so baselines align for fair visual comparison
+  const _mean = arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
+  const jMean = _mean(jSig), mMean = _mean(mSig);
+  const jSigC = jSig.map(v => v - jMean);
+  const mSigC = mSig.map(v => v - mMean);
+
+  // Determine time range — respects P15.sigWindow (null = show all available data)
+  const availMax = Math.max(jTimes.length ? jTimes[jTimes.length-1] : 0,
+                            mTimes.length ? mTimes[mTimes.length-1] : 0);
+  const tMax = (P15.sigWindow !== null) ? Math.min(P15.sigWindow, availMax) : availMax;
+
+  // Amplitude range — only from samples within the visible window (auto-range to window)
+  const jVis = jSigC.filter((_, i) => jTimes[i] <= tMax + 0.001);
+  const mVis = mSigC.filter((_, i) => mTimes[i] <= tMax + 0.001);
+  const allVals = [...jVis, ...mVis].filter(v => isFinite(v));
+  if (!allVals.length) return;
+  const vMin = Math.min(...allVals);
+  const vMax = Math.max(...allVals);
+  const vPad = (vMax - vMin) * 0.1 || 1;
+  const vLo = vMin - vPad, vHi = vMax + vPad;
+
+  const pad = { l:4, r:4, t:14, b:18 };
+  const plotW = W - pad.l - pad.r;
+  const plotH = H - pad.t - pad.b;
+
+  // Helper: data → canvas coords
+  const xc = t => pad.l + (t / tMax) * plotW;
+  const yc = v => pad.t + (1 - (v - vLo) / (vHi - vLo)) * plotH;
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(128,128,128,0.15)';
+  ctx.lineWidth   = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t + plotH/2); ctx.lineTo(W - pad.r, pad.t + plotH/2);
+  ctx.stroke();
+
+  // Zero line
+  const y0 = yc(0);
+  if (y0 >= pad.t && y0 <= pad.t + plotH) {
+    ctx.strokeStyle = 'rgba(128,128,128,0.4)';
+    ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(pad.l, y0); ctx.lineTo(W - pad.r, y0); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Draw signals
+  function drawLine(times, sig, color, alpha) {
+    if (!sig.length) return;
+    ctx.strokeStyle = color; ctx.globalAlpha = alpha; ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < times.length; i++) {
+      if (times[i] > tMax + 0.01) break;
+      const x = xc(times[i]), y = yc(sig[i]);
+      if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
+    }
+    ctx.stroke(); ctx.globalAlpha = 1;
+  }
+
+  // Julia behind (60% opacity), MNE on top (90% opacity) so MNE is always visible
+  // In raw mode signals are identical → MNE green overlays Julia blue confirming match
+  drawLine(jTimes, jSigC, '#3b82f6', 0.60);  // Julia blue (behind)
+  drawLine(mTimes, mSigC, '#10b981', 0.90);  // MNE green (front)
+
+  // Axis labels
+  ctx.fillStyle = '#9ca3af'; ctx.font = '9px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('0s', pad.l, H - 2);
+  ctx.textAlign = 'right';
+  ctx.fillText(`${tMax.toFixed(0)}s`, W - pad.r, H - 2);
+  ctx.textAlign = 'center';
+  ctx.fillText(`${vHi.toFixed(1)} µV`, pad.l + 20, pad.t + 10);
+  ctx.fillText(`${vLo.toFixed(1)} µV`, pad.l + 20, pad.t + plotH - 2);
+
+  // Channel label
+  ctx.fillStyle = 'rgba(30,64,175,0.7)'; ctx.font = 'bold 10px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(d.channel || '', pad.l + 4, pad.t + 12);
+
+  // Info
+  const info = document.getElementById('p15-sig-info');
+  if (info) {
+    const jN = jVis.length, mN = mVis.length;
+    const rng = (vMax - vMin).toFixed(1);
+    const winLabel = P15.sigWindow !== null ? `${tMax.toFixed(0)}s` : `${availMax.toFixed(1)}s (todo)`;
+    info.textContent = jN ? `Ventana: ${winLabel}  ·  Julia: ${jN} pts  ·  MNE: ${mN} pts  ·  Rango: ${rng} µV  ·  DC-centradas` : '';
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// FIN PHASE 15
+// ════════════════════════════════════════════════════════════
 
 // Phase 0 is activated in the primary DOMContentLoaded listener above.
 </script>

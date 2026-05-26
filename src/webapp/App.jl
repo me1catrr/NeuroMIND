@@ -2883,6 +2883,409 @@ function launch_webapp(cfg::PipelineConfig;
         ))
     end
 
+    # ─── Phase 15 — shared signal caches (used by validation + signal routes) ──
+    _p15_json_cache = Dict{String, Any}()
+    _p15_csv_cache  = Dict{String, Any}()
+
+    function _p15_load_json!(path::String)
+        haskey(_p15_json_cache, path) && return
+        isfile(path) || return
+        txt  = read(path, String)
+        ch_m = match(r"\"channel_names\"\s*:\s*\[([^\]]+)\]", txt)
+        chs  = ch_m !== nothing ?
+            [strip(s, ['"',' ']) for s in split(ch_m.captures[1], ",")] : String[]
+        tm_m = match(r"\"times\"\s*:\s*\[([^\]]+)\]", txt)
+        times = tm_m !== nothing ?
+            [parse(Float64, s) for s in split(tm_m.captures[1], ",")] : Float64[]
+        entry = Dict{String,Any}("channel_names"=>chs, "times"=>times)
+        for arr_key in ["raw_uv", "pre_ica_uv", "post_ica_uv", "filtered_uv"]
+            kr = findfirst("\"$(arr_key)\"", txt)
+            kr === nothing && continue
+            outer = findnext('[', txt, last(kr))
+            outer === nothing && continue
+            pos = outer + 1
+            ch_map = Dict{String, Vector{Float64}}()
+            for ch in chs
+                is = findnext('[', txt, pos)
+                is === nothing && break
+                depth = 0; ie = nothing
+                for j in is:length(txt)
+                    c = txt[j]
+                    if c == '['; depth += 1
+                    elseif c == ']'; depth -= 1; depth == 0 && (ie = j; break)
+                    end
+                end
+                ie === nothing && break
+                ch_map[ch] = [parse(Float64, strip(s))
+                              for s in split(txt[is+1:ie-1], ",")]
+                pos = ie + 1
+            end
+            entry[arr_key] = ch_map
+        end
+        _p15_json_cache[path] = entry
+    end
+
+    function _p15_load_csv!(path::String)
+        haskey(_p15_csv_cache, path) && return
+        isfile(path) || return
+        try
+            df    = CSV.read(path, DataFrame)
+            times = Float64.(df[!, "t_s"])
+            chs   = Dict{String, Vector{Float64}}()
+            for col in names(df)
+                col_str = string(col)
+                col_str == "t_s" && continue
+                chs[col_str] = Float64.(df[!, col])
+            end
+            _p15_csv_cache[path] = Dict{String,Any}("times"=>times, "channels"=>chs)
+        catch e; @warn "p15 csv cache: $e" end
+    end
+
+    function _p15_sig_stats(v::Vector{Float64})::Dict{String,Float64}
+        n = length(v); n == 0 && return Dict("rms"=>NaN,"std"=>NaN,"range"=>NaN)
+        rms = sqrt(sum(v .^ 2) / n)
+        μ   = sum(v) / n
+        σ   = sqrt(max(0.0, sum((v .- μ) .^ 2) / (n - 1)))
+        return Dict("rms"=>round(rms,digits=2), "std"=>round(σ,digits=2),
+                    "range"=>round(maximum(v)-minimum(v),digits=2))
+    end
+
+    # ─── Phase 15 — MNE-Python cross-pipeline validation ─────
+    route("/api/phase15_validation") do
+        subj_raw   = string(get(getpayload(), :subj, ""))
+        sess_raw   = string(get(getpayload(), :sess, ""))
+        cond_raw   = string(get(getpayload(), :cond, "EC"))
+        band       = uppercase(string(get(getpayload(), :band, "ALPHA")))
+        cond_short = uppercase(cond_raw) in ["EC","EO"] ? uppercase(cond_raw) : "EC"
+        task       = cond_short == "EC" ? "eyesclosed" : "eyesopen"
+        mb_subj    = isempty(subj_raw) ? "M05" : subj_raw
+        mb_sess    = isempty(sess_raw) ? "T2"  : sess_raw
+
+        mb_root  = joinpath(project_root, "mne_brain")
+        mb_res   = joinpath(mb_root, "results", "subjects",
+                            "sub-$(mb_subj)", "ses-$(mb_sess)", task)
+        val_dir  = joinpath(mb_root, "validation", "reports")
+        tag      = "$(mb_subj)_$(mb_sess)"
+
+        empty_resp = Dict{String,Any}(
+            "ok"=>true, "run"=>false, "subj"=>mb_subj, "sess"=>mb_sess,
+            "cond"=>cond_short, "band"=>band,
+            "summary"=>Dict{String,Any}(), "matrix_julia"=>Dict{String,Any}(),
+            "matrix_mne"=>Dict{String,Any}(), "figures"=>Dict{String,Any}())
+
+        isdir(mb_res) || return json(empty_resp)
+
+        # ── Parse comparison summary JSON via regex (no JSON3) ──────────
+        summ     = Dict{String,Any}()
+        summ_path = joinpath(val_dir, "comparison_$(tag)_$(cond_short)_summary.json")
+        if isfile(summ_path)
+            try
+                txt = read(summ_path, String)
+                for bk in ["DELTA","THETA","ALPHA","BETA_LOW","BETA_MID","BETA_HIGH","GAMMA"]
+                    for mk in ["pearson_r","spearman_r","mae","rmse","bias","bias_pct","n"]
+                        pat = Regex("\"$(bk)\"\\s*:\\s*\\{[^}]*\"$(mk)\"\\s*:\\s*([0-9.e+\\-]+)")
+                        m   = match(pat, txt)
+                        if m !== nothing
+                            v = tryparse(Float64, m.captures[1])
+                            v !== nothing && (summ["$(bk)_$(mk)"] = v)
+                        end
+                    end
+                end
+                for mk in ["psd_pearson_r","psd_mae_uv2","psd_bias_db_mean"]
+                    m = match(Regex("\"$(mk)\"\\s*:\\s*([0-9.e+\\-]+)"), txt)
+                    m !== nothing && (summ[mk] = tryparse(Float64, m.captures[1]))
+                end
+                for mk in ["nm_pipeline","mb_pipeline","note"]
+                    m = match(Regex("\"$(mk)\"\\s*:\\s*\"([^\"]+)\""), txt)
+                    m !== nothing && (summ[mk] = m.captures[1])
+                end
+            catch e; @warn "phase15 summary parse: $e"; end
+        end
+
+        # ── Read wPLI CSV → channels + 2D values matrix ─────────────────
+        function _read_wpli(path::String)
+            isfile(path) || return Dict("channels"=>String[],"values"=>Vector{Vector{Float64}}(),"vmax"=>0.0)
+            try
+                df   = CSV.read(path, DataFrame)
+                chs  = string.(df[!, 1])
+                n    = length(chs)
+                vals = [[Float64(df[i, j+1]) for j in 1:n] for i in 1:n]
+                vmax = isempty(vals) ? 0.0 : maximum(maximum.(vals))
+                Dict{String,Any}("channels"=>chs,"values"=>vals,"vmax"=>vmax)
+            catch e
+                @warn "phase15 wpli read $path: $e"
+                Dict("channels"=>String[],"values"=>Vector{Vector{Float64}}(),"vmax"=>0.0)
+            end
+        end
+
+        julia_dir = joinpath(res_root, "subjects", "sub-$(mb_subj)", "ses-$(mb_sess)", task)
+        mat_julia = _read_wpli(joinpath(julia_dir,  "wpli_$(band).csv"))
+        mat_mne   = _read_wpli(joinpath(mb_res, "tables", "wpli_$(band)_$(cond_short).csv"))
+
+        # ── Helper: CSV → array of row dicts ─────────────────────────────
+        function _csv_rows(path::String)
+            isfile(path) || return Vector{Dict{String,Any}}()
+            try
+                df = CSV.read(path, DataFrame)
+                [Dict{String,Any}(string(c) => (ismissing(df[i,c]) ? nothing : df[i,c])
+                                  for c in names(df))
+                 for i in 1:nrow(df)]
+            catch e; @warn "csv_rows $path: $e"; Vector{Dict{String,Any}}() end
+        end
+
+        # ── Helper: parse flat JSON keys (numerics + strings) ───────────
+        function _json_keys(path::String, keys::Vector{String})
+            isfile(path) || return Dict{String,Any}()
+            try
+                txt = read(path, String)
+                out = Dict{String,Any}()
+                for k in keys
+                    m = match(Regex("\"$(k)\"\\s*:\\s*([0-9.e+\\-]+|true|false|\"[^\"]*\")"), txt)
+                    m === nothing && continue
+                    v = m.captures[1]
+                    if v == "true";  out[k] = true
+                    elseif v == "false"; out[k] = false
+                    elseif startswith(v, "\""); out[k] = strip(v, '"')
+                    else
+                        n = tryparse(Float64, v)
+                        n !== nothing && (out[k] = n)
+                    end
+                end
+                out
+            catch e; @warn "json_keys $path: $e"; Dict{String,Any}() end
+        end
+
+        # ── Helper: parse JSON array of objects (filter chain) ───────────
+        function _json_array(path::String)
+            isfile(path) || return Vector{Dict{String,Any}}()
+            try
+                txt  = read(path, String)
+                objs = Vector{Dict{String,Any}}()
+                for blk in eachmatch(r"\{([^}]+)\}", txt)
+                    d = Dict{String,Any}()
+                    for m2 in eachmatch(r"\"(\w+)\"\s*:\s*([0-9.e+\-]+|true|false|\"[^\"]*\")", blk.captures[1])
+                        k2, v2 = m2.captures
+                        if v2 == "true";  d[k2] = true
+                        elseif v2 == "false"; d[k2] = false
+                        elseif startswith(v2, "\""); d[k2] = strip(v2, '"')
+                        else
+                            n2 = tryparse(Float64, v2)
+                            n2 !== nothing && (d[k2] = n2)
+                        end
+                    end
+                    isempty(d) || push!(objs, d)
+                end
+                objs
+            catch e; @warn "json_array $path: $e"; Vector{Dict{String,Any}}() end
+        end
+
+        # ── QC summaries ─────────────────────────────────────────────────
+        qc_julia = _json_keys(
+            joinpath(julia_dir, "artifact_rejection_summary.json"),
+            ["n_total","n_valid","n_rejected","retention_pct","profile",
+             "p2p_mean_uv","p2p_std_uv","p2p_max_uv","quality_mean",
+             "quality_median","n_channels_used","n_rejected_amplitude",
+             "n_rejected_gradient","min_amplitude_uv","max_amplitude_uv"])
+        qc_mne = _json_keys(
+            joinpath(mb_res, "tables", "epoch_summary_$(cond_short).json"),
+            ["n_initial","n_valid","n_rejected","rejection_rate",
+             "n_channels","epoch_duration_s","sfreq_hz"])
+
+        # ── Filter chains ────────────────────────────────────────────────
+        filter_mne = _json_array(joinpath(mb_res, "tables",
+                                          "filter_chain_$(cond_short).json"))
+        # NeuroMIND filter chain is fixed (from pipeline.toml)
+        filter_julia = [
+            Dict{String,Any}("step"=>1,"name"=>"Notch",
+                "freq"=>"49.5–50.5 Hz","method"=>"filt","order"=>4,"applied"=>true),
+            Dict{String,Any}("step"=>2,"name"=>"Bandreject",
+                "freq"=>"99.5–100.5 Hz","method"=>"filt","order"=>4,"applied"=>true),
+            Dict{String,Any}("step"=>3,"name"=>"High-pass",
+                "freq"=>"0.5 Hz","method"=>"filtfilt","order"=>4,"applied"=>true),
+            Dict{String,Any}("step"=>4,"name"=>"Low-pass",
+                "freq"=>"150.0 Hz","method"=>"filtfilt","order"=>4,"applied"=>true),
+        ]
+
+        # ── Per-channel stats ────────────────────────────────────────────
+        ch_stats_julia = _csv_rows(joinpath(julia_dir, "channel_statistics.csv"))
+        ch_stats_mne   = _csv_rows(joinpath(mb_res, "tables",
+                                            "qc_channels_$(cond_short).csv"))
+
+        # channel_artifact_summary → bad epochs per channel (Julia only)
+        ch_art_rows = _csv_rows(joinpath(julia_dir, "channel_artifact_summary.csv"))
+        ch_art_julia = Dict{String,Any}()
+        for r in ch_art_rows
+            ch = string(get(r, "channel", ""))
+            isempty(ch) || (ch_art_julia[ch] = r)
+        end
+
+        # ── Per-channel band power ────────────────────────────────────────
+        function _read_band_power(path::String)
+            isfile(path) || return Dict{String,Any}()
+            try
+                df  = CSV.read(path, DataFrame)
+                chs = string.(df[!, 1])
+                cols = [string(c) for c in names(df)[2:end]]
+                Dict{String,Any}(chs[i] =>
+                    Dict{String,Any}(cols[j] => Float64(df[i, j+1])
+                                     for j in eachindex(cols)
+                                     if !ismissing(df[i, j+1]))
+                    for i in eachindex(chs))
+            catch e; @warn "band_power $path: $e"; Dict{String,Any}() end
+        end
+        bp_julia = _read_band_power(joinpath(julia_dir, "band_power_summary.csv"))
+        bp_mne   = _read_band_power(joinpath(mb_res, "tables",
+                                             "band_power_summary_$(cond_short).csv"))
+
+        # ── 6-way channel statistics (raw + pre-ICA + post-ICA, Julia + MNE) ───
+        sig_preview_path  = joinpath(mb_res, "tables", "signal_preview_$(cond_short).json")
+        julia_raw_path    = joinpath(julia_dir, "raw_signal.csv")
+        julia_preica_path = joinpath(julia_dir, "ica_signal_before.csv")
+        julia_ica_path    = joinpath(julia_dir, "ica_signal_after.csv")
+        _p15_load_json!(sig_preview_path)
+        _p15_load_csv!(julia_raw_path)
+        _p15_load_csv!(julia_preica_path)
+        _p15_load_csv!(julia_ica_path)
+
+        ch_stats_6way = Dict{String, Any}()
+        # Julia 3 stages from CSV files
+        for (lbl, cpath) in [("julia_raw", julia_raw_path),
+                              ("julia_preica", julia_preica_path),
+                              ("julia_ica", julia_ica_path)]
+            haskey(_p15_csv_cache, cpath) || continue
+            for (ch, v) in _p15_csv_cache[cpath]["channels"]
+                haskey(ch_stats_6way, ch) || (ch_stats_6way[ch] = Dict{String,Any}())
+                ch_stats_6way[ch][lbl] = _p15_sig_stats(v)
+            end
+        end
+        # MNE 3 stages from preview JSON
+        if haskey(_p15_json_cache, sig_preview_path)
+            jc = _p15_json_cache[sig_preview_path]
+            for (arr_key, lbl) in [("raw_uv","mne_raw"),
+                                    ("pre_ica_uv","mne_preica"),
+                                    ("post_ica_uv","mne_ica")]
+                arr = get(jc, arr_key, Dict{String,Vector{Float64}}())
+                # backward-compat: old JSONs used filtered_uv for pre-ICA
+                if isempty(arr) && lbl in ("mne_preica","mne_ica")
+                    arr = get(jc, "filtered_uv", Dict{String,Vector{Float64}}())
+                end
+                for (ch, v) in arr
+                    haskey(ch_stats_6way, ch) || (ch_stats_6way[ch] = Dict{String,Any}())
+                    ch_stats_6way[ch][lbl] = _p15_sig_stats(v)
+                end
+            end
+        end
+        # keep old key for backward compat with any cached dashboard state
+        ch_stats_4way = ch_stats_6way
+
+        # ── Base64-encode PNG figures ────────────────────────────────────
+        figs = Dict{String,String}()
+        for (k, fname) in [
+            ("wpli",       "comparison_$(tag)_$(cond_short)_wpli.png"),
+            ("heatmaps",   "comparison_$(tag)_$(cond_short)_heatmaps.png"),
+            ("psd",        "comparison_$(tag)_$(cond_short)_psd.png"),
+            ("band_power", "comparison_$(tag)_$(cond_short)_band_power.png"),
+        ]
+            p = joinpath(val_dir, fname)
+            isfile(p) && (figs[k] = base64encode(read(p)))
+        end
+
+        return json(Dict{String,Any}(
+            "ok"             => true,
+            "run"            => !isempty(mat_mne["channels"]),
+            "subj"           => mb_subj,
+            "sess"           => mb_sess,
+            "cond"           => cond_short,
+            "band"           => band,
+            "summary"        => summ,
+            "matrix_julia"   => mat_julia,
+            "matrix_mne"     => mat_mne,
+            "figures"        => figs,
+            "qc_julia"       => qc_julia,
+            "qc_mne"         => qc_mne,
+            "filter_julia"   => filter_julia,
+            "filter_mne"     => filter_mne,
+            "ch_stats_julia"  => ch_stats_julia,
+            "ch_stats_mne"    => ch_stats_mne,
+            "ch_art_julia"    => ch_art_julia,
+            "ch_stats_4way"   => ch_stats_4way,
+            "bp_julia"        => bp_julia,
+            "bp_mne"          => bp_mne,
+        ))
+    end
+
+    # ─── Phase 15: signal comparison endpoint ─────────────────
+    route("/api/phase15_signal") do
+        subj_raw = string(get(getpayload(), :subj, "M05"))
+        sess_raw = string(get(getpayload(), :sess, "T2"))
+        cond_raw = string(get(getpayload(), :cond, "EC"))
+        channel  = string(get(getpayload(), :channel, "Fz"))
+        mode_raw = lowercase(string(get(getpayload(), :mode, "raw")))
+        # 3 valid modes: raw | pre_ica | post_ica
+        mode = mode_raw in ["pre_ica","post_ica"] ? mode_raw : "raw"
+        cond_s   = uppercase(cond_raw) in ["EC","EO"] ? uppercase(cond_raw) : "EC"
+        task     = cond_s == "EC" ? "eyesclosed" : "eyesopen"
+        mb_root  = joinpath(project_root, "mne_brain")
+        julia_dir = joinpath(res_root, "subjects", "sub-$(subj_raw)", "ses-$(sess_raw)", task)
+        mb_res   = joinpath(mb_root, "results", "subjects",
+                            "sub-$(subj_raw)", "ses-$(sess_raw)", task)
+
+        # ── NeuroMIND (Julia) ─────────────────────────────────
+        julia_sig = Dict{String,Any}()
+        sig_file, julia_lbl = if mode == "raw"
+            "raw_signal.csv", "NeuroMIND (Julia) — cruda (sin filtrar)"
+        elseif mode == "pre_ica"
+            "ica_signal_before.csv", "NeuroMIND (Julia) — filtrada pre-ICA"
+        else
+            "ica_signal_after.csv", "NeuroMIND (Julia) — post-ICA"
+        end
+        sig_path  = joinpath(julia_dir, sig_file)
+        _p15_load_csv!(sig_path)
+        if haskey(_p15_csv_cache, sig_path)
+            c = _p15_csv_cache[sig_path]
+            if haskey(c["channels"], channel)
+                julia_sig = Dict{String,Any}(
+                    "times"=>c["times"], "signal"=>c["channels"][channel],
+                    "fs"=>500.0, "n_samples"=>length(c["channels"][channel]),
+                    "label"=>julia_lbl)
+            end
+        end
+
+        # ── mne_brain (MNE-Python) ────────────────────────────
+        mne_sig   = Dict{String,Any}()
+        prev_path = joinpath(mb_res, "tables", "signal_preview_$(cond_s).json")
+        mne_arr, mne_lbl = if mode == "raw"
+            "raw_uv", "mne_brain (MNE) — cruda (sin filtrar)"
+        elseif mode == "pre_ica"
+            # prefer new key, fall back to old filtered_uv
+            "pre_ica_uv", "mne_brain (MNE) — filtrada pre-ICA"
+        else
+            # prefer new key, fall back to old filtered_uv
+            "post_ica_uv", "mne_brain (MNE) — post-ICA"
+        end
+        _p15_load_json!(prev_path)
+        if haskey(_p15_json_cache, prev_path)
+            c = _p15_json_cache[prev_path]
+            arr = get(c, mne_arr, Dict{String,Vector{Float64}}())
+            # fallback for old JSONs that used filtered_uv for both pre- and post-ICA
+            if isempty(arr) && mode == "pre_ica"
+                arr = get(c, "filtered_uv", Dict{String,Vector{Float64}}())
+            elseif isempty(arr) && mode == "post_ica"
+                arr = get(c, "filtered_uv", Dict{String,Vector{Float64}}())
+            end
+            if haskey(arr, channel)
+                mne_sig = Dict{String,Any}(
+                    "times"=>c["times"], "signal"=>arr[channel],
+                    "fs"=>500.0, "n_samples"=>length(arr[channel]),
+                    "label"=>mne_lbl)
+            end
+        end
+
+        return json(Dict{String,Any}(
+            "ok"=>true, "channel"=>channel, "cond"=>cond_s, "mode"=>mode,
+            "julia"=>julia_sig, "mne"=>mne_sig))
+    end
+
     # ─── Iniciar servidor ─────────────────────────────────────
     @info "NeuroMIND Dashboard → http://localhost:$(port)"
     open_browser && _try_open_browser("http://localhost:$(port)")
