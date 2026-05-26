@@ -1,0 +1,68 @@
+# =========================
+# mne_brain
+# Git ignore (Python + EEG privacy)
+# =========================
+# Complementa el .gitignore raíz de NeuroMIND (que solo ignora /data y /results
+# desde la raíz). Aquí se ignoran los mismos paths relativos a esta carpeta.
+
+# --- Sensitive EEG data and generated derivatives ---
+# data/    : BIDS metadata + electrodes (regenerar con scripts/build_bids_full.py)
+# results/ : outputs por sujeto + logs  (regenerar con scripts/run_full_pipeline.py)
+data/
+results/
+reports/
+exports/
+
+# --- Python build / install artifacts ---
+*.egg-info/
+build/
+dist/
+*.whl
+*.tar.gz
+
+# --- Python bytecode / caches ---
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+
+# --- Notebooks ---
+.ipynb_checkpoints/
+*.ipynb-checkpoint
+
+# --- Logs and temporary files ---
+*.log
+*.tmp
+*.temp
+*.swp
+*~
+.cache/
+tmp/
+temp/
+
+# --- OS files ---
+.DS_Store
+._*
+Thumbs.db
+
+# --- Local editor/agent state (los ficheros de reglas sí se trackean) ---
+.claude/
+.cursor/
+.vscode/
+.codex/
+
+# --- Secrets and credentials ---
+.env
+.env.*
+**/*secret*
+**/*secrets*
+**/*token*
+**/*apikey*
+**/*api_key*
