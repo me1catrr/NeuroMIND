@@ -1,0 +1,444 @@
+[
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/01_fundamentos_aplicaciones/01_que_es_y_como_funciona_el_EEG.png",
+    "origen": "acb2a963-be58-57c1-afce-32acc8080836.png",
+    "crop_box_original_px": [
+      5,
+      78,
+      813,
+      420
+    ],
+    "original_crop_px": "808x342",
+    "final_px": "4040x1710",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/01_fundamentos_aplicaciones/02_configuracion_y_bandas_de_frecuencia.png",
+    "origen": "acb2a963-be58-57c1-afce-32acc8080836.png",
+    "crop_box_original_px": [
+      813,
+      78,
+      1533,
+      420
+    ],
+    "original_crop_px": "720x342",
+    "final_px": "3600x1710",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/01_fundamentos_aplicaciones/03_montajes_y_procesamiento_basico.png",
+    "origen": "acb2a963-be58-57c1-afce-32acc8080836.png",
+    "crop_box_original_px": [
+      5,
+      428,
+      878,
+      697
+    ],
+    "original_crop_px": "873x269",
+    "final_px": "4365x1345",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/01_fundamentos_aplicaciones/04_artefactos_y_aplicaciones.png",
+    "origen": "acb2a963-be58-57c1-afce-32acc8080836.png",
+    "crop_box_original_px": [
+      878,
+      428,
+      1533,
+      697
+    ],
+    "original_crop_px": "655x269",
+    "final_px": "3275x1345",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/01_fundamentos_aplicaciones/05_ejemplos_de_senales_EEG.png",
+    "origen": "acb2a963-be58-57c1-afce-32acc8080836.png",
+    "crop_box_original_px": [
+      5,
+      716,
+      632,
+      937
+    ],
+    "original_crop_px": "627x221",
+    "final_px": "3135x1105",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/01_fundamentos_aplicaciones/06_fortalezas_limitaciones_y_mensajes_clave.png",
+    "origen": "acb2a963-be58-57c1-afce-32acc8080836.png",
+    "crop_box_original_px": [
+      632,
+      716,
+      1533,
+      937
+    ],
+    "original_crop_px": "901x221",
+    "final_px": "4505x1105",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/02_calidad_raw_EEG/01_por_que_evaluar_y_tipos_de_evaluacion.png",
+    "origen": "b5763408-e88d-5a7c-9d72-22472325b433.png",
+    "crop_box_original_px": [
+      5,
+      79,
+      1003,
+      338
+    ],
+    "original_crop_px": "998x259",
+    "final_px": "4990x1295",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/02_calidad_raw_EEG/02_buenas_practicas_en_calidad_raw.png",
+    "origen": "b5763408-e88d-5a7c-9d72-22472325b433.png",
+    "crop_box_original_px": [
+      1003,
+      79,
+      1532,
+      338
+    ],
+    "original_crop_px": "529x259",
+    "final_px": "2645x1295",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/02_calidad_raw_EEG/03_metricas_comunes_bloque_1.png",
+    "origen": "b5763408-e88d-5a7c-9d72-22472325b433.png",
+    "crop_box_original_px": [
+      5,
+      342,
+      615,
+      599
+    ],
+    "original_crop_px": "610x257",
+    "final_px": "3050x1285",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/02_calidad_raw_EEG/04_metricas_comunes_bloque_2.png",
+    "origen": "b5763408-e88d-5a7c-9d72-22472325b433.png",
+    "crop_box_original_px": [
+      615,
+      342,
+      1225,
+      599
+    ],
+    "original_crop_px": "610x257",
+    "final_px": "3050x1285",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/02_calidad_raw_EEG/05_metricas_comunes_bloque_3.png",
+    "origen": "b5763408-e88d-5a7c-9d72-22472325b433.png",
+    "crop_box_original_px": [
+      1225,
+      342,
+      1532,
+      599
+    ],
+    "original_crop_px": "307x257",
+    "final_px": "1535x1285",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/02_calidad_raw_EEG/06_correlacion_estacionariedad_y_marcadores.png",
+    "origen": "b5763408-e88d-5a7c-9d72-22472325b433.png",
+    "crop_box_original_px": [
+      5,
+      603,
+      1003,
+      778
+    ],
+    "original_crop_px": "998x175",
+    "final_px": "4990x875",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/02_calidad_raw_EEG/07_ejemplo_de_evaluacion_por_canal.png",
+    "origen": "b5763408-e88d-5a7c-9d72-22472325b433.png",
+    "crop_box_original_px": [
+      1003,
+      603,
+      1532,
+      778
+    ],
+    "original_crop_px": "529x175",
+    "final_px": "2645x875",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/02_calidad_raw_EEG/08_umbrales_y_flujo_de_control_de_calidad.png",
+    "origen": "b5763408-e88d-5a7c-9d72-22472325b433.png",
+    "crop_box_original_px": [
+      5,
+      782,
+      807,
+      935
+    ],
+    "original_crop_px": "802x153",
+    "final_px": "4010x765",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/03_montaje_10_20/01_sistema_10_20_y_distribucion_de_electrodos.png",
+    "origen": "e2c9d247-2221-5bfe-ba34-6d4a81399850.png",
+    "crop_box_original_px": [
+      6,
+      96,
+      492,
+      859
+    ],
+    "original_crop_px": "486x763",
+    "final_px": "2430x3815",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/03_montaje_10_20/02_ground_tierra_y_reference.png",
+    "origen": "e2c9d247-2221-5bfe-ba34-6d4a81399850.png",
+    "crop_box_original_px": [
+      492,
+      96,
+      872,
+      591
+    ],
+    "original_crop_px": "380x495",
+    "final_px": "1900x2475",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/03_montaje_10_20/03_consideraciones_de_registro_EEG.png",
+    "origen": "e2c9d247-2221-5bfe-ba34-6d4a81399850.png",
+    "crop_box_original_px": [
+      872,
+      96,
+      1177,
+      591
+    ],
+    "original_crop_px": "305x495",
+    "final_px": "1525x2475",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/03_montaje_10_20/04_resting_state_OA_vs_OC.png",
+    "origen": "e2c9d247-2221-5bfe-ba34-6d4a81399850.png",
+    "crop_box_original_px": [
+      1177,
+      96,
+      1534,
+      591
+    ],
+    "original_crop_px": "357x495",
+    "final_px": "1785x2475",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/03_montaje_10_20/05_ejemplos_de_senales_resting_state.png",
+    "origen": "e2c9d247-2221-5bfe-ba34-6d4a81399850.png",
+    "crop_box_original_px": [
+      492,
+      593,
+      874,
+      859
+    ],
+    "original_crop_px": "382x266",
+    "final_px": "1910x1330",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/03_montaje_10_20/06_artefactos_e_identificacion_y_recomendaciones.png",
+    "origen": "e2c9d247-2221-5bfe-ba34-6d4a81399850.png",
+    "crop_box_original_px": [
+      947,
+      680,
+      1534,
+      860
+    ],
+    "original_crop_px": "587x180",
+    "final_px": "2935x900",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/04_sensor_vs_source/01_que_son_e_idea_principal.png",
+    "origen": "95b4b271-c8ef-5582-b0e7-09381f6081e4.png",
+    "crop_box_original_px": [
+      5,
+      82,
+      649,
+      501
+    ],
+    "original_crop_px": "644x419",
+    "final_px": "3220x2095",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/04_sensor_vs_source/02_cadena_de_procesamiento.png",
+    "origen": "95b4b271-c8ef-5582-b0e7-09381f6081e4.png",
+    "crop_box_original_px": [
+      649,
+      82,
+      1138,
+      501
+    ],
+    "original_crop_px": "489x419",
+    "final_px": "2445x2095",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/04_sensor_vs_source/03_comparacion_general.png",
+    "origen": "95b4b271-c8ef-5582-b0e7-09381f6081e4.png",
+    "crop_box_original_px": [
+      1138,
+      82,
+      1532,
+      501
+    ],
+    "original_crop_px": "394x419",
+    "final_px": "1970x2095",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/04_sensor_vs_source/04_ejemplo_visual_y_conectividad.png",
+    "origen": "95b4b271-c8ef-5582-b0e7-09381f6081e4.png",
+    "crop_box_original_px": [
+      5,
+      501,
+      907,
+      770
+    ],
+    "original_crop_px": "902x269",
+    "final_px": "4510x1345",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/04_sensor_vs_source/05_ventajas_limitaciones_y_cuando_usar_cada_enfoque.png",
+    "origen": "95b4b271-c8ef-5582-b0e7-09381f6081e4.png",
+    "crop_box_original_px": [
+      907,
+      501,
+      1532,
+      770
+    ],
+    "original_crop_px": "625x269",
+    "final_px": "3125x1345",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/04_sensor_vs_source/06_flujo_de_trabajo_mensaje_y_resumen.png",
+    "origen": "95b4b271-c8ef-5582-b0e7-09381f6081e4.png",
+    "crop_box_original_px": [
+      5,
+      770,
+      1532,
+      936
+    ],
+    "original_crop_px": "1527x166",
+    "final_px": "7635x830",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/05_teoria_senal_y_matematicas/01_que_es_una_senal_y_propiedades_matematicas.png",
+    "origen": "127ac16f-9859-5f4b-aa2d-2450ff5fabcb.png",
+    "crop_box_original_px": [
+      5,
+      84,
+      662,
+      414
+    ],
+    "original_crop_px": "657x330",
+    "final_px": "3285x1650",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/05_teoria_senal_y_matematicas/02_descripcion_estadistica_y_dominio_de_la_frecuencia.png",
+    "origen": "127ac16f-9859-5f4b-aa2d-2450ff5fabcb.png",
+    "crop_box_original_px": [
+      662,
+      84,
+      1247,
+      414
+    ],
+    "original_crop_px": "585x330",
+    "final_px": "2925x1650",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/05_teoria_senal_y_matematicas/03_bandas_de_frecuencia_tipicas.png",
+    "origen": "127ac16f-9859-5f4b-aa2d-2450ff5fabcb.png",
+    "crop_box_original_px": [
+      1247,
+      84,
+      1531,
+      414
+    ],
+    "original_crop_px": "284x330",
+    "final_px": "1420x1650",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/05_teoria_senal_y_matematicas/04_modelos_matematicos_comunes_y_energia.png",
+    "origen": "127ac16f-9859-5f4b-aa2d-2450ff5fabcb.png",
+    "crop_box_original_px": [
+      5,
+      414,
+      780,
+      726
+    ],
+    "original_crop_px": "775x312",
+    "final_px": "3875x1560",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/05_teoria_senal_y_matematicas/05_representaciones_tiempo_frecuencia.png",
+    "origen": "127ac16f-9859-5f4b-aa2d-2450ff5fabcb.png",
+    "crop_box_original_px": [
+      780,
+      414,
+      1150,
+      726
+    ],
+    "original_crop_px": "370x312",
+    "final_px": "1850x1560",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/05_teoria_senal_y_matematicas/06_coherencia_sincronizacion_y_ruido.png",
+    "origen": "127ac16f-9859-5f4b-aa2d-2450ff5fabcb.png",
+    "crop_box_original_px": [
+      1150,
+      414,
+      1531,
+      726
+    ],
+    "original_crop_px": "381x312",
+    "final_px": "1905x1560",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/05_teoria_senal_y_matematicas/07_parametros_de_adquisicion_y_conceptos_clave.png",
+    "origen": "127ac16f-9859-5f4b-aa2d-2450ff5fabcb.png",
+    "crop_box_original_px": [
+      5,
+      726,
+      953,
+      949
+    ],
+    "original_crop_px": "948x223",
+    "final_px": "4740x1115",
+    "dpi": 600
+  },
+  {
+    "archivo": "figures/NeuroMIND/02_EEG_extracts_curated_highres/05_teoria_senal_y_matematicas/08_ideas_para_llevar.png",
+    "origen": "127ac16f-9859-5f4b-aa2d-2450ff5fabcb.png",
+    "crop_box_original_px": [
+      953,
+      726,
+      1531,
+      949
+    ],
+    "original_crop_px": "578x223",
+    "final_px": "2890x1115",
+    "dpi": 600
+  }
+]

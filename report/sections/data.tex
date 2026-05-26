@@ -1,0 +1,124 @@
+\section{Project Context and Data}
+
+The computational backend of this report is the \Julia{} repository used for the full EEG workflow, from BIDS-compatible ingestion to connectivity inference. The project is structured to separate configuration, source modules, orchestration scripts, input/intermediate data, and generated outputs (\texttt{config/}, \texttt{src/}, \texttt{script/}, \texttt{data/}, \texttt{results/}). This separation is important for internal work because it allows deterministic reruns, controlled parameter changes, and easier debugging when a specific stage behaves unexpectedly.
+
+At the data level, the analysis uses resting-state EEG from healthy controls and patients with Multiple Sclerosis (MS), acquired in EO and EC conditions \citep{Mestre2021}. In operational terms, \textbf{EC} (eyes closed) means relaxed wakefulness with eyes closed, while \textbf{EO} (eyes open) means wakeful rest with visual fixation and eyes open. Signals are represented as channel-by-sample matrices and propagated through each phase with explicit metadata, so that subject identity, condition, and run provenance are preserved in every intermediate artifact, in line with standard EEG processing recommendations \citep{Yamada2018,Sanei2022,Cohen2014}.
+\sidenote{%
+\scriptsize
+\textbf{Canonical acquisition parameters}\\
+$C = 32$ channels\\
+$F_s = 500\,\text{Hz}$\\
+$T = 100\,\text{s}$ per condition
+}
+For each subject $s$ and condition $k \in \{\mathrm{EO},\mathrm{EC}\}$, the recording is represented as
+\[
+X_{s,k} \in \mathbb{R}^{C \times N},
+\]
+with $C$ channels and $N = F_s \cdot T$ time samples per channel.
+\sidenote{%
+\scriptsize
+\textbf{Matrix block $X_{s,k}$ (dimensions)}\\[2pt]
+\centering
+\begin{tikzpicture}[x=0.72cm,y=0.58cm,>=Latex]
+  \draw[rounded corners=2pt, draw=black!75, fill=black!3] (0,0) rectangle (5,3);
+  \draw[black!30] (1,0)--(1,3); \draw[black!30] (2,0)--(2,3); \draw[black!30] (3,0)--(3,3); \draw[black!30] (4,0)--(4,3);
+  \draw[black!30] (0,1)--(5,1); \draw[black!30] (0,2)--(5,2);
+  \node at (2.5,1.5) {$X_{s,k}$};
+  \node at (0.5,2.65) {$x_{1,1}$};
+  \node at (4.5,2.65) {$x_{1,N}$};
+  \node at (0.5,0.35) {$x_{C,1}$};
+  \node at (4.5,0.35) {$x_{C,N}$};
+  \draw[-Latex, thick] (0,-0.55)--(5,-0.55);
+  \node[below] at (2.5,-0.55) {$N$ samples};
+  \draw[-Latex, thick] (-0.75,0)--(-0.75,3);
+  \node[anchor=east] at (-0.82,1.5) {$C$ channels};
+\end{tikzpicture}\\[1pt]
+\textit{$s$: subject,\; $k$: EO/EC}
+}
+
+The dataset organization follows BIDS conventions, including subject/session hierarchy and EEG sidecar metadata \citep{Yamada2018}. Operationally, the most critical checks are consistency of channel labels across files, EO/EC run labeling, and internal BrainVision file references after renaming (\texttt{DataFile=} and \texttt{MarkerFile=}). In practical terms, preprocessing starts only after four checks pass: channel-name consistency, valid EO/EC labels, updated \texttt{.vhdr/.vmrk} links, and complete participant metadata.
+
+Frequency handling remains fixed to the same bands used in the original workflow, which keeps compatibility with existing FFT, CSD, and wPLI modules and with previously generated outputs \citep{Cohen2014,Sanei2022,Ruth2020}.
+\sidenote{%
+\scriptsize
+\textbf{Frequency bands used for spectral and connectivity analysis}\\[2pt]
+\centering
+\begin{tabular}{@{}clc@{}}
+\toprule
+\multicolumn{2}{c}{\textbf{Band}} & \textbf{Range (Hz)} \\
+\midrule
+$\delta$ & Delta & 0.5--4.0 \\
+$\theta$ & Theta & 4.0--8.0 \\
+$\alpha$ & Alpha & 7.8--11.7 \\
+$\beta_l$ & B. low & 12.0--15.0 \\
+$\beta_m$ & B. mid & 15.0--18.0 \\
+$\beta_h$ & B. high & 18.0--30.0 \\
+$\gamma$ & Gamma & 30.0--50.0 \\
+\bottomrule
+\end{tabular}
+}
+
+\subsection{Electrode Layout and Coordinates}
+
+Electrode positions follow the international 10--20 system \citep{Yamada2018,IriarteFranco2013}. The layout used in this project includes 31 EEG channels plus reference (FCz) and ground (Fpz). For each subject/session, BIDS provides an \bids{electrodes.tsv} file (for example, \bids{sub-M05\_ses-T2\_electrodes.tsv}) with fields \texttt{name}, \texttt{x}, \texttt{y}, \texttt{z}, and \texttt{type}. Coordinates are normalized and later used in topographical visualization and CSD/source-related steps \citep{Cohen2014}.
+
+In this nomenclature, the letter indicates the approximate cortical region: \textbf{F} (frontal), \textbf{C} (central), \textbf{T} (temporal), \textbf{P} (parietal), and \textbf{O} (occipital). Odd numbers correspond to the left hemisphere, even numbers to the right hemisphere, and \texttt{z} denotes the midline (for example, Fz, Cz, Pz). The 10--20 system means that adjacent electrode positions are defined using relative distances of 10\% or 20\% of standard cranial measurements, which provides reproducible spatial sampling across subjects \citep{Yamada2018,IriarteFranco2013}.
+
+Regarding channel type labels, \texttt{EEG} denotes active recording electrodes, \texttt{REF} denotes the reference channel (here FCz), and \texttt{GND} denotes the ground channel (here Fpz). Operationally, \texttt{REF} is the voltage reference used by the amplifier for potential differences, while \texttt{GND} stabilizes the acquisition circuit and helps reduce common electrical noise \citep{Yamada2018}.
+Table~\ref{tab:electrode-layout-full} lists the full electrode layout used in the pipeline.
+
+\begin{table}[htbp]
+\centering
+\scriptsize
+\caption{Electrode names, normalised coordinates $(x,y,z)$, and type, ordered by region.}
+\label{tab:electrode-layout-full}
+\begin{tabular}{@{}cc c c l@{}}
+\toprule
+\textbf{Name} & $x$ & $y$ & $z$ & \textbf{Type} \\
+\midrule
+\multicolumn{5}{@{}l}{\textit{Frontal}} \\
+Fp2  & 0.35 &  0.90 & 0.260 & EEG \\
+Fz   & 0.00 &  0.70 & 0.714 & EEG \\
+F3   & -0.35 &  0.68 & 0.644 & EEG \\
+F7   & -0.85 &  0.68 & 0.000 & EEG \\
+F4   & 0.35 &  0.68 & 0.644 & EEG \\
+F8   & 0.85 &  0.68 & 0.000 & EEG \\
+FC5  & -0.60 &  0.68 & 0.421 & EEG \\
+FC1  & -0.60 &  0.68 & 0.421 & EEG \\
+FC6  & 0.60 &  0.68 & 0.421 & EEG \\
+FC2  & 0.60 &  0.68 & 0.421 & EEG \\
+FT9  & -0.95 &  0.20 & 0.240 & EEG \\
+FT10 & 0.95 &  0.20 & 0.240 & EEG \\
+\addlinespace
+\multicolumn{5}{@{}l}{\textit{Central}} \\
+Cz   & 0.00 &  0.00 & 1.000 & EEG \\
+C3   & -0.35 &  0.00 & 0.937 & EEG \\
+C4   & 0.35 &  0.00 & 0.937 & EEG \\
+CP5  & -0.60 &  0.00 & 0.800 & EEG \\
+CP1  & -0.60 &  0.00 & 0.800 & EEG \\
+CP6  & 0.60 &  0.00 & 0.800 & EEG \\
+CP2  & 0.60 &  0.00 & 0.800 & EEG \\
+\addlinespace
+\multicolumn{5}{@{}l}{\textit{Temporal}} \\
+T7   & -0.95 &  0.00 & 0.312 & EEG \\
+T8   & 0.95 &  0.00 & 0.312 & EEG \\
+TP9  & -0.95 & -0.20 & 0.240 & EEG \\
+TP10 & 0.95 & -0.20 & 0.240 & EEG \\
+\addlinespace
+\multicolumn{5}{@{}l}{\textit{Parietal}} \\
+Pz   & 0.00 & -0.70 & 0.714 & EEG \\
+P3   & -0.35 & -0.68 & 0.644 & EEG \\
+P7   & -0.85 & -0.68 & 0.000 & EEG \\
+P4   & 0.35 & -0.68 & 0.644 & EEG \\
+P8   & 0.85 & -0.68 & 0.000 & EEG \\
+\addlinespace
+\multicolumn{5}{@{}l}{\textit{Occipital}} \\
+O1   & -0.60 & -0.90 & 0.000 & EEG \\
+Oz   & 0.00 & -0.90 & 0.436 & EEG \\
+O2   & 0.60 & -0.90 & 0.000 & EEG \\
+\addlinespace
+FCz  & 0.00 & 0.35 & 0.937 & REF \\
+Fpz  & 0.00 & 0.90 & 0.436 & GND \\
+\bottomrule
+\end{tabular}
+\end{table}

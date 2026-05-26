@@ -1,0 +1,29 @@
+\section{Results Tracking and Internal Notes}
+
+This section replaces the traditional ``Results'' and ``Discussion'' split with a practical development log: what has been generated, what remains pending, and which methodological questions are still open.
+
+\subsection{Generated artifacts status}
+
+The current pipeline emits quality-control and analysis outputs at each stage: ingestion/filtering diagnostics, ICA component summaries and evaluation tables, segmentation/baseline/artifact-rejection statistics, FFT/CSD/wPLI visualizations and matrices, and surrogate-based inference tables. Keeping these outputs phase-scoped is essential for rapid debugging because it allows validation of local assumptions before propagating changes to downstream stages.
+\sidenote{%
+\footnotesize
+\textbf{Minimum per run}\\
+1) phase logs\\
+2) QC figures\\
+3) summary tables\\
+4) config snapshot
+}
+
+\subsection{Pending tasks}
+
+The main pending items are operational rather than editorial: verify EO/EC completeness and labeling consistency for all participants, lock the final surrogate count and rerun inference under the frozen configuration, and consolidate band-wise outputs into reproducible internal comparison tables. These tasks should be tracked with run timestamps and configuration hashes to avoid ambiguity between exploratory and reference executions.
+\sidenote{%
+\footnotesize
+\textbf{Recommended tag}\\
+\texttt{run\_<date>\_<branch>\_<cfg>}\\
+Include commit hash and key params.
+}
+
+\subsection{Working hypotheses and open questions}
+
+Current hypotheses remain centered on expected EO/EC modulation in alpha-related connectivity, improved specificity after CSD+wPLI relative to non-CSD alternatives, and stabilization of significant-edge density when surrogate thresholds are applied. Open technical questions include sensitivity to segment length/overlap choices, potential over-cleaning in low-SNR subjects during ICA artifact rejection, and runtime-versus-precision trade-offs when increasing the number of surrogates.

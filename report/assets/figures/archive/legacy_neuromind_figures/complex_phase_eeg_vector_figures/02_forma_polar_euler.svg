@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="780" viewBox="0 0 1200 780" role="img" aria-labelledby="title desc">
+<title>Forma polar y Euler</title>
+<desc>Ilustración vectorial original para documentos LaTeX sobre números complejos, fase y sincronización EEG.</desc>
+<defs>
+  <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+    <path d="M2,2 L10,6 L2,10 Z" fill="#5f6b7a"/>
+  </marker>
+  <marker id="arrowBlue" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+    <path d="M2,2 L10,6 L2,10 Z" fill="#1f5cc4"/>
+  </marker>
+  <marker id="arrowRed" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+    <path d="M2,2 L10,6 L2,10 Z" fill="#cc1f1a"/>
+  </marker>
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+    <feDropShadow dx="0" dy="5" stdDeviation="8" flood-color="#000" flood-opacity="0.12"/>
+  </filter>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#ffffff"/>
+    <stop offset="100%" stop-color="#eef5ff"/>
+  </linearGradient>
+</defs>
+<rect width="100%" height="100%" fill="url(#bg)"/>
+<rect x="55" y="55" width="1090" height="650" rx="24" fill="white" stroke="#0b7285" stroke-width="3" filter="url(#shadow)"/><rect x="55" y="55" width="1090" height="64" rx="24" fill="#0b7285"/><text x="600.0" y="98" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="white" text-anchor="middle">Forma polar y ecuación de Euler</text><rect x="115" y="160" width="410" height="430" rx="20" fill="white" stroke="#d8e2ef" stroke-width="3"/><text x="165" y="230" font-family="Arial, Helvetica, sans-serif" font-size="33" font-weight="700" font-style="normal" fill="#0b1d57" text-anchor="start">z = A e^{jφ}</text><text x="165" y="312" font-family="Arial, Helvetica, sans-serif" font-size="33" font-weight="400" font-style="normal" fill="#101828" text-anchor="start">e^{jφ} = cos φ + j sen φ</text><text x="165" y="394" font-family="Arial, Helvetica, sans-serif" font-size="33" font-weight="400" font-style="normal" fill="#101828" text-anchor="start">A = |z| = √(a² + b²)</text><text x="165" y="476" font-family="Arial, Helvetica, sans-serif" font-size="33" font-weight="400" font-style="normal" fill="#101828" text-anchor="start">φ = atan2(b, a)</text>
+    <line x1="580.0" y1="430" x2="1030.0" y2="430" stroke="#101828" stroke-width="4" marker-end="url(#arrow)"/>
+    <line x1="805" y1="630.0" x2="805" y2="230.0" stroke="#101828" stroke-width="4" marker-end="url(#arrow)"/>
+    <text x="1055.0" y="440" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" font-style="normal" fill="#101828" text-anchor="start">Re</text>
+    <text x="815" y="220.0" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" font-style="normal" fill="#101828" text-anchor="start">Im</text>
+    <line x1="805" y1="430" x2="985" y2="285" stroke="#1f5cc4" stroke-width="6" marker-end="url(#arrowBlue)"/><path d="M875,430 A70,70 0 0,0 853,379" fill="none" stroke="#0b7285" stroke-width="5"/><text x="893" y="392" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" font-style="normal" fill="#0b7285" text-anchor="middle">φ</text><text x="910.0" y="357.5" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700" font-style="normal" fill="#0b7285" text-anchor="middle">A = |z|</text><circle cx="985" cy="285" r="11" fill="#0b1d57"/><line x1="985" y1="430" x2="985" y2="285" stroke="#1f5cc4" stroke-dasharray="8,7" stroke-width="3"/><line x1="805" y1="285" x2="985" y2="285" stroke="#1f5cc4" stroke-dasharray="8,7" stroke-width="3"/><text x="985" y="472" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" font-style="normal" fill="#1f5cc4" text-anchor="middle">a</text><text x="777" y="285" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" font-style="normal" fill="#1f5cc4" text-anchor="middle">b</text><text x="600" y="660" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="700" font-style="normal" fill="#0b7285" text-anchor="middle">La forma polar conecta geometría, amplitud y fase.</text>
+</svg>

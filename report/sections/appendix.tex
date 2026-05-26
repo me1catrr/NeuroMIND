@@ -1,0 +1,358 @@
+%!TEX root = ../main.tex
+\appendix
+
+\section{BIDS Implementation}
+
+The dataset is organised in the \textbf{Brain Imaging Data Structure (BIDS)} format. The original EEG signals were obtained and exported using the commercial software \textbf{BrainVision Analyzer}; subsequent processing (ingestion, preprocessing, and connectivity analysis) is carried out in \Julia{}. 
+
+Recordings were adapted step-by-step to BIDS conventions for traceability and interoperability. Compliance was verified with the BIDS Validator (\url{https://bids-standard.github.io/bids-validator/}). The layout and main adaptations are summarised below, with an example for one subject in the eyes-closed condition.
+
+\subsection{Folder and File Naming Conventions}
+
+\begin{tcolorbox}[
+  enhanced,
+  breakable,
+  colback=black!1,
+  colframe=black!40,
+  boxrule=0.5pt,
+  arc=1.5mm,
+  left=1.2mm,
+  right=1.2mm,
+  top=0.8mm,
+  bottom=0.8mm,
+  title=\textbf{Quick BIDS naming rules}
+]
+\begin{itemize}[leftmargin=*,itemsep=2pt,topsep=2pt]
+\item Subject identifiers use leading zeros: \bids{M5} $\to$ \bids{sub-M05}.
+\item Folder hierarchy follows \bids{sub-<id>/ses-<label>/eeg/} (e.g.\ \bids{sub-M05/ses-T2/eeg/}).
+\item BIDS entities (\texttt{sub-}, \texttt{ses-}, \texttt{task-}, \texttt{run-}) are lowercase and hyphen-separated.
+\item Use only ASCII and no spaces (avoid accent marks).
+\item The condition ``eyes closed'' is encoded as \texttt{task-eyesclosed}.
+\end{itemize}
+\end{tcolorbox}
+
+\begin{figure}[H]
+\centering
+\resizebox{0.95\columnwidth}{!}{%
+\begin{tikzpicture}[
+  box/.style={draw=black!65, rounded corners=2pt, fill=black!3, inner sep=3pt, font=\scriptsize},
+  arr/.style={-Latex, thick, black!70}
+]
+  \node[box] (sub) at (0,0) {\texttt{sub-M05/}};
+  \node[box] (ses) at (2.9,0) {\texttt{ses-T2/}};
+  \node[box] (eeg) at (5.8,0) {\texttt{eeg/}};
+  \node[box, align=left] (run) at (10.3,0) {\texttt{sub-M05\_ses-T2\_task-eyesclosed\_run-01\_eeg}\\\texttt{.vhdr / .vmrk / .eeg}};
+  \draw[arr] (sub) -- (ses);
+  \draw[arr] (ses) -- (eeg);
+  \draw[arr] (eeg) -- (run);
+\end{tikzpicture}
+}
+\caption{BIDS hierarchy and run basename composition for one EEG recording.}
+\end{figure}
+
+\subsection{File Types and Contents}
+
+Table~\ref{tab:bids-files} summarises each file type in the BIDS layout, its role, and its main content. Root-level files describe the dataset and participants; session-level files under \bids{sub-<id>/ses-<label>/eeg/} contain the raw EEG data (BrainVision format) and the metadata required by BIDS.
+
+\end{multicols}
+
+\begin{table}[h]
+  \centering
+  \small
+  \caption{BIDS file types: location, description, and main content.}
+  \label{tab:bids-files}
+  \begin{tabular}{@{}p{0.38\textwidth}p{0.62\textwidth}@{}}
+    \toprule
+    \textbf{File or folder} & \textbf{Description and main content} \\
+    \midrule
+    \bids{dataset\_description.json} & Root. General dataset metadata: name, authors, BIDS version, license. \\
+    \addlinespace
+    \bids{participants.tsv} & Root. Tabular demographics: \texttt{participant\_id} (e.g.\ \bids{sub-M05}), \texttt{age}, \texttt{sex}, \texttt{group} (e.g.\ \texttt{control}, \texttt{MS}). \\
+    \addlinespace
+    \bids{participants.json} & Root. Descriptions and units for each column in \bids{participants.tsv}. \\
+    \addlinespace
+    \bids{README.md} & Root. Human-readable documentation of the dataset. \\
+    \addlinespace
+    \bids{sub-*\_ses-*\_task-*\_run-*\_eeg.eeg} & Session \bids{eeg/}. Raw binary EEG time series (continuous voltage, $\mu$V). \\
+    \addlinespace
+    \bids{*\_eeg.vhdr} & Session \bids{eeg/}. BrainVision header: pointers to \bids{.eeg} and \bids{.vmrk}; channel and sampling info. After BIDS renaming, \texttt{DataFile=} and \texttt{MarkerFile=} must reference the new basenames. \\
+    \addlinespace
+    \bids{*\_eeg.vmrk} & Session \bids{eeg/}. BrainVision marker file: event onsets and types. \texttt{DataFile=} must point to the new \bids{.eeg} filename. \\
+    \addlinespace
+    \bids{*\_eeg.json} & Session \bids{eeg/}. BIDS EEG sidecar: \texttt{SamplingFrequency} (e.g.\ 500), \texttt{PowerLineFrequency} (50), \texttt{EEGReference} (e.g.\ \texttt{TP9-TP10 (linked)}), \texttt{EEGGround} (e.g.\ \texttt{Fpz}), \texttt{EEGChannelCount} (31), \texttt{RecordingType} (\texttt{continuous}), and other required BIDS-EEG fields. \\
+    \addlinespace
+    \bids{*\_events.tsv} & Session \bids{eeg/}. Events for the run: columns \texttt{onset}, \texttt{duration}, \texttt{trial\_type} (e.g.\ \texttt{rest}); timestamps in seconds (decimal). \\
+    \addlinespace
+    \bids{*\_events.json} & Session \bids{eeg/}. Descriptions and units for the columns in \bids{events.tsv}. \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{multicols}{1}
+
+\subsection{BrainVision Internal Link Updates}
+
+After renaming files to BIDS basenames, the internal references inside BrainVision text files must be updated so that they point to the new filenames. In the \bids{.vhdr} file, set \texttt{DataFile=} to the new \bids{.eeg} file and \texttt{MarkerFile=} to the new \bids{.vmrk} file. In the \bids{.vmrk} file, set \texttt{DataFile=} to the new \bids{.eeg} filename. This ensures that BrainVision-compatible tools (and BIDS validators that parse these files) resolve the data and markers correctly.
+
+\section{\Julia{} Implementation}
+
+\subsection{Why \Julia{} Programming Language?}
+
+\Julia{} is a high-level, high-performance programming language designed for numerical and scientific computing \citep{bezanson2017julia}. Its main advantages over alternatives are the following. Compared with Python, \Julia{} is comparably easy to read and write (clear syntax, interactive use, and a rich ecosystem), but it typically reaches execution speeds close to C thanks to just-in-time (JIT) compilation, avoiding the need to offload hot loops to C or Cython.
+
+Compared with MATLAB, \Julia{} offers the same intuitive, matrix-oriented style (e.g.\ native array literals, linear algebra in the core language, and compact mathematical notation) while being free and open source, and again with performance on a par with compiled languages. In short, \Julia{} is as easy as Python, as fast as C, and as natural as MATLAB for matrix-based and scientific computing.
+
+\subsection{Project structure and organization}
+
+The codebase is organized as a single \Julia{} project (\texttt{NeuroSmart-EEG}/\texttt{EEG\_Julia}) with a small set of top-level directories that separate configuration, source modules, orchestration scripts, notebooks, data, results, and published documentation.
+
+\end{multicols}
+\medskip
+\noindent
+\begin{center}
+\small
+\begin{tabular}{@{}p{0.22\textwidth}p{0.76\textwidth}@{}}
+  \toprule
+  \textbf{Directory} & \textbf{Contents and purpose} \\
+  \midrule
+  \texttt{config/} & Configuration files such as \texttt{default\_config.jl}: paths and parameters that control the pipeline without changing code. \\
+  \texttt{data/} & Local input and intermediate data, phase-scoped as \texttt{BIDS/}, \texttt{Preprocessing/}, \texttt{Processing/}, and \texttt{Connectivity/}. This directory is not committed. \\
+  \texttt{results/} & Regenerable outputs, also phase-scoped, with \texttt{figures/}, \texttt{logs/}, and \texttt{tables/} inside each analysis block. \\
+  \texttt{src/} & Main executable \Julia{} modules: BIDS utilities, IO, filtering, ICA, processing, FFT, CSD, wPLI, and the pending surrogate module. \\
+  \texttt{Pluto/} & Narrative notebooks used as interactive documentation and exported to static HTML. \\
+  \texttt{script/} & Runnable entry points (e.g.\ pipeline drivers or analysis scripts) that glue together modules from \texttt{src/}. \\
+  \texttt{docs/} & GitHub Pages publication folder, including the landing page and exported Pluto HTML modules. \\
+  \bottomrule
+\end{tabular}
+\end{center}
+\medskip
+\begin{multicols}{1}
+
+\cref{fig:julia-tree} summarizes this layout as a compact repository map.
+
+\end{multicols}
+\begin{figure}[H]
+\centering
+\scriptsize
+\begin{adjustbox}{max width=\columnwidth}
+\begin{tabular}{@{}p{0.24\columnwidth}p{0.68\columnwidth}@{}}
+\toprule
+\textbf{Repository area} & \textbf{Key contents} \\
+\midrule
+\texttt{src/} & \texttt{BIDS/}, \texttt{Setup/IO.jl}, \texttt{Preprocessing/filtering.jl}, \texttt{ICA/}, \texttt{Processing/}, \texttt{Spectral/FFT.jl}, \texttt{Connectivity/\{CSD,wPLI\}.jl}, \texttt{Surrogate/}, \texttt{modules/}. \\
+\addlinespace
+\texttt{Pluto/} & One notebook family per documented stage: setup, BIDS, preprocessing, ICA, processing, spectral analysis, connectivity, and surrogate inference. \\
+\addlinespace
+\texttt{data/} & Local BIDS inputs and serialized intermediate outputs grouped by phase; intentionally excluded from Git. \\
+\addlinespace
+\texttt{results/} & Regenerable figures, tables, and logs grouped by phase. \\
+\addlinespace
+\texttt{docs/} & Static GitHub Pages output: landing page plus exported Pluto HTML modules. \\
+\addlinespace
+\texttt{config/}, \texttt{script/} & Typed default configuration and runnable pipeline entry point (\texttt{script/EEG.jl}). \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Current layout of the \Julia{} project: executable modules, Pluto documentation notebooks, local data/results, and GitHub Pages publication folder.}
+\label{fig:julia-tree}
+\end{figure}
+\begin{multicols}{1}
+
+\subsection{Figure Generation (Makie)}
+
+All result figures (connectivity matrices, spectra, group comparisons) are generated in \Julia{} with Makie and exported as PDFs for direct inclusion in this report. Makie was chosen over Plots.jl for several reasons. 
+
+Plots.jl provides a unified API over many backends (GR, PyPlot, etc.) and is convenient for quick exploratory plots, but it can be slow and memory-heavy for large arrays (e.g.\ full channel$\times$channel matrices or long time series) and backend behaviour can differ. Makie is a single, modern stack with GPU-accelerated rendering, so it scales well to large datasets and produces publication-quality vector output (PDF or SVG) with consistent styling. 
+
+Its scene graph and layout system allow fine control over multi-panel figures (e.g.\ one plot per band or per condition), which fits the need to compare connectivity across bands and groups.
+
+A minimal example using \texttt{Plots.jl} syntax—create a figure, plot a small connectivity-like matrix, and save to PDF—is:
+
+\begin{lstlisting}[caption={Minimal Plots.jl workflow for exporting a connectivity-style figure to PDF.}]
+using Plots
+gr()
+M = rand(8, 8)
+p = plot(M, seriestype = :heatmap, xlabel = "Channel", ylabel = "Channel")
+savefig(p, "connectivity-schematic.pdf")
+\end{lstlisting}
+
+The same pattern is used for real wPLI matrices and group-difference figures, with appropriate colour scales and labels.
+
+\subsection{Data and Code Availability}
+
+\section{\LaTeX{} Implementation}
+
+This document was typeset with \LaTeX, which separates content from presentation and encourages a structured, source-controlled workflow. Sectioning commands, cross-references, bibliographies, and figures are all defined in text form, so the whole report can be versioned alongside the analysis code.
+
+A high-level view of the \LaTeX{} toolchain used in this project is:
+
+\end{multicols}
+
+\medskip
+\noindent
+
+\begin{center}
+\small
+\begin{tabular}{@{}p{0.45\linewidth}p{0.55\linewidth}@{}}
+  \toprule
+  \textbf{Component} & \textbf{Role in the report} \\
+  \midrule
+  Source files (\texttt{main.tex}, \texttt{refs.bib}) & Define the logical structure (sections, figures, tables), macros, and typography of the report. \\
+  Engine (\texttt{xelatex} via \texttt{latexmk}) & Compiles the \LaTeX{} source, using modern fonts and Unicode support, and orchestrates reruns until references are resolved. \\
+  Packages (\texttt{fontspec}, \texttt{listings}, etc.) & Extend core \LaTeX{} to handle plots, code listings, coloured boxes, and advanced layout. \\
+  Bibliography (BibTeX + \texttt{refs.bib}) & Manages references from a single database file, ensuring consistent formatting and easy reuse. \\
+  Output (\texttt{main.pdf}) & Final, portable PDF with embedded fonts and vector graphics, suitable for archiving and sharing. \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{multicols}{1}
+
+\medskip
+Because the layout is defined declaratively in text, small changes (e.g.\ adding a section, updating a figure caption, or reordering content) can be tracked and reproduced as easily as code changes.
+
+\subsection{\PGF{} \TikZ{} Implementation}
+
+Figures and schematics in this report are produced either externally (e.g.\ \Julia{}/Makie) or directly in \LaTeX{} with \PGF{} \TikZ{}. 
+
+\TikZ{} is used for diagrams that are defined by code inside the document: vector output, exact placement of text and maths, and no dependence on external image files. That keeps the source self-contained and reproducible, and ensures typographic consistency with the rest of the document. Simple sketches such as pipeline overviews, sensor layouts, or conceptual connectivity graphs are well suited to \TikZ{}.
+
+Figure~\ref{fig:tikz-connectivity} shows a minimal schematic of the idea of sensor-level connectivity: a few EEG channels (nodes) and links between them. In the full analysis, connectivity is estimated for many channel pairs and summarized in matrices (e.g.\ wPLI).
+
+\begin{marginfigure}
+\centering
+\begin{tikzpicture}[
+  scale=0.82,
+  transform shape,
+  node distance=1.2cm,
+  channel/.style={circle, draw=black, fill=gray!10, minimum size=8pt, font=\scriptsize},
+  edge/.style={-{Stealth[length=1.8pt]}, thin, gray}
+]
+  % Nodes
+  \node[channel] (Cz)  {Cz};
+  \node[channel, above left=of Cz]  (Fz) {Fz};
+  \node[channel, above right=of Cz] (Pz) {Pz};
+  \node[channel, below=of Cz]       (Oz) {Oz};
+
+  % Edges (example connectivity pattern)
+  \draw[edge] (Fz) -- (Cz);
+  \draw[edge] (Cz) -- (Pz);
+  \draw[edge] (Cz) -- (Oz);
+  \draw[edge] (Fz) to[bend left=18] (Pz);
+\end{tikzpicture}
+\caption{Conceptual sketch of sensor-level connectivity: a few EEG channels (nodes) and directed links. \TikZ{} is used for such in-document schematics.}
+\label{fig:tikz-connectivity}
+\end{marginfigure}
+
+\section{\Git{} and \GitHub{}}
+
+Version control with \Git{} is used to track changes in the \Julia{} codebase, keep a history of the project, and facilitate collaboration or reuse across machines. This repository is hosted on \GitHub{} so that code is backed up, shareable, and easy to clone on another computer or by collaborators. 
+
+Only code, configuration, and small metadata files are committed; large or generated data (e.g.\ under \texttt{data/} or \texttt{results/}) are excluded via \texttt{.gitignore} or managed with \Git{} LFS if they must be versioned.
+
+\subsection{Using a \GitHub{} repository}
+
+A typical workflow is summarised in Table~\ref{tab:github-workflow}.
+
+\begin{fullwidth}
+\begin{table}[H]
+  \centering
+  \small
+\caption{\Git{}/\GitHub{} workflow: new repository vs.\ cloning an existing one.}
+  \label{tab:github-workflow}
+  \begin{tabular}{@{}p{0.22\textwidth}p{0.36\textwidth}p{0.36\textwidth}@{}}
+    \toprule
+    \textbf{Scenario} & \textbf{Commands} & \textbf{Explanation} \\
+    \midrule
+    Create a new repository on \GitHub{}
+    & \texttt{git init}
+    & Initialise a new \Git{} repository in the current folder. \\
+    & \texttt{git remote add origin}\,\textit{<url>}
+    & Link the local repository to the remote on \GitHub{}. \\
+    & \texttt{git add .}
+    & Stage all tracked and untracked files for commit. \\
+    & \texttt{git commit -m ``...''}
+    & Create a snapshot of the staged changes with a descriptive message. \\
+    & \texttt{git push -u origin main}
+    & Push the \texttt{main} branch to \GitHub{} and set it as the default upstream. \\
+    \addlinespace
+    Clone an existing \GitHub{} repository
+    & \texttt{git clone}\,\textit{<url>}
+    & Download the remote repository into a new local folder. \\
+    & \texttt{cd}\,\textit{<folder>}
+    & Change into the cloned project directory. \\
+    & \texttt{julia -e ``using Pkg; Pkg.instantiate()''}
+    & Install the Julia environment defined by \texttt{Project.toml} and \texttt{Manifest.toml}. \\
+    & (later: \texttt{git push}, \texttt{git pull})
+    & Upload local commits to \GitHub{} and pull updates made by others. \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{What to version}
+
+Version control should capture the \Julia{} source code and the information needed to recreate the environment. A practical minimum is:
+
+\end{multicols}
+
+\begin{tcolorbox}[
+  enhanced,
+  breakable,
+  colback=black!1,
+  colframe=black!40,
+  boxrule=0.5pt,
+  arc=1.5mm,
+  title=\textbf{What to commit}
+]
+\footnotesize
+\begin{itemize}[leftmargin=*,itemsep=2pt,topsep=2pt]
+\item \texttt{src/}: Core source code (modules and functions).
+\item \texttt{script/}: Executable scripts used to run the pipeline.
+\item \texttt{config/}: Configuration files that define parameters and paths in a portable way.
+\item \texttt{Project.toml}: Declares dependencies so others can instantiate the environment.
+\item \texttt{Manifest.toml} (optional): Locks exact versions for full reproducibility across machines.
+\end{itemize}
+\end{tcolorbox}
+
+Avoid committing binary data, cached results, or machine-specific local paths.
+
+\subsection{Recommended \texttt{.gitignore}}
+
+A minimal \texttt{.gitignore} for a \Julia{} project should exclude generated artifacts, local/editor settings, and any large data outputs.
+
+\begin{tcolorbox}[
+  enhanced,
+  breakable,
+  colback=black!1,
+  colframe=black!40,
+  boxrule=0.5pt,
+  arc=1.5mm,
+  title=\textbf{Pattern / path -> Why ignore it}
+]
+\footnotesize
+\begin{itemize}[leftmargin=*,itemsep=2pt,topsep=2pt]
+\item \texttt{*.jl.cov}: Coverage artifacts generated during testing.
+\item \texttt{/Manifest.toml}: Optional; ignore if you prefer a looser, non-locked environment (commit it for full reproducibility).
+\item \texttt{data/}: Raw or intermediate datasets (often large and not suitable for version control).
+\item \texttt{results/}: Generated outputs (figures, exports, cached computations).
+\item \texttt{.DS\_Store}: macOS metadata files.
+\item \texttt{.vscode/}, \texttt{.cursor/}: Local editor/IDE settings (ignore unless you intentionally share team settings).
+\end{itemize}
+\end{tcolorbox}
+
+This keeps the repository small and helps prevent accidental commits of large files.
+
+\section{Use of AI Tools}
+
+This report and the associated \Julia{} codebase were prepared with the help of artificial intelligence tools, used in a transparent way for productivity and clarity.
+
+\subsection{Cursor}
+
+The Cursor editor (\url{https://cursor.com}), which integrates an AI assistant, Assisted Development Editor (ADE), was used to develop the \Julia{} codebase and prepare this report. It supported writing, refactoring, and debugging code, as well as navigating the project and drafting or adapting small snippets and documentation (e.g., under \texttt{src/} and \texttt{script/}).
+
+\subsection{ChatGPT}
+
+ChatGPT (OpenAI) was used to generate and refine ideas, clarify concepts (e.g.\ BIDS, wPLI, surrogate methods), draft short summaries or explanations, and suggest structure for sections of the report. It was not used to produce final, publishable text; rather, outputs were used as a starting point or as support for personal study and for sharing progress with colleagues.
+
+% --- Referencias (BibTeX estándar) ---
