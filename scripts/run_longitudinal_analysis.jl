@@ -35,33 +35,46 @@ BANDS = sort(collect(keys(bands_cfg)))
 
 # ─── Helpers ──────────────────────────────────────────────────
 
-function norm_cond(c::String)::String
+function norm_cond(c::AbstractString)::String
     lc = lowercase(c)
     lc in ("ec","eyesclosed") && return "eyesclosed"
     lc in ("eo","eyesopen")   && return "eyesopen"
     return lc
 end
 
-function is_t1_session(s::String)::Bool
+function is_t1_session(s::AbstractString)::Bool
     uppercase(s) in ("T1","BASELINE","BL","V1","VISIT1","S1","PRE")
 end
 
-function load_wpli(subj_id::String, sess_id::String, cond::String, band::String)
+function load_wpli(subj_id::AbstractString, sess_id::AbstractString, cond::AbstractString, band::AbstractString)
     path = joinpath(res_root, "subjects",
                     "sub-$(subj_id)", "ses-$(sess_id)",
                     norm_cond(cond), "wpli_$(band).csv")
     isfile(path) || return nothing
     df = CSV.read(path, DataFrame)
     isempty(df) && return nothing
-    ch = string.(df[!, 1])
-    n  = length(ch)
-    W  = Matrix{Float64}(undef, n, n)
-    for (j, c) in enumerate(ch)
-        col_sym = Symbol(c)
-        hasproperty(df, col_sym) || return nothing
-        W[:, j] = Float64.(df[!, col_sym])
+
+    row_ch   = string.(df[!, 1])
+    col_syms = names(df)[2:end]
+    col_ch   = string.(col_syms)
+    common   = filter(c -> c in Set(col_ch), row_ch)
+    common   = unique(common)
+    n        = length(common)
+    n < 2 && return nothing
+
+    if n != length(row_ch) || n != length(col_ch)
+        @warn "wPLI con canales fila/columna no coincidentes; usando intersección cuadrada" path rows=length(row_ch) cols=length(col_ch) common=n
     end
-    return (ch, W)
+
+    row_idx = [findfirst(==(c), row_ch) for c in common]
+    any(isnothing, row_idx) && return nothing
+    W  = Matrix{Float64}(undef, n, n)
+    for (j, c) in enumerate(common)
+        col_sym = col_syms[findfirst(==(c), col_ch)]
+        hasproperty(df, col_sym) || return nothing
+        W[:, j] = Float64.(df[row_idx, col_sym])
+    end
+    return (common, W)
 end
 
 function bh_qvalues(p::Vector{Float64})::Vector{Float64}
@@ -84,16 +97,32 @@ function paired_t(before::Vector{Float64}, after::Vector{Float64})
     s = std(diffs)
     s < 1e-12 && return (1.0, 0.0)
     t = μ * sqrt(n) / s
-    p = clamp(2.0 * (1.0 - 0.5*(1.0 + erf(abs(t)/sqrt(2.0)))), 0.0, 1.0)
+    p = clamp(2.0 * (1.0 - _norm_cdf(abs(t))), 0.0, 1.0)
     d = μ / s   # Cohen's dz
     return (p, d)
 end
 
+# Normal CDF sin SpecialFunctions — aproximación polinomial A&S 26.2.17, error máx 7.5e-8
+function _norm_cdf(z::Float64)::Float64
+    z < 0.0 && return 1.0 - _norm_cdf(-z)
+    t = 1.0 / (1.0 + 0.2316419 * z)
+    poly = t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))))
+    return 1.0 - exp(-0.5 * z * z) * poly / sqrt(2.0 * π)
+end
+
 function realign_matrix(ch::Vector{String}, W::Matrix{Float64},
                          common_ch::Vector{String})::Matrix{Float64}
+    length(ch) == size(W, 1) == size(W, 2) ||
+        error("Matriz wPLI inconsistente: $(length(ch)) canales para tamaño $(size(W))")
     idx = [findfirst(==(c), ch) for c in common_ch]
     any(isnothing, idx) && error("Canales no encontrados")
     W[idx, idx]
+end
+
+function upper_mean(W::Matrix{Float64})::Float64
+    n = min(size(W)...)
+    n < 2 && return NaN
+    return mean(W[i, j] for i in 1:n for j in (i+1):n)
 end
 
 function save_mat_csv(path::String, W::Matrix{Float64}, ch::Vector{String})
@@ -117,14 +146,47 @@ if isfile(pairs_path)
     # Usar archivo explícito
     pdf = CSV.read(pairs_path, DataFrame)
     rename!(pdf, Dict(n => Symbol(lowercase(string(n))) for n in names(pdf)))
+
+    # Detectar formato directamente sobre el DataFrame (más robusto que
+    # comparar contra un Set de strings).
+    has_new_format = hasproperty(pdf, :has_t1_ec) ||
+                     hasproperty(pdf, :include_longitudinal)
+    has_bids_id    = hasproperty(pdf, :bids_id)
+    has_incl_flag  = hasproperty(pdf, :include_longitudinal)
+
+    # Determinar nombres de sesión T1/T2 para el formato nuevo:
+    # si hay columnas explícitas session_t1 / session_t2 las usamos,
+    # si no, asumimos "T1" y "T2" (estándar del pipeline NeuroMIND).
+    has_sess_cols  = hasproperty(pdf, :session_t1) && hasproperty(pdf, :session_t2)
+
+    n_excluded = 0
     for row in eachrow(pdf)
-        push!(all_pairs, SubjPair(
-            string(row.subject_id),
-            string(row.session_t1),
-            string(row.session_t2),
-        ))
+        if has_new_format
+            # Formato audit_full_dataset.jl:
+            #   subject_id, bids_id, has_t1_ec, has_t1_eo, has_t2_ec, has_t2_eo, include_longitudinal
+            if has_incl_flag
+                incl_raw = row.include_longitudinal
+                incl = incl_raw isa Bool ? incl_raw :
+                       (lowercase(string(incl_raw)) == "true")
+                if !incl
+                    global n_excluded += 1
+                    continue
+                end
+            end
+            sid     = has_bids_id ? string(row.bids_id) : string(row.subject_id)
+            sess_t1 = has_sess_cols ? string(row.session_t1) : "T1"
+            sess_t2 = has_sess_cols ? string(row.session_t2) : "T2"
+            push!(all_pairs, SubjPair(sid, sess_t1, sess_t2))
+        else
+            # Formato antiguo: subject_id, session_t1, session_t2
+            push!(all_pairs, SubjPair(
+                string(row.subject_id),
+                string(row.session_t1),
+                string(row.session_t2),
+            ))
+        end
     end
-    println("📋 Pares longitudinales leídos desde: $pairs_path")
+    println("📋 Pares longitudinales leídos desde: $pairs_path ($(length(all_pairs)) pares incluidos, $n_excluded excluidos por flag)")
 else
     # Auto-detectar en results/subjects/
     subj_root = joinpath(res_root, "subjects")
@@ -170,8 +232,8 @@ for cond in ["EC", "EO"]
 
     t1_data   = Dict{String, Vector{Tuple{Vector{String}, Matrix{Float64}}}}()
     t2_data   = Dict{String, Vector{Tuple{Vector{String}, Matrix{Float64}}}}()
-    # Para paired t-test guardamos por sujeto y banda
-    paired_data = Dict{String, Vector{Tuple{Matrix{Float64}, Matrix{Float64}}}}()
+    # Para paired t-test guardamos canales y matrices juntas por sujeto.
+    paired_data = Dict{String, Vector{Tuple{Vector{String}, Matrix{Float64}, Vector{String}, Matrix{Float64}}}}()
 
     subject_means = NamedTuple[]
     paired_info   = NamedTuple[]
@@ -194,13 +256,11 @@ for cond in ["EC", "EO"]
             haskey(paired_data, band) || (paired_data[band] = [])
             push!(t1_data[band], (ch1, W1))
             push!(t2_data[band], (ch2, W2))
-            push!(paired_data[band], (W1, W2))
+            push!(paired_data[band], (ch1, W1, ch2, W2))
 
-            n = length(ch1)
-            up = [(i, j) for i in 1:n for j in (i+1):n]
             for (W, tp) in [(W1,"T1"),(W2,"T2")]
-                isempty(up) && continue
-                μ = mean(W[i,j] for (i,j) in up)
+                μ = upper_mean(W)
+                isnan(μ) && continue
                 push!(subject_means, (
                     subject_id = sp.subject_id,
                     timepoint  = tp,
@@ -243,7 +303,7 @@ for cond in ["EC", "EO"]
     for band in BANDS
         t1_mats  = get(t1_data,     band, Tuple{Vector{String},Matrix{Float64}}[])
         t2_mats  = get(t2_data,     band, Tuple{Vector{String},Matrix{Float64}}[])
-        pd_mats  = get(paired_data, band, Tuple{Matrix{Float64},Matrix{Float64}}[])
+        pd_mats  = get(paired_data, band, Tuple{Vector{String},Matrix{Float64},Vector{String},Matrix{Float64}}[])
         (isempty(t1_mats) || isempty(t2_mats)) && continue
 
         # Alinear al conjunto común de canales
@@ -270,12 +330,14 @@ for cond in ["EC", "EO"]
 
         for (k, (i, j)) in enumerate(upper_idx)
             # Extraer la conectividad del par en T1 y T2 para cada sujeto
-            v1 = [get_W(ch1, W1)[i, j] for (ch1, W1) in t1_mats]
-            v2 = [get_W(ch2, W2)[i, j] for (ch2, W2) in t2_mats]
-            # Sólo usamos pares completos
-            n_min = min(length(v1), length(v2))
-            n_min < 2 && continue
-            p_vec[k], d_vec[k] = paired_t(v1[1:n_min], v2[1:n_min])
+            v1 = Float64[]
+            v2 = Float64[]
+            for (ch1, W1, ch2, W2) in pd_mats
+                push!(v1, get_W(ch1, W1)[i, j])
+                push!(v2, get_W(ch2, W2)[i, j])
+            end
+            length(v1) < 2 && continue
+            p_vec[k], d_vec[k] = paired_t(v1, v2)
         end
         q_vec = bh_qvalues(p_vec)
 

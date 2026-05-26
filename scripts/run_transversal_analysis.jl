@@ -38,20 +38,20 @@ BANDS = sort(collect(keys(bands_cfg)))
 
 # ─── Helpers ──────────────────────────────────────────────────
 
-function norm_cond(c::String)::String
-    lc = lowercase(c)
+function norm_cond(c::AbstractString)::String
+    lc = lowercase(String(c))
     lc in ("ec", "eyesclosed") && return "eyesclosed"
     lc in ("eo", "eyesopen")   && return "eyesopen"
     return lc
 end
 
-function is_ms_group(g::String)::Bool
-    uppercase(g) in ("MS", "EM", "PATIENT", "PATIENTS", "CASE", "CASES")
+function is_ms_group(g::AbstractString)::Bool
+    uppercase(String(g)) in ("MS", "EM", "PATIENT", "PATIENTS", "CASE", "CASES")
 end
 
 """Load wPLI matrix from individual subject results. Returns (channel_names, matrix) or nothing."""
-function load_wpli(subj_id::String, sess_id::String,
-                   cond::String, band::String)
+function load_wpli(subj_id::AbstractString, sess_id::AbstractString,
+                   cond::AbstractString, band::AbstractString)
     path = joinpath(res_root, "subjects",
                     "sub-$(subj_id)", "ses-$(sess_id)",
                     norm_cond(cond), "wpli_$(band).csv")
@@ -95,7 +95,13 @@ function welch_t(a::Vector{Float64}, b::Vector{Float64})
     d  = sp > 1e-12 ? (μa - μb) / sp : 0.0
     return (p, d)
 end
-_norm_cdf(z) = 0.5 * (1.0 + erf(z / sqrt(2.0)))
+# Normal CDF sin SpecialFunctions — aproximación polinomial A&S 26.2.17, error máx 7.5e-8
+function _norm_cdf(z::Float64)::Float64
+    z < 0.0 && return 1.0 - _norm_cdf(-z)
+    t = 1.0 / (1.0 + 0.2316419 * z)
+    poly = t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))))
+    return 1.0 - exp(-0.5 * z * z) * poly / sqrt(2.0 * π)
+end
 
 """Realign wPLI matrix to a common channel set."""
 function realign_matrix(ch::Vector{String}, W::Matrix{Float64},
@@ -131,11 +137,32 @@ end
 gdf = CSV.read(groups_path, DataFrame)
 rename!(gdf, Dict(n => Symbol(lowercase(string(n))) for n in names(gdf)))
 
+# Aliases tolerantes para nombres de columnas comunes en groups.csv
+if !hasproperty(gdf, :session_id) && hasproperty(gdf, :session)
+    rename!(gdf, :session => :session_id)
+end
+if !hasproperty(gdf, :session_id) && hasproperty(gdf, :ses)
+    rename!(gdf, :ses => :session_id)
+end
+
+# Si existe `bids_id` (sub-M05 con cero a la izquierda), usarla como
+# subject_id ya que los resultados del pipeline se guardan bajo sub-{bids_id}.
+if hasproperty(gdf, :bids_id)
+    if hasproperty(gdf, :subject_id)
+        select!(gdf, Not(:subject_id))
+    end
+    rename!(gdf, :bids_id => :subject_id)
+end
+
 required_cols = [:subject_id, :group, :session_id]
 missing_cols  = filter(c -> !hasproperty(gdf, c), required_cols)
 if !isempty(missing_cols)
-    error("groups.csv: faltan columnas: $(join(missing_cols, \", \"))")
+    error("groups.csv: faltan columnas: $(join(missing_cols, ", "))")
 end
+
+# Deduplicar filas (algunos groups.csv repiten sujeto por condición EC/EO,
+# pero el análisis ya itera ambas internamente).
+unique!(gdf, [:subject_id, :session_id, :group])
 
 println("🧬 NeuroMIND — Análisis Transversal")
 println("   Config: $CONFIG_P")

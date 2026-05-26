@@ -144,9 +144,17 @@ function _welch_t_test(a::Vector{Float64}, b::Vector{Float64})
     return clamp(p, 0.0, 1.0), d
 end
 
+# Normal CDF sin SpecialFunctions — aproximación polinomial A&S 26.2.17, error máx 7.5e-8
+function _norm_cdf_approx(z::Float64)::Float64
+    z < 0.0 && return 1.0 - _norm_cdf_approx(-z)
+    t = 1.0 / (1.0 + 0.2316419 * z)
+    poly = t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))))
+    return 1.0 - exp(-0.5 * z * z) * poly / sqrt(2.0 * π)
+end
+
 # Aproximación normal para df > 30; para df pequeños es menos preciso
 function _t_cdf(t::Float64, df::Float64)::Float64
-    df > 30.0 && return 0.5 * (1.0 + erf(t / sqrt(2.0)))
+    df > 30.0 && return _norm_cdf_approx(t)
     # Aproximación via regularized incomplete beta
     x = df / (df + t^2)
     return 1.0 - 0.5 * _incomplete_beta_approx(x, df/2, 0.5)
