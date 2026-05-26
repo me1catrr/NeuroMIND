@@ -95,12 +95,12 @@ Dashboard: Panel 14
 ---
 
 ### Fase F — Replicación MNE-Python
-**Carpeta:** `EEG_MNE_Python/`  
+**Carpeta:** `mne_brain/`  
 **Propósito:** Replicar el pipeline NeuroMIND en Python/MNE para validación cruzada
 
 Pasos a implementar:
-1. `EEG_MNE_Python/pipeline_mne.py` — pipeline completo MNE
-2. `EEG_MNE_Python/compare_results.py` — comparación Julia vs Python
+1. `mne_brain/scripts/run_mne_pipeline.py` — pipeline completo MNE
+2. `mne_brain/validation/compare_results.py` — comparación Julia vs Python
 3. Panel 15 en dashboard: comparativa de métricas wPLI Julia/Python
 
 ---
