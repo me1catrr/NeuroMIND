@@ -95,8 +95,30 @@ GAMMA     = [30.0, 50.0]
 
 # ─── Conectividad ─────────────────────────────────────────────
 [connectivity]
-filter_order = 8
-use_csd      = false     # CSD OPCIONAL — false por defecto para primer caso
+
+# Método de cálculo del wPLI:
+#   "hilbert"      — Filtrado Butterworth + señal analítica Hilbert (más rápido, default)
+#   "fourier_csd"  — Espectro cruzado FFT con ventana (definición espectral directa)
+#   "multitaper"   — DPSS multitaper, equivalente MNE spectral_connectivity (mejor varianza-sesgo)
+wpli_method = "hilbert"
+
+use_dwpli               = false  # true → dwPLI no sesgado; recomendado para análisis grupal
+min_cycles_for_wpli     = 4.0
+exclude_unreliable_bands = false
+
+use_csd      = false  # CSD OPCIONAL — false por defecto
+filter_order = 8      # solo para wpli_method="hilbert"
+
+# ── Opciones para wpli_method = "fourier_csd" ─────────────────
+[connectivity.fourier_csd]
+window = "hann"  # "hann" | "hamming" | "rect"
+nfft   = 0       # 0 = usar la longitud completa de la época
+
+# ── Opciones para wpli_method = "multitaper" ──────────────────
+[connectivity.multitaper]
+nw       = 4.0   # time-bandwidth product
+n_tapers = 0     # 0 = automático: floor(2*nw) − 1
+low_bias = true  # descartar tapers con λ < 0.9
 
 # ─── Control de calidad ───────────────────────────────────────
 [qc]
@@ -117,7 +139,7 @@ figure_dpi    = 150
 # enabled = false → omite el paso (por defecto; computacionalmente intensivo)
 # Recomendado: n_surrogates ≥ 200 por banda para distribución nula estable
 [surrogates]
-enabled      = true         # cambiar a true para activar inferencia
+enabled      = false         # cambiar a true para activar inferencia
 n_surrogates = 200           # número de permutaciones de fase por banda
 method       = "phase_shuffle"  # único método disponible actualmente
 alpha        = 0.05          # nivel de significancia

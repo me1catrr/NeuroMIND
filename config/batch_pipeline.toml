@@ -39,19 +39,33 @@ artifact_threshold = 1.5
 
 # ─── Segmentación ─────────────────────────────────────────────
 [segmentation]
-profile                = "eeg_julia"
-segment_length_seconds = 1.0    # ignorado con perfil eeg_julia
+profile                = "default"
+segment_length_seconds = 2.0    # ignorado con perfil eeg_julia
 overlap_seconds        = 0.0
 min_segments           = 10
 
 # ─── Corrección de baseline ───────────────────────────────────
 [baseline]
-method           = "first_window_mean"
+method           = "mean"
 baseline_start_s = 0.0
 baseline_end_s   = 0.10
 n_passes         = 2
 
+# ─── Montaje principal ────────────────────────────────────────
+# Fp2 se excluye en TODOS los sujetos por ser un canal sistemáticamente
+# problemático en el dataset (artefactos oculares / contacto deficiente).
+# El análisis principal trabaja con 30 canales → 435 aristas wPLI por banda.
+# Para análisis de sensibilidad cambiar exclude_fp2 = false.
+[montage]
+exclude_channels    = ["Fp2"]
+exclude_fp2         = true
+n_channels_analysis = 30
+
 # ─── Rechazo de artefactos ────────────────────────────────────
+# Umbral del protocolo original RS-MIND: ±70 µV.
+# Los registros con filtro online OFF (σ >20 µV en crudo) recibirán
+# una alerta de amplitud (amplitude_warning) pero NO se excluyen
+# automáticamente; la decisión final queda en la tabla QC.
 [artifact_rejection]
 profile               = "eeg_julia"
 min_amplitude_uv      = -70.0
@@ -81,8 +95,37 @@ GAMMA     = [30.0, 50.0]
 
 # ─── Conectividad ─────────────────────────────────────────────
 [connectivity]
-filter_order = 8
-use_csd      = false
+
+# Método de cálculo del wPLI:
+#   "hilbert"      — Filtrado Butterworth + señal analítica Hilbert (más rápido)
+#   "fourier_csd"  — Espectro cruzado FFT con ventana (definición espectral directa)
+#   "multitaper"   — DPSS multitaper, equivalente MNE spectral_connectivity (mejor varianza-sesgo)
+wpli_method = "fourier_csd"
+
+# Estimador de conectividad:
+#   false → wPLI  = |E[Im]| / E[|Im|]                          rango [0, 1], sesgado
+#   true  → dwPLI = (E[Im]²−E[Im²]) / (E[|Im|]²−E[Im²])       rango [−1, 1], no sesgado
+# Recomendado true para comparaciones grupales (n_epochs variable entre sujetos).
+use_dwpli    = true
+
+# Ciclos mínimos por época para considerar la estimación fiable.
+# Con epoch_length_s=1.0s: DELTA (0.5 Hz × 1s = 0.5 ciclos) generará @warn.
+min_cycles_for_wpli      = 4.0
+exclude_unreliable_bands = true # si true, omite bandas con < min_cycles (no solo advierte)
+
+use_csd      = false  # Current Source Density — opcional, no recomendado hasta validación
+filter_order = 8      # solo para wpli_method="hilbert"
+
+# ── Opciones para wpli_method = "fourier_csd" ─────────────────
+[connectivity.fourier_csd]
+window = "hann"  # "hann" | "hamming" | "rect"
+nfft   = 0       # 0 = usar la longitud completa de la época
+
+# ── Opciones para wpli_method = "multitaper" ──────────────────
+[connectivity.multitaper]
+nw       = 4.0   # time-bandwidth product (típico: 2.0–5.0; mayor = más suavizado)
+n_tapers = 0     # 0 = automático: floor(2*nw) − 1  (con nw=4.0 → 7 tapers)
+low_bias = true  # descartar tapers con concentración espectral λ < 0.9
 
 # ─── Control de calidad ───────────────────────────────────────
 [qc]
@@ -93,12 +136,21 @@ bad_channel_zscore_threshold = 3.0
 # Aprox. 2-5 min extra por sujeto; total ~8-17 h para el dataset completo.
 # Para un primer pasado rápido, cambiar a enabled = false.
 [surrogates]
-enabled      = true
-n_surrogates = 200
-method       = "phase_shuffle"
+enabled      = false
+n_surrogates = 20
+method       = "circular_shift"
 alpha        = 0.05
 fdr_method   = "bh"
 seed         = 42
+
+# ─── Métricas de grafo ────────────────────────────────────────
+# El umbral aquí es SOLO para las métricas binarias (path_length, efficiency, degree).
+# Las métricas ponderadas (strength, clustering) siempre usan la matriz wPLI completa.
+# "proportional": mantener el density×100% de aristas más fuertes (comparable entre sujetos).
+# "absolute":     umbral en valor absoluto de wPLI (depende de n_epochs, menos recomendado).
+[graph]
+density          = 0.1
+threshold_method = "proportional"
 
 # ─── Rutas ────────────────────────────────────────────────────
 [paths]
