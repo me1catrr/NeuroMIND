@@ -7,6 +7,7 @@
 /data/
 /results/
 /reports/
+/report/
 /exports/
 
 # Keep empty directory placeholders if they are added intentionally.
@@ -48,7 +49,6 @@ temp/
 logs/
 config/.batch_tmp/
 config/results/
-report/build/
 wPLI_paper/
 __pycache__/
 .ipynb_checkpoints/

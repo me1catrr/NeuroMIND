@@ -1,2 +1,0 @@
-subject_id,session_id,task,sampling_hz,n_channels,n_samples,duration_s,bad_channels,n_bad_ch,electrode_validation
-M05,T2,eyesclosed,500.0,31,50180,100.36,Fp2,1,Validación OK
