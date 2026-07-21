@@ -3,17 +3,20 @@ NeuroMIND — EEG Functional Connectivity Framework
 Estudio BRAIN: Conectividad funcional en Esclerosis Múltiple basada en wPLI
 Rafael Castro Triguero, 2026
 
-Uso básico:
+Uso básico (cadena activa, ver README.md):
     using NeuroMIND
-    cfg      = load_config("config/pipeline.toml")
-    subjects = load_subjects(cfg)
-    run_pipeline!(subjects, cfg)
+    cfg = load_ss_config("config/single_subject.toml")
+    run_single_subject_pipeline(cfg)
 
     # Lanzar visor web interactivo
     launch_webapp(cfg; port=8080)
 
     # Generar informe HTML de un sujeto
     generate_report(subjects[1], cfg)
+
+Nota: `run_pipeline!`/`load_config("config/pipeline.toml")`/`load_subjects`
+pertenecen a la ruta legacy (`legacy/src/Pipeline.jl`, `legacy/config/`),
+archivada el 2026-07-21. No usar con el dataset MINDEM-IMIBIC.
 """
 module NeuroMIND
 
@@ -96,8 +99,8 @@ export save_figure
 include("report/HTMLReport.jl")
 export generate_report, generate_group_report, generate_longitudinal_report
 
-# ─── Pipeline de alto nivel ───────────────────────────────────
-include("Pipeline.jl")
+# ─── Pipeline de alto nivel (⚠️ legacy — ver legacy/README o raíz del repo) ────
+include("../legacy/src/Pipeline.jl")
 export run_pipeline!, run_subject!, run_session!
 
 # ─── Pipeline de un solo sujeto ──────────────────────────────

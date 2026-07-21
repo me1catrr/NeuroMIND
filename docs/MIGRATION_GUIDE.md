@@ -1,5 +1,11 @@
 # Guía de Migración: EEG_Julia → NeuroMIND
 
+> **Nota (2026-07-21):** este documento describe la migración histórica
+> EEG_Julia → NeuroMIND. El ejemplo de la Fase 1 usa `config/pipeline.toml`
+> y `load_config`/`run_pipeline!`, que pertenecen a la ruta legacy archivada
+> en `legacy/config/` y `legacy/src/Pipeline.jl`. La ruta activa actual usa
+> `config/single_subject.toml` y `SingleSubjectPipeline.jl` — ver README.md.
+
 ## Estrategia
 
 La migración es **incremental**: EEG_Julia sigue funcionando intacto mientras

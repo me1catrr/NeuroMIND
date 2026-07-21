@@ -1,16 +1,25 @@
 #!/usr/bin/env julia
-# NeuroMIND/scripts/run_pipeline.jl
+# NeuroMIND/legacy/scripts/run_pipeline.jl
+#
+# ⚠️ OBSOLETO — no usar con el dataset MINDEM-IMIBIC.
+# Archivado el 2026-07-21 junto con src/Pipeline.jl, config/pipeline.toml y
+# config/subjects.toml. Motivo: llama a un orquestador de 7 pasos anterior a
+# SingleSubjectPipeline.jl y lee sujetos sintéticos de plantilla, no el
+# registro real. Ver README.md, sección "Scripts de entrada — estado actual".
+#
+# Cadena activa: audit_full_dataset.jl -> build_bids_full.jl ->
+#                run_single_subject.jl / run_batch_pipeline.jl
 #
 # Script de entrada para ejecutar el pipeline completo desde la línea de comandos.
 #
 # Uso:
-#   julia scripts/run_pipeline.jl                      # todos los sujetos
-#   julia scripts/run_pipeline.jl --subject M05        # sujeto específico
-#   julia scripts/run_pipeline.jl --force              # fuerza re-cómputo
-#   julia scripts/run_pipeline.jl --subject M05 --session T2 --condition EC
+#   julia legacy/scripts/run_pipeline.jl                      # todos los sujetos
+#   julia legacy/scripts/run_pipeline.jl --subject M05        # sujeto específico
+#   julia legacy/scripts/run_pipeline.jl --force              # fuerza re-cómputo
+#   julia legacy/scripts/run_pipeline.jl --subject M05 --session T2 --condition EC
 
 using Pkg
-Pkg.activate(joinpath(@__DIR__, ".."))
+Pkg.activate(joinpath(@__DIR__, "..", ".."))
 
 using NeuroMIND
 

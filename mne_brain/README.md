@@ -112,7 +112,9 @@ implementadas con MNE-Python.
 
 Toda la configuración científica vive en
 [`config/pipeline_config.yaml`](config/pipeline_config.yaml). Es un espejo del
-`config/pipeline.toml` de NeuroMIND/Julia para garantizar parámetros idénticos.
+`config/single_subject.toml` de NeuroMIND/Julia para garantizar parámetros
+idénticos (el antiguo `config/pipeline.toml` se archivó el 2026-07-21 en
+`NeuroMIND/legacy/config/`; ya no es la fuente activa).
 
 Cambia ahí (no en el código) cosas como:
 

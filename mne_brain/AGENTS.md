@@ -27,7 +27,9 @@ NeuroMIND comparándolos con una implementación independiente.
 ❌ NO subir data/, results/, .venv/ al repo (.gitignore se encarga)
 ❌ NO subir señales EEG reales ni datos derivados por sujeto
 ❌ NO commitear directamente en main (salvo cambios triviales de 1 línea)
-❌ NO modificar config/pipeline_config.yaml sin comparar con NeuroMIND/config/pipeline.toml
+❌ NO modificar config/pipeline_config.yaml sin comparar con NeuroMIND/config/single_subject.toml
+   (fuente de verdad activa; NeuroMIND/legacy/config/pipeline.toml es una copia archivada,
+   ver nota 2026-07-21 en la sección 8)
 ❌ NO duplicar dependencias en requirements.txt (fue eliminado; pyproject.toml es la única fuente)
 ❌ NO cambiar lógica científica (filtros, ICA, wPLI, PSD) sin comparar contra NeuroMIND/Julia
 ❌ NO importar de scripts/ desde otros scripts (cada script es entrypoint autónomo)
@@ -75,7 +77,7 @@ SIEMPRE antes de segmentar (Fase 5). El orden no es negociable.
 
 | Archivo | Rol |
 |---------|-----|
-| `config/pipeline_config.yaml` | Parámetros científicos (espejo de `NeuroMIND/config/pipeline.toml`) |
+| `config/pipeline_config.yaml` | Parámetros científicos (espejo de `NeuroMIND/config/single_subject.toml`) |
 | `pyproject.toml` | Dependencias + setup del paquete instalable (`mne-brain 0.1.0`) |
 | `scripts/build_bids_full.py` | **Etapa A** — Lee inventory.csv + .vhdr → genera 205 JSON BIDS en `data/BIDS/raw/` |
 | `scripts/run_full_pipeline.py` | **Etapa B** — Entrypoint unificado (single subject + batch). Detecta modo automáticamente según flags |
@@ -199,7 +201,14 @@ permitir `diff` directo entre las dos implementaciones.
 
 ## 8. Configuración (`pipeline_config.yaml`)
 
-Espejo de `NeuroMIND/config/pipeline.toml`. Secciones clave:
+> **Nota (2026-07-21):** `NeuroMIND/config/pipeline.toml` se archivó en
+> `NeuroMIND/legacy/config/pipeline.toml` (solo lo usa el orquestador legacy
+> `run_pipeline.jl`/`Pipeline.jl`, ya no la cadena activa). La fuente de
+> verdad viva para estos parámetros es ahora `NeuroMIND/config/single_subject.toml`
+> — mismos valores en la fecha de este archivado, pero es ese fichero el que
+> hay que vigilar para futuros cambios, no `legacy/config/pipeline.toml`.
+
+Espejo de `NeuroMIND/config/single_subject.toml` (histórico: antes `pipeline.toml`). Secciones clave:
 
 ```yaml
 filtering:
@@ -376,7 +385,8 @@ Instalar con `pip install -e ".[dev]"` desde la raíz de `mne_brain/`.
   - `PermissionError: ~/.mne/mne-python.json` → en sandbox; ejecutar con permisos
     `all` o `full_network` según el agente.
 - **Sincronización con NeuroMIND/Julia:** si NeuroMIND cambia parámetros en
-  `config/pipeline.toml`, actualizar **inmediatamente** `mne_brain/config/pipeline_config.yaml`.
+  `config/single_subject.toml` (fuente activa; `legacy/config/pipeline.toml` es
+  copia archivada), actualizar **inmediatamente** `mne_brain/config/pipeline_config.yaml`.
   Las dos implementaciones deben usar exactamente los mismos parámetros.
 
 > Para contexto completo del proyecto padre, leer también `../CLAUDE.md` y

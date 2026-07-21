@@ -29,7 +29,9 @@ end
 # ─── Configuración ────────────────────────────────────────────
 root      = joinpath(@__DIR__, "..")
 ss_config = joinpath(root, "config", "single_subject.toml")
-pl_config = joinpath(root, "config", "pipeline.toml")
+# Fallback legacy: solo se usa si single_subject.toml no existe.
+# pipeline.toml se archivó en legacy/config/ el 2026-07-21.
+pl_config = joinpath(root, "legacy", "config", "pipeline.toml")
 
 cfg = if isfile(ss_config)
     load_ss_config(ss_config)

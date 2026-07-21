@@ -75,6 +75,29 @@ session_id = "T2"          # "T1" | "T2"               — solo modo single
 task       = "eyesclosed"  # "eyesclosed" | "eyesopen" — solo modo single
 run        = 1
 
+# ─── Parámetros de grabación ───────────────────────────────────
+#
+#  sampling_rate
+#  ────────────────────────────────────────────────────────────
+#  → cfg.recording["fs"] (load_ss_config, SingleSubjectPipeline.jl:84).
+#  Se usa como FALLBACK cuando el metadata del origen no trae "fs"
+#  (SingleSubjectPipeline.jl:230). Con BrainVision el fs real se lee
+#  del .vhdr, así que este valor rara vez decide — pero declararlo
+#  evita depender de un default oculto en el código.
+#  Confirmado 500.0 Hz en los .vhdr de todo el dataset.
+#
+#  reference  ·  antes invisible · INFORMATIVO
+#  ────────────────────────────────────────────────────────────
+#  Ningún .toml lo declaraba; se lee con fallback "average" en
+#  SingleSubjectPipeline.jl:932 y webapp/App.jl:1660.
+#  Solo alimenta metadatos (spectral_summary.json / dashboard):
+#  NO aplica ningún re-referenciado real a la señal.
+#
+[recording]
+sampling_rate = 500.0
+reference     = "average"   # informativo — no re-referencia la señal
+
+
 # ─── Control de calidad ────────────────────────────────────────
 #
 #  bad_channel_zscore_threshold
@@ -226,15 +249,44 @@ artifact_threshold = 1.5     # INERTE — ver nota arriba
 #  ────────────────────────────────────────────────────────────
 #  Si se cambia, SÍ lee epoch_length_s / epoch_overlap de aquí.
 #
-#  Nombres de clave corregidos
+#  Nombres de clave  ·  CAPA DE TRADUCCIÓN — no renombrar
 #  ────────────────────────────────────────────────────────────
-#  Los .toml originales usaban:
-#    · segment_length_seconds / overlap_seconds / min_segments
-#  pero el código (Epochs.jl:21–22, 133) lee:
-#    · epoch_length_s / epoch_overlap / min_epochs
-#  Nunca coincidían → esos valores nunca se aplicaron.
-#  Aquí quedan con el nombre correcto para que sean efectivos
-#  si se cambia a "default".
+#  El TOML DEBE usar estos nombres. load_ss_config()
+#  (SingleSubjectPipeline.jl:70–99) los lee y los traduce al
+#  objeto PipelineConfig con OTROS nombres:
+#
+#    TOML                      →  cfg.segmentation
+#    ─────────────────────────    ────────────────────
+#    segment_length_seconds    →  epoch_length_s
+#    overlap_seconds           →  epoch_overlap
+#                                 (fracción: overlap_s / seg_len_s)
+#    min_segments              →  min_epochs
+#
+#  Epochs.jl:21–22,133 lee el objeto YA TRADUCIDO, no el TOML.
+#  Si aquí se escribieran epoch_length_s / epoch_overlap /
+#  min_epochs, load_ss_config NO los vería y caería a sus
+#  fallbacks (2.0 / 0.0 / 10) en silencio.
+#
+#  segment_length_seconds = 1.0  ·  no 2.0
+#  ────────────────────────────────────────────────────────────
+#  Con profile="eeg_julia" la segmentación real siempre es de
+#  1.0 s (segment_recording la fuerza, Epochs.jl:17–19), pero
+#  este valor SÍ se reporta como metadato: _save_spectral_extras
+#  (SingleSubjectPipeline.jl:929) lo lee para spectral_summary.json.
+#  Los .toml originales tenían 2.0 → ese JSON venía informando
+#  épocas de 2.0 s cuando en realidad eran de 1.0 s.
+#
+#  min_segments  ·  SÍ excluye sujetos (no es solo un @warn)
+#  ────────────────────────────────────────────────────────────
+#  En Epochs.jl:133 solo dispara @warn, pero la línea 597 lo pasa
+#  a _update_qc_decision_table, donde es criterio de EXCLUSIÓN
+#  DURA (SingleSubjectPipeline.jl:1839–1841):
+#    n_epochs_valid < min_epochs → final_decision = "exclude"
+#
+#  Se mantiene 10 (valor de ambos .toml originales) para preservar
+#  las 205 decisiones QC ya generadas. Subirlo a 20 reclasificaría
+#  M13/T1/EC (15 epochs válidos, hoy "include") a "exclude" y
+#  obligaría a regenerar qc/qc_decision_table.csv.
 #
 #  Historial
 #  ────────────────────────────────────────────────────────────
@@ -246,11 +298,11 @@ artifact_threshold = 1.5     # INERTE — ver nota arriba
 #  de los resultados existentes.
 #
 [segmentation]
-profile        = "eeg_julia"
-epoch_length_s = 1.0     # ignorado si profile="eeg_julia"; se usaría si "default"
-epoch_overlap  = 0.0     # ignorado si profile="eeg_julia"; se usaría si "default"
-min_epochs     = 20      # solo @warn si n_valid < min_epochs — NO excluye al sujeto
-                         # (la exclusión real está en qc_decision_table.csv)
+profile                = "eeg_julia"
+segment_length_seconds = 1.0   # → cfg.epoch_length_s · el perfil eeg_julia lo ignora
+                               #   en el cálculo, pero SÍ se reporta como metadato
+overlap_seconds        = 0.0   # → cfg.epoch_overlap (fracción)
+min_segments           = 10    # → cfg.min_epochs · EXCLUYE si n_valid < este valor
 
 
 # ─── Corrección de baseline ────────────────────────────────────
@@ -517,60 +569,132 @@ nw       = 4.0    # time-bandwidth product (típico 2.0–5.0; mayor = más suav
 n_tapers = 0      # 0 = automático: floor(2*nw) − 1 (nw=4.0 → 7 tapers)
 low_bias = true   # descartar tapers con λ < 0.9
 
-# ─── Surrogates / Inferencia estadística ───────────────────────
-#
-#  surrogate_test() (Surrogates.jl:28)
-#  Desplazamiento circular independiente por canal/época,
-#  con el MISMO estimador de conectividad que la corrida
-#  observada (hilbert / fourier_csd / multitaper, según
-#  [connectivity]).
-#
-#  enabled = false  ·  activo
-#  ────────────────────────────────────────────────────────────
-#  Coincide con AMBOS .toml originales y con 197 de las 205
-#  grabaciones ya procesadas.
-#  Computacionalmente costoso (~2–5 min extra/sujeto con
-#  n_surrogates alto).
-#  Cambiar a true para un análisis de publicación con
-#  inferencia real por sujeto.
-#
-#  n_surrogates = 200  ·  fijado (no 20/19)
-#  ────────────────────────────────────────────────────────────
-#  Con n_surrogates = 19–20 (lo único usado de verdad hasta
-#  ahora, en 8/205 grabaciones — pruebas puntuales, no un
-#  análisis sistemático), el p-valor mínimo posible es
-#  (0+1)/(20+1) ≈ 0.048 — al borde de alpha = 0.05, sin
-#  potencia real tras corrección FDR.
-#  El comentario original de single_subject.toml ya
-#  recomendaba ≥ 200. Con 200, el suelo baja a ≈ 0.005,
-#  dejando margen real para superar la corrección BH-FDR.
-#
-#  method  ·  INERTE
-#  ────────────────────────────────────────────────────────────
-#  surrogate_test() (Surrogates.jl) siempre usa circular_shift
-#  pase lo que pase aquí; esta clave solo se muestra en
-#  logs/JSON como metadato.
-#  "phase_shuffle" (valor de single_subject.toml) no existe
-#  como método implementado — se deja "circular_shift" para
-#  que el metadato sea al menos veraz.
-#
-[surrogates]
-enabled      = false
-n_surrogates = 200
-method       = "circular_shift"  # informativo — ver nota arriba
-alpha        = 0.05              # nivel de significancia FDR
-fdr_method   = "bh"              # "bh" (Benjamini-Hochberg) | "bonferroni"
-seed         = 42                # semilla base (+ índice de banda — Surrogates.jl:54)
 
-# ─── Dashboard ─────────────────────────────────────────────────
+# ─── Montaje principal ─────────────────────────────────────────
 #
-#  Leído SOLO por scripts/launch_dashboard.jl
-#  (parseo directo del TOML; no forma parte de PipelineConfig /
-#  cfg.dashboard en ningún otro módulo de src/).
+#  Mecánica real (SingleSubjectPipeline.jl:463–470)
+#  ────────────────────────────────────────────────────────────
+#  Quien elimina canales es exclude_channels. exclude_fp2 NO
+#  elimina nada por sí solo: solo FILTRA Fp2 de esa lista.
 #
-#  --port en línea de comandos tiene prioridad sobre el valor
-#  de aquí.
+#    exclude_channels = ["Fp2"] · exclude_fp2 = true   → Fp2 SE ELIMINA
+#    exclude_channels = ["Fp2"] · exclude_fp2 = false  → Fp2 SE CONSERVA
+#    exclude_channels = []      · exclude_fp2 = true   → Fp2 SE CONSERVA
+#                                                        pero el flag
+#                                                        fp2_removed se
+#                                                        reporta true (!)
 #
+#  A los canales de aquí se suman siempre los bad_ch detectados
+#  por QC (z-score): all_excl = montage_excl ∪ bad_ch.
+#
+#  Estado del dataset actual
+#  ────────────────────────────────────────────────────────────
+#  · Lote MINDEM-IMIBIC (205 grabaciones): [montage] presente,
+#    Fp2 excluido → 30 canales, 435 aristas por banda.
+#  · M05 (referencia): single_subject.toml NO tenía [montage]
+#    → Fp2 conservado → 31 canales, 465 aristas.
+#    Incoherencia observada en qc_decision_table.csv: M05/T2/EC
+#    figura con fp2_removed=false y 31 ch, pero M05/T2/EO con
+#    fp2_removed=true y 30 ch.
+#
+#  exclude_fp2 = false  ·  activo · decisión tomada
+#  ────────────────────────────────────────────────────────────
+#  Conserva Fp2 → 31 canales / 465 aristas, coherente con el
+#  caso de referencia M05 (mismo criterio que use_dwpli=false
+#  y baseline method="first_window_mean").
+#
+#  Implicaciones de conservar Fp2:
+#    · Diverge de las 205 grabaciones del lote (30 ch / 435
+#      aristas). Matrices wPLI de distinta dimensión → no
+#      comparables sin re-procesar.
+#    · [artifact_rejection] n_channels_used = 30 aplica el
+#      umbral ±70 µV solo a los 30 PRIMEROS canales por
+#      POSICIÓN: Fp2 (posición 31) quedaría SIN criba de
+#      artefactos, siendo precisamente el canal que el dataset
+#      considera problemático (artefactos oculares / contacto
+#      deficiente). Si se conserva Fp2, subir n_channels_used
+#      a 31 para que también se le aplique el umbral.
+#
+#  Para volver al criterio del lote: exclude_fp2 = true.
+#
+#  n_channels_analysis  ·  INERTE (documental)
+#  ────────────────────────────────────────────────────────────
+#  No se lee del TOML. n_ch_analysis se CALCULA de los canales
+#  realmente activos (SingleSubjectPipeline.jl:491) y se escribe
+#  HACIA qc_decision_table.csv. Cambiar este valor no fuerza nada.
+#
+[montage]
+exclude_channels    = ["Fp2"]   # lista efectiva de exclusión (+ bad_ch de QC)
+exclude_fp2         = false     # false → Fp2 SE CONSERVA (31 canales)
+n_channels_analysis = 31        # informativo — no se lee, ver nota arriba
+
+
+# ─── Métricas de grafo ─────────────────────────────────────────
+#
+#  compute_graph_metrics() (GraphMetrics.jl:28–38).
+#
+#  El umbral SOLO afecta a las métricas BINARIAS
+#  (path_length, efficiency, degree). Las métricas PONDERADAS
+#  (strength, clustering) usan siempre la matriz wPLI completa,
+#  sin umbralizar.
+#
+#  threshold_method = "proportional"  ·  activo
+#  ────────────────────────────────────────────────────────────
+#  Mantiene el density × 100% de aristas más fuertes del
+#  triángulo superior (GraphMetrics.jl:74–77).
+#  Ventaja: densidad fija → grafos comparables entre sujetos
+#  aunque sus valores absolutos de wPLI difieran.
+#
+#  threshold_method = "absolute"  ·  alternativa
+#  ────────────────────────────────────────────────────────────
+#  Umbral en valor absoluto de wPLI; density pasa a
+#  interpretarse como ese umbral (GraphMetrics.jl:80).
+#  Menos recomendado: el wPLI absoluto depende de n_epochs, que
+#  varía entre sujetos, así que la densidad resultante no sería
+#  comparable entre ellos.
+#
+[graph]
+density          = 0.1              # 10% aristas más fuertes (si "proportional")
+                                    # o umbral absoluto de wPLI (si "absolute")
+threshold_method = "proportional"   # alternativa: "absolute"
+
+
+# ─── Surrogates / Inferencia estadística ─────────────────────
+# surrogate_test() (Surrogates.jl:28): desplazamiento circular independiente
+# por canal/época, con el MISMO estimador de conectividad que la corrida
+# observada (hilbert/fourier_csd/multitaper, según [connectivity]).
+#
+# enabled = false (activo) — coincide con AMBOS .toml originales y con 197 de
+#   las 205 grabaciones ya procesadas. Computacionalmente costoso (~2-5 min
+#   extra/sujeto con n_surrogates alto); cambiar a true para un análisis de
+#   publicación con inferencia real por sujeto.
+[surrogates]
+enabled = false
+
+# ⚠️ n_surrogates: fijado en 200, NO en 20/19. Con n_surrogates=19-20 (lo
+#   único que se ha usado de verdad hasta ahora, en 8/205 grabaciones —
+#   pruebas puntuales, no un análisis sistemático), el p-valor mínimo posible
+#   es (0+1)/(20+1)≈0.048 — al borde de alpha=0.05, sin potencia real tras
+#   corrección FDR. El propio comentario original de single_subject.toml ya
+#   recomendaba ≥200. Con 200, el suelo baja a ≈0.005, dejando margen real
+#   para superar la corrección BH-FDR.
+n_surrogates = 200
+
+# method: SIN EFECTO — surrogate_test() (Surrogates.jl) siempre usa
+#   circular_shift pase lo que pase aquí; esta clave solo se muestra en logs/
+#   JSON como metadato. "phase_shuffle" (valor de single_subject.toml) no
+#   existe como método implementado — se deja "circular_shift" para que el
+#   metadato sea al menos veraz, aunque no tenga efecto funcional.
+method = "circular_shift"   # informativo únicamente — ver nota arriba
+
+alpha      = 0.05           # nivel de significancia para la corrección FDR
+fdr_method = "bh"           # "bh" (Benjamini-Hochberg) | "bonferroni"
+seed       = 42             # semilla base (se combina con índice de banda — Surrogates.jl:54)
+
+# ─── Dashboard ────────────────────────────────────────────────
+# Leído SOLO por scripts/launch_dashboard.jl (parseo directo del TOML, no
+# forma parte de PipelineConfig/cfg.dashboard en ningún otro módulo de src/).
+# --port en línea de comandos tiene prioridad sobre el valor de aquí.
 [dashboard]
 port         = 8080
-open_browser = true   # abrir navegador automáticamente al lanzar
+open_browser = true   # abrir navegador automáticamente al lanzar el dashboard
