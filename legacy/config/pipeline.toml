@@ -1,0 +1,130 @@
+# NeuroMIND — Configuración del pipeline
+# Parámetros extraídos del protocolo del estudio BRAIN (Castro Triguero, 2026)
+
+[project]
+name    = "BRAIN_MS_EEG_Connectivity"
+version = "1.0"
+pi      = "Rafael Castro Triguero"
+date    = "2026-05-06"
+
+[study]
+# Diseño experimental confirmado desde BRAIN.pdf
+n_ms_t1      = 44      # Pacientes EM en T1
+n_ms_t2      = 30      # Pacientes EM en T2 (14 pérdidas)
+n_controls   = 40      # Controles sanos
+n_dropouts   = 14      # Pérdidas en seguimiento
+conditions   = ["EO", "EC"]          # Eyes Open, Eyes Closed
+groups       = ["MS", "Control"]
+sessions     = ["T1", "T2"]          # T2 solo para MS
+design       = "transversal+longitudinal"
+
+[paths]
+bids_root  = "data/BIDS"
+results    = "results"
+data_cache = "data/cache"
+web_public = "web/public"
+
+[recording]
+fs               = 500.0        # Hz (BrainVision Analyzer: 500 muestras/s)
+duration_s       = 100.0        # segundos de resting-state
+n_channels       = 32           # electrodos 10-20
+reference        = "average"    # re-referencia a promedio (post-ICA)
+montage          = "10-20"
+ground           = "Fpz"
+
+[filtering]
+# Reproducibilidad EEG_Julia (refs: EEG_Julia/src/Preprocessing/filtering.jl,
+#                                    EEG_Julia/config/default_config.jl)
+# Cadena: Notch(filt,50Hz,bw1Hz) → Bandreject(filt,100Hz,bw1Hz) → HP(filtfilt,0.5Hz) → LP(filtfilt,150Hz)
+profile          = "eeg_julia"
+highpass_hz      = 0.5          # EEG_Julia Highpass_cutoff (filtfilt, order_design=4)
+lowpass_hz       = 150.0        # EEG_Julia Lowpass_cutoff  (filtfilt, order_design=4)
+notch_hz         = 50.0         # EEG_Julia Notch_cutoff    (filt, order=4)
+notch_bw_hz      = 1.0          # EEG_Julia Notch_width=1.0 → 49.5–50.5 Hz
+bandreject_lo    = 99.5         # EEG_Julia Bandreject_freq=100, bw=1.0 → 99.5–100.5 Hz
+bandreject_hi    = 100.5        # EEG_Julia (mismo)
+filter_order     = 4            # EEG_Julia: todos los filtros usan order=4
+
+[segmentation]
+epoch_length_s   = 1.0          # 1 segundo = 500 muestras a 500 Hz
+epoch_overlap    = 0.0          # Sin solapamiento
+min_epochs       = 20           # Mínimo para análisis válido
+
+[baseline]
+method           = "mean"       # Sustracción de media del epoch
+apply            = true
+n_passes         = 2            # Doble corrección de baseline (pre y post AR)
+
+[artifact_rejection]
+amplitude_threshold_uv = 100.0  # μV — umbral de amplitud pico-a-pico
+gradient_threshold_uv  = 50.0   # μV/muestra — umbral de gradiente
+enabled                = true
+
+[ica]
+n_components     = 30           # Confirmado en BRAIN.pdf
+method           = "fastica"
+random_seed      = 42
+max_iter         = 500
+tolerance        = 1e-5
+
+[spectral]
+# Parámetros FFT estilo BrainVision Analyzer
+nfft             = 512          # Zero-padding → resolución Δf = 500/512 ≈ 0.977 Hz
+window           = "hamming"    # Ventana Hamming-taper
+window_pct       = 10.0         # 10% de taper (estilo BrainVision)
+zero_padding     = true
+output_unit      = "uV2"        # Potencia en μV²
+
+[bands]
+# Bandas espectrales del protocolo (confirmadas en BRAIN.pdf)
+DELTA     = [0.5,  4.0]
+THETA     = [4.0,  8.0]
+ALPHA     = [7.8,  11.7]
+BETA_LOW  = [12.0, 15.0]
+BETA_MID  = [15.0, 18.0]
+BETA_HIGH = [18.0, 30.0]
+GAMMA     = [30.0, 50.0]
+
+[connectivity]
+method           = "wpli"       # Weighted Phase Lag Index
+filter_order     = 8            # Butterworth orden 8 (estilo BrainVision)
+aggregation      = "across_segments"  # Método Vinck 2011
+use_csd          = false        # CSD OPCIONAL (activar con use_csd = true)
+csd_method       = "spline"     # Laplaciano esférico si use_csd = true
+min_epochs_wpli  = 20           # Mínimo de epochs para wPLI válido
+
+[surrogates]
+n_surrogates     = 200          # Número de permutaciones de fase
+method           = "phase_shuffle"   # Phase-shuffling
+alpha            = 0.05         # Nivel de significancia
+fdr_method       = "bh"         # Benjamini-Hochberg (q < 0.05)
+
+[graph]
+threshold_method = "proportional"   # Umbralización proporcional
+density          = 0.1              # 10% de conexiones más fuertes
+metrics          = ["strength", "clustering", "path_length", "efficiency", "modularity"]
+
+[clinical]
+# Variables clínicas para correlaciones (BRAIN.pdf pág. 33)
+variables        = ["EDSS", "fatigue", "cognition", "lesion_load"]
+covariates       = ["age", "sex", "disease_duration", "medication"]
+
+[longitudinal]
+sessions_ms      = ["T1", "T2"]    # Solo pacientes EM tienen seguimiento
+min_visits       = 2
+time_unit        = "months"
+
+[statistics]
+# Estrategia estadística (BRAIN.pdf: plan estadístico del estudio)
+group_test       = "mann_whitney"  # No-paramétrico por defecto
+paired_test      = "wilcoxon"      # Para T1 vs T2 (muestras relacionadas)
+correlation      = "spearman"      # Correlación con variables clínicas
+parametric_alt   = "t_test"        # Alternativa paramétrica si distribución normal
+fdr_q            = 0.05
+bonferroni_alt   = true            # Aplicar también Bonferroni como comparación
+
+[export]
+figure_format    = "png"
+figure_dpi       = 300
+table_format     = "csv"
+report_format    = "html"          # Informes estáticos HTML
