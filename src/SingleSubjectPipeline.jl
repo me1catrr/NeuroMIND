@@ -41,8 +41,15 @@ end
 """
     load_ss_config(path) -> PipelineConfig
 
-Carga single_subject.toml y construye un PipelineConfig compatible
-con todas las funciones de algoritmos existentes.
+Carga config/pipeline.toml (configuración unificada del proyecto) y
+construye un PipelineConfig compatible con todas las funciones de
+algoritmos existentes.
+
+Nota: esta función traduce nombres de clave del TOML al objeto de config:
+  segment_length_seconds → epoch_length_s
+  overlap_seconds        → epoch_overlap (fracción)
+  min_segments           → min_epochs
+Los módulos (Epochs.jl, etc.) leen el objeto ya traducido, no el TOML.
 """
 function load_ss_config(path::String)::PipelineConfig
     abs_path = isabspath(path) ? path : abspath(path)

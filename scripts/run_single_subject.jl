@@ -3,8 +3,11 @@
 #
 # Uso:
 #   julia --project=. scripts/run_single_subject.jl
-#   julia --project=. scripts/run_single_subject.jl --config config/single_subject.toml
+#   julia --project=. scripts/run_single_subject.jl --config config/pipeline.toml
 #   julia --project=. scripts/run_single_subject.jl --force
+#
+# Config: config/pipeline.toml — fichero unificado (2026-07-21) que sustituye
+# a single_subject.toml y batch_pipeline.toml, archivados en legacy/config/.
 
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
@@ -30,7 +33,7 @@ let i = 1
 end
 
 config_path = get(args, "config",
-    joinpath(@__DIR__, "..", "config", "single_subject.toml"))
+    joinpath(@__DIR__, "..", "config", "pipeline.toml"))
 
 # ─── Ejecución ────────────────────────────────────────────────
 run_single_subject_pipeline(config_path)

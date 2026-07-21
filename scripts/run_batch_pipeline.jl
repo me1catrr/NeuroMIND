@@ -9,6 +9,11 @@
 # run_single_subject_pipeline().  Los resultados se guardan en:
 #   results/subjects/sub-{id}/ses-{sess}/{task}/
 #
+# Config base: config/pipeline.toml (unificado 2026-07-21; sustituye a
+# batch_pipeline.toml y single_subject.toml, archivados en legacy/config/).
+# De ese fichero se copia todo salvo [subject] y [paths], que este script
+# sobreescribe por cada trabajo del lote (ver write_temp_config).
+#
 # Uso:
 #   julia --project=. scripts/run_batch_pipeline.jl
 #   julia --project=. scripts/run_batch_pipeline.jl --condition EC
@@ -35,7 +40,7 @@ const PROJ_ROOT  = dirname(@__DIR__)
 const BIDS_DIR   = joinpath(PROJ_ROOT, "data", "bids")
 const RESULTS    = joinpath(PROJ_ROOT, "results")
 const INVENTORY  = joinpath(PROJ_ROOT, "data", "full_data", "inventory.csv")
-const BASE_CFG   = joinpath(PROJ_ROOT, "config", "batch_pipeline.toml")
+const BASE_CFG   = joinpath(PROJ_ROOT, "config", "pipeline.toml")
 const LOGS_DIR   = joinpath(PROJ_ROOT, "logs")
 
 # ─── Carga de NeuroMIND ───────────────────────────────────────
@@ -204,7 +209,7 @@ function run_batch(cli::Dict)
     end
 
     # Cargar config base
-    isfile(BASE_CFG) || error("Config base no encontrada: $BASE_CFG\n→ Crea config/batch_pipeline.toml")
+    isfile(BASE_CFG) || error("Config base no encontrada: $BASE_CFG\n→ config/pipeline.toml es la configuración única del proyecto.")
     base_cfg_raw = TOML.parsefile(BASE_CFG)
 
     # Log

@@ -633,7 +633,7 @@ function launch_webapp(cfg::PipelineConfig;
 
         # Inferir estado de cada fase a partir de archivos existentes
         statuses = Dict{String,String}(
-            "0"  => isfile(joinpath(project_root, "config", "single_subject.toml")) ?
+            "0"  => isfile(joinpath(project_root, "config", "pipeline.toml")) ?
                     "completed" : "pending",
             "1"  => fe("overview.csv") ? "completed" : "pending",
             "2"  => fe("overview.csv") ? "completed" : "pending",

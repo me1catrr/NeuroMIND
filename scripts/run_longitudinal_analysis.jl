@@ -10,13 +10,13 @@
 #
 # Uso:
 #   julia --project=. scripts/run_longitudinal_analysis.jl
-#   julia --project=. scripts/run_longitudinal_analysis.jl config/single_subject.toml
+#   julia --project=. scripts/run_longitudinal_analysis.jl config/pipeline.toml
 
 using CSV, DataFrames, Statistics, LinearAlgebra, Dates, TOML, Printf
 
 const PROJ      = dirname(@__DIR__)
 const CONFIG_P  = length(ARGS) > 0 ? ARGS[1] :
-                  joinpath(PROJ, "config", "single_subject.toml")
+                  joinpath(PROJ, "config", "pipeline.toml")
 
 cfg_raw   = TOML.parsefile(CONFIG_P)
 paths_raw = get(cfg_raw, "paths", Dict{String,Any}())

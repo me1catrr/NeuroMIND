@@ -5,7 +5,7 @@ Rafael Castro Triguero, 2026
 
 Uso básico (cadena activa, ver README.md):
     using NeuroMIND
-    cfg = load_ss_config("config/single_subject.toml")
+    cfg = load_ss_config("config/pipeline.toml")
     run_single_subject_pipeline(cfg)
 
     # Lanzar visor web interactivo
@@ -14,9 +14,13 @@ Uso básico (cadena activa, ver README.md):
     # Generar informe HTML de un sujeto
     generate_report(subjects[1], cfg)
 
-Nota: `run_pipeline!`/`load_config("config/pipeline.toml")`/`load_subjects`
-pertenecen a la ruta legacy (`legacy/src/Pipeline.jl`, `legacy/config/`),
-archivada el 2026-07-21. No usar con el dataset MINDEM-IMIBIC.
+Nota: `run_pipeline!` / `load_config` / `load_subjects` pertenecen a la ruta
+legacy (`legacy/src/Pipeline.jl` + `legacy/config/pipeline.toml`, archivada el
+2026-07-21). No usar con el dataset MINDEM-IMIBIC.
+
+Cuidado con la coincidencia de nombres:
+  config/pipeline.toml         → ACTIVA. Config unificada, se lee con load_ss_config.
+  legacy/config/pipeline.toml  → archivada. Solo la usa el orquestador obsoleto.
 """
 module NeuroMIND
 

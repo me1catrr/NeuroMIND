@@ -1,3 +1,17 @@
+# ⚠️ ARCHIVADO 2026-07-21 — NO USAR
+#
+# Sustituido por config/pipeline.toml (configuración unificada del proyecto).
+# Se conserva solo como referencia histórica: es el fichero con el que se
+# generaron los resultados actuales de results/.
+#
+# Ningún script lo lee ya. Ver README.md § "Scripts de entrada".
+#
+# Perfil «lote». Con este fichero se procesaron las 205 grabaciones
+# del dataset MINDEM-IMIBIC (2026-05-25/26). Ojo: algunos valores se
+# editaron DESPUÉS de esa ejecución (commit 1c6ce0a) y por tanto no
+# reflejan lo que realmente corrió — ver config_snapshot.toml de cada
+# sujeto en results/ para el estado real.
+#
 # NeuroMIND — Configuración para análisis en lote (batch)
 # Usado por scripts/run_batch_pipeline.jl para procesar el dataset completo
 # MINDEM-IMIBIC (41 pacientes EM + 37 controles).

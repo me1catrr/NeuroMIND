@@ -371,11 +371,17 @@ n_passes         = 2                    # 1 = solo pre-AR; 2 = pre-AR + post-AR
 #  amplitude_threshold_uv (±) + gradient_threshold_uv,
 #  sobre TODOS los canales (n_channels_used no aplica).
 #
-#  Riesgo metodológico  ·  n_channels_used = 30
+#  Riesgo metodológico  ·  n_channels_used es POSICIONAL
 #  ────────────────────────────────────────────────────────────
-#  Asume que Fp2 (canal excluido del montaje, ver [montage])
-#  es siempre el canal Nº 31 por POSICIÓN en el .vhdr crudo
-#  de cada sujeto.
+#  El umbral se aplica a los N primeros canales por POSICIÓN en
+#  el .vhdr, no por nombre.
+#
+#  Con el valor actual (31) el riesgo queda neutralizado: se
+#  criban TODOS los canales, así que da igual en qué posición
+#  esté Fp2. La advertencia siguiente aplica solo si se vuelve
+#  a 30 (es decir, si se pone [montage] exclude_fp2 = true):
+#  entonces se asumiría que Fp2 es siempre el canal Nº 31 por
+#  posición en el .vhdr crudo de cada sujeto.
 #
 #  BrainVisionLoader.jl lee ch_names en el orden literal del
 #  fichero, y validate_channels() (SingleSubjectPipeline.jl:266)
@@ -401,7 +407,12 @@ profile                = "eeg_julia"
 #  Activos con profile = "eeg_julia"
 min_amplitude_uv       = -70.0
 max_amplitude_uv       =  70.0
-n_channels_used        = 30       # posicional — ver riesgo metodológico
+n_channels_used        = 31       # posicional · 31 = TODOS los canales, incluido Fp2.
+                                  #   Coherente con [montage] exclude_fp2 = false:
+                                  #   si se conserva Fp2 en el análisis, también debe
+                                  #   pasar la criba de artefactos ±70 µV. Con 30 se
+                                  #   quedaría fuera justo el canal más problemático.
+                                  #   Volver a 30 si se pone exclude_fp2 = true.
 
 #  Activos con profile = "default"
 amplitude_threshold_uv = 100.0
@@ -607,13 +618,10 @@ low_bias = true   # descartar tapers con λ < 0.9
 #    · Diverge de las 205 grabaciones del lote (30 ch / 435
 #      aristas). Matrices wPLI de distinta dimensión → no
 #      comparables sin re-procesar.
-#    · [artifact_rejection] n_channels_used = 30 aplica el
-#      umbral ±70 µV solo a los 30 PRIMEROS canales por
-#      POSICIÓN: Fp2 (posición 31) quedaría SIN criba de
-#      artefactos, siendo precisamente el canal que el dataset
-#      considera problemático (artefactos oculares / contacto
-#      deficiente). Si se conserva Fp2, subir n_channels_used
-#      a 31 para que también se le aplique el umbral.
+#    · [artifact_rejection] n_channels_used se ha subido a 31
+#      en consecuencia, para que Fp2 también pase la criba de
+#      artefactos ±70 µV. Si se vuelve a exclude_fp2 = true,
+#      hay que devolverlo a 30.
 #
 #  Para volver al criterio del lote: exclude_fp2 = true.
 #

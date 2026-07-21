@@ -1,3 +1,14 @@
+# ⚠️ ARCHIVADO 2026-07-21 — NO USAR
+#
+# Sustituido por config/pipeline.toml (configuración unificada del proyecto).
+# Se conserva solo como referencia histórica: es el fichero con el que se
+# generaron los resultados actuales de results/.
+#
+# Ningún script lo lee ya. Ver README.md § "Scripts de entrada".
+#
+# Perfil «un solo sujeto». Con este fichero se generó el caso de
+# referencia sub-M05 (2026-07-09).
+#
 # NeuroMIND — Configuración para análisis de UN solo sujeto
 # Primer caso funcional: sub-M05, ses-T2, tarea eyesclosed
 #
