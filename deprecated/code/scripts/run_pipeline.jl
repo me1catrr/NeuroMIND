@@ -1,5 +1,5 @@
 #!/usr/bin/env julia
-# NeuroMIND/legacy/scripts/run_pipeline.jl
+# NeuroMIND/deprecated/code/scripts/run_pipeline.jl
 #
 # ⚠️ OBSOLETO — no usar con el dataset MINDEM-IMIBIC.
 # Archivado el 2026-07-21 junto con src/Pipeline.jl, config/pipeline.toml y
@@ -13,10 +13,10 @@
 # Script de entrada para ejecutar el pipeline completo desde la línea de comandos.
 #
 # Uso:
-#   julia legacy/scripts/run_pipeline.jl                      # todos los sujetos
-#   julia legacy/scripts/run_pipeline.jl --subject M05        # sujeto específico
-#   julia legacy/scripts/run_pipeline.jl --force              # fuerza re-cómputo
-#   julia legacy/scripts/run_pipeline.jl --subject M05 --session T2 --condition EC
+#   julia deprecated/code/scripts/run_pipeline.jl                      # todos los sujetos
+#   julia deprecated/code/scripts/run_pipeline.jl --subject M05        # sujeto específico
+#   julia deprecated/code/scripts/run_pipeline.jl --force              # fuerza re-cómputo
+#   julia deprecated/code/scripts/run_pipeline.jl --subject M05 --session T2 --condition EC
 
 using Pkg
 Pkg.activate(joinpath(@__DIR__, "..", ".."))

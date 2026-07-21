@@ -20,9 +20,9 @@
 #
 #  Nota
 #  ────
-#  No confundir con legacy/config/pipeline.toml
+#  No confundir con deprecated/code/config/pipeline.toml
 #  (archivado 2026-07-21; solo lo usa el orquestador obsoleto
-#  legacy/src/Pipeline.jl). Este fichero es nuevo y activo;
+#  deprecated/code/src/Pipeline.jl). Este fichero es nuevo y activo;
 #  la coincidencia de nombre es casual.
 #
 #  Construcción

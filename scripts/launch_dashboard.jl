@@ -28,7 +28,7 @@ end
 
 # ─── Configuración ────────────────────────────────────────────
 # Fuente única: config/pipeline.toml (unificado 2026-07-21; sustituye a
-# single_subject.toml y batch_pipeline.toml, archivados en legacy/config/).
+# single_subject.toml y batch_pipeline.toml, archivados en deprecated/code/config/).
 root        = joinpath(@__DIR__, "..")
 config_path = joinpath(root, "config", "pipeline.toml")
 

@@ -10,7 +10,7 @@
 #   results/subjects/sub-{id}/ses-{sess}/{task}/
 #
 # Config base: config/pipeline.toml (unificado 2026-07-21; sustituye a
-# batch_pipeline.toml y single_subject.toml, archivados en legacy/config/).
+# batch_pipeline.toml y single_subject.toml, archivados en deprecated/code/config/).
 # De ese fichero se copia todo salvo [subject] y [paths], que este script
 # sobreescribe por cada trabajo del lote (ver write_temp_config).
 #
@@ -32,7 +32,7 @@
 #   --max-subjects  N  procesar solo los primeros N sujetos
 #
 # Salida adicional:
-#   logs/batch_run_YYYY-MM-DD_HH-MM.csv
+#   results/logs/batch_run_YYYY-MM-DD_HH-MM.csv
 
 using Dates, TOML
 
@@ -41,7 +41,7 @@ const BIDS_DIR   = joinpath(PROJ_ROOT, "data", "bids")
 const RESULTS    = joinpath(PROJ_ROOT, "results")
 const INVENTORY  = joinpath(PROJ_ROOT, "data", "full_data", "inventory.csv")
 const BASE_CFG   = joinpath(PROJ_ROOT, "config", "pipeline.toml")
-const LOGS_DIR   = joinpath(PROJ_ROOT, "logs")
+const LOGS_DIR   = joinpath(RESULTS,   "logs")
 
 # ─── Carga de NeuroMIND ───────────────────────────────────────
 

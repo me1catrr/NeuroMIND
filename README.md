@@ -148,13 +148,13 @@ La carpeta `scripts/` contiene **8 lanzadores**. Solo **uno está obsoleto** par
 | `launch_dashboard.jl` | ✅ **Activo** | visualización | `webapp/App.jl` (Genie) | `config/pipeline.toml` | servidor en `http://localhost:8080` |
 | `run_transversal_analysis.jl` | ✅ **Activo** | post-hoc grupal | script autónomo | `config/pipeline.toml` | `results/group/transversal/` |
 | `run_longitudinal_analysis.jl` | ✅ **Activo** | post-hoc longitudinal | script autónomo | `config/pipeline.toml` | `results/group/longitudinal/` |
-| `run_pipeline.jl` | ⚠️ **Obsoleto — archivado** | legacy | `Pipeline.jl` (**7 pasos**, sin surrogates ni export BIDS) | `legacy/config/pipeline.toml` + `legacy/config/subjects.toml` | caché serializada en `results/{ID}/{SES}/` |
+| `run_pipeline.jl` | ⚠️ **Obsoleto — archivado** | legacy | `Pipeline.jl` (**7 pasos**, sin surrogates ni export BIDS) | `deprecated/code/config/pipeline.toml` + `deprecated/code/config/subjects.toml` | caché serializada en `results/{ID}/{SES}/` |
 
-**Por qué `run_pipeline.jl` está obsoleto** (archivado en `legacy/` el 2026-07-21 junto con su config y su orquestador):
+**Por qué `run_pipeline.jl` está obsoleto** (archivado en `deprecated/code/` el 2026-07-21 junto con su config y su orquestador):
 
-1. Llama a `run_pipeline!` (`legacy/src/Pipeline.jl`), un orquestador **anterior** al actual `SingleSubjectPipeline.jl`.
+1. Llama a `run_pipeline!` (`deprecated/code/src/Pipeline.jl`), un orquestador **anterior** al actual `SingleSubjectPipeline.jl`.
 2. Solo implementa **7 pasos** (sin paso 8 de surrogates/FDR ni el guardado completo de tablas/figuras en `results/subjects/`).
-3. Lee sujetos desde `legacy/config/subjects.toml`, que contiene **entradas sintéticas de plantilla** (`SYN_MS_001`, etc.), no el registro real MINDEM-IMIBIC.
+3. Lee sujetos desde `deprecated/code/config/subjects.toml`, que contiene **entradas sintéticas de plantilla** (`SYN_MS_001`, etc.), no el registro real MINDEM-IMIBIC.
 4. Carga datos con `load_eeg_bids` (TSV obligatorio); no integra `BrainVisionLoader` ni el flujo de metadata ligera de Fase B.
 5. El caso M05 verificado (2026-07-09) se ejecutó con `run_single_subject.jl`, no con este script.
 
@@ -187,7 +187,7 @@ audit_full_dataset.jl  →  build_bids_full.jl  →  run_single_subject.jl  (pru
 | Módulo | Usado por | Estado |
 |--------|-----------|--------|
 | `SingleSubjectPipeline.jl` | `run_single_subject.jl`, `run_batch_pipeline.jl` | ✅ **Canónico** — 8 pasos, BrainVision, surrogates, export BIDS |
-| `legacy/src/Pipeline.jl` | `legacy/scripts/run_pipeline.jl` | ⚠️ **Archivado (2026-07-21)** — fuera de `src/`, incluido desde `NeuroMIND.jl` solo por compatibilidad |
+| `deprecated/code/src/Pipeline.jl` | `deprecated/code/scripts/run_pipeline.jl` | ⚠️ **Archivado (2026-07-21)** — fuera de `src/`, incluido desde `NeuroMIND.jl` solo por compatibilidad |
 
 ### 4.1 Ejecutar el pipeline en lote
 
@@ -646,11 +646,7 @@ NeuroMIND/
 │   ├── qc/
 │   │   └── qc_decision_table.csv   ← Estado QC de cada grabación
 │   └── logs/                   ← batch_run_{timestamp}.csv
-│
-├── deprecated/                 ← Resultados archivados (NO en Git)
-│   └── results/
-│       └── 2026-05-26_pre-unificacion/  ← 204 grabaciones + grupo de mayo,
-│                                           config incompatible (ver su README)
+
 │
 ├── src/                        ← Código fuente Julia
 │   ├── NeuroMIND.jl            ← Entry point del módulo
@@ -678,16 +674,17 @@ NeuroMIND/
 │   ├── run_longitudinal_analysis.jl ← Comparación temporal T1 → T2
 │   └── launch_dashboard.jl          ← Dashboard interactivo
 │
-├── legacy/                     ← ⚠️ Archivado 2026-07-21 — no usar con MINDEM
-│   ├── config/
-│   │   ├── single_subject.toml      ← Config individual previa (generó el caso M05)
-│   │   ├── batch_pipeline.toml      ← Config de lote previa (generó las 205 grabaciones)
-│   │   ├── pipeline.toml            ← Config del orquestador legacy (≠ config/pipeline.toml)
-│   │   └── subjects.toml            ← Registro de sujetos (entradas sintéticas de plantilla)
-│   ├── scripts/
-│   │   └── run_pipeline.jl          ← Lanzador legacy (7 pasos, sin surrogates ni BIDS)
-│   └── src/
-│       └── Pipeline.jl              ← Orquestador legacy de 7 pasos
+├── deprecated/                 ← ⚠️ Archivado 2026-07-21 — no usar con MINDEM
+│   ├── code/                   ← SÍ versionado (ficheros pequeños, histórico útil)
+│   │   ├── config/
+│   │   │   ├── single_subject.toml  ← Config individual previa (generó el caso M05)
+│   │   │   ├── batch_pipeline.toml  ← Config de lote previa (generó las 205 grabaciones)
+│   │   │   ├── pipeline.toml        ← Config del orquestador obsoleto (≠ config/pipeline.toml)
+│   │   │   └── subjects.toml        ← Registro de sujetos (entradas sintéticas de plantilla)
+│   │   ├── scripts/run_pipeline.jl  ← Lanzador obsoleto (7 pasos, sin surrogates ni BIDS)
+│   │   └── src/Pipeline.jl          ← Orquestador obsoleto de 7 pasos
+│   └── results/                ← NO versionado (GB de derivados EEG)
+│       └── 2026-05-26_pre-unificacion/   ← 204 grabaciones + grupo + logs de mayo
 │
 ├── mne_brain/                  ← Pipeline de validación MNE-Python (Panel 15)
 │   └── ...

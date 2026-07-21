@@ -7,7 +7,7 @@
 #   julia --project=. scripts/run_single_subject.jl --force
 #
 # Config: config/pipeline.toml — fichero unificado (2026-07-21) que sustituye
-# a single_subject.toml y batch_pipeline.toml, archivados en legacy/config/.
+# a single_subject.toml y batch_pipeline.toml, archivados en deprecated/code/config/.
 
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))

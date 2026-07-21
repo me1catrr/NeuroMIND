@@ -28,7 +28,7 @@ NeuroMIND comparándolos con una implementación independiente.
 ❌ NO subir señales EEG reales ni datos derivados por sujeto
 ❌ NO commitear directamente en main (salvo cambios triviales de 1 línea)
 ❌ NO modificar config/pipeline_config.yaml sin comparar con NeuroMIND/config/single_subject.toml
-   (fuente de verdad activa; NeuroMIND/legacy/config/pipeline.toml es una copia archivada,
+   (fuente de verdad activa; NeuroMIND/deprecated/code/config/pipeline.toml es una copia archivada,
    ver nota 2026-07-21 en la sección 8)
 ❌ NO duplicar dependencias en requirements.txt (fue eliminado; pyproject.toml es la única fuente)
 ❌ NO cambiar lógica científica (filtros, ICA, wPLI, PSD) sin comparar contra NeuroMIND/Julia
@@ -202,11 +202,11 @@ permitir `diff` directo entre las dos implementaciones.
 ## 8. Configuración (`pipeline_config.yaml`)
 
 > **Nota (2026-07-21):** `NeuroMIND/config/pipeline.toml` se archivó en
-> `NeuroMIND/legacy/config/pipeline.toml` (solo lo usa el orquestador legacy
+> `NeuroMIND/deprecated/code/config/pipeline.toml` (solo lo usa el orquestador legacy
 > `run_pipeline.jl`/`Pipeline.jl`, ya no la cadena activa). La fuente de
 > verdad viva para estos parámetros es ahora `NeuroMIND/config/single_subject.toml`
 > — mismos valores en la fecha de este archivado, pero es ese fichero el que
-> hay que vigilar para futuros cambios, no `legacy/config/pipeline.toml`.
+> hay que vigilar para futuros cambios, no `deprecated/code/config/pipeline.toml`.
 
 Espejo de `NeuroMIND/config/single_subject.toml` (histórico: antes `pipeline.toml`). Secciones clave:
 
@@ -385,7 +385,7 @@ Instalar con `pip install -e ".[dev]"` desde la raíz de `mne_brain/`.
   - `PermissionError: ~/.mne/mne-python.json` → en sandbox; ejecutar con permisos
     `all` o `full_network` según el agente.
 - **Sincronización con NeuroMIND/Julia:** si NeuroMIND cambia parámetros en
-  `config/single_subject.toml` (fuente activa; `legacy/config/pipeline.toml` es
+  `config/single_subject.toml` (fuente activa; `deprecated/code/config/pipeline.toml` es
   copia archivada), actualizar **inmediatamente** `mne_brain/config/pipeline_config.yaml`.
   Las dos implementaciones deben usar exactamente los mismos parámetros.
 

@@ -15,12 +15,12 @@ Uso básico (cadena activa, ver README.md):
     generate_report(subjects[1], cfg)
 
 Nota: `run_pipeline!` / `load_config` / `load_subjects` pertenecen a la ruta
-legacy (`legacy/src/Pipeline.jl` + `legacy/config/pipeline.toml`, archivada el
+archivada (`deprecated/code/src/Pipeline.jl` + `deprecated/code/config/pipeline.toml`, el
 2026-07-21). No usar con el dataset MINDEM-IMIBIC.
 
 Cuidado con la coincidencia de nombres:
   config/pipeline.toml         → ACTIVA. Config unificada, se lee con load_ss_config.
-  legacy/config/pipeline.toml  → archivada. Solo la usa el orquestador obsoleto.
+  deprecated/code/config/pipeline.toml → archivada. Solo la usa el orquestador obsoleto.
 """
 module NeuroMIND
 
@@ -103,8 +103,8 @@ export save_figure
 include("report/HTMLReport.jl")
 export generate_report, generate_group_report, generate_longitudinal_report
 
-# ─── Pipeline de alto nivel (⚠️ legacy — ver legacy/README o raíz del repo) ────
-include("../legacy/src/Pipeline.jl")
+# ─── Pipeline de alto nivel (⚠️ archivado — ver deprecated/code/) ──────────────
+include("../deprecated/code/src/Pipeline.jl")
 export run_pipeline!, run_subject!, run_session!
 
 # ─── Pipeline de un solo sujeto ──────────────────────────────

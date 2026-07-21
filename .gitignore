@@ -6,8 +6,10 @@
 # --- Sensitive EEG data and generated derivatives ---
 /data/
 /results/
-# Resultados archivados (derivados EEG) — no versionar
-/deprecated/
+# Resultados archivados (derivados EEG, GB) — no versionar.
+# Ojo: solo /deprecated/results/. El código archivado (/deprecated/code/)
+# SÍ se versiona: son ficheros pequeños cuyo histórico interesa conservar.
+/deprecated/results/
 /reports/
 /report/
 /exports/
