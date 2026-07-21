@@ -639,12 +639,18 @@ NeuroMIND/
 │       └── inventory.csv       ← Inventario de las ~212 grabaciones del dataset
 │
 ├── results/                    ← Generado por el pipeline (NO en Git)
-│   ├── subjects/               ← Resultados individuales por sujeto/sesión
-│   ├── group/                  ← Resultados de análisis grupal
-│   │   ├── transversal/        ← EM vs controles
-│   │   └── longitudinal/       ← T1 vs T2
-│   └── qc/
-│       └── qc_decision_table.csv   ← Estado QC de cada grabación
+│   ├── README.md               ← Estructura y qué comando escribe dónde
+│   ├── subjects/               ← Nivel sujeto: sub-{ID}/ses-{S}/{task}/
+│   ├── transversal/            ← Nivel grupo: EM vs controles ({EC|EO})
+│   ├── longitudinal/           ← Nivel grupo: T1 vs T2 ({EC|EO})
+│   ├── qc/
+│   │   └── qc_decision_table.csv   ← Estado QC de cada grabación
+│   └── logs/                   ← batch_run_{timestamp}.csv
+│
+├── deprecated/                 ← Resultados archivados (NO en Git)
+│   └── results/
+│       └── 2026-05-26_pre-unificacion/  ← 204 grabaciones + grupo de mayo,
+│                                           config incompatible (ver su README)
 │
 ├── src/                        ← Código fuente Julia
 │   ├── NeuroMIND.jl            ← Entry point del módulo

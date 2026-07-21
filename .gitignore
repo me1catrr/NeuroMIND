@@ -6,6 +6,8 @@
 # --- Sensitive EEG data and generated derivatives ---
 /data/
 /results/
+# Resultados archivados (derivados EEG) — no versionar
+/deprecated/
 /reports/
 /report/
 /exports/

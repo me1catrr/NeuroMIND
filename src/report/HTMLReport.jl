@@ -38,7 +38,7 @@ function generate_group_report(
     band::String       = "ALPHA",
     verbose::Bool      = true
 )
-    out_dir  = joinpath(results_dir(cfg), "group", "reports")
+    out_dir  = joinpath(results_dir(cfg), "transversal", "reports")
     mkpath(out_dir)
     path     = joinpath(out_dir, "group_$(session_id)_$(condition)_$(band).html")
     html     = _build_group_html(subjects, session_id, condition, band, cfg)
@@ -145,14 +145,14 @@ function _build_group_html(subjects, session_id, condition, band, cfg)
     """))
 
     # Figura de comparación grupal
-    fig_dir = joinpath(results_dir(cfg), "group", "figures")
+    fig_dir = joinpath(results_dir(cfg), "transversal", "figures")
     comp_fig = joinpath(fig_dir, "group_comparison_$(session_id)_$(condition)_$(band).png")
     if isfile(comp_fig)
         push!(sections, _section("Matrices wPLI: MS vs Control", _img64(comp_fig, "Comparación grupal")))
     end
 
     # Tabla estadística
-    stat_path = joinpath(results_dir(cfg), "group", "tables",
+    stat_path = joinpath(results_dir(cfg), "transversal", "tables",
                          "stats_$(session_id)_$(condition)_$(band).csv")
     if isfile(stat_path)
         df  = CSV.read(stat_path, DataFrame)

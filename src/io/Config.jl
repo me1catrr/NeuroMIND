@@ -87,7 +87,10 @@ function ensure_dirs(cfg::PipelineConfig, subject_id::String, session_id::String
         mkpath(joinpath(base, sub))
     end
     # Directorios compartidos de grupo
-    mkpath(joinpath(results_dir(cfg), "group", "figures"))
-    mkpath(joinpath(results_dir(cfg), "group", "tables"))
+    # Nivel grupo: transversal/ y longitudinal/ son hermanos de subjects/
+    for grp in ("transversal", "longitudinal")
+        mkpath(joinpath(results_dir(cfg), grp, "figures"))
+        mkpath(joinpath(results_dir(cfg), grp, "tables"))
+    end
     base
 end

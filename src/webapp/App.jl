@@ -2192,7 +2192,8 @@ function launch_webapp(cfg::PipelineConfig;
     route("/api/subjects") do
         dirs = isdir(res_root) ?
                filter(d -> isdir(joinpath(res_root, d)) &&
-                            d ∉ ["group", "subjects"],
+                            d ∉ ["subjects", "transversal", "longitudinal",
+                                 "qc", "logs", "deprecated"],
                       readdir(res_root)) : String[]
         json(Dict("subjects" => dirs))
     end
@@ -2567,7 +2568,7 @@ function launch_webapp(cfg::PipelineConfig;
 
         # El script guarda en .../group/transversal/EC/ o /EO/
         cond_short = cond == "eyesclosed" ? "EC" : (cond == "eyesopen" ? "EO" : uppercase(cond_raw))
-        grp_dir    = joinpath(res_root, "group", "transversal", cond_short)
+        grp_dir    = joinpath(res_root, "transversal", cond_short)
 
         # Función auxiliar de existencia en grp_dir
         gfe(f) = isfile(joinpath(grp_dir, f))
@@ -2735,7 +2736,7 @@ function launch_webapp(cfg::PipelineConfig;
         cond     = _normalize_cond(cond_raw)
         band     = uppercase(string(get(getpayload(), :band, "ALPHA")))
         cond_short = cond == "eyesclosed" ? "EC" : (cond == "eyesopen" ? "EO" : uppercase(cond_raw))
-        grp_dir    = joinpath(res_root, "group", "longitudinal", cond_short)
+        grp_dir    = joinpath(res_root, "longitudinal", cond_short)
 
         gfe(f) = isfile(joinpath(grp_dir, f))
 

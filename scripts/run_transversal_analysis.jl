@@ -1,7 +1,7 @@
 # NeuroMIND/scripts/run_transversal_analysis.jl
 # Análisis transversal grupal: MS vs Control.
 # Lee resultados individuales (wpli_*.csv) ya generados por el pipeline
-# y produce archivos grupales en results/group/transversal/{EC|EO}/
+# y produce archivos grupales en results/transversal/{EC|EO}/
 #
 # Prerequisito:
 #   data/BIDS/groups.csv con columnas: subject_id, group, session_id
@@ -173,7 +173,7 @@ println()
 
 for cond in ["EC", "EO"]
     println("── Condición: $cond " * "─"^40)
-    out_dir = joinpath(res_root, "group", "transversal", cond)
+    out_dir = joinpath(res_root, "transversal", cond)
     mkpath(out_dir)
 
     # ── Cargar matrices por banda y grupo ──────────────────────

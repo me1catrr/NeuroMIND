@@ -1,7 +1,7 @@
 # NeuroMIND/scripts/run_longitudinal_analysis.jl
 # Análisis longitudinal: T1 → T2 intra-sujeto (pacientes EM).
 # Lee resultados individuales (wpli_*.csv) ya generados por el pipeline
-# y produce archivos longitudinales en results/group/longitudinal/{EC|EO}/
+# y produce archivos longitudinales en results/longitudinal/{EC|EO}/
 #
 # Detecta automáticamente sujetos con sesiones T1 y T2 en results/subjects/
 # o lee un archivo opcional data/BIDS/longitudinal_pairs.csv con columnas:
@@ -227,7 +227,7 @@ println()
 
 for cond in ["EC", "EO"]
     println("── Condición: $cond " * "─"^40)
-    out_dir = joinpath(res_root, "group", "longitudinal", cond)
+    out_dir = joinpath(res_root, "longitudinal", cond)
     mkpath(out_dir)
 
     t1_data   = Dict{String, Vector{Tuple{Vector{String}, Matrix{Float64}}}}()

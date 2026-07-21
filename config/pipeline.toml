@@ -37,8 +37,32 @@
 #  Proyecto   NeuroMIND
 #  Autor      Rafael Castro Triguero
 #  Creado     21-07-2026
-#  Estado     en construcción — ver historial de commits
+#  Estado     completo — fuente única activa del pipeline
 # ───────────────────────────────────────────────────────────────
+#
+#  Índice de secciones
+#  ───────────────────
+#
+#  A · Entrada y rutas
+#      [subject]  [recording]  [qc]  [paths]  [output]
+#
+#  B · Preprocesado
+#      [filtering]  [ica]  [segmentation]  [baseline]
+#      [artifact_rejection]
+#
+#  C · Análisis
+#      [spectral]  [bands]  [connectivity]  [montage]  [graph]
+#
+#  D · Inferencia
+#      [surrogates]
+#
+#  E · Interfaz
+#      [dashboard]
+
+
+# ═══════════════════════════════════════════════════════════════
+#  A · Entrada y rutas
+# ═══════════════════════════════════════════════════════════════
 
 
 # ─── Identificación del sujeto ─────────────────────────────────
@@ -74,6 +98,7 @@ subject_id = "auto"        # "auto" | id BIDS          — solo modo single
 session_id = "T2"          # "T1" | "T2"               — solo modo single
 task       = "eyesclosed"  # "eyesclosed" | "eyesopen" — solo modo single
 run        = 1
+
 
 # ─── Parámetros de grabación ───────────────────────────────────
 #
@@ -146,6 +171,11 @@ results   = "results"
 [output]
 figure_format = "png"
 figure_dpi    = 150
+
+
+# ═══════════════════════════════════════════════════════════════
+#  B · Preprocesado
+# ═══════════════════════════════════════════════════════════════
 
 
 # ─── Filtrado ──────────────────────────────────────────────────
@@ -423,6 +453,12 @@ use_gradient           = true
 before_event_ms        = 200
 after_event_ms         = 300
 
+
+# ═══════════════════════════════════════════════════════════════
+#  C · Análisis
+# ═══════════════════════════════════════════════════════════════
+
+
 # ─── Análisis espectral ────────────────────────────────────────
 #
 #  compute_psd() (PowerSpectrum.jl:11)
@@ -479,6 +515,7 @@ BETA_LOW  = [12.0, 15.0]
 BETA_MID  = [15.0, 18.0]
 BETA_HIGH = [18.0, 30.0]
 GAMMA     = [30.0, 50.0]
+
 
 # ─── Conectividad ──────────────────────────────────────────────
 #
@@ -667,42 +704,71 @@ density          = 0.1              # 10% aristas más fuertes (si "proportional
 threshold_method = "proportional"   # alternativa: "absolute"
 
 
-# ─── Surrogates / Inferencia estadística ─────────────────────
-# surrogate_test() (Surrogates.jl:28): desplazamiento circular independiente
-# por canal/época, con el MISMO estimador de conectividad que la corrida
-# observada (hilbert/fourier_csd/multitaper, según [connectivity]).
+# ═══════════════════════════════════════════════════════════════
+#  D · Inferencia
+# ═══════════════════════════════════════════════════════════════
+
+
+# ─── Surrogates / Inferencia estadística ───────────────────────
 #
-# enabled = false (activo) — coincide con AMBOS .toml originales y con 197 de
-#   las 205 grabaciones ya procesadas. Computacionalmente costoso (~2-5 min
-#   extra/sujeto con n_surrogates alto); cambiar a true para un análisis de
-#   publicación con inferencia real por sujeto.
+#  surrogate_test() (Surrogates.jl:28)
+#  Desplazamiento circular independiente por canal/época,
+#  con el MISMO estimador de conectividad que la corrida
+#  observada (hilbert / fourier_csd / multitaper, según
+#  [connectivity]).
+#
+#  enabled = false  ·  activo
+#  ────────────────────────────────────────────────────────────
+#  Coincide con AMBOS .toml originales y con 197 de las 205
+#  grabaciones ya procesadas.
+#  Computacionalmente costoso (~2–5 min extra/sujeto con
+#  n_surrogates alto).
+#  Cambiar a true para un análisis de publicación con
+#  inferencia real por sujeto.
+#
+#  n_surrogates = 200  ·  fijado (no 20/19)
+#  ────────────────────────────────────────────────────────────
+#  Con n_surrogates = 19–20 (lo único usado de verdad hasta
+#  ahora, en 8/205 grabaciones — pruebas puntuales, no un
+#  análisis sistemático), el p-valor mínimo posible es
+#  (0+1)/(20+1) ≈ 0.048 — al borde de alpha = 0.05, sin
+#  potencia real tras corrección FDR.
+#  El comentario original de single_subject.toml ya
+#  recomendaba ≥ 200. Con 200, el suelo baja a ≈ 0.005,
+#  dejando margen real para superar la corrección BH-FDR.
+#
+#  method  ·  INERTE
+#  ────────────────────────────────────────────────────────────
+#  surrogate_test() (Surrogates.jl) siempre usa circular_shift
+#  pase lo que pase aquí; esta clave solo se muestra en
+#  logs/JSON como metadato.
+#  "phase_shuffle" (valor de single_subject.toml) no existe
+#  como método implementado — se deja "circular_shift" para
+#  que el metadato sea al menos veraz.
+#
 [surrogates]
-enabled = false
-
-# ⚠️ n_surrogates: fijado en 200, NO en 20/19. Con n_surrogates=19-20 (lo
-#   único que se ha usado de verdad hasta ahora, en 8/205 grabaciones —
-#   pruebas puntuales, no un análisis sistemático), el p-valor mínimo posible
-#   es (0+1)/(20+1)≈0.048 — al borde de alpha=0.05, sin potencia real tras
-#   corrección FDR. El propio comentario original de single_subject.toml ya
-#   recomendaba ≥200. Con 200, el suelo baja a ≈0.005, dejando margen real
-#   para superar la corrección BH-FDR.
+enabled      = false
 n_surrogates = 200
+method       = "circular_shift"  # informativo — ver nota arriba
+alpha        = 0.05              # nivel de significancia FDR
+fdr_method   = "bh"              # "bh" (Benjamini-Hochberg) | "bonferroni"
+seed         = 42                # semilla base (+ índice de banda — Surrogates.jl:54)
 
-# method: SIN EFECTO — surrogate_test() (Surrogates.jl) siempre usa
-#   circular_shift pase lo que pase aquí; esta clave solo se muestra en logs/
-#   JSON como metadato. "phase_shuffle" (valor de single_subject.toml) no
-#   existe como método implementado — se deja "circular_shift" para que el
-#   metadato sea al menos veraz, aunque no tenga efecto funcional.
-method = "circular_shift"   # informativo únicamente — ver nota arriba
 
-alpha      = 0.05           # nivel de significancia para la corrección FDR
-fdr_method = "bh"           # "bh" (Benjamini-Hochberg) | "bonferroni"
-seed       = 42             # semilla base (se combina con índice de banda — Surrogates.jl:54)
+# ═══════════════════════════════════════════════════════════════
+#  E · Interfaz
+# ═══════════════════════════════════════════════════════════════
 
-# ─── Dashboard ────────────────────────────────────────────────
-# Leído SOLO por scripts/launch_dashboard.jl (parseo directo del TOML, no
-# forma parte de PipelineConfig/cfg.dashboard en ningún otro módulo de src/).
-# --port en línea de comandos tiene prioridad sobre el valor de aquí.
+
+# ─── Dashboard ─────────────────────────────────────────────────
+#
+#  Leído SOLO por scripts/launch_dashboard.jl
+#  (parseo directo del TOML; no forma parte de PipelineConfig /
+#  cfg.dashboard en ningún otro módulo de src/).
+#
+#  --port en línea de comandos tiene prioridad sobre el valor
+#  de aquí.
+#
 [dashboard]
 port         = 8080
-open_browser = true   # abrir navegador automáticamente al lanzar el dashboard
+open_browser = true   # abrir navegador automáticamente al lanzar
