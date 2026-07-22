@@ -326,17 +326,12 @@ function run_single_subject_pipeline(config_path::String)
 
     condition = task == "eyesclosed" ? "EC" : (task == "eyesopen" ? "EO" : task)
 
-    # ── 3. Directorios de salida ───────────────────────────────
-    subj_dir   = joinpath(results_dir(cfg), sid, sess_id)
+    # ── 3. Directorio de salida ────────────────────────────────
+    # Salida ÚNICA: árbol BIDS. El árbol heredado results/{ID}/{SES}/ se
+    # eliminó el 2026-07-21 (todo vive bajo results/subjects/).
     export_dir = joinpath(results_dir(cfg), "subjects",
                           "sub-$(sid)", "ses-$(sess_id)", task)
-    for d in [joinpath(subj_dir, "figures"),
-              joinpath(subj_dir, "tables"),
-              joinpath(subj_dir, "cache"),
-              joinpath(subj_dir, "logs"),
-              export_dir]
-        mkpath(d)
-    end
+    mkpath(joinpath(export_dir, "cache"))
 
     log_path = joinpath(export_dir, "pipeline_log.txt")
     log_io   = open(log_path, "w")
@@ -403,7 +398,7 @@ function run_single_subject_pipeline(config_path::String)
     # ── ICA: antes de segmentar (señal continua filtrada) ─────
     _log(log_io, "\n[4/8] ICA")
     t_ica     = now()
-    cache_dir = joinpath(subj_dir, "cache")
+    cache_dir = joinpath(export_dir, "cache")
     ica_cache = joinpath(cache_dir, "ica_result.jls")
     ica_cfg_hash = _ica_config_hash(cfg)
     ica_hash_path = joinpath(cache_dir, "ica_config.hash")
@@ -590,7 +585,7 @@ function run_single_subject_pipeline(config_path::String)
     _log(log_io, "\n[8/8] Guardando resultados")
     t_step = now()
     _save_all_results(rec, rec_filt, qc_stats, bad_ch, spectra, conn, val,
-                      subj_dir, export_dir, condition, cfg, dpi, log_io)
+                      export_dir, condition, cfg, dpi, log_io)
     _save_config_snapshot(config_path, export_dir)
     _update_subjects_index(results_dir(cfg), sid, sess_id, task, rec, n_valid, n_rejected)
 
@@ -1322,18 +1317,18 @@ function _save_all_results(
     rec::EEGRecording, rec_filt::EEGRecording,
     qc_stats::DataFrame, bad_ch::Vector{String},
     spectra::SpectralResult, conn::ConnectivityMatrix,
-    val, subj_dir::String, export_dir::String,
+    val, export_dir::String,
     condition::String, cfg::PipelineConfig, dpi::Int, log_io::IO
 )
-    tbl_dir = joinpath(subj_dir, "tables")
-    fig_dir = joinpath(subj_dir, "figures")
+    # Salida ÚNICA: árbol BIDS (export_dir). El antiguo árbol heredado
+    # results/{ID}/{SES}/{tables,figures} se eliminó el 2026-07-21.
+    fig_dir = joinpath(export_dir, "figures")
+    mkpath(fig_dir)
 
     # ── Tablas QC ─────────────────────────────────────────────
-    qc_path = joinpath(tbl_dir, "qc_channels_$(condition).csv")
-    CSV.write(qc_path, qc_stats)
-    cp(qc_path, joinpath(export_dir, "qc_summary.csv"); force=true)
-    cp(qc_path, joinpath(export_dir, "channel_statistics.csv"); force=true)
-    _log(log_io, "  Guardado: qc_channels_$(condition).csv")
+    CSV.write(joinpath(export_dir, "qc_summary.csv"), qc_stats)
+    CSV.write(joinpath(export_dir, "channel_statistics.csv"), qc_stats)
+    _log(log_io, "  Guardado: qc_summary.csv, channel_statistics.csv")
 
     # ── Tabla overview ────────────────────────────────────────
     overview_df = DataFrame(
@@ -1348,9 +1343,8 @@ function _save_all_results(
         n_bad_ch     = [length(bad_ch)],
         electrode_validation = [val.msg],
     )
-    ov_path = joinpath(tbl_dir, "overview_$(condition).csv")
-    CSV.write(ov_path, overview_df)
-    cp(ov_path, joinpath(export_dir, "overview.csv"); force=true)
+    CSV.write(joinpath(export_dir, "overview.csv"), overview_df)
+    _log(log_io, "  Guardado: overview.csv")
 
     # ── Tabla PSD ─────────────────────────────────────────────
     ch_names = spectra.meta.channel_names
@@ -1364,10 +1358,8 @@ function _save_all_results(
                  power_uv2=round(spectra.psd[c,f], digits=6))
                 for c in 1:n_ch for f in 1:n_freqs]
     psd_df = DataFrame(psd_rows)
-    psd_path = joinpath(tbl_dir, "psd_by_channel_$(condition).csv")
-    CSV.write(psd_path, psd_df)
-    cp(psd_path, joinpath(export_dir, "psd_by_channel.csv"); force=true)
-    _log(log_io, "  Guardado: psd_by_channel_$(condition).csv")
+    CSV.write(joinpath(export_dir, "psd_by_channel.csv"), psd_df)
+    _log(log_io, "  Guardado: psd_by_channel.csv")
 
     # ── Tabla band power ──────────────────────────────────────
     band_names = sort(collect(keys(spectra.band_power)))
@@ -1375,10 +1367,8 @@ function _save_all_results(
     for b in band_names
         bp_df[!, b] = round.(spectra.band_power[b][1:n_ch], digits=6)
     end
-    bp_path = joinpath(tbl_dir, "band_power_$(condition).csv")
-    CSV.write(bp_path, bp_df)
-    cp(bp_path, joinpath(export_dir, "band_power_summary.csv"); force=true)
-    _log(log_io, "  Guardado: band_power_$(condition).csv")
+    CSV.write(joinpath(export_dir, "band_power_summary.csv"), bp_df)
+    _log(log_io, "  Guardado: band_power_summary.csv")
 
     # ── Extras espectrales (summary + regional + indices) ─────
     _save_spectral_extras(spectra, cfg, export_dir, log_io)
@@ -1387,13 +1377,11 @@ function _save_all_results(
     all_edges = DataFrame(ch_a=String[], ch_b=String[], band=String[],
                           wpli=Float64[], rank=Int[])
     for (band, W) in conn.matrices
-        # Matriz como CSV
+        # Matriz wPLI como CSV (nombre canónico BIDS, sin sufijo de condición)
         mat_df = DataFrame(hcat(ch_names, W), vcat(["channel"], ch_names))
-        mat_path = joinpath(tbl_dir, "wpli_matrix_$(band)_$(condition).csv")
-        CSV.write(mat_path, mat_df)
-        cp(mat_path, joinpath(export_dir, "wpli_$(band).csv"); force=true)
+        CSV.write(joinpath(export_dir, "wpli_$(band).csv"), mat_df)
 
-        # Edges (triángulo superior) — flat comprehension
+        # Edges (triángulo superior) — se acumulan en connectivity_edges.csv
         n_nodes = length(ch_names)
         edges = [(W[i,j], ch_names[i], ch_names[j])
                  for i in 1:n_nodes for j in (i+1):n_nodes]
@@ -1405,8 +1393,6 @@ function _save_all_results(
             wpli  = round.([e[1] for e in edges], digits=4),
             rank  = 1:length(edges)
         )
-        edge_path = joinpath(tbl_dir, "wpli_edges_$(band)_$(condition).csv")
-        CSV.write(edge_path, edge_df)
         append!(all_edges, edge_df)
     end
     edges_path = joinpath(export_dir, "connectivity_edges.csv")
@@ -1419,10 +1405,8 @@ function _save_all_results(
     # ── Figura: señal preview ─────────────────────────────────
     try
         fig = _plot_signal_preview(rec, rec_filt)
-        sig_path = joinpath(fig_dir, "signal_preview_$(condition).png")
-        save_figure(fig, sig_path; dpi)
-        cp(sig_path, joinpath(export_dir, "filtered_signal_preview.png"); force=true)
-        _log(log_io, "  Guardado: signal_preview_$(condition).png")
+        save_figure(fig, joinpath(fig_dir, "filtered_signal_preview.png"); dpi)
+        _log(log_io, "  Guardado: filtered_signal_preview.png")
     catch e
         @warn "No se pudo generar signal_preview: $e"
         _log(log_io, "  WARN: signal_preview fallido: $e")
@@ -1431,10 +1415,8 @@ function _save_all_results(
     # ── Figura: PSD grid de canales ───────────────────────────
     try
         fig = plot_spectrum_grid(spectra; xmax=50.0, cols=6)
-        psd_fig_path = joinpath(fig_dir, "psd_all_channels_$(condition).png")
-        save_figure(fig, psd_fig_path; dpi)
-        cp(psd_fig_path, joinpath(export_dir, "psd_all_channels.png"); force=true)
-        _log(log_io, "  Guardado: psd_all_channels_$(condition).png")
+        save_figure(fig, joinpath(fig_dir, "psd_all_channels.png"); dpi)
+        _log(log_io, "  Guardado: psd_all_channels.png")
     catch e
         @warn "No se pudo generar psd_grid: $e"
         _log(log_io, "  WARN: psd_grid fallido: $e")
@@ -1444,9 +1426,7 @@ function _save_all_results(
     for (band, _) in conn.matrices
         try
             fig = plot_connectivity_heatmap(conn, band)
-            wpli_fig = joinpath(fig_dir, "wpli_$(band)_$(condition).png")
-            save_figure(fig, wpli_fig; dpi)
-            cp(wpli_fig, joinpath(export_dir, "wpli_$(band).png"); force=true)
+            save_figure(fig, joinpath(fig_dir, "wpli_$(band).png"); dpi)
         catch e
             @warn "No se pudo generar heatmap wPLI $band: $e"
             _log(log_io, "  WARN: wpli_heatmap_$(band) fallido: $e")
@@ -1457,10 +1437,8 @@ function _save_all_results(
     # ── Figura: band power barplot ─────────────────────────────
     try
         fig = _plot_band_power_summary(spectra)
-        bp_fig = joinpath(fig_dir, "band_power_summary_$(condition).png")
-        save_figure(fig, bp_fig; dpi)
-        cp(bp_fig, joinpath(export_dir, "band_power_summary.png"); force=true)
-        _log(log_io, "  Guardado: band_power_summary_$(condition).png")
+        save_figure(fig, joinpath(fig_dir, "band_power_summary.png"); dpi)
+        _log(log_io, "  Guardado: band_power_summary.png")
     catch e
         @warn "No se pudo generar band_power_summary: $e"
         _log(log_io, "  WARN: band_power_summary fallido: $e")
@@ -1756,44 +1734,6 @@ function _update_subjects_index(results_dir::String, subj_id::String,
     else
         CSV.write(idx_path, new_row)
     end
-end
-
-# ─── Carga de datos para dashboard ────────────────────────────
-
-"""
-    load_dashboard_data(results_dir, subj_id, sess_id, condition) -> Dict
-
-Carga los resultados ya calculados para alimentar el dashboard.
-"""
-function load_dashboard_data(
-    res_dir::String,
-    subj_id::String,
-    sess_id::String,
-    condition::String
-)::Dict{String,Any}
-
-    tbl_dir = joinpath(res_dir, subj_id, sess_id, "tables")
-    fig_dir = joinpath(res_dir, subj_id, sess_id, "figures")
-
-    d = Dict{String,Any}()
-
-    # Overview
-    ov_path = joinpath(tbl_dir, "overview_$(condition).csv")
-    isfile(ov_path) && (d["overview"] = CSV.read(ov_path, DataFrame))
-
-    # QC
-    qc_path = joinpath(tbl_dir, "qc_channels_$(condition).csv")
-    isfile(qc_path) && (d["qc"] = CSV.read(qc_path, DataFrame))
-
-    # Band power
-    bp_path = joinpath(tbl_dir, "band_power_$(condition).csv")
-    isfile(bp_path) && (d["band_power"] = CSV.read(bp_path, DataFrame))
-
-    # Figuras disponibles
-    d["figures"] = isdir(fig_dir) ?
-        filter(f -> endswith(f, ".png"), readdir(fig_dir)) : String[]
-
-    return d
 end
 
 # ─── Tabla QC global ──────────────────────────────────────────

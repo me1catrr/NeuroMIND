@@ -1,11 +1,13 @@
 # NeuroMIND
 
-**Framework de conectividad funcional EEG basado en wPLI — Estudio BRAIN**
-Conectividad funcional en Esclerosis Múltiple · Rafael Castro Triguero, 2026
+**Framework de conectividad funcional EEG basado en wPLI**
+Conectividad funcional en Esclerosis Múltiple
+Rafael Castro Triguero
+*Última modificación: 22 Julio 2026*
 
 NeuroMIND toma señales EEG de reposo en formato BrainVision, las procesa de principio a fin con un pipeline reproducible de 8 pasos y genera matrices de conectividad **weighted Phase Lag Index (wPLI)** con inferencia estadística opcional. Está diseñado para el dataset **MINDEM-IMIBIC** (41 pacientes con EM + 37 controles sanos, sesiones T1/T2, condiciones ojos cerrados / abiertos) y produce resultados listos para comparar grupos y sesiones.
 
-> **Configuración única.** Desde el 2026-07-21 todo el proyecto se controla desde un solo fichero, [`config/pipeline.toml`](config/pipeline.toml). Los antiguos `single_subject.toml` y `batch_pipeline.toml` están archivados en `deprecated/code/config/`.
+> **Configuración única.** Desde el 21 Julio 2026 todo el proyecto se controla desde un solo fichero, [`config/pipeline.toml`](config/pipeline.toml).
 
 ---
 
@@ -82,9 +84,7 @@ Tablas CSV · Figuras PNG · Dashboard · Análisis de grupo · Informe PDF
 | β_high | 18 – 30 Hz | Procesos cognitivos de alto nivel |
 | γ (Gamma) | 30 – 50 Hz | Procesamiento sensorial integrado |
 
-> **Nota sobre Delta.** Con épocas de 1 s (perfil `eeg_julia` vigente), δ (0.5 Hz) acumula solo 0.5 ciclos/época, por debajo del mínimo `min_cycles_for_wpli = 4.0`. Dispara un `@warn` en cada corrida pero no se excluye salvo que se active `exclude_unreliable_bands = true`.
-
-**Relación con EEG_Julia (implementación previa):** NeuroMIND reproduce la lógica científica de EEG_Julia con dos diferencias deliberadas — no aplica CSD antes del wPLI (`use_csd = false`) e implementa ICA propia en Julia puro. La lógica científica (ICA, wPLI, PSD, filtros) no debe modificarse sin contrastarla contra EEG_Julia.
+> **Nota sobre Delta.** Con épocas de 1 s (perfil `eeg_julia` vigente), δ (0.5 Hz) acumula solo 0.5 ciclos/época, por debajo del mínimo `min_cycles_for_wpli = 4.0`. Dispara un `@warn` en cada lanzamiento pero no se excluye salvo que se active `exclude_unreliable_bands = true`.
 
 ---
 
@@ -190,8 +190,6 @@ En modo lote, `run_batch_pipeline.jl` copia este fichero y sobreescribe `[subjec
 | `[paths]` | `bids_root = "data/bids"` (minúscula), `results = "results"`. |
 | `[dashboard]` | `port = 8080`, `open_browser = true`. Solo lo lee `launch_dashboard.jl`; `--port` en CLI tiene prioridad. |
 
-> Para una referencia impresa compacta de esta configuración y de todas las salidas, ver `NeuroMIND_arquitectura_pipeline.pdf`.
-
 ---
 
 ## 6. Los 8 pasos del pipeline
@@ -228,18 +226,27 @@ En modo lote, `run_batch_pipeline.jl` copia este fichero y sobreescribe `[subjec
 
 ## 7. Salidas del pipeline
 
-### Doble árbol de salida
+### Árbol de salida único (BIDS)
 
-Cada grabación se escribe **dos veces**. Es el comportamiento actual del código (`SingleSubjectPipeline.jl:330`), no un residuo.
+Desde el 2026-07-21 cada grabación se escribe **una sola vez**, en el árbol BIDS. El antiguo árbol heredado con sufijos (`results/{ID}/{SES}/tables/overview_EC.csv`) se eliminó: `_save_all_results` escribe ahora directamente en `export_dir` sin copias.
 
-| Árbol | Ruta | Nomenclatura | Consumidor |
-|-------|------|-------------|-----------|
-| **Canónico (BIDS)** | `results/subjects/sub-{ID}/ses-{SES}/{task}/` | sin sufijo (`overview.csv`) | Informes, análisis de grupo, uso científico. **Es el que hay que usar.** |
-| **Dashboard (heredado)** | `results/{ID}/{SES}/{tables,figures,cache,logs}/` | con sufijo (`overview_EC.csv`) | `load_dashboard_data` e `ICAInspection.jl` |
+```
+results/subjects/sub-{ID}/ses-{SES}/{task}/
+├── overview.csv · channel_statistics.csv · qc_summary.csv
+├── segmentation_summary.json · segments_table.csv · channel_coverage.csv · …
+├── ica_summary.json · ica_components.csv · ica_*.csv · raw_signal.csv
+├── spectral_summary.json · psd_by_channel.csv · band_power_summary.csv · …
+├── connectivity_summary.json · network_metrics.csv · connectivity_edges.csv
+├── wpli_{banda}.csv                  ← matriz por banda (nombre canónico)
+├── (surrogates opcionales: wpli_{pvalues,qvalues,significant}_{banda}.csv, …)
+├── config_snapshot.toml · pipeline_log.txt
+├── cache/ica_result.jls              ← caché ICA (antes en el árbol heredado)
+└── figures/                          ← todas las figuras (sin sufijo _EC/_EO)
+```
 
-El árbol heredado contiene un subconjunto (QC, overview, PSD, band_power, matrices/edges wPLI y algunas figuras); no incluye ICA, segmentación, surrogates ni figuras de diagnóstico.
+El nombre BIDS ya distingue la condición por el nivel `{task}` (`eyesclosed`/`eyesopen`), así que los sufijos `_EC`/`_EO` eran redundantes. Las tablas de edges por banda (`wpli_edges_{banda}`) se descartaron: su información está en `connectivity_edges.csv` (todas las bandas, con `rank`).
 
-> **Al reprocesar**, `results/{ID}/{SES}/` reaparecerá junto al árbol BIDS aunque `results/` se haya reorganizado. Duplica volumen en disco. Unificar en un solo árbol exige reapuntar `load_dashboard_data` e `ICAInspection.jl` — pendiente.
+> El dashboard ya leía del árbol BIDS (`App.jl` → `results/subjects/`). Al eliminar el árbol heredado se retiró también el código muerto que lo leía: `load_dashboard_data` y las rutas "Legacy API" de `App.jl`, que ningún cliente usaba.
 
 ### Análisis de grupo
 
@@ -1273,20 +1280,16 @@ pipeline_log.txt cerrado · resumen en consola
 
 | Rutina | Archivo | Función |
 |--------|---------|---------|
-| `_save_all_results` | `src/SingleSubjectPipeline.jl` L1314 | Tablas + figuras; `cp()` dashboard → BIDS |
+| `_save_all_results` | `src/SingleSubjectPipeline.jl` | Tablas + figuras; escritura **directa** al árbol BIDS (desde 2026-07-21; antes copiaba desde un árbol heredado) |
 | `_save_config_snapshot` | `src/SingleSubjectPipeline.jl` L1719 | Copia TOML usado |
 | `_update_subjects_index` | `src/SingleSubjectPipeline.jl` L1728 | Catálogo `subjects_index.csv` |
 | `_update_qc_decision_table` | `src/SingleSubjectPipeline.jl` L1806 | Decisión include/exclude por grabación |
-| `load_dashboard_data` | `src/SingleSubjectPipeline.jl` L1761 | Lectura desde `results/{ID}/{SES}/tables/` |
 
-**Doble ruta de salida (M05):**
+**Ruta de salida (M05):**
 
-| Ruta | Rol | Convención nombres |
-|------|-----|-------------------|
-| `results/M05/T2/` | Dashboard (`App.jl`, paneles 0–15) | `tables/*_EC.csv`, `figures/*_EC.png` |
-| `results/subjects/sub-M05/ses-T2/eyesclosed/` | **Canónica** (informe, BIDS) | Sin sufijo `_EC`; CSV/JSON en raíz |
+`results/subjects/sub-M05/ses-T2/eyesclosed/` — árbol **BIDS único**, sin sufijos.
 
-El patrón es **escribir en dashboard → copiar a BIDS** (`cp(...; force=true)`). Ver [Directorios de salida](#directorios-de-salida) al inicio del caso M05.
+> **Nota histórica.** La ejecución del 2026-07-09 se hizo con el código previo, que escribía además un árbol heredado `results/M05/T2/` con sufijos `_EC` y luego copiaba al BIDS. Ese doble árbol se eliminó el 2026-07-21 (ver [§7](#7-salidas-del-pipeline)); las corridas actuales producen solo el árbol BIDS. Por eso la traza de log de abajo menciona nombres con sufijo (`qc_channels_EC.csv`) que hoy serían `qc_summary.csv`.
 
 **Comprobación M05 — ejecución 2026-07-09:**
 

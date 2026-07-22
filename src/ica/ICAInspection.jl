@@ -20,14 +20,13 @@ function load_ica_labels(
     condition::String
 )::Vector{Int}
     res = results_dir(cfg)
-    subj_base  = joinpath(res, "subjects", "sub-$(subject_id)", "ses-$(session_id)", condition)
-    legacy_base = joinpath(res, subject_id, session_id, "tables")
+    # Árbol ÚNICO: BIDS. task = eyesclosed/eyesopen (no la condición EC/EO).
+    task = condition == "EC" ? "eyesclosed" : (condition == "EO" ? "eyesopen" : condition)
+    subj_base = joinpath(res, "subjects", "sub-$(subject_id)", "ses-$(session_id)", task)
 
     candidates = [
         joinpath(subj_base, "ica_labels.csv"),
         joinpath(subj_base, "ICA_labels.csv"),
-        joinpath(subj_base, "tables", "ICA_labels_$(condition).csv"),
-        joinpath(legacy_base, "ICA_labels_$(condition).csv"),
     ]
 
     idx = findfirst(isfile, candidates)

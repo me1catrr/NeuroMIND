@@ -176,6 +176,11 @@ results/subjects/sub-{id}/ses-{sess}/{task}/
 **These files never go to the repo** (`.gitignore` via `/results/`). Group results go to
 `results/transversal/` and `results/longitudinal/` (siblings of subjects/). See README §7–8.
 
+> **Single output tree (since 2026-07-21).** `_save_all_results` writes directly to the
+> BIDS `export_dir`; the old dual tree `results/{ID}/{SES}/` with `_EC`/`_EO` suffixes was
+> removed, along with the dead readers (`load_dashboard_data`, App.jl "Legacy API" routes).
+> ICA cache now lives in `export_dir/cache/`.
+
 ---
 
 ## 7. Signal quality policy (QC v2 — 2026-05-24)

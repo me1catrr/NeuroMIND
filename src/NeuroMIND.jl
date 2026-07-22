@@ -110,7 +110,7 @@ export run_pipeline!, run_subject!, run_session!
 # ─── Pipeline de un solo sujeto ──────────────────────────────
 include("SingleSubjectPipeline.jl")
 export load_ss_config, detect_first_subject, load_single_subject, validate_channels
-export run_single_subject_pipeline, load_dashboard_data
+export run_single_subject_pipeline
 
 # ─── Aplicación web (Genie + Stipple) ────────────────────────
 include("webapp/App.jl")
