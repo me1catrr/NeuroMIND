@@ -1,730 +1,431 @@
 # NeuroMIND
 
-**Framework de análisis EEG para conectividad funcional en Esclerosis Múltiple**
+**Framework de conectividad funcional EEG basado en wPLI — Estudio BRAIN**
+Conectividad funcional en Esclerosis Múltiple · Rafael Castro Triguero, 2026
 
-NeuroMIND toma señales EEG de reposo en formato BrainVision, las procesa de principio a fin y genera matrices de conectividad wPLI / dwPLI con inferencia estadística opcional. El análisis cubre el dataset MINDEM-IMIBIC (41 pacientes EM + 37 controles sanos, ~206 grabaciones válidas) y produce resultados listos para comparar grupos y sesiones.
+NeuroMIND toma señales EEG de reposo en formato BrainVision, las procesa de principio a fin con un pipeline reproducible de 8 pasos y genera matrices de conectividad **weighted Phase Lag Index (wPLI)** con inferencia estadística opcional. Está diseñado para el dataset **MINDEM-IMIBIC** (41 pacientes con EM + 37 controles sanos, sesiones T1/T2, condiciones ojos cerrados / abiertos) y produce resultados listos para comparar grupos y sesiones.
+
+> **Configuración única.** Desde el 2026-07-21 todo el proyecto se controla desde un solo fichero, [`config/pipeline.toml`](config/pipeline.toml). Los antiguos `single_subject.toml` y `batch_pipeline.toml` están archivados en `deprecated/code/config/`.
 
 ---
 
 ## Tabla de contenidos
 
-### Parte I — Guía de uso
+**Parte I — Guía de uso**
 
 1. [¿Qué hace el pipeline?](#1-qué-hace-el-pipeline)
-2. [Requisitos previos](#2-requisitos-previos)
-3. [Primeros pasos: preparar el entorno](#3-primeros-pasos-preparar-el-entorno)
-4. [Flujo de trabajo completo](#4-flujo-de-trabajo-completo)
-   - [4.0 Scripts de entrada](#40-scripts-de-entrada--estado-actual)
-   - [4.1 Pipeline en lote](#41-ejecutar-el-pipeline-en-lote)
-   - [4.2 Tabla de QC](#42-revisar-la-tabla-de-qc)
-   - [4.3 Análisis transversal](#43-análisis-transversal)
-   - [4.4 Análisis longitudinal](#44-análisis-longitudinal)
-   - [4.5 Dashboard](#45-lanzar-el-dashboard)
-   - [4.6 Informe PDF](#46-compilar-el-informe-pdf)
-5. [Los 8 pasos del pipeline](#5-los-8-pasos-del-pipeline-explicados)
-6. [Política de calidad (QC)](#6-política-de-calidad-de-señal-qc)
-7. [Interpretar los resultados](#7-interpretar-los-resultados)
-8. [Configuración avanzada](#8-configuración-avanzada)
-9. [Estructura del proyecto](#9-estructura-del-proyecto)
-10. [Referencia de dependencias](#10-referencia-de-dependencias)
+2. [Contexto científico](#2-contexto-científico)
+3. [Requisitos e instalación](#3-requisitos-e-instalación)
+4. [Cadena de ejecución: los 7 scripts](#4-cadena-de-ejecución-los-7-scripts)
+5. [Configuración: `config/pipeline.toml`](#5-configuración-configpipelinetoml)
+6. [Los 8 pasos del pipeline](#6-los-8-pasos-del-pipeline)
+7. [Salidas del pipeline](#7-salidas-del-pipeline)
+8. [Estructura de `results/` y estado actual](#8-estructura-de-results-y-estado-actual)
+9. [Política de calidad de señal (QC)](#9-política-de-calidad-de-señal-qc)
+10. [Dashboard e informe](#10-dashboard-e-informe)
+11. [Estructura del proyecto y dependencias](#11-estructura-del-proyecto-y-dependencias)
+12. [Reglas de Git y changelog](#12-reglas-de-git-y-changelog)
 
-### Parte II — Verificación detallada (caso M05)
+**Parte II — Verificación detallada (caso de referencia sub-M05)**
 
-- [Caso de referencia: sub-M05](#anexo-caso-de-referencia-sub-m05)
-  - [Directorios de salida](#directorios-de-salida)
-  - [Fases 0–8 verificadas](#fase-0--preparación-del-dataset-verificado-m05)
-  - [Cierre y pendientes](#cierre-revisión-pipeline-m05-fases-08)
-
-> **Cómo leer este documento:** empieza por la **Parte I** si es tu primer contacto con NeuroMIND. La **Parte II** documenta la verificación rutina a rutina del sujeto M05 (código ↔ salidas en disco) y sirve como plantilla para auditar otras ejecuciones.
+Recorrido fase por fase con los valores numéricos reales de la ejecución del 2026-07-09, que reproduce exactamente la configuración vigente. Ver [Anexo](#anexo-caso-de-referencia-sub-m05).
 
 ---
 
 ## 1. ¿Qué hace el pipeline?
 
 ```
-Fase 0 (previa)     audit_full_dataset.jl  →  build_bids_full.jl
+Fase A/B (preparación)   audit_full_dataset.jl  →  build_bids_full.jl
         │
         ▼
-Señal EEG cruda (.vhdr + .eeg, o TSV BIDS)
+Señal EEG cruda (.vhdr + .eeg BrainVision, o TSV BIDS)
         │
         ▼
 [1/8] Carga y validación BIDS
 [2/8] Control de calidad (QC) de canales
-[3/8] Filtrado (highpass + lowpass + notch + bandreject)
-[4/8] ICA — eliminación de artefactos (señal continua, antes de segmentar)
-[5/8] Segmentación + baseline + rechazo de artefactos ±70 µV
+[3/8] Filtrado (notch + bandreject + highpass + lowpass)
+[4/8] ICA — eliminación de artefactos (señal continua, ANTES de segmentar)
+[5/8] Segmentación (1 s) + baseline + rechazo de artefactos ±70 µV
 [6/8] Espectro de potencia (PSD) por banda
-[7/8] Conectividad wPLI/dwPLI  [Hilbert | FourierCSD | Multitaper]
+[7/8] Conectividad wPLI  [Hilbert | FourierCSD | Multitaper]
         └─ opcional: surrogates + FDR (si [surrogates] enabled = true)
-[8/8] Guardado de tablas, figuras, índices QC y config snapshot
+[8/8] Guardado de tablas, figuras, índices QC y snapshot de configuración
         │
         ▼
-Tablas CSV  ·  Figuras PNG  ·  Dashboard  ·  Análisis grupal  ·  Informe PDF
+Tablas CSV · Figuras PNG · Dashboard · Análisis de grupo · Informe PDF
 ```
 
-**¿Por qué wPLI?**  
-El *weighted Phase Lag Index* mide la sincronización de fase entre pares de canales ignorando las contribuciones de campo de volumen y el ruido de amplitud. Es el estimador de conectividad más robusto para señales EEG de reposo. La variante **dwPLI** (debiased wPLI, Vinck 2011) elimina el sesgo por número variable de épocas entre sujetos y es la opción recomendada para comparaciones grupales.
+**Regla crítica:** el paso 4 (ICA) se ejecuta siempre sobre la **señal continua filtrada** y **antes** de segmentar (paso 5). El orden no es negociable.
+
+---
+
+## 2. Contexto científico
+
+| Concepto | Descripción |
+|----------|-------------|
+| **EEG de reposo** | Señal continua, 31 canales 10-20, ~500 Hz, condiciones EC (ojos cerrados) / EO (ojos abiertos) |
+| **wPLI** | *Weighted Phase Lag Index*: conectividad funcional entre pares de canales por banda; robusto frente a conducción de volumen y ruido de amplitud |
+| **dwPLI** | Variante *debiased* (Vinck 2011): elimina el sesgo por número variable de épocas. **Disponible** (`use_dwpli = true`), pero la configuración vigente usa wPLI clásico — ver [§5](#5-configuración-configpipelinetoml) |
+| **ICA** | *Independent Component Analysis*: elimina artefactos oculares / musculares / cardíacos |
+| **CSD** | *Current Source Density*: reduce conducción de volumen; `use_csd = false` por defecto |
+| **Hipótesis** | Los pacientes con EM muestran alteraciones de conectividad en bandas α y β frente a controles sanos |
 
 **Bandas de frecuencia analizadas:**
 
-| Banda | Rango | Relevancia clínica |
-|-------|-------|-------------------|
-| δ (Delta) | 0.5 – 4 Hz | Sueño, estados de baja vigilancia |
+| Banda | Rango | Relevancia |
+|-------|-------|-----------|
+| δ (Delta) | 0.5 – 4 Hz | Sueño, baja vigilancia |
 | θ (Theta) | 4 – 8 Hz | Memoria de trabajo, cognición |
-| α (Alpha) | 7.8 – 11.7 Hz | Estado de reposo, inhibición cortical |
+| α (Alpha) | 7.8 – 11.7 Hz | Reposo, inhibición cortical |
 | β_low | 12 – 15 Hz | Control motor, atención sostenida |
 | β_mid | 15 – 18 Hz | Actividad sensoriomotora |
 | β_high | 18 – 30 Hz | Procesos cognitivos de alto nivel |
 | γ (Gamma) | 30 – 50 Hz | Procesamiento sensorial integrado |
 
-> **Nota sobre Delta:** con épocas de 1 s, la banda Delta (0.5 Hz) acumula solo 0.5 ciclos por época, por debajo del mínimo recomendado de 4. Si se trabaja con el perfil `eeg_julia` (épocas de 1 s), considerar activar `exclude_unreliable_bands = true` o usar el perfil `default` con `segment_length_seconds = 8.0`.
+> **Nota sobre Delta.** Con épocas de 1 s (perfil `eeg_julia` vigente), δ (0.5 Hz) acumula solo 0.5 ciclos/época, por debajo del mínimo `min_cycles_for_wpli = 4.0`. Dispara un `@warn` en cada corrida pero no se excluye salvo que se active `exclude_unreliable_bands = true`.
+
+**Relación con EEG_Julia (implementación previa):** NeuroMIND reproduce la lógica científica de EEG_Julia con dos diferencias deliberadas — no aplica CSD antes del wPLI (`use_csd = false`) e implementa ICA propia en Julia puro. La lógica científica (ICA, wPLI, PSD, filtros) no debe modificarse sin contrastarla contra EEG_Julia.
 
 ---
 
-## 2. Requisitos previos
+## 3. Requisitos e instalación
 
-- **Julia 1.9 o superior** — [descargar en julialang.org](https://julialang.org/downloads/)
-- **LaTeX** (TeX Live o MacTeX) — solo si quieres compilar el informe PDF
-- **~10 GB de espacio libre** en disco para los resultados de todo el dataset
-
-Verifica tu versión de Julia:
+- **Julia** 1.9 – 1.12
+- Datos BrainVision en `data/full_data/`
+- Para el informe: LaTeX (`latexmk` + XeLaTeX)
 
 ```bash
-julia --version
-# Debe mostrar julia version 1.9.x o superior
-```
+# 1. Comprobar Julia
+julia --version                # 1.9.x o superior
 
----
-
-## 3. Primeros pasos: preparar el entorno
-
-Ejecuta este comando **una sola vez** al clonar el repositorio (o al cambiar de ordenador). Descargará e instalará todas las dependencias de Julia:
-
-```bash
-cd NeuroMIND/
+# 2. Instalar dependencias (una vez)
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
+
+# 3. Comprobar que el módulo carga
+julia --project=. -e 'include("src/NeuroMIND.jl"); println("OK")'
 ```
-
-Para verificar que todo está correctamente instalado:
-
-```bash
-julia --project=. -e 'include("src/NeuroMIND.jl"); println("✓ NeuroMIND cargado correctamente")'
-```
-
-Si ves `✓ NeuroMIND cargado correctamente`, el entorno está listo.
 
 ---
 
-## 4. Flujo de trabajo completo
+## 4. Cadena de ejecución: los 7 scripts
 
-Sigue estos pasos en orden. Cada uno depende del anterior.
-
-| Paso | Acción | Sección |
-|------|--------|---------|
-| A | Inventariar dataset | [4.0](#40-scripts-de-entrada--estado-actual) · detalle en [Anexo M05, Fase 0](#fase-0--preparación-del-dataset-verificado-m05) |
-| B | Generar metadata BIDS | idem |
-| C | Probar un sujeto (`run_single_subject.jl`) | [Anexo M05](#anexo-caso-de-referencia-sub-m05) (verificación completa) |
-| D | Pipeline en lote | [4.1](#41-ejecutar-el-pipeline-en-lote) |
-| E | Revisar QC global | [4.2](#42-revisar-la-tabla-de-qc) |
-| F | Análisis grupal / longitudinal | [4.3](#43-análisis-transversal) · [4.4](#44-análisis-longitudinal) |
-| G | Explorar resultados | [4.5](#45-lanzar-el-dashboard) · [4.6](#46-compilar-el-informe-pdf) |
-
-> **Recomendación:** antes del batch completo, ejecuta y revisa el [caso M05](#anexo-caso-de-referencia-sub-m05) con `run_single_subject.jl`. La Parte II del README documenta qué esperar en cada paso del pipeline.
-
-### 4.0 Scripts de entrada — estado actual
-
-La carpeta `scripts/` contiene **8 lanzadores**. Solo **uno está obsoleto** para el trabajo con el dataset MINDEM-IMIBIC; el resto forma la cadena operativa actual.
-
-> **Regla práctica:** para M05 y el dataset real, usar siempre la ruta
-> `audit → build_bids → run_single_subject` (o `run_batch_pipeline` en lote).
-> **No usar** `run_pipeline.jl`.
-
-| Script | Estado | Fase | Orquestador interno | Config | Salida principal |
-|--------|--------|------|---------------------|--------|------------------|
-| `audit_full_dataset.jl` | ✅ **Activo** | A — inventario | script autónomo | — | `data/full_data/inventory.csv`, `data/bids/participants.tsv`, `groups.csv`, `longitudinal_pairs.csv` |
-| `build_bids_full.jl` | ✅ **Activo** | B — metadata BIDS | script autónomo | — | `data/bids/raw/*_eeg_metadata.json`, `electrodes.tsv`, `dataset_description.json` |
-| `run_single_subject.jl` | ✅ **Activo** | pipeline individual | `SingleSubjectPipeline.jl` (**8 pasos**) | `config/pipeline.toml` | `results/subjects/sub-{ID}/ses-{SES}/{task}/` |
-| `run_batch_pipeline.jl` | ✅ **Activo** | C — lote | idem, en bucle sobre `inventory.csv` | `config/pipeline.toml` | misma ruta BIDS + `logs/batch_run_*.csv` |
-| `launch_dashboard.jl` | ✅ **Activo** | visualización | `webapp/App.jl` (Genie) | `config/pipeline.toml` | servidor en `http://localhost:8080` |
-| `run_transversal_analysis.jl` | ✅ **Activo** | post-hoc grupal | script autónomo | `config/pipeline.toml` | `results/group/transversal/` |
-| `run_longitudinal_analysis.jl` | ✅ **Activo** | post-hoc longitudinal | script autónomo | `config/pipeline.toml` | `results/group/longitudinal/` |
-| `run_pipeline.jl` | ⚠️ **Obsoleto — archivado** | legacy | `Pipeline.jl` (**7 pasos**, sin surrogates ni export BIDS) | `deprecated/code/config/pipeline.toml` + `deprecated/code/config/subjects.toml` | caché serializada en `results/{ID}/{SES}/` |
-
-**Por qué `run_pipeline.jl` está obsoleto** (archivado en `deprecated/code/` el 2026-07-21 junto con su config y su orquestador):
-
-1. Llama a `run_pipeline!` (`deprecated/code/src/Pipeline.jl`), un orquestador **anterior** al actual `SingleSubjectPipeline.jl`.
-2. Solo implementa **7 pasos** (sin paso 8 de surrogates/FDR ni el guardado completo de tablas/figuras en `results/subjects/`).
-3. Lee sujetos desde `deprecated/code/config/subjects.toml`, que contiene **entradas sintéticas de plantilla** (`SYN_MS_001`, etc.), no el registro real MINDEM-IMIBIC.
-4. Carga datos con `load_eeg_bids` (TSV obligatorio); no integra `BrainVisionLoader` ni el flujo de metadata ligera de Fase B.
-5. El caso M05 verificado (2026-07-09) se ejecutó con `run_single_subject.jl`, no con este script.
-
-**Cadena recomendada (orden de ejecución):**
+Todos los lanzadores activos leen la misma configuración: `config/pipeline.toml`.
 
 ```bash
-# 1–2. Preparación (una vez por dataset)
+# A. Preparación del dataset (una vez por dataset)
 julia --project=. scripts/audit_full_dataset.jl
 julia --project=. scripts/build_bids_full.jl
 
-# 3. Prueba individual (recomendado antes del batch)
+# B. Pipeline por sujeto (recomendado antes del lote)
 julia --project=. scripts/run_single_subject.jl
-# → revisar salidas en results/subjects/… (ver Anexo M05)
+julia --project=. scripts/run_single_subject.jl --config config/pipeline.toml --force
 
-# 4. Batch completo
+# C. Lote completo
 julia --project=. scripts/run_batch_pipeline.jl
-```
+julia --project=. scripts/run_batch_pipeline.jl --condition EC --group MS --session T1
+julia --project=. scripts/run_batch_pipeline.jl --subjects M11,M12 --skip-done --dry-run
 
-```
-audit_full_dataset.jl  →  build_bids_full.jl  →  run_single_subject.jl  (prueba M05)
-                                              ↘  run_batch_pipeline.jl  (dataset completo)
-                                                    ↓
-                              run_transversal_analysis.jl  /  run_longitudinal_analysis.jl
-                                                    ↓
-                              launch_dashboard.jl  (inspección interactiva)
-```
-
-**Dos orquestadores en `src/` (no confundir):**
-
-| Módulo | Usado por | Estado |
-|--------|-----------|--------|
-| `SingleSubjectPipeline.jl` | `run_single_subject.jl`, `run_batch_pipeline.jl` | ✅ **Canónico** — 8 pasos, BrainVision, surrogates, export BIDS |
-| `deprecated/code/src/Pipeline.jl` | `deprecated/code/scripts/run_pipeline.jl` | ⚠️ **Archivado (2026-07-21)** — fuera de `src/`, incluido desde `NeuroMIND.jl` solo por compatibilidad |
-
-### 4.1 Ejecutar el pipeline en lote
-
-Este comando procesa todas las grabaciones válidas del dataset y genera los resultados en `results/`.
-
-```bash
-julia --project=. scripts/run_batch_pipeline.jl
-```
-
-**Para procesar solo un subconjunto de sujetos** (útil para pruebas):
-
-```bash
-# Procesar 3 sujetos específicos
-julia --project=. scripts/run_batch_pipeline.jl --subjects M43 M44 MC01
-
-# Procesar solo sujetos EM
-julia --project=. scripts/run_batch_pipeline.jl --group MS
-
-# Procesar solo controles
-julia --project=. scripts/run_batch_pipeline.jl --group Control
-```
-
-**¿Cuánto tarda?**
-
-| Sujetos | Surrogates | Tiempo estimado |
-|---------|------------|-----------------|
-| 1 sujeto, 1 condición | OFF | ~2–5 min |
-| 1 sujeto, 1 condición | 200 permutaciones | ~10–15 min |
-| Dataset completo (206 grabaciones) | OFF | ~6–12 h |
-| Dataset completo | 200 permutaciones | ~23–34 h |
-
-> **Nota:** El pipeline es incremental — si se interrumpe, los sujetos ya procesados se saltan automáticamente en la siguiente ejecución.
-
-**¿Qué verás en pantalla durante la ejecución?**
-
-```
-══════════════════════════════════════════════════════════════
-NeuroMIND · Pipeline individual · 2026-05-26 10:32:15
-══════════════════════════════════════════════════════════════
-  Dataset : MINDEM-IMIBIC
-  ▶  sub-M43  ·  ses-T1  ·  eyesclosed
-
-  [1/8] Cargando EEG...       ✓  31 ch · 47460 muestras · 500.0 Hz · 94.9 s
-  [2/8] QC canales...         ✓  σ̄=8.3 µV · ✓ filtro OK · bad: ninguno
-  [3/8] Filtrado...           ✓  HP 0.5 Hz · LP 150.0 Hz · Notch 50.0 Hz
-  [4/8] ICA...                ✓  30 comp · rechazados: IC01, IC05 [CACHÉ]
-  [5/8] Segmentación + AR...  ✓  82/94 epochs válidos (87.2%) · ±70 µV · 30 ch
-  [6/8] PSD...                ✓  ALPHA=1.23 · THETA=0.87 · DELTA=2.11 ... µV²
-  [7/8] wPLI (FourierCSD)...  ✓  30×30 · 7 bandas · 435 aristas
-  [8/8] Guardando resultados... ✓  tablas · figuras · QC table
-
-──────────────────────────────────────────────────────────────
-✅  sub-M43 / ses-T1 / eyesclosed  →  include
-     Epochs  : 82/94 válidos (87.2%) · rechazados: 12
-     Montaje : 30 canales (Fp2 excluido) · bad no-Fp2: ninguno
-     PSD     : ALPHA=1.23 · THETA=0.87 · DELTA=2.11 ... µV²
-──────────────────────────────────────────────────────────────
-```
-
-### 4.2 Revisar la tabla de QC
-
-Después del pipeline, revisa este archivo para ver el estado de cada grabación:
-
-```
-results/qc/qc_decision_table.csv
-```
-
-Cada fila representa una grabación. Los valores posibles de `final_decision` son:
-
-| Decisión | Significado | ¿Incluir en análisis grupal? |
-|----------|------------|------------------------------|
-| `include` | Grabación limpia sin alertas | ✅ Sí |
-| `include_with_warning` | Válida, con alguna alerta menor | ✅ Sí (con cautela) |
-| `manual_review` | Pocas épocas válidas o señal ruidosa | ⚠️ Revisar manualmente |
-| `exclude` | 0 épocas válidas tras rechazo AR | ❌ No |
-
-Para abrir la tabla en Julia:
-
-```julia
-using CSV, DataFrames
-qc = CSV.read("results/qc/qc_decision_table.csv", DataFrame)
-# Ver resumen
-combine(groupby(qc, :final_decision), nrow => :n_grabaciones)
-```
-
-### 4.3 Análisis transversal
-
-Compara la conectividad media entre el grupo EM y el grupo de controles:
-
-```bash
+# D. Análisis de grupo (post-hoc, tras el lote)
 julia --project=. scripts/run_transversal_analysis.jl
-```
-
-**Prerequisito:** que exista `data/bids/groups.csv` con columnas `subject_id, group, session_id`.
-
-Los resultados se guardan en:
-```
-results/group/transversal/EC/    ← condición ojos cerrados
-results/group/transversal/EO/    ← condición ojos abiertos
-```
-
-Archivos generados por banda (ej. para alpha):
-- `group_connectivity_ctrl_ALPHA.csv` — matriz wPLI media del grupo control
-- `group_connectivity_ms_ALPHA.csv` — matriz wPLI media del grupo EM
-- `group_difference_ALPHA.csv` — diferencia EM − control
-- `group_statistics_ALPHA.csv` — test estadístico por par de canales
-- `significant_edges_ALPHA.csv` — pares significativos tras FDR
-
-### 4.4 Análisis longitudinal
-
-Compara la conectividad entre la primera visita (T1) y la segunda (T2) para pacientes EM:
-
-```bash
 julia --project=. scripts/run_longitudinal_analysis.jl
+
+# E. Inspección interactiva
+julia --project=. scripts/launch_dashboard.jl --port 8080
 ```
 
-El script lee `data/bids/longitudinal_pairs.csv` (generado por `scripts/audit_full_dataset.jl`) y detecta automáticamente los pares T1/T2 disponibles. Los resultados se guardan en:
+**Orden de dependencia:**
+
 ```
-results/group/longitudinal/EC/
-results/group/longitudinal/EO/
-```
-
-### 4.5 Lanzar el dashboard
-
-El dashboard permite explorar interactivamente todos los resultados paso a paso:
-
-```bash
-julia --project=. scripts/launch_dashboard.jl
+audit_full_dataset → build_bids_full → run_single_subject (validación)
+                                     → run_batch_pipeline (dataset completo)
+                                            ↓
+                       run_transversal_analysis / run_longitudinal_analysis
+                                            ↓
+                                     launch_dashboard
 ```
 
-Abre `http://localhost:8080` en el navegador.
+### Estado de los scripts
 
-**¿Qué puedes hacer en el dashboard?**
+| Script | Estado | Fase | Orquestador | Salida principal |
+|--------|--------|------|-------------|------------------|
+| `audit_full_dataset.jl` | ✅ Activo | A — inventario | autónomo | `inventory.csv`, `participants.tsv`, `groups.csv`, `longitudinal_pairs.csv` |
+| `build_bids_full.jl` | ✅ Activo | B — metadata BIDS | autónomo | `*_eeg_metadata.json`, `electrodes.tsv`, `dataset_description.json` |
+| `run_single_subject.jl` | ✅ Activo | pipeline individual | `SingleSubjectPipeline.jl` (8 pasos) | `results/subjects/sub-{ID}/ses-{SES}/{task}/` |
+| `run_batch_pipeline.jl` | ✅ Activo | C — lote | idem, en bucle sobre `inventory.csv` | misma ruta BIDS + `results/logs/batch_run_*.csv` |
+| `run_transversal_analysis.jl` | ✅ Activo | post-hoc grupal | autónomo | `results/transversal/{EC\|EO}/` |
+| `run_longitudinal_analysis.jl` | ✅ Activo | post-hoc longitudinal | autónomo | `results/longitudinal/{EC\|EO}/` |
+| `launch_dashboard.jl` | ✅ Activo | visualización | `webapp/App.jl` (Genie) | `http://localhost:8080` |
 
-| Panel | Qué muestra |
-|-------|-------------|
-| 0 – Proyecto | Estado general del dataset |
-| 1–3 | Metadatos BIDS, señal cruda, QC de canales |
-| 4 | Respuesta del filtro diseñado |
-| 5 | Componentes ICA, topomaps, antes/después |
-| 6–7 | Épocas segmentadas, artefactos rechazados |
-| 8 | Espectro de potencia y topomapas por banda |
-| 9 | Heatmaps y red de conectividad wPLI |
-| 10 | Resultados de surrogates y FDR |
-| 11 | Resumen global de calidad de la grabación |
-| 12 | Inventario de archivos exportados |
-| 13 | Comparación transversal EM vs controles |
-| 14 | Comparación longitudinal T1 → T2 |
-| 15 | Validación MNE-Python (pipeline mne_brain) |
+**Opciones de `run_batch_pipeline.jl`** (combinables): `--condition` EC\|EO\|ALL · `--group` MS\|HC\|ALL · `--session` T1\|T2\|ALL · `--subjects` lista · `--max-subjects` N · `--skip-done` · `--dry-run`.
 
-### 4.6 Compilar el informe PDF
-
-El informe oficial en LaTeX se encuentra en `report/`. Para compilarlo:
-
-```bash
-cd report
-make build-es
-```
-
-El PDF se genera en:
-```
-report/build/pdf/main_es.pdf
-```
-
-Para validar errores de compilación:
-
-```bash
-rg -n "LaTeX Error|File .* not found|Undefined control sequence" report/build/pdf/main_es.log
-```
+> **Script retirado.** `run_pipeline.jl` y su orquestador `Pipeline.jl` se archivaron en `deprecated/code/` el 2026-07-21. Implementaba 7 pasos (sin surrogates ni exportación BIDS) y leía sujetos sintéticos de plantilla. No usar con MINDEM-IMIBIC.
 
 ---
 
-## 5. Los 8 pasos del pipeline explicados
+## 5. Configuración: `config/pipeline.toml`
+
+Fichero único que controla todo el pipeline. Cada grabación guarda además su propio `config_snapshot.toml`: **esa es la fuente fiable** de con qué parámetros se produjo un resultado, por encima de lo que diga el fichero de configuración en un momento dado.
+
+En modo lote, `run_batch_pipeline.jl` copia este fichero y sobreescribe `[subject]` y `[paths]` por cada trabajo; el resto de secciones se propaga sin cambios.
+
+### Catálogo de secciones
+
+| Sección | Parámetros y decisiones vigentes |
+|---------|----------------------------------|
+| `[subject]` | `subject_id` / `session_id` / `task` / `run`. **Solo aplica en modo single.** En lote, `run_batch_pipeline.jl` los sobreescribe desde `inventory.csv`. `subject_id = "auto"` autodetecta el primer `*_eeg_data.tsv` de `{bids_root}/raw/`. |
+| `[recording]` | `sampling_rate = 500.0` (fallback; el fs real se lee del `.vhdr`). `reference = "average"` (informativo — no re-referencia la señal). |
+| `[qc]` | `bad_channel_zscore_threshold = 3.0` · `amplitude_warning_sigma_uv = 20.0`. |
+| `[filtering]` | `profile = "eeg_julia"`: Notch 50 Hz (49.5–50.5) y Bandreject 99.5–100.5 Hz **causales** (`filt`); HP 0.5 Hz y LP 150 Hz **zero-phase** (`filtfilt`). Orden 4. |
+| `[ica]` | `profile = "eeg_julia"` → `n_components = nº canales`, `max_iter = 512`, `tol = 1e-7`, `seed = 1234` (fijados en código; **no** se leen del TOML con este perfil). ⚠️ `artifact_threshold` se parsea pero está **inerte**: el umbral real está hardcodeado a 1.5 en `SingleSubjectPipeline.jl`. |
+| `[segmentation]` | `profile = "eeg_julia"` → épocas de 1.0 s sin solape. ⚠️ Los nombres de clave del TOML (`segment_length_seconds`, `overlap_seconds`, `min_segments`) los **traduce** `load_ss_config` a `epoch_length_s`/`epoch_overlap`/`min_epochs`. `min_segments = 10` es criterio de **exclusión dura** en la tabla QC. |
+| `[baseline]` | `method = "first_window_mean"` (media de 0–100 ms), `n_passes = 2` (antes y después del AR). Alternativas: `"mean"`, `"median"`. ⚠️ `baseline_start_s` no afecta al cálculo (siempre arranca en t=0). |
+| `[artifact_rejection]` | `profile = "eeg_julia"`, ±70 µV, sin gradiente. **`n_channels_used = 31`** (todos los canales, coherente con `exclude_fp2 = false`). ⚠️ Es posicional. `before_event_ms`/`after_event_ms` se guardan pero no se aplican. |
+| `[spectral]` | FFT con ventana Hamming-taper, `nfft = 1024` (~0.488 Hz/bin, 513 bins), `window_pct = 10.0`. |
+| `[bands]` | Las 7 bandas. ⚠️ Intervalo semiabierto `[flo, fhi)` e independiente por banda → hay solape THETA/ALPHA (7.8–8.0 Hz) y hueco ALPHA/BETA_LOW (11.7–12.0 Hz). La suma de bandas no iguala la potencia total. |
+| `[connectivity]` | **`wpli_method = "hilbert"`** · **`use_dwpli = false`** (wPLI clásico, rango 0–1) · `filter_order = 8` · `use_csd = false` · `min_cycles_for_wpli = 4.0` · `exclude_unreliable_bands = false`. Sub-tablas `[connectivity.fourier_csd]` y `[connectivity.multitaper]` para los otros métodos. |
+| `[montage]` | **`exclude_fp2 = false`** → Fp2 SE CONSERVA: **31 canales, 465 aristas** por banda. ⚠️ Quien elimina canales es `exclude_channels`; `exclude_fp2` solo filtra Fp2 de esa lista. `n_channels_analysis` es informativo (se calcula, no se lee). |
+| `[graph]` | `density = 0.1`, `threshold_method = "proportional"`. Solo afecta a métricas binarias (path_length, efficiency, degree); strength y clustering usan la matriz completa. |
+| `[surrogates]` | `enabled = false`. Si se activa: `n_surrogates = 200`, `alpha = 0.05`, `fdr_method = "bh"`, `seed = 42`. ⚠️ `method` es inerte (siempre `circular_shift`). |
+| `[output]` | `figure_format = "png"`, `figure_dpi = 150`. |
+| `[paths]` | `bids_root = "data/bids"` (minúscula), `results = "results"`. |
+| `[dashboard]` | `port = 8080`, `open_browser = true`. Solo lo lee `launch_dashboard.jl`; `--port` en CLI tiene prioridad. |
+
+> Para una referencia impresa compacta de esta configuración y de todas las salidas, ver `NeuroMIND_arquitectura_pipeline.pdf`.
+
+---
+
+## 6. Los 8 pasos del pipeline
 
 ### [1/8] Carga EEG
-Lee los archivos BrainVision (`.vhdr` + `.eeg`) y crea un objeto `EEGRecording` con la señal en formato canales × muestras.
-
-- Frecuencia de muestreo: 500 Hz
-- Canales: 31 (10-20 internacional, referencia FCz)
-- Duración típica: 60–120 s de señal en reposo
+`load_single_subject` lee el `.vhdr`/`.eeg` BrainVision (o TSV BIDS) → `EEGRecording` (canales × muestras). `validate_channels` contrasta los nombres contra `electrodes.tsv`. No genera salida propia.
 
 ### [2/8] Control de calidad de canales
-Calcula la desviación estándar de cada canal. Los canales cuya amplitud sea estadísticamente atípica (z-score ≥ 3.0) se marcan como malos y se excluyen del análisis de conectividad.
-
-También calcula la **amplitud media global** (σ̄):
-- σ̄ < 20 µV → grabación con filtro online activo (normal)
-- σ̄ > 20 µV → posible grabación sin filtro online activo → se emite `amplitude_warning`
+`compute_channel_stats` + `flag_bad_channels` (z-score de RMS > 3.0). Calcula `amplitude_warning` si σ̄ de la señal cruda > 20 µV. Salida: `channel_statistics.csv` / `qc_summary.csv` (columna `is_bad`).
 
 ### [3/8] Filtrado
-Aplica un banco de filtros Butterworth de orden 4 con `filtfilt` (cero retardo de fase), en el orden del protocolo `eeg_julia`:
+`filter_recording`, perfil `eeg_julia`: Notch 50 Hz causal → Bandreject 99.5–100.5 Hz causal → HP 0.5 Hz zero-phase → LP 150 Hz zero-phase (Butterworth, orden 4). Salida: `filtered_signal_preview.png`.
 
-1. **Notch 50 Hz** — elimina interferencia de red eléctrica
-2. **Bandreject 99.5–100.5 Hz** — elimina subarmónico de red
-3. **Highpass 0.5 Hz** — elimina deriva lenta y artefactos DC
-4. **Lowpass 150 Hz** — elimina ruido de alta frecuencia
+### [4/8] ICA
+`run_ica` — FastICA simétrica con PCA whitening, en Julia puro (solo `LinearAlgebra` + `Random`). Con `profile = "eeg_julia"` usa todos los canales; matriz de mezcla `A = inv(W_total)` (invertible por ser cuadrada). `load_ica_labels` + `apply_ica_rejection` eliminan los componentes marcados. Salidas: `ica_summary.json`, `ica_components.csv`, `ica_component_features.csv`, matrices de mezcla/separación, activaciones, `raw_signal.csv`, `figures/ica_topomap_NNN.png`.
 
-### [4/8] ICA (Análisis de Componentes Independientes)
-Aplica FastICA simétrico a la señal **continua** filtrada (no segmentada). Esto es crítico: aplicar ICA sobre la señal continua maximiza la información disponible para separar fuentes.
+> El rechazo de componentes **no es automático por score**: `apply_ica_rejection` actúa sobre los índices de un CSV de inspección manual (`ica_labels.csv`). Sin ese CSV se conservan todos los componentes.
 
-Cada componente se clasifica automáticamente como artefacto ocular, muscular, cardíaco o señal cerebral. Los componentes de artefacto se sustraen de la señal antes de continuar.
-
-Los resultados ICA se guardan en caché (`results/{suj}/{ses}/cache/ica_result.jls`). Si el pipeline se relanza con la misma configuración, ICA se recupera del caché en segundos.
-
-### [5/8] Segmentación y rechazo de artefactos
-Corta la señal limpiada en épocas y aplica rechazo por amplitud. El perfil de segmentación se configura en `config/batch_pipeline.toml`:
-
-| Perfil | Longitud de época | Ventaja |
-|--------|-------------------|---------|
-| `eeg_julia` | 1.0 s fijo (compatibilidad EEG_Julia) | Reproducibilidad con pipeline original |
-| `default` | Configurable (recomendado: 2.0 s) | Más ciclos por época, mejor estimación wPLI |
-
-Pasos internos:
-1. **Corrección de baseline** — sustrae la media de los primeros 100 ms
-2. **Rechazo por amplitud ±70 µV** — elimina épocas con excursiones extremas
-3. Segunda pasada de corrección de baseline (perfil `eeg_julia`)
-
-> **Umbral ±70 µV:** estándar del protocolo RS-MIND. Las grabaciones con `amplitude_warning` pueden tener pocas épocas válidas — esto se registra en la tabla QC.
-
-**Montaje del análisis:** se excluye Fp2 (canal sistemáticamente problemático en el 46% del dataset) y los canales malos detectados en [2/8]. El análisis trabaja con **30 canales**.
+### [5/8] Segmentación + baseline + rechazo de artefactos
+`segment_recording` (épocas de 1.0 s sin solape) → `apply_baseline` (`first_window_mean`, pre-AR) → `reject_artifacts` (±70 µV sobre los 31 canales) → segunda pasada de baseline (`n_passes = 2`). Salidas: `segmentation_summary.json`, `artifact_rejection_summary.json`, `segments_table.csv`, `channel_coverage.csv`, `rejected_segments.csv`, `channel_artifact_summary.csv`.
 
 ### [6/8] Espectro de potencia (PSD)
-Calcula la densidad espectral de potencia de cada época usando ventana Hanning (FFT de 1024 puntos). La potencia se integra en cada banda de frecuencia.
+`compute_psd` — FFT con ventana Hamming-taper. Salidas: `spectral_summary.json`, `band_power_summary.csv`, `psd_by_channel.csv`, `regional_psd.csv`, `spectral_indices.csv`, `psd_all_channels.png`, `band_power_summary.png`.
 
-### [7/8] Conectividad wPLI / dwPLI (+ surrogates opcional)
+### [7/8] Conectividad wPLI
+`compute_wpli` con el estimador `hilbert` (Butterworth bandpass + señal analítica Hilbert). Con 31 canales → **465 aristas** por banda. `compute_graph_metrics` deriva métricas de red. Salidas: `connectivity_summary.json`, `network_metrics.csv`, `connectivity_edges.csv`, `wpli_{banda}.csv`, `wpli_{banda}.png`.
 
-Calcula el *weighted Phase Lag Index* entre todos los pares de canales en cada banda de frecuencia. Con 30 canales (montaje estándar), hay **435 pares de electrodos** por banda.
-
-**Tres métodos de estimación configurables:**
-
-| Método | Descripción | Cuándo usarlo |
-|--------|-------------|---------------|
-| `hilbert` | Filtrado Butterworth + señal analítica Hilbert | Análisis exploratorio rápido |
-| `fourier_csd` | Espectro cruzado FFT con ventana Hanning/Hamming | **Recomendado para publicación** |
-| `multitaper` | DPSS multitaper (equivalente a MNE `spectral_connectivity`) | Cuando se requiere bajo sesgo espectral |
-
-```toml
-[connectivity]
-wpli_method = "fourier_csd"  # o "hilbert", "multitaper"
-use_dwpli   = true           # true → dwPLI no sesgado (recomendado para grupos)
-```
-
-> La variante **dwPLI** (debiased wPLI) es matemáticamente insesgada respecto al número de épocas y produce rango [-1, 1]. Se recomienda para comparaciones grupales.
-
-**Inferencia por surrogates** (sub-paso opcional, activar en config):
-
-Si `[surrogates] enabled = true`, tras calcular wPLI se generan permutaciones mediante **desplazamiento circular independiente por canal y época**. Esta técnica destruye la sincronía de fase inter-canal pero preserva el espectro de cada canal. Los p-valores usan corrección Monte Carlo (+1) y FDR Benjamini-Hochberg al 5 %.
-
-```toml
-[surrogates]
-enabled      = false   # true para inferencia; false en batch exploratorio
-n_surrogates = 200     # ≥ 200 para publicación
-alpha        = 0.05
-seed         = 42
-```
-
-> Con `enabled = true`, los surrogates pueden consumir >90 % del tiempo de ejecución (ver [Anexo M05, Fase 7](#fase-78--conectividad-wpli-y-surrogates-verificado-m05)).
+**Surrogates (opcional, `enabled = true`):** `surrogate_test` genera la distribución nula por *circular shift* con el mismo estimador que el observado, y `fdr_correction` aplica Benjamini-Hochberg. Salidas: `wpli_{observed,pvalues,qvalues,significant}_{banda}.csv`, `surrogate_null_stats_{banda}.csv`, `significant_connections.csv`, `surrogate_{quality,summary}` y `surrogate_null_{banda}.png`.
 
 ### [8/8] Guardado de resultados
-
-Consolida tablas CSV, figuras PNG, `config_snapshot.toml`, `pipeline_log.txt` y actualiza índices globales (`subjects_index.csv`, `qc_decision_table.csv`). Escribe en dos rutas: export BIDS (`results/subjects/…`) y dashboard (`results/{ID}/{SES}/`). Ver [sección 7](#7-interpretar-los-resultados) y [Directorios de salida](#directorios-de-salida) en el anexo M05.
+`_save_all_results` + `_save_config_snapshot`. Actualiza dos índices globales: `results/subjects_index.csv` y `results/qc/qc_decision_table.csv`. Salidas por sujeto: `overview.csv`, `config_snapshot.toml`, `pipeline_log.txt`.
 
 ---
 
-## 6. Política de calidad de señal (QC)
+## 7. Salidas del pipeline
 
-### Montaje de 30 canales
+### Doble árbol de salida
 
-El análisis principal trabaja con **30 canales** (Fp2 excluido en todos los sujetos). Fp2 aparece como canal problemático en el 46% del dataset (artefactos oculares y de contacto). Excluirlo garantiza matrices de conectividad homogéneas entre grabaciones.
+Cada grabación se escribe **dos veces**. Es el comportamiento actual del código (`SingleSubjectPipeline.jl:330`), no un residuo.
 
-Esto produce matrices wPLI de **30 × 30** con **435 aristas por banda**.
+| Árbol | Ruta | Nomenclatura | Consumidor |
+|-------|------|-------------|-----------|
+| **Canónico (BIDS)** | `results/subjects/sub-{ID}/ses-{SES}/{task}/` | sin sufijo (`overview.csv`) | Informes, análisis de grupo, uso científico. **Es el que hay que usar.** |
+| **Dashboard (heredado)** | `results/{ID}/{SES}/{tables,figures,cache,logs}/` | con sufijo (`overview_EC.csv`) | `load_dashboard_data` e `ICAInspection.jl` |
 
-Para un análisis de sensibilidad con Fp2 activo, editar `config/batch_pipeline.toml`:
+El árbol heredado contiene un subconjunto (QC, overview, PSD, band_power, matrices/edges wPLI y algunas figuras); no incluye ICA, segmentación, surrogates ni figuras de diagnóstico.
 
-```toml
-[montage]
-exclude_fp2 = false
+> **Al reprocesar**, `results/{ID}/{SES}/` reaparecerá junto al árbol BIDS aunque `results/` se haya reorganizado. Duplica volumen en disco. Unificar en un solo árbol exige reapuntar `load_dashboard_data` e `ICAInspection.jl` — pendiente.
+
+### Análisis de grupo
+
+Ambos scripts leen los `wpli_{banda}.csv` ya generados y escriben una carpeta por condición (39 ficheros por condición con 7 bandas):
+
+| Análisis | Salida | Ficheros clave |
+|----------|--------|----------------|
+| **Transversal** (MS vs Control) | `results/transversal/{EC\|EO}/` | `group_{connectivity_ms,connectivity_control,difference,statistics}_{banda}.csv`, `significant_edges_{banda}.csv`, `band_statistics.csv`, `subject_inclusion.csv`, `transversal_summary.json` |
+| **Longitudinal** (T1 → T2) | `results/longitudinal/{EC\|EO}/` | `longitudinal_{connectivity_t1,connectivity_t2,difference,statistics}_{banda}.csv`, `significant_longitudinal_edges_{banda}.csv`, `paired_subjects.csv`, `longitudinal_summary.json` |
+
+El transversal requiere `data/bids/groups.csv`; el longitudinal usa `longitudinal_pairs.csv` o autodetecta los pares T1/T2 en `results/subjects/`.
+
+---
+
+## 8. Estructura de `results/` y estado actual
+
+Reorganizada el 2026-07-21. Cada modo de ejecución tiene un área propia.
+
 ```
+results/
+├── README.md
+├── subjects/                run_single_subject.jl · run_batch_pipeline.jl
+│   └── sub-{ID}/ses-{T1|T2}/{eyesclosed|eyesopen}/
+├── transversal/             run_transversal_analysis.jl
+│   └── {EC|EO}/
+├── longitudinal/            run_longitudinal_analysis.jl
+│   └── {EC|EO}/
+├── qc/qc_decision_table.csv
+├── logs/batch_run_{timestamp}.csv
+└── subjects_index.csv
+
+deprecated/                  fuera del árbol de producción
+├── code/                    ← VERSIONADO en git (ficheros pequeños)
+│   ├── config/  scripts/  src/    (run_pipeline.jl, Pipeline.jl, configs antiguas)
+└── results/                 ← IGNORADO por git (GB de derivados EEG)
+    └── 2026-05-26_pre-unificacion/
+```
+
+El pipeline individual y el lote escriben en la **misma** ruta: reprocesar un sujeto suelto sobrescribe su carpeta y nada más.
+
+### Estado de los resultados
+
+En producción solo está el caso de referencia `subjects/sub-M05/ses-T2/eyesclosed/` (reprocesado el 2026-07-09), cuyo snapshot coincide con la configuración vigente. Las 204 grabaciones restantes y los análisis de grupo de mayo están archivados porque cuatro parámetros cambian los valores numéricos:
+
+| Parámetro | Corridas de mayo (archivadas) | Configuración vigente |
+|-----------|-------------------------------|-----------------------|
+| `connectivity.use_dwpli` | `true` — dwPLI, rango −1…1 | `false` — wPLI clásico, 0…1 |
+| `baseline.method` | `mean` — media de la época | `first_window_mean` — 0–100 ms |
+| `montage.exclude_fp2` | `true` — 30 canales, 435 aristas | `false` — 31 canales, 465 aristas |
+| `artifact_rejection.n_channels_used` | `30` | `31` |
+
+Las matrices wPLI tienen además dimensión distinta (30×30 vs 31×31): no son comparables. Orden previsto de regeneración: **M05 (validación) → lote completo → transversal y longitudinal**.
+
+---
+
+## 9. Política de calidad de señal (QC)
+
+### Montaje de 31 canales
+Con la configuración vigente (`exclude_fp2 = false`) el análisis trabaja con los **31 canales**, incluido Fp2, produciendo matrices wPLI de **31 × 31** con **465 aristas por banda**. Fp2 fue históricamente problemático (artefactos oculares/contacto en el 46% del dataset); se conserva porque la ICA (paso 4) corre sobre los 31 canales y le resta la activación del componente ocular dominante antes de la conectividad. `n_channels_used = 31` garantiza que Fp2 también pase la criba de artefactos ±70 µV. Para un análisis de sensibilidad sin Fp2: `exclude_fp2 = true` y `n_channels_used = 30`.
 
 ### Alerta de amplitud (`amplitude_warning`)
+Si σ̄ de la señal cruda > 20 µV → probable grabación sin filtro online activo. **No excluye automáticamente**; la decisión final se toma tras el AR.
 
-Si la amplitud media de la señal cruda supera 20 µV, el pipeline emite esta alerta. Indica probable ausencia de filtro online en la grabación. **No provoca exclusión automática** — la decisión final se toma tras ver el porcentaje de épocas válidas tras el rechazo AR ±70 µV.
+### Tabla de decisión QC (`results/qc/qc_decision_table.csv`)
 
-### Criterios de inclusión
-
-| Condición | Decisión |
-|-----------|----------|
-| Sin alertas, ≥10 épocas válidas | `include` |
-| `amplitude_warning` o canales malos adicionales | `include_with_warning` |
-| `amplitude_warning` + ≥2 canales malos **o** <50% épocas válidas | `manual_review` |
-| 0 épocas válidas | `exclude` |
-
----
-
-## 7. Interpretar los resultados
-
-### Estructura de resultados por sujeto
-
-**Ruta canónica (informe, análisis grupal, BIDS):**
-
-```
-results/subjects/sub-{ID}/ses-{SES}/{task}/
-├── overview.csv              ← resumen general (canales, epochs, duración)
-├── qc_summary.csv            ← QC de la grabación
-├── channel_statistics.csv    ← estadísticas por canal
-├── band_power_summary.csv    ← potencia por banda
-├── wpli_{BANDA}.csv          ← matriz wPLI por banda
-├── wpli_pvalues_{BANDA}.csv  ← p-valor por par (si surrogates ON)
-├── wpli_qvalues_{BANDA}.csv  ← q-valor FDR
-├── wpli_significant_{BANDA}.csv
-├── significant_connections.csv
-├── surrogate_summary.json
-├── ica_summary.json
-├── config_snapshot.toml      ← TOML usado en la ejecución
-├── figures/                  ← figuras PNG
-└── pipeline_log.txt
-```
-
-**Ruta dashboard** (paneles web, sufijo `_EC` / `_EO`):
-
-```
-results/{ID}/{SES}/
-├── tables/    ← mismas tablas con sufijo de condición
-├── figures/   ← figuras con sufijo _EC.png
-└── cache/     ← caché ICA (no citar en informe)
-```
-
-> El pipeline escribe primero en `results/{ID}/{SES}/` y copia a `results/subjects/…`. Para el informe, usar siempre la ruta BIDS. Detalle y reglas en [Directorios de salida](#directorios-de-salida).
-
-### ¿Cómo leer los resultados de conectividad?
-
-El archivo `significant_connections.csv` contiene las conexiones estadísticamente significativas:
-
-```
-ch_a, ch_b, band, wpli_obs, p_value, q_value, z_score
-Fz,   P4,   ALPHA, 0.388,  0.005,   0.0115, 4.179
-...
-```
-
-- `wpli_obs` > 0 → sincronización en fase (relación leading-lagging)
-- `q_value` < 0.05 → significativo tras corrección por comparaciones múltiples
-
-### Señales de alerta en los resultados
-
-| Señal | Qué hacer |
-|-------|-----------|
-| `n_epochs_valid = 0` | Revisar manualmente; posible grabación corrupta |
-| `valid_epochs_pct < 30%` | La grabación es marginal; usar con cautela en análisis grupal |
-| `amplitude_warning = true` | Normal si el filtro online estaba desactivado; verificar filtrado offline |
-| `n_sig_total = 0` en surrogates | Puede ser normal para sujeto individual; las diferencias aparecen a nivel grupal |
-| `@warn [DELTA] solo N ciclos` | Con épocas cortas, Delta tiene pocos ciclos; considerar `exclude_unreliable_bands = true` |
+| `final_decision` | Condición | ¿Incluir en grupo? |
+|------------------|-----------|--------------------|
+| `include` | Sin alertas, ≥10 épocas válidas | ✅ Sí |
+| `include_with_warning` | `amplitude_warning` o ≥1 canal malo | ✅ Con cautela |
+| `manual_review` | `amplitude_warning` + ≥2 canales malos, **o** <50% épocas válidas | ⚠️ Revisar |
+| `exclude` | 0 épocas válidas, o menos de `min_segments` (10) | ❌ No |
 
 ---
 
-## 8. Configuración avanzada
+## 10. Dashboard e informe
 
-La configuración del pipeline en lote vive en `config/batch_pipeline.toml`. Los parámetros más relevantes:
-
-### Segmentación
-
-```toml
-[segmentation]
-profile                = "default"         # "eeg_julia" = 1s fijo; "default" = configurable
-segment_length_seconds = 2.0               # épocas de 2 s → mejor estimación wPLI en Delta
-overlap_seconds        = 0.0
-min_segments           = 10
-```
-
-### Método de conectividad
-
-```toml
-[connectivity]
-wpli_method              = "fourier_csd"   # "hilbert" | "fourier_csd" | "multitaper"
-use_dwpli                = true            # debiased wPLI — recomendado para grupos
-min_cycles_for_wpli      = 4.0             # ciclos mínimos por época para estimación fiable
-exclude_unreliable_bands = true            # omitir bandas con < min_cycles (no solo advertir)
-
-[connectivity.fourier_csd]
-window = "hann"   # "hann" | "hamming" | "rect"
-nfft   = 0        # 0 = longitud de la época completa
-
-[connectivity.multitaper]
-nw       = 4.0    # time-bandwidth product (mayor = más suavizado)
-n_tapers = 0      # 0 = automático: floor(2×nw)−1
-low_bias = true   # descartar tapers con concentración espectral λ < 0.9
-```
-
-### Surrogates
-
-```toml
-[surrogates]
-enabled      = false    # true para inferencia estadística; false para análisis rápido
-n_surrogates = 200      # ≥ 200 para publicación; 20 para exploración
-method       = "circular_shift"
-alpha        = 0.05
-fdr_method   = "bh"
-seed         = 42
-```
-
-### Montaje y rechazo de artefactos
-
-```toml
-[montage]
-exclude_channels    = ["Fp2"]
-exclude_fp2         = true      # false para análisis de sensibilidad
-n_channels_analysis = 30
-
-[artifact_rejection]
-min_amplitude_uv = -70.0   # protocolo RS-MIND estándar
-max_amplitude_uv =  70.0
-```
-
-### Ejecutar un sujeto individual (para pruebas)
+### Dashboard web (Genie.jl) — 16 paneles
 
 ```bash
-julia --project=. scripts/run_single_subject.jl
+julia --project=. scripts/launch_dashboard.jl --port 8080   # → http://localhost:8080
 ```
 
-Configuración en `config/single_subject.toml`:
+| Panel | Contenido | | Panel | Contenido |
+|-------|-----------|--|-------|-----------|
+| 0 | Proyecto / Dataset | | 8 | Análisis espectral |
+| 1 | BIDS y metadata | | 9 | Conectividad wPLI |
+| 2 | Señal cruda | | 10 | Surrogates / Inferencia |
+| 3 | QC inicial | | 11 | Resultados finales |
+| 4 | Preprocesado / Filtrado | | 12 | Exportación / Informe |
+| 5 | ICA | | 13 | Evaluación transversal |
+| 6 | Segmentación | | 14 | Evaluación longitudinal |
+| 7 | Rechazo de artefactos | | 15 | Validación MNE-Python |
 
-```toml
-[subject]
-subject_id = "M05"
-session_id = "T2"
-task       = "eyesclosed"
-```
+### Informe PDF
+El informe científico LaTeX vive en `report/` (`main_es.tex` → `report/build/pdf/main_es.pdf`). Requiere `latexmk` + XeLaTeX.
 
-### Tests unitarios
-
-```bash
-julia --project=. tests/runtests.jl
-```
+### Validación cruzada (mne_brain/)
+`mne_brain/` reimplementa el pipeline en MNE-Python para validar los resultados de forma independiente. Ver `mne_brain/README.md`.
 
 ---
 
-## 9. Estructura del proyecto
+## 11. Estructura del proyecto y dependencias
 
 ```
 NeuroMIND/
 ├── config/
-│   └── pipeline.toml           ← ⭐ CONFIGURACIÓN ÚNICA del proyecto
-│                                  (unificada 2026-07-21; la leen los 5 scripts activos)
-│
+│   └── pipeline.toml           ← ⭐ CONFIGURACIÓN ÚNICA (la leen los 7 scripts)
 ├── data/
-│   ├── bids/                   ← Estructura BIDS ligera (metadata JSON, sin señales)
-│   │   ├── raw/                   sub-{ID}_ses-{SES}_task-*_eeg_metadata.json
-│   │   ├── groups.csv             sujeto → grupo (MS / Control)
-│   │   └── longitudinal_pairs.csv pares T1/T2 detectados por audit_full_dataset.jl
-│   └── full_data/
-│       └── inventory.csv       ← Inventario de las ~212 grabaciones del dataset
-│
-├── results/                    ← Generado por el pipeline (NO en Git)
-│   ├── README.md               ← Estructura y qué comando escribe dónde
-│   ├── subjects/               ← Nivel sujeto: sub-{ID}/ses-{S}/{task}/
-│   ├── transversal/            ← Nivel grupo: EM vs controles ({EC|EO})
-│   ├── longitudinal/           ← Nivel grupo: T1 vs T2 ({EC|EO})
-│   ├── qc/
-│   │   └── qc_decision_table.csv   ← Estado QC de cada grabación
-│   └── logs/                   ← batch_run_{timestamp}.csv
-
-│
-├── src/                        ← Código fuente Julia
+│   ├── bids/                   ← BIDS ligero (metadata JSON, sin señales)
+│   └── full_data/              ← .vhdr crudos + inventory.csv
+├── src/                        ← Código Julia
 │   ├── NeuroMIND.jl            ← Entry point del módulo
-│   ├── types.jl                ← Tipos de datos (EEGRecording, EpochSet, etc.)
-│   ├── SingleSubjectPipeline.jl ← Pipeline de 8 pasos (canónico)
-│   ├── io/                     ← Carga de datos (BIDS, BrainVision)
-│   ├── preprocessing/          ← Filtrado
-│   ├── ica/                    ← FastICA, clasificación, inspección
-│   ├── segmentation/           ← Épocas, baseline, rechazo AR
-│   ├── spectral/               ← PSD
-│   ├── connectivity/
-│   │   ├── wPLI.jl             ← Estimadores Hilbert / FourierCSD / Multitaper
-│   │   ├── GraphMetrics.jl     ← Métricas de grafo (strength, clustering, path length)
-│   │   └── CSD.jl              ← Current Source Density (opcional)
-│   ├── statistics/             ← Surrogates (circular_shift), FDR
-│   ├── visualization/          ← Topomaps, heatmaps, espectros
-│   └── webapp/                 ← Dashboard web (Genie.jl)
-│
-├── scripts/
-│   ├── audit_full_dataset.jl        ← Fase A: inventario del dataset
-│   ├── build_bids_full.jl           ← Fase B: metadata BIDS ligera
-│   ├── run_single_subject.jl        ← Pipeline individual (8 pasos) ← USAR
-│   ├── run_batch_pipeline.jl        ← Pipeline en lote (Fase C)
-│   ├── run_transversal_analysis.jl  ← Comparación grupal EM vs controles
-│   ├── run_longitudinal_analysis.jl ← Comparación temporal T1 → T2
-│   └── launch_dashboard.jl          ← Dashboard interactivo
-│
-├── deprecated/                 ← ⚠️ Archivado 2026-07-21 — no usar con MINDEM
-│   ├── code/                   ← SÍ versionado (ficheros pequeños, histórico útil)
-│   │   ├── config/
-│   │   │   ├── single_subject.toml  ← Config individual previa (generó el caso M05)
-│   │   │   ├── batch_pipeline.toml  ← Config de lote previa (generó las 205 grabaciones)
-│   │   │   ├── pipeline.toml        ← Config del orquestador obsoleto (≠ config/pipeline.toml)
-│   │   │   └── subjects.toml        ← Registro de sujetos (entradas sintéticas de plantilla)
-│   │   ├── scripts/run_pipeline.jl  ← Lanzador obsoleto (7 pasos, sin surrogates ni BIDS)
-│   │   └── src/Pipeline.jl          ← Orquestador obsoleto de 7 pasos
-│   └── results/                ← NO versionado (GB de derivados EEG)
-│       └── 2026-05-26_pre-unificacion/   ← 204 grabaciones + grupo + logs de mayo
-│
-├── mne_brain/                  ← Pipeline de validación MNE-Python (Panel 15)
-│   └── ...
-│
-├── web/
-│   └── views/dashboard.html    ← Interfaz del dashboard (SPA, 16 paneles)
-│
+│   ├── types.jl                ← EEGRecording, EpochSet, ICAResult, …
+│   ├── SingleSubjectPipeline.jl ← Pipeline de 8 pasos (canónico) + load_ss_config
+│   ├── io/                     ← BrainVisionLoader, BIDSLoader, Config
+│   ├── preprocessing/          ← Filtering
+│   ├── ica/                    ← ICACore (FastICA), ICAClassification, ICAInspection
+│   ├── segmentation/           ← Epochs (segment, baseline, AR)
+│   ├── spectral/               ← PowerSpectrum
+│   ├── connectivity/           ← wPLI, CSD, GraphMetrics
+│   ├── statistics/             ← Surrogates, FDR, GroupStats
+│   ├── visualization/          ← Topomaps, Heatmaps, Spectra
+│   ├── report/                 ← HTMLReport
+│   └── webapp/                 ← App.jl (dashboard Genie)
+├── scripts/                    ← 7 lanzadores activos (ver §4)
+├── results/                    ← Generado por el pipeline (NO en git)
+├── deprecated/                 ← Archivado (code/ en git, results/ ignorado)
+├── mne_brain/                  ← Pipeline de validación MNE-Python
 ├── report/                     ← Informe científico LaTeX
-│   ├── main_es.tex
-│   └── build/pdf/main_es.pdf   ← PDF compilado
-│
-├── tests/
-│   └── runtests.jl
-│
-└── CLAUDE.md                   ← Contexto unificado para asistentes IA (Claude, Codex, Cursor)
+├── tests/ · test/              ← runtests.jl
+├── config/pipeline.toml · Project.toml · Manifest.toml
+├── README.md · AGENTS.md · CLAUDE.md
+└── NeuroMIND Claude Code/      ← Referencia de arquitectura (PDF)
 ```
 
----
+**Dos orquestadores en `src/`:**
 
-## 10. Referencia de dependencias
+| Módulo | Usado por | Estado |
+|--------|-----------|--------|
+| `SingleSubjectPipeline.jl` | `run_single_subject.jl`, `run_batch_pipeline.jl` | ✅ Canónico — 8 pasos, BrainVision, surrogates, export BIDS |
+| `deprecated/code/src/Pipeline.jl` | `deprecated/code/scripts/run_pipeline.jl` | ⚠️ Archivado — incluido desde `NeuroMIND.jl` solo por compatibilidad |
 
-| Paquete Julia | Uso en el pipeline |
-|---------------|--------------------|
-| `DSP` | Filtros Butterworth, `filtfilt`, DPSS tapers (multitaper wPLI) |
-| `FFTW` | FFT, espectro cruzado (FourierCSD), transformada de Hilbert |
-| `LinearAlgebra`, `Random` | FastICA (implementación propia, sin paquetes externos) |
-| `Statistics`, `StatsBase` | Estadísticas de canales, z-scores |
-| `CairoMakie` | Figuras PNG (señal, PSD, heatmaps, topomaps) |
-| `DataFrames`, `CSV` | Tablas de resultados |
-| `TOML` | Lectura de configuración |
-| `Serialization` | Caché de resultados ICA intermedios |
+### Dependencias (`Project.toml`)
+
+| Paquete | Uso |
+|---------|-----|
+| `DSP` | Filtros Butterworth, `filtfilt`, DPSS (multitaper) |
+| `FFTW` | Transformadas para PSD, Hilbert y espectro cruzado |
+| `CairoMakie` | Figuras PNG (topomaps, heatmaps, espectros) |
 | `Genie` | Servidor web del dashboard |
-
-Para la verificación detallada paso a paso (código ↔ salidas en disco), continúa con el [Anexo M05](#anexo-caso-de-referencia-sub-m05).
+| `CSV`, `DataFrames` | Lectura/escritura de tablas |
+| `StatsBase`, `Statistics` | Estadística descriptiva y correlaciones |
+| `TOML` | Parseo de `config/pipeline.toml` |
+| `Serialization` | Caché de ICA (`.jls`) |
 
 ---
 
+## 12. Reglas de Git y changelog
+
+### Nunca versionar
+
+```bash
+# Antes de cualquier commit, verificar que no se cuelan datos:
+git ls-files | grep -E '(^data/|^results/|^deprecated/results/|\.DS_Store$|^\.claude/|^\.vscode/)'
+# → debe devolver vacío
+```
+
+`data/`, `results/`, `deprecated/results/`, `reports/`, `.claude/`, `.vscode/`, `.cursor/`, `.DS_Store`, `.env`, logs clínicos y secretos. `deprecated/code/` **sí** se versiona (ficheros pequeños, histórico útil).
+
+**Identidad:** Rafael Castro Triguero · `me1catrr@uco.es`. Nunca commitear directamente en `main`; usar ramas `feat/<nombre>`.
+
+### Changelog
+
+| Fecha | Cambios |
+|-------|---------|
+| **2026-07-21** | Configuración unificada en `config/pipeline.toml`; `run_pipeline.jl` archivado; `results/` reorganizado (subjects/transversal/longitudinal); archivo movido a `deprecated/`; montaje a 31 canales; wPLI clásico |
+| **2026-07-09** | Reprocesado del caso de referencia M05 con la configuración actual |
+| **2026-05-26** | wPLI multi-método (Hilbert / FourierCSD / Multitaper) |
+| **2026-05-25** | dwPLI, surrogates válidos, GraphMetrics, QC v2 |
+| **2026-05-24** | Dataset completo, BrainVision loader, pipeline en lote |
+| **2026-05-23** | Dashboard completo (paneles 0–14), corrección PSD |
+
+---
 ## Anexo: Caso de referencia sub-M05
 
-> Verificación rutina a rutina del pipeline individual: código, tablas y figuras para `sub-M05 / ses-T2 / eyesclosed` (EC). Asume que has leído la [Parte I](#1-qué-hace-el-pipeline), en especial las secciones [4](#4-flujo-de-trabajo-completo) y [5](#5-los-8-pasos-del-pipeline-explicados).
+> Verificación rutina a rutina del pipeline individual: código, tablas y figuras para `sub-M05 / ses-T2 / eyesclosed` (EC). Asume que has leído la [Parte I](#1-qué-hace-el-pipeline), en especial las secciones [4](#4-cadena-de-ejecución-los-7-scripts) y [6](#6-los-8-pasos-del-pipeline).
 
 Sujeto de trabajo para verificar rutina a rutina el código, las tablas y las figuras generadas por el pipeline individual.
 
@@ -739,7 +440,7 @@ Sujeto de trabajo para verificar rutina a rutina el código, las tablas y las fi
 | **Config aplicada** | `results/subjects/sub-M05/ses-T2/eyesclosed/config_snapshot.toml` (copia fiel del TOML usado; el archivo `config/_scratch_surrogates_verification.toml` ya no está en el repo) |
 
 > Esta fecha y esta config deben actualizarse cada vez que se relance el pipeline sobre M05.
-> El `config/single_subject.toml` del repo tiene `[surrogates] enabled = false` por defecto; la ejecución del 2026-07-09 activó surrogates para regenerar el ejemplo con inferencia estadística.
+> El `config/pipeline.toml` tiene `[surrogates] enabled = false` por defecto; la ejecución del 2026-07-09 activó surrogates para regenerar el ejemplo con inferencia estadística.
 
 ### Directorios de salida
 
@@ -837,7 +538,7 @@ El paso 1/8 lee la señal cruda y valida el montaje contra `electrodes.tsv`. **N
 **Script de entrada:** `run_single_subject.jl` → `run_single_subject_pipeline()` (`src/SingleSubjectPipeline.jl`)
 
 ```
-config/single_subject.toml  →  load_ss_config()
+config/pipeline.toml  →  load_ss_config()
         │
         ▼
 [subject] subject_id / session_id / task / run
@@ -1297,7 +998,7 @@ epochs (99 válidas)  →  PSD (paso 6) y wPLI (paso 7)
 **Hallazgos a tener en cuenta:**
 
 1. **Desfase código ↔ figuras:** el `_save_segmentation_results` vigente guarda tablas JSON/CSV pero **no** llama a funciones de figura (`epoch_figures.jl` referenciado en el informe, ausente en `src/visualization/`). Las 5 figuras en disco proceden de la ejecución verificada.
-2. **Fp2 incluido en montaje M05:** `exclude_fp2=false` en la config de esa ejecución (decisión 2026-07-08 tras limpieza ICA). Con `exclude_fp2=true` (default en código si no hay bloque `[montage]`) el montaje sería de 30 canales.
+2. **Fp2 incluido en montaje M05:** `exclude_fp2=false`, que es la decisión vigente (desde 2026-07-08, tras la limpieza ICA). Con `exclude_fp2=true` el montaje sería de 30 canales (análisis de sensibilidad).
 3. **`n_channels_used=31` en AR:** actualizado para que Fp2 (canal 31) entre en el chequeo de amplitud cuando permanece en el montaje.
 4. **Baseline doble pasada:** la 2.ª pasada recalcula la media 0–100 ms solo sobre épocas que sobrevivieron al AR — coherente con EEG_Julia.
 5. **Pico a pico (p2p):** se registra en `artifact_rejection_summary.json` como estadístico diagnóstico; el criterio de rechazo es solo amplitud instantánea ±70 µV, no p2p.
@@ -1541,9 +1242,9 @@ SurrogateResult[]        →  p/q-values, máscaras, distribución nula
 2. **DELTA poco fiable:** con épocas de 1.0 s, DELTA tiene **0.5 ciclos/época** (< `min_cycles_for_wpli=4.0`); se calcula igualmente porque `exclude_unreliable_bands=false`. Interpretar con cautela.
 3. **FDR por banda:** la corrección BH se aplica **independientemente** en cada banda (465 tests/banda), no globalmente sobre las 3 255 aristas.
 4. **`method` en config no se lee:** `surrogate_test` siempre usa `circular_shift`; la clave `[surrogates].method` es solo informativa (el log del 2026-07-09 lo documenta explícitamente).
-5. **Alta proporción de significativos en α y γ:** 55 % y 41 % de pares en reposo EC es esperable en análisis within-subject con FDR permisivo; la comparación grupal requiere `use_dwpli=true` y análisis de segundo nivel.
+5. **Alta proporción de significativos en α y γ:** 55 % y 41 % de pares en reposo EC es esperable en análisis within-subject con FDR permisivo; la comparación grupal a nivel de grupo se hace con análisis de segundo nivel; `use_dwpli=true` está disponible como alternativa (la config vigente usa wPLI clásico).
 6. **CSD desactivado:** valores wPLI no son directamente comparables con EEG_Julia (que aplica CSD antes de wPLI).
-7. **Fp2 en conectividad:** al estar en el montaje, participa en las 465 aristas; con `exclude_fp2=true` (default batch) serían 435 aristas (30 ch).
+7. **Fp2 en conectividad:** con la config vigente (`exclude_fp2=false`) participa en las 465 aristas; con `exclude_fp2=true` (análisis de sensibilidad) serían 435 aristas (30 ch).
 
 **Estado Fase 7/8 M05:** ✅ wPLI y surrogates verificados en log, matrices, `significant_connections.csv` y `surrogate_summary.json` — ⚠️ figuras `surrogate_null_*.png` y mensaje de log extendido sobre `method` requieren verificar alineación código ↔ ejecución 2026-07-09.
 
