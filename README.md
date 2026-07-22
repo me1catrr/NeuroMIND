@@ -158,8 +158,6 @@ audit_full_dataset → build_bids_full → run_single_subject (validación)
 
 **Opciones de `run_batch_pipeline.jl`** (combinables): `--condition` EC\|EO\|ALL · `--group` MS\|HC\|ALL · `--session` T1\|T2\|ALL · `--subjects` lista · `--max-subjects` N · `--skip-done` · `--dry-run`.
 
-> **Script retirado.** `run_pipeline.jl` y su orquestador `Pipeline.jl` se archivaron en `deprecated/code/` el 2026-07-21. Implementaba 7 pasos (sin surrogates ni exportación BIDS) y leía sujetos sintéticos de plantilla. No usar con MINDEM-IMIBIC.
-
 ---
 
 ## 5. Configuración: `config/pipeline.toml`
@@ -245,8 +243,6 @@ results/subjects/sub-{ID}/ses-{SES}/{task}/
 ```
 
 El nombre BIDS ya distingue la condición por el nivel `{task}` (`eyesclosed`/`eyesopen`), así que los sufijos `_EC`/`_EO` eran redundantes. Las tablas de edges por banda (`wpli_edges_{banda}`) se descartaron: su información está en `connectivity_edges.csv` (todas las bandas, con `rank`).
-
-> El dashboard ya leía del árbol BIDS (`App.jl` → `results/subjects/`). Al eliminar el árbol heredado se retiró también el código muerto que lo leía: `load_dashboard_data` y las rutas "Legacy API" de `App.jl`, que ningún cliente usaba.
 
 ### Análisis de grupo
 
@@ -382,12 +378,11 @@ NeuroMIND/
 └── NeuroMIND Claude Code/      ← Referencia de arquitectura (PDF)
 ```
 
-**Dos orquestadores en `src/`:**
+**Orquestador en `src/`:**
 
 | Módulo | Usado por | Estado |
 |--------|-----------|--------|
 | `SingleSubjectPipeline.jl` | `run_single_subject.jl`, `run_batch_pipeline.jl` | ✅ Canónico — 8 pasos, BrainVision, surrogates, export BIDS |
-| `deprecated/code/src/Pipeline.jl` | `deprecated/code/scripts/run_pipeline.jl` | ⚠️ Archivado — incluido desde `NeuroMIND.jl` solo por compatibilidad |
 
 ### Dependencias (`Project.toml`)
 
@@ -444,38 +439,33 @@ Sujeto de trabajo para verificar rutina a rutina el código, las tablas y las fi
 | **Último lanzamiento** | **2026-07-09** (inicio 10:49:50, duración 521.7 s) |
 | **Comando** | `julia --project=. scripts/run_single_subject.jl --config <toml>` (ver `pipeline_log.txt` para el TOML exacto) |
 | **Traza** | `results/subjects/sub-M05/ses-T2/eyesclosed/pipeline_log.txt` |
-| **Config aplicada** | `results/subjects/sub-M05/ses-T2/eyesclosed/config_snapshot.toml` (copia fiel del TOML usado; el archivo `config/_scratch_surrogates_verification.toml` ya no está en el repo) |
+| **Config aplicada** | `results/subjects/sub-M05/ses-T2/eyesclosed/config_snapshot.toml` (copia fiel del TOML usado) |
 
 > Esta fecha y esta config deben actualizarse cada vez que se relance el pipeline sobre M05.
 > El `config/pipeline.toml` tiene `[surrogates] enabled = false` por defecto; la ejecución del 2026-07-09 activó surrogates para regenerar el ejemplo con inferencia estadística.
 
-### Directorios de salida
+### Directorio de salida
 
-> **Pendiente de corrección:** el pipeline escribe los mismos resultados en **dos rutas distintas**. Hay que unificar esto en el código para que solo exista una carpeta canónica por sujeto/sesión/tarea.
-
-Hay dos rutas de salida. Ambas contienen los mismos datos:
+Salida **única** en el árbol BIDS (desde 2026-07-21; ver [§7](#7-salidas-del-pipeline)). Todo lo de M05 vive en una sola carpeta:
 
 ```
-results/M05/T2/
-  tables/     ← tablas con sufijo _EC (versión dashboard)
-  figures/    ← imágenes con sufijo _EC
-  cache/      ← caché ICA (uso interno, no para el informe)
-  logs/
-
-results/subjects/sub-M05/ses-T2/eyesclosed/    ← export BIDS (usar en informe)
-  figures/
-  (todos los CSV y JSON en la raíz)
+results/subjects/sub-M05/ses-T2/eyesclosed/
+  overview.csv · channel_statistics.csv · *.csv · *.json   ← tablas y resúmenes
+  wpli_{banda}.csv · connectivity_edges.csv               ← conectividad
+  config_snapshot.toml · pipeline_log.txt                 ← parámetros y traza
+  figures/                                                ← todas las figuras (sin sufijo)
+  cache/ica_result.jls                                    ← caché ICA (interno, no citar)
 ```
 
-**Los ficheros en `results/subjects/` son los canónicos:** mismos datos, sin sufijo `_EC`, nombres alineados con BIDS (`sub-{ID}/ses-{SES}/{task}/`).
+Los nombres siguen BIDS (`sub-{ID}/ses-{SES}/{task}/`) y no llevan sufijo `_EC`/`_EO`: el nivel `{task}` (`eyesclosed`/`eyesopen`) ya distingue la condición.
 
 | Uso | Ruta |
 |-----|------|
-| Informe, revisión científica, citas en `Report_Pre/` | `results/subjects/sub-M05/ses-T2/eyesclosed/` |
-| Dashboard web (paneles 0–15) | `results/M05/T2/` (`tables/`, `figures/`) |
-| Caché ICA (no versionar, no citar) | `results/M05/T2/cache/ica_result.jls` |
+| Informe, revisión científica, citas en `Report_Pre/` | `results/subjects/sub-M05/ses-T2/eyesclosed/` (raíz o `figures/`) |
+| Dashboard web (paneles 0–15) | misma ruta — el dashboard lee de `results/subjects/` |
+| Caché ICA (no versionar, no citar) | `results/subjects/sub-M05/ses-T2/eyesclosed/cache/ica_result.jls` |
 
-**Regla práctica:** al incorporar figuras o tablas al informe, copiar siempre desde `results/subjects/…` (raíz o `figures/` sin sufijo `_EC`). Las copias en `results/M05/T2/figures/*_EC.png` pueden estar desfasadas respecto a la última ejecución.
+> **Nota histórica.** La corrida del 2026-07-09 se hizo con el código previo, que además escribía un árbol heredado `results/M05/T2/` con sufijos `_EC` y copiaba al BIDS. Ese doble árbol se eliminó; las corridas actuales producen solo la carpeta de arriba.
 
 ### Fase 0 — Preparación del dataset (verificado M05)
 
@@ -763,7 +753,7 @@ filter_recording()          →  EEGRecording (filtrada), misma meta y tiempos
 | Fichero | Tipo | Escrito en | Contenido |
 |---------|------|------------|-----------|
 | `filtered_signal_preview.png` | Figura | Paso 8/8 | 5 primeros canales (Fz, F3, F7, FT9, FC5), 10 s, raw gris vs filtrado azul |
-| `results/M05/T2/figures/signal_preview_EC.png` | Figura | Paso 8/8 | Copia dashboard con sufijo `_EC` |
+| `results/subjects/sub-M05/ses-T2/eyesclosed/figures/filtered_signal_preview.png` | Figura | Paso 8/8 | Preview señal cruda vs. filtrada |
 | `config_snapshot.toml` | Config | Paso 8/8 | Parámetros `[filtering]` aplicados |
 | `ica_signal_before.csv` | Serie temporal | Paso 4/8 | Primeros 10 s de **señal filtrada** pre-ICA (derivada de `rec_filt`) |
 
@@ -817,7 +807,7 @@ rec_filt (continua, filtrada)
 | `compute_ica_features` | `src/ica/ICAClassification.jl` | 7 features por componente |
 | `evaluate_ica_components` | `src/ica/ICAClassification.jl` | Scores + etiqueta (`brain`, `jump`, `line_noise`, …) |
 | `_save_ica_results` | `src/SingleSubjectPipeline.jl` L1539 | Exporta tablas, topomaps y resumen JSON |
-| Caché | `results/M05/T2/cache/ica_result.jls` | Evita re-ejecutar FastICA si la config ICA no cambia |
+| Caché | `results/subjects/sub-M05/ses-T2/eyesclosed/cache/ica_result.jls` | Evita re-ejecutar FastICA si la config ICA no cambia |
 
 **Parámetros M05** (`config_snapshot.toml` → `[ica]`):
 
@@ -893,7 +883,7 @@ rec_filt (continua, filtrada)
 
 1. **Desfase código ↔ ejecución M05 (rechazo automático):** el `config_snapshot.toml` define `artifact_threshold = 1.5` y el log confirma rechazo automático, pero el `SingleSubjectPipeline.jl` **actual** solo llama a `load_ica_labels()` (CSV manual). La lógica de auto-rechazo que aplicó M05 el 2026-07-09 **no está cableada** en el código vigente — pendiente de reintegrar (referencia en config: `ICACleaning.jl`, archivo ausente).
 2. **Figuras ICA extendidas:** butterfly, headplots y detalle de rechazados (`ica_rejected_*`) se generaron en la ejecución verificada pero **no están** en el `_save_ica_results` actual (solo topomaps + tablas). Mismas figuras en disco = versión anterior del pipeline.
-3. **Caché ICA:** `results/M05/T2/cache/ica_result.jls` + `ica_config.hash`. Si cambian parámetros `[ica]`, se invalida y se re-ejecuta FastICA (~varios segundos).
+3. **Caché ICA:** `results/subjects/sub-M05/ses-T2/eyesclosed/cache/ica_result.jls` + `ica_config.hash`. Si cambian parámetros `[ica]`, se invalida y se re-ejecuta FastICA (~varios segundos).
 4. **`ica_components.csv` vs rechazo real:** la columna `rejected` refleja `ica.rejected_components` al guardar; la clasificación en `ica_component_features.csv` puede etiquetar más ICs como artefacto sin rechazarlos si el umbral no se aplica en código.
 
 **Estado Fase 4/8 M05:** ✅ ICA verificada en log, tablas y figuras en disco — ⚠️ rechazo automático y figuras extendidas requieren reintegración en código para reproducir en un relanzamiento.
@@ -1086,11 +1076,11 @@ SpectralResult  →  wPLI (paso 7) + guardado (paso 8)
 
 **Salidas figuras (paso 8/8, M05):**
 
-| Fichero (export BIDS) | Fichero (dashboard `results/M05/T2/figures/`) | Descripción |
-|-----------------------|-----------------------------------------------|-------------|
-| `psd_all_channels.png` | `psd_all_channels_EC.png` | Grid PSD 31 canales (0–50 Hz) |
-| `band_power_summary.png` | `band_power_summary_EC.png` | Barplot potencia media por banda |
-| `band_topomap_grid.png` | `band_topomap_grid_EC.png` | Topomapas por banda (7 paneles) |
+| Fichero (árbol BIDS, actual) | Nombre en el log 2026-07-09 (histórico, con sufijo) | Descripción |
+|------------------------------|------------------------------------------------------|-------------|
+| `figures/psd_all_channels.png` | `psd_all_channels_EC.png` | Grid PSD 31 canales (0–50 Hz) |
+| `figures/band_power_summary.png` | `band_power_summary_EC.png` | Barplot potencia media por banda |
+| `figures/band_topomap_grid.png` | `band_topomap_grid_EC.png` | Topomapas por banda (7 paneles) |
 
 > `band_topomap_grid_EC.png` aparece en el log del 2026-07-09 pero **no hay** llamada a topomapas espectrales en el `_save_all_results` actual — posible módulo extendido no presente en el repo (mismo patrón que figuras QC/segmentación).
 
@@ -1109,7 +1099,7 @@ SpectralResult  →  wPLI (paso 7) + guardado (paso 8)
 3. **Ventana Hamming-taper:** estilo BrainVision Analyzer — 10 % de cada extremo de la época atenuado; corrección de varianza vía `mw2`.
 4. **PSD crudo vs procesado:** `qc_psd_raw_mean.csv` y `qc_band_power_raw.csv` (Fase 2) miden la señal **sin filtrar**; los ficheros de esta fase reflejan la señal **ICA-limpiada, segmentada y con baseline**.
 5. **C4 y DELTA:** C4 concentra la mayor potencia δ (21.7 µV²), coherente con el rechazo de la época 12 en el paso 5 (amplitud 72.6 µV en C4).
-6. **Rutas duplicadas:** figuras con sufijo `_EC` en `results/M05/T2/figures/`; copias sin sufijo en `results/subjects/sub-M05/ses-T2/eyesclosed/`.
+6. **Salida única:** las figuras se escriben una sola vez, sin sufijo, en `results/subjects/sub-M05/ses-T2/eyesclosed/figures/` (el doble árbol se eliminó el 2026-07-21).
 
 **Estado Fase 6/8 M05:** ✅ PSD y potencia por banda verificados en log, `spectral_summary.json` y tablas — ⚠️ `band_topomap_grid` requiere verificar módulo de topomapas espectrales para reproducir en relanzamiento.
 
@@ -1257,14 +1247,13 @@ SurrogateResult[]        →  p/q-values, máscaras, distribución nula
 
 ### Fase 8/8 — Guardado global e índices (verificado M05)
 
-El paso **8/8** consolida tablas y figuras en las dos rutas de salida, copia la configuración aplicada, actualiza índices globales del dataset y cierra el log. **No calcula** nada nuevo: persiste resultados de pasos 2–7 y genera las figuras finales que faltaban.
+El paso **8/8** consolida tablas y figuras en el árbol BIDS, copia la configuración aplicada, actualiza índices globales del dataset y cierra el log. **No calcula** nada nuevo: persiste resultados de pasos 2–7 y genera las figuras finales que faltaban.
 
 ```
 resultados en memoria (rec, spectra, conn, surr_results…)
         │
-        ├─ _save_all_results()
-        │     ├─ tables/  →  qc, overview, PSD, band_power, wPLI (sufijo _EC)
-        │     └─ cp()     →  export BIDS sin sufijo (results/subjects/…)
+        ├─ _save_all_results()  →  escritura directa al árbol BIDS
+        │        results/subjects/sub-M05/ses-T2/eyesclosed/  (sin sufijo)
         │
         ├─ _save_config_snapshot()  →  config_snapshot.toml
         ├─ _update_subjects_index() →  results/subjects_index.csv
@@ -1358,14 +1347,14 @@ pipeline_log.txt cerrado · resumen en consola
 | 2 QC | `qc_psd_raw_mean.csv`, `qc_band_power_raw.csv`, figuras `qc_*` en `figures/` |
 | 4 ICA | `ica_*.csv/json`, `raw_signal.csv`, topomaps y butterfly en `figures/` |
 | 5 Seg | `segmentation_summary.json`, `segments_table.csv`, figuras épocas |
-| 6–7 | PSD, wPLI, surrogates (tablas + PNG en raíz y `figures/`) |
+| 6–7 | PSD, wPLI, surrogates (tablas en raíz + PNG en `figures/`) |
 | 8 | Consolidación, `config_snapshot.toml`, índices globales |
 
 **Hallazgos a tener en cuenta:**
 
-1. **Doble escritura pendiente de unificar:** el mismo dato vive en `results/M05/T2/` y `results/subjects/…`; riesgo de desincronización si solo se lee una ruta.
+1. **Salida única (resuelto 2026-07-21):** el doble árbol se eliminó; `_save_all_results` escribe directo al árbol BIDS `results/subjects/…`, sin copias ni riesgo de desincronización.
 2. **`band_topomap_grid_EC.png`:** aparece en el log del 8/8 pero no en el `_save_all_results` actual — misma discrepancia código ↔ ejecución 2026-07-09.
-3. **Caché ICA** (`results/M05/T2/cache/ica_result.jls`): solo dashboard; no se copia a export BIDS (correcto para informe).
+3. **Caché ICA** (`results/subjects/sub-M05/ses-T2/eyesclosed/cache/ica_result.jls`): dentro del árbol BIDS del sujeto; interna, no se cita en el informe.
 4. **`channel_statistics_compare.csv` / `_filtered.csv`:** timestamps 11:07 (post-pipeline); no forman parte del paso 8/8 estándar — posible análisis manual posterior.
 5. **Config original ausente:** el TOML `_scratch_surrogates_verification.toml` ya no está en el repo; `config_snapshot.toml` es la única referencia reproducible de la corrida 2026-07-09.
 6. **Desfase código ↔ salidas extendidas:** figuras QC (paso 2), segmentación (paso 5), `surrogate_null_*.png` y topomapas espectrales requieren reintegración para reproducir el inventario completo en un relanzamiento.
