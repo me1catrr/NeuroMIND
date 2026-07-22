@@ -129,7 +129,7 @@ Surrogates automatically use the **same estimator** as the observed computation.
 | `src/NeuroMIND.jl` | Module entry point; ordered `include()` list |
 | `src/types.jl` | Core types: `EEGRecording`, `EpochSet`, `ICAResult`, `SpectralResult`, `ConnectivityMatrix` |
 | `src/SingleSubjectPipeline.jl` | 8-step pipeline + `load_ss_config` + save helpers |
-| `src/webapp/App.jl` | Genie server + all API routes (`/api/phase*`) |
+| `src/webapp/App.jl` | Genie server + all API routes (`/api/phase*`). **Lazy-loaded**: included only on first `launch_webapp` call, so the pipeline never compiles Genie |
 | `web/views/dashboard.html` | Full dashboard SPA (~13 500 lines; inline HTML+CSS+JS) |
 | `src/ica/ICACore.jl` | Pure-Julia FastICA (PCA whitening + tanh); profiles `eeg_julia`/`default` |
 | `src/ica/ICAClassification.jl` | `compute_ica_features` (7 features) + `evaluate_ica_components` |

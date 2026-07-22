@@ -325,6 +325,8 @@ Si σ̄ de la señal cruda > 20 µV → probable grabación sin filtro online ac
 julia --project=. scripts/launch_dashboard.jl --port 8080   # → http://localhost:8080
 ```
 
+> **Carga diferida.** `webapp/App.jl` (Genie) no se compila al hacer `using NeuroMIND`: se carga la primera vez que se llama a `launch_webapp`. Así el pipeline (`run_single_subject`, `run_batch_pipeline`) arranca sin el coste de compilar el framework web.
+
 | Panel | Contenido | | Panel | Contenido |
 |-------|-----------|--|-------|-----------|
 | 0 | Proyecto / Dataset | | 8 | Análisis espectral |
