@@ -30,6 +30,8 @@ function load_config(path::String)::PipelineConfig
         get(raw, "longitudinal",       Dict()),
         get(raw, "statistics",         Dict()),
         get(raw, "export",             Dict()),
+        get(raw, "qc",                 Dict()),
+        get(raw, "montage",            Dict()),
         root,
     )
 end

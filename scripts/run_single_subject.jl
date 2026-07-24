@@ -1,13 +1,38 @@
-#!/usr/bin/env julia
-# NeuroMIND — Pipeline para un solo sujeto EEG
+# ═══════════════════════════════════════════════════════════════
+#  NeuroMIND — Pipeline para un solo sujeto EEG
+# ═══════════════════════════════════════════════════════════════
 #
-# Uso:
-#   julia --project=. scripts/run_single_subject.jl
-#   julia --project=. scripts/run_single_subject.jl --config config/pipeline.toml
-#   julia --project=. scripts/run_single_subject.jl --force
+#  Ejecuta el pipeline de 8 pasos sobre una grabación
+#  (run_single_subject_pipeline → SingleSubjectPipeline.jl).
 #
-# Config: config/pipeline.toml — fichero unificado (2026-07-21) que sustituye
-# a single_subject.toml y batch_pipeline.toml, archivados en deprecated/code/config/.
+# ───────────────────────────────────────────────────────────────
+#  Fichero    scripts/run_single_subject.jl
+#  Autor      Rafael Castro Triguero <me1catrr@uco.es>
+#  Modificado 22-07-2026
+# ───────────────────────────────────────────────────────────────
+#
+#  Invocación: julia --project=. scripts/<este-script>.jl …
+#  Sin shebang: #!/usr/bin/env julia no activaría --project=.
+#
+#  Config
+#  ──────
+#  Por defecto: config/pipeline.toml
+#
+#  El bloque [subject] define sujeto / sesión / tarea.
+#  subject_id = "auto" → primer sujeto en {paths.bids_root}/raw/
+#
+#  Uso
+#  ───
+#    julia --project=. scripts/run_single_subject.jl
+#    julia --project=. scripts/run_single_subject.jl --config ruta.toml
+#
+#  Opciones
+#  ────────
+#    --config  PATH   TOML de parámetros (defecto: config/pipeline.toml)
+#
+#  Salida
+#  ──────
+#    results/subjects/sub-{id}/ses-{sess}/{task}/
 
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))

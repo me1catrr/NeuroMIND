@@ -1,14 +1,39 @@
-# NeuroMIND/src/ica/ICAClassification.jl
+# ═══════════════════════════════════════════════════════════════
+#  NeuroMIND — Clasificación automática de componentes ICA
+# ═══════════════════════════════════════════════════════════════
 #
-# Clasificación automática de componentes ICA.
-# Portado de EEG_Julia/src/ICA/ICA_cleaning.jl (sin Plots, Julia puro).
+#  Calcula features espaciales / espectrales / temporales por IC
+#  y asigna etiqueta de artefacto (o "brain").
+#  Portado de EEG_Julia/src/ICA/ICA_cleaning.jl (Julia puro, sin Plots).
 #
-# Features por componente:
-#   frontal_ratio, temporal_ratio, blink_ratio, emg_ratio, line_ratio,
-#   kurtosis, extreme_frac
-# Scores:
-#   ocular_score, muscle_score, line_score, jump_score → artifact_score
-# Etiquetas: "brain", "eye/blink", "muscle", "line_noise", "jump", "unknown"
+#  Features por componente
+#  ───────────────────────
+#    espaciales   frontal_ratio, temporal_ratio
+#    espectrales  blink_ratio, emg_ratio, line_ratio
+#    temporales   kurtosis, extreme_frac
+#
+#  Scores → artifact_score
+#  ───────────────────────
+#    ocular_score, muscle_score, line_score, jump_score
+#
+#  Etiquetas
+#  ─────────
+#    "brain" | "eye/blink" | "muscle" | "line_noise" | "jump" | "unknown"
+#
+#  API pública (exportada por NeuroMIND)
+#  ─────────────────────────────────────
+#    compute_ica_features(A, S, fs, ch_names) → DataFrame
+#    evaluate_ica_components(feat_df; artifact_thresh=1.5) → DataFrame
+#
+#  Helpers internos
+#  ────────────────
+#    _zscore, _kurtosis_simple, _bandpower
+#
+# ───────────────────────────────────────────────────────────────
+#  Fichero    src/ica/ICAClassification.jl
+#  Autor      Rafael Castro Triguero <me1catrr@uco.es>
+#  Modificado 22-07-2026
+# ───────────────────────────────────────────────────────────────
 
 # ─── Auxiliares ────────────────────────────────────────────────
 

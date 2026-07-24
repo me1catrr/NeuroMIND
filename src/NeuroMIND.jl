@@ -73,6 +73,7 @@ export read_vhdr_header, load_eeg_brainvision, bv_electrode_positions
 #  Estadísticas por canal y marcado de bad_ch (z-score).
 include("qc/QualityControl.jl")
 export compute_channel_stats, flag_bad_channels, qc_report
+export welch_psd_raw, compute_channel_spectral_qc, compute_correlation_summary
 
 # ─── Preprocesado / filtrado ───────────────────────────────────
 #  HP / LP / Notch / Bandreject (Butterworth, filtfilt).
@@ -86,7 +87,7 @@ export apply_bandreject, filter_recording, describe_filter_chain
 include("ica/ICACore.jl")
 include("ica/ICAClassification.jl")
 include("ica/ICAInspection.jl")
-export run_ica, apply_ica_rejection, load_ica_labels
+export run_ica, apply_ica_rejection, load_ica_labels, write_ica_labels_auto, has_manual_ica_labels
 export compute_ica_features, evaluate_ica_components
 
 # ─── Segmentación ──────────────────────────────────────────────

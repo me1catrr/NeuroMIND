@@ -1,15 +1,38 @@
-# NeuroMIND/scripts/run_transversal_analysis.jl
-# Análisis transversal grupal: MS vs Control.
-# Lee resultados individuales (wpli_*.csv) ya generados por el pipeline
-# y produce archivos grupales en results/transversal/{EC|EO}/
+# ═══════════════════════════════════════════════════════════════
+#  NeuroMIND — Análisis transversal (MS vs control)
+# ═══════════════════════════════════════════════════════════════
 #
-# Prerequisito:
-#   data/BIDS/groups.csv con columnas: subject_id, group, session_id
-#   group debe ser "MS" (o "EM", "Patient") o "Control" (o "HC")
+#  Lee wpli_*.csv ya generados por el pipeline y produce
+#  estadísticas grupales en results/transversal/{EC|EO}/.
 #
-# Uso:
-#   julia --project=. scripts/run_transversal_analysis.jl
-#   julia --project=. scripts/run_transversal_analysis.jl config/pipeline.toml
+# ───────────────────────────────────────────────────────────────
+#  Fichero    scripts/run_transversal_analysis.jl
+#  Autor      Rafael Castro Triguero <me1catrr@uco.es>
+#  Modificado 22-07-2026
+# ───────────────────────────────────────────────────────────────
+#
+#  Invocación: julia --project=. scripts/<este-script>.jl …
+#  Sin shebang: #!/usr/bin/env julia no activaría --project=.
+#
+#  Prerrequisito
+#  ─────────────
+#    results/subjects/…          (pipeline por sujeto)
+#    data/bids/groups.csv        columnas: subject_id, group, session_id
+#      group ∈ {"MS","EM","Patient"} | {"Control","HC"}
+#
+#  Config
+#  ──────
+#    Argumento posicional opcional; defecto: config/pipeline.toml
+#    (lee [paths] y [bands])
+#
+#  Uso
+#  ───
+#    julia --project=. scripts/run_transversal_analysis.jl
+#    julia --project=. scripts/run_transversal_analysis.jl config/pipeline.toml
+#
+#  Salida
+#  ──────
+#    results/transversal/{eyesclosed|eyesopen}/
 
 using CSV, DataFrames, Statistics, LinearAlgebra, Dates, TOML, Printf
 
@@ -54,7 +77,7 @@ function load_wpli(subj_id::AbstractString, sess_id::AbstractString,
                    cond::AbstractString, band::AbstractString)
     path = joinpath(res_root, "subjects",
                     "sub-$(subj_id)", "ses-$(sess_id)",
-                    norm_cond(cond), "wpli_$(band).csv")
+                    norm_cond(cond), "tables", "connectivity", "wpli_$(band).csv")
     isfile(path) || return nothing
     df = CSV.read(path, DataFrame)
     isempty(df) && return nothing

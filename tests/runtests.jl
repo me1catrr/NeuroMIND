@@ -51,6 +51,7 @@ function mock_config()
             "DELTA"    => (0.5,  4.0),
             "ALPHA"    => (7.8, 11.7),
             "BETA_LOW" => (12.0, 15.0),
+            "GAMMA"    => (30.0, 50.0),
         ),
         # connectivity
         Dict{String,Any}("filter_order" => 8, "use_csd" => false, "method" => "wpli"),
@@ -69,6 +70,12 @@ function mock_config()
         # export_cfg
         Dict{String,Any}("figure_format" => "png", "figure_dpi" => 150,
                          "table_format" => "csv"),
+        # qc
+        Dict{String,Any}("bad_channel_zscore_threshold" => 3.0,
+                         "amplitude_warning_sigma_uv" => 20.0),
+        # montage
+        Dict{String,Any}("exclude_channels" => String[], "exclude_fp2" => false,
+                         "n_channels_analysis" => 30),
         # root
         root
     )
@@ -132,6 +139,51 @@ end
 
     rec_filt = filter_recording(rec, cfg)
     @test size(rec_filt.data) == size(rec.data)
+
+    # on_step: emite un CSV-key por filtro aplicado (perfil eeg_julia)
+    keys_seen = String[]
+    rec_steps = filter_recording(rec, cfg; on_step = (key, step_rec) -> begin
+        push!(keys_seen, key)
+        @test size(step_rec.data) == size(rec.data)
+    end)
+    @test keys_seen == ["notch", "bandreject", "highpass", "lowpass"]
+    @test rec_steps.data == rec_filt.data
+end
+
+# ─── Tests de QC extendido (Report_Pre) ───────────────────────
+
+@testset "ChannelStatsExtended" begin
+    cfg = mock_config()
+    # Señal más larga para Welch (nfft=1024)
+    rec = mock_recording(8, 4096, 500.0)
+
+    stats = compute_channel_stats(rec)
+    @test String.(names(stats)) == [
+        "channel", "mean_uv", "rms_uv", "std_uv", "range_uv", "rms_zscore",
+        "min_uv", "max_uv", "skewness", "kurtosis",
+    ]
+    @test size(stats, 1) == 8
+    @test all(isfinite, stats.skewness)
+    @test all(isfinite, stats.kurtosis)
+    # Curtosis bruta de gaussiana ≈ 3
+    @test mean(stats.kurtosis) > 2.0
+    @test mean(stats.kurtosis) < 5.0
+
+    spec = compute_channel_spectral_qc(rec, cfg; welch_nfft=1024)
+    @test String.(names(spec)) == ["channel", "hfnoise", "snr_db"]
+    @test all(0.0 .<= spec.hfnoise .<= 1.0)
+    @test all(isfinite, spec.snr_db)
+
+    corr = compute_correlation_summary(rec)
+    @test String.(names(corr)) == ["channel", "mean_abs_corr", "max_corr", "min_corr"]
+    @test all(0.0 .<= corr.mean_abs_corr .<= 1.0)
+
+    # Canal plano → NaN en asimetría/curtosis
+    flat = mock_recording(8, 4096, 500.0)
+    flat.data[1, :] .= 0.0
+    stats_flat = compute_channel_stats(flat)
+    @test isnan(stats_flat.skewness[1])
+    @test isnan(stats_flat.kurtosis[1])
 end
 
 # ─── Tests de perfil de filtrado EEG_Julia ───────────────────
@@ -177,7 +229,7 @@ end
         cfg.segmentation, cfg.baseline, cfg.artifact_rejection,
         cfg.ica, cfg.spectral, cfg.bands, cfg.connectivity,
         cfg.surrogates, cfg.graph, cfg.clinical, cfg.longitudinal,
-        cfg.statistics, cfg.export_cfg, cfg.root
+        cfg.statistics, cfg.export_cfg, cfg.qc, cfg.montage, cfg.root
     )
     chain_def = describe_filter_chain(cfg_def)
     names_def = [s.name for s in chain_def]
@@ -222,7 +274,7 @@ function _cfg_seg(seg_dict, bl_dict, ar_dict)
         seg_dict, bl_dict, ar_dict,
         c.ica, c.spectral, c.bands, c.connectivity,
         c.surrogates, c.graph, c.clinical, c.longitudinal,
-        c.statistics, c.export_cfg, c.root
+        c.statistics, c.export_cfg, c.qc, c.montage, c.root
     )
 end
 
@@ -738,6 +790,10 @@ end
                          "fdr_q" => 0.05, "paired_test" => "wilcoxon"),
         Dict{String,Any}("figure_format" => "png", "figure_dpi" => 150,
                          "table_format" => "csv"),
+        Dict{String,Any}("bad_channel_zscore_threshold" => 3.0,
+                         "amplitude_warning_sigma_uv" => 20.0),
+        Dict{String,Any}("exclude_channels" => String[], "exclude_fp2" => false,
+                         "n_channels_analysis" => 30),
         joinpath(@__DIR__, "..")
     )
     chain_min = describe_filter_chain(cfg_min)
@@ -817,7 +873,7 @@ function _cfg_with_ica(ica_dict)
                    c.segmentation, c.baseline, c.artifact_rejection,
                    ica_dict, c.spectral, c.bands, c.connectivity,
                    c.surrogates, c.graph, c.clinical, c.longitudinal,
-                   c.statistics, c.export_cfg, c.root)
+                   c.statistics, c.export_cfg, c.qc, c.montage, c.root)
 end
 
 @testset "ICA_EEGJulia_Profile" begin
@@ -888,6 +944,56 @@ end
     @test ica1.mixing_matrix ≈ ica2.mixing_matrix atol=1e-10
 end
 
+# Helper: reconstruye mock_config con un root personalizado (sandbox de I/O)
+function _cfg_with_root(root_dir::String)
+    c = mock_config()
+    PipelineConfig(c.project, c.study, c.paths, c.recording, c.filtering,
+                   c.segmentation, c.baseline, c.artifact_rejection,
+                   c.ica, c.spectral, c.bands, c.connectivity,
+                   c.surrogates, c.graph, c.clinical, c.longitudinal,
+                   c.statistics, c.export_cfg, c.qc, c.montage, root_dir)
+end
+
+@testset "ICA_AutoReject_Precedence" begin
+    fs     = 500.0
+    n_ch   = 6
+    n_ic   = 6
+    rng    = Random.MersenneTwister(7)
+    A_mat  = randn(rng, n_ch, n_ic)
+    S_mat  = randn(rng, n_ic, 1500)
+    cnames = ["Fp1","Fp2","F3","F4","Oz","Pz"]
+    feat   = compute_ica_features(A_mat, S_mat, fs, cnames)
+
+    tmp = mktempdir()
+    cfg = _cfg_with_root(tmp)
+    sid, sess, cond, task = "T99", "T1", "EC", "eyesclosed"
+    subj_dir = joinpath(tmp, "results", "subjects", "sub-$sid", "ses-$sess", task)
+    mkpath(subj_dir)
+
+    # Sin CSV manual → sin rechazo
+    @test !has_manual_ica_labels(cfg, sid, sess, cond)
+    @test isempty(load_ica_labels(cfg, sid, sess, cond))
+
+    # Umbral muy alto → evaluate_ica_components clasifica todo como "brain"
+    eval_brain = evaluate_ica_components(feat; artifact_thresh=1000.0)
+    @test isempty(write_ica_labels_auto(subj_dir, eval_brain))
+
+    # Umbral muy bajo → todo "artifact" → auto rechaza todos y persiste el CSV
+    eval_artifact = evaluate_ica_components(feat; artifact_thresh=-1000.0)
+    rejected_auto = write_ica_labels_auto(subj_dir, eval_artifact)
+    @test sort(rejected_auto) == collect(1:n_ic)
+    @test isfile(joinpath(subj_dir, "ica_labels_auto.csv"))
+
+    # CSV manual presente → gana sobre lo automático (precedencia)
+    open(joinpath(subj_dir, "ica_labels.csv"), "w") do io
+        write(io, "component,label\n2,artifact\n5,artifact\n")
+    end
+    @test has_manual_ica_labels(cfg, sid, sess, cond)
+    @test sort(load_ica_labels(cfg, sid, sess, cond)) == [2, 5]
+
+    rm(tmp; recursive=true, force=true)
+end
+
 # ─── Helper: config con n_surrogates personalizado ────────────
 
 function _cfg_with_surrogates(n_sur::Int; seed::Int=42, alpha::Float64=0.05)
@@ -899,7 +1005,7 @@ function _cfg_with_surrogates(n_sur::Int; seed::Int=42, alpha::Float64=0.05)
         Dict{String,Any}("n_surrogates" => n_sur, "alpha" => alpha,
                          "method" => "circular_shift", "fdr_method" => "bh",
                          "seed" => seed),
-        c.graph, c.clinical, c.longitudinal, c.statistics, c.export_cfg, c.root
+        c.graph, c.clinical, c.longitudinal, c.statistics, c.export_cfg, c.qc, c.montage, c.root
     )
 end
 
@@ -1098,7 +1204,7 @@ end
                          "use_dwpli" => true, "method" => "dwpli"),
         cfg_wpli.surrogates, cfg_wpli.graph, cfg_wpli.clinical,
         cfg_wpli.longitudinal, cfg_wpli.statistics, cfg_wpli.export_cfg,
-        cfg_wpli.root
+        cfg_wpli.qc, cfg_wpli.montage, cfg_wpli.root
     )
 
     meta = RecordingMeta("T01", "T1", "EC", 1, fs, n_ch,
@@ -1163,7 +1269,7 @@ end
         Dict{String,Any}("filter_order" => 8, "use_csd" => false,
                          "use_dwpli" => true, "method" => "dwpli"),
         cfg.surrogates, cfg.graph, cfg.clinical, cfg.longitudinal,
-        cfg.statistics, cfg.export_cfg, cfg.root
+        cfg.statistics, cfg.export_cfg, cfg.qc, cfg.montage, cfg.root
     )
 
     conn_dw = compute_wpli(ep, cfg_dw)
@@ -1196,7 +1302,7 @@ end
         Dict{String,Any}("filter_order" => 8, "use_csd" => false,
                          "use_dwpli" => false, "min_cycles_for_wpli" => 4.0),
         c.surrogates, c.graph, c.clinical, c.longitudinal,
-        c.statistics, c.export_cfg, c.root
+        c.statistics, c.export_cfg, c.qc, c.montage, c.root
     )
 
     # DELTA debe producir @warn con "DELTA" y "ciclos" en el mensaje

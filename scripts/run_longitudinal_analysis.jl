@@ -1,16 +1,41 @@
-# NeuroMIND/scripts/run_longitudinal_analysis.jl
-# Análisis longitudinal: T1 → T2 intra-sujeto (pacientes EM).
-# Lee resultados individuales (wpli_*.csv) ya generados por el pipeline
-# y produce archivos longitudinales en results/longitudinal/{EC|EO}/
+# ═══════════════════════════════════════════════════════════════
+#  NeuroMIND — Análisis longitudinal (T1 → T2)
+# ═══════════════════════════════════════════════════════════════
 #
-# Detecta automáticamente sujetos con sesiones T1 y T2 en results/subjects/
-# o lee un archivo opcional data/BIDS/longitudinal_pairs.csv con columnas:
-#   subject_id, session_t1, session_t2
-# (si el archivo existe se usa; si no, se auto-detecta T1/T2 por nombre de sesión)
+#  Comparación intra-sujeto T1→T2 (pacientes EM).
+#  Lee wpli_*.csv del pipeline y escribe resultados en
+#  results/longitudinal/{EC|EO}/.
 #
-# Uso:
-#   julia --project=. scripts/run_longitudinal_analysis.jl
-#   julia --project=. scripts/run_longitudinal_analysis.jl config/pipeline.toml
+#  Detecta automáticamente sujetos con T1 y T2 en results/subjects/,
+#  o usa data/bids/longitudinal_pairs.csv si existe
+#  (columnas: subject_id, session_t1, session_t2).
+#
+# ───────────────────────────────────────────────────────────────
+#  Fichero    scripts/run_longitudinal_analysis.jl
+#  Autor      Rafael Castro Triguero <me1catrr@uco.es>
+#  Modificado 22-07-2026
+# ───────────────────────────────────────────────────────────────
+#
+#  Invocación: julia --project=. scripts/<este-script>.jl …
+#  Sin shebang: #!/usr/bin/env julia no activaría --project=.
+#
+#  Prerrequisito
+#  ─────────────
+#    results/subjects/… con ambas sesiones
+#
+#  Config
+#  ──────
+#    Argumento posicional opcional; defecto: config/pipeline.toml
+#    (lee [paths] y [bands])
+#
+#  Uso
+#  ───
+#    julia --project=. scripts/run_longitudinal_analysis.jl
+#    julia --project=. scripts/run_longitudinal_analysis.jl config/pipeline.toml
+#
+#  Salida
+#  ──────
+#    results/longitudinal/{eyesclosed|eyesopen}/
 
 using CSV, DataFrames, Statistics, LinearAlgebra, Dates, TOML, Printf
 
@@ -49,7 +74,7 @@ end
 function load_wpli(subj_id::AbstractString, sess_id::AbstractString, cond::AbstractString, band::AbstractString)
     path = joinpath(res_root, "subjects",
                     "sub-$(subj_id)", "ses-$(sess_id)",
-                    norm_cond(cond), "wpli_$(band).csv")
+                    norm_cond(cond), "tables", "connectivity", "wpli_$(band).csv")
     isfile(path) || return nothing
     df = CSV.read(path, DataFrame)
     isempty(df) && return nothing

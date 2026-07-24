@@ -1,10 +1,38 @@
-#!/usr/bin/env julia
-# NeuroMIND — Dashboard interactivo
+# ═══════════════════════════════════════════════════════════════
+#  NeuroMIND — Dashboard interactivo (Genie.jl)
+# ═══════════════════════════════════════════════════════════════
 #
-# Uso:
-#   julia --project=. scripts/launch_dashboard.jl
-#   julia --project=. scripts/launch_dashboard.jl --port 9090
-#   julia --project=. scripts/launch_dashboard.jl --no-browser
+#  Arranca el servidor local del dashboard.
+#  Lee [dashboard] de config/pipeline.toml; --port en CLI tiene
+#  prioridad sobre el TOML.
+#
+# ───────────────────────────────────────────────────────────────
+#  Fichero    scripts/launch_dashboard.jl
+#  Autor      Rafael Castro Triguero <me1catrr@uco.es>
+#  Modificado 22-07-2026
+# ───────────────────────────────────────────────────────────────
+#
+#  Invocación: julia --project=. scripts/<este-script>.jl …
+#  Sin shebang: #!/usr/bin/env julia no activaría --project=.
+#
+#  Config
+#  ──────
+#    config/pipeline.toml  →  sección [dashboard]
+#
+#  Uso
+#  ───
+#    julia --project=. scripts/launch_dashboard.jl
+#    julia --project=. scripts/launch_dashboard.jl --port 9090
+#    julia --project=. scripts/launch_dashboard.jl --no-browser
+#
+#  Opciones
+#  ────────
+#    --port N        puerto HTTP (defecto: 8080 o [dashboard].port)
+#    --no-browser    no abrir el navegador al arrancar
+#
+#  Salida
+#  ──────
+#    http://localhost:<port>
 
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
@@ -27,8 +55,6 @@ let args = ARGS
 end
 
 # ─── Configuración ────────────────────────────────────────────
-# Fuente única: config/pipeline.toml (unificado 2026-07-21; sustituye a
-# single_subject.toml y batch_pipeline.toml, archivados en deprecated/code/config/).
 root        = joinpath(@__DIR__, "..")
 config_path = joinpath(root, "config", "pipeline.toml")
 

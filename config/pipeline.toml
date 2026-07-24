@@ -34,9 +34,11 @@
 #  divergencias sin decidir.
 #
 # ───────────────────────────────────────────────────────────────
+#  Fichero    config/pipeline.toml
 #  Proyecto   NeuroMIND
-#  Autor      Rafael Castro Triguero
+#  Autor      Rafael Castro Triguero <me1catrr@uco.es>
 #  Creado     21-07-2026
+#  Modificado 22-07-2026
 #  Estado     completo — fuente única activa del pipeline
 # ───────────────────────────────────────────────────────────────
 #
@@ -94,7 +96,7 @@
 #  para pruebas puntuales en modo single (p. ej. sub-M05).
 #
 [subject]
-subject_id = "auto"        # "auto" | id BIDS          — solo modo single
+subject_id = "M05"         # "auto" | id BIDS          — solo modo single
 session_id = "T2"          # "T1" | "T2"               — solo modo single
 task       = "eyesclosed"  # "eyesclosed" | "eyesopen" — solo modo single
 run        = 1
@@ -136,9 +138,20 @@ reference     = "average"   # informativo — no re-referencia la señal
 #  Dispara el flag amplitude_warning en qc_decision_table.csv
 #  cuando σ̄ de la señal cruda supera este valor.
 #
+#  QC extendido (Report_Pre/chapters/03_raw.tex)
+#  ────────────────────────────────────────────────────────────
+#  welch_nfft / hfnoise_* / snr_* → HFNoise y SNR(dB) en
+#  channel_statistics.csv (columnas hfnoise, snr_db).
+#  Asimetría/curtosis/corr. media no requieren claves extra.
+#
 [qc]
 bad_channel_zscore_threshold = 3.0
 amplitude_warning_sigma_uv   = 20.0
+welch_nfft       = 1024
+hfnoise_band     = [25.0, 45.0]
+hfnoise_ref_band = [1.0,  45.0]
+snr_signal_band  = "ALPHA"
+snr_noise_band   = "GAMMA"
 
 
 # ─── Rutas ─────────────────────────────────────────────────────
@@ -218,30 +231,34 @@ filter_order  = 4        # Notch / Bandreject / HP / LP order = 4
 # ─── ICA ───────────────────────────────────────────────────────
 #
 #  Perfil activo: cfg.ica["profile"]
-#  (run_ica, ICACore.jl:43; si falta, cae a "default")
+#  (run_ica, ICACore.jl; si falta, cae a "default")
 #
 #  profile = "eeg_julia"  ·  activo
 #  ────────────────────────────────────────────────────────────
 #  Reproducibilidad estricta con EEG_Julia/src/ICA/ICA.jl
 #
-#    n_components / max_iter / tol / seed  →  se IGNORAN
-#    el código los fija a n_channels / 512 / 1e-7 / 1234
-#    sin leer el TOML (ICACore.jl:47–51)
-#    A = inv(W_total)
+#    n_components / max_iter / tol / seed / max_attempts → IGNORADOS
+#    el código los fija a n_channels / 512 / 1e-7 / 1234 / 1
+#    sin leer el TOML. A = inv(W_total). Sin reinicios.
 #
 #  profile = "default"  ·  modo reducido
 #  ────────────────────────────────────────────────────────────
-#  Aquí SÍ se leen n_components / max_iter / tol / seed.
-#  Fallback interno si faltan: 30 / 500 / 1e-5 / 42
-#  (distinto de los valores de abajo).
-#  A = pinv(W_total)
+#  Aquí SÍ se leen n_components / max_iter / tol / seed /
+#  max_attempts. Fallback interno: 30 / 500 / 1e-5 / 42 / 1.
+#  A = pinv(W_total). Si max_attempts > 1 y no converge, reintenta
+#  con seed+1, seed+2, …
 #
-#  artifact_threshold  ·  INERTE hoy
+#  verbose = false  ·  salida terminal
 #  ────────────────────────────────────────────────────────────
-#  Se parsea a PipelineConfig (SingleSubjectPipeline.jl:127),
-#  pero evaluate_ica_components() usa un umbral hardcodeado
-#  1.5 (SingleSubjectPipeline.jl:1552), no este valor.
-#  Cambiarlo aquí no altera el pipeline hasta corregir esa línea.
+#  true → muestra también tabla whitening/ortogonalidad y
+#  detalle de intentos aunque solo haya uno.
+#
+#  artifact_threshold  ·  umbral de score para clasificar "artifact"
+#  ────────────────────────────────────────────────────────────
+#  Usado por evaluate_ica_components (resumen de terminal,
+#  ica_component_features.csv) Y por el rechazo automático
+#  (auto_reject, ver más abajo). Un único cálculo — ya no hay
+#  1.5 hardcodeado por separado en _save_ica_results.
 #
 [ica]
 profile            = "eeg_julia"
@@ -249,18 +266,37 @@ n_components       = 0       # 0 / "auto" = todos los canales — solo si profil
 max_iter           = 512     # solo si profile="default"
 tol                = 1e-7    # solo si profile="default"
 seed               = 1234    # solo si profile="default"
-artifact_threshold = 1.5     # INERTE — ver nota arriba
+max_attempts       = 1       # solo si profile="default"; eeg_julia fuerza 1
+verbose            = false   # true → métricas whitening + detalle intentos
+artifact_threshold = 1.5     # score > umbral → "artifact" (ocular/muscle/line/jump)
 
 #  Rechazo de componentes
 #  ────────────────────────────────────────────────────────────
-#  El pipeline NO rechaza automáticamente por score/threshold.
-#  apply_ica_rejection() solo actúa sobre los índices de
-#  load_ica_labels(), que lee un CSV de inspección MANUAL:
-#    · ica_labels.csv
-#    · ICA_labels_{cond}.csv
-#  Si no existe ese CSV → rej_labels = [] y se conservan todos.
-#  artifact_score / artifact_type en ica_components.csv son
-#  solo orientativos para esa inspección; no disparan rechazo.
+#  Precedencia (apply_ica_rejection actúa siempre sobre índices
+#  resueltos por esta cascada, nunca sobre las dos fuentes a la vez):
+#
+#    1. ica_labels.csv MANUAL en results/subjects/.../{task}/
+#       (inspección humana; columnas component,label) → si existe,
+#       GANA siempre sobre lo automático, sin importar auto_reject.
+#    2. Si no hay CSV manual y auto_reject=true → se rechazan los
+#       componentes con artifact_type != "brain" (score > umbral de
+#       arriba) y se persisten en ica_labels_auto.csv (trazabilidad).
+#    3. Si no hay CSV manual y auto_reject=false → no se rechaza
+#       nada; artifact_score/artifact_type quedan solo orientativos.
+#
+#  auto_reject = true   ·  activo — rechazo automático por score/threshold
+#  ────────────────────────────────────────────────────────────
+#  Recomendado para correr el batch completo sin inspección manual
+#  previa. Cambia la señal que llega a segmentación/wPLI para
+#  cualquier sujeto sin ica_labels.csv manual: re-cross-check contra
+#  EEG_Julia/ antes de dar resultados por definitivos (AGENTS.md §2).
+#
+#  auto_reject = false  ·  alternativa — solo rechazo manual
+#  ────────────────────────────────────────────────────────────
+#  Comportamiento previo a 2026-07-22: sin ica_labels.csv manual se
+#  conservan todos los componentes. Útil para reproducir resultados
+#  ya generados con el pipeline antiguo, o durante inspección manual.
+auto_reject = true
 
 
 # ─── Segmentación ──────────────────────────────────────────────
@@ -461,27 +497,36 @@ after_event_ms         = 300
 
 # ─── Análisis espectral ────────────────────────────────────────
 #
-#  compute_psd() (PowerSpectrum.jl:11)
+#  compute_psd() (PowerSpectrum.jl) — paso [6/8] del pipeline.
 #  FFT con ventana Hamming-taper, estilo BrainVision Analyzer.
-#  Sin conflicto entre los .toml originales.
+#  PSD media sobre epochs válidos (post-AR).
 #
 #  nfft
 #  ────────────────────────────────────────────────────────────
-#  Se aplica max(nfft, n_samp).
+#  Se aplica max(nfft, n_samp) — es un MÍNIMO, no una constante.
 #  Con epoch_length_s = 1.0 y fs = 500 Hz (n_samp = 500),
 #  el valor de abajo (1024) se mantiene vía zero-padding.
 #
 #    resolución   fs / nfft  ≈  0.488 Hz/bin
 #    n_bins       nfft/2+1   =  513
 #
-#  Si epoch_length_s creciera por encima de 2.048 s, el nfft
-#  real superaría 1024 automáticamente
-#  (es un mínimo, no una constante fija).
+#  Si epoch_length_s > 2.048 s (n_samp > 1024 a 500 Hz), el nfft
+#  efectivo crece automáticamente.
 #
 #  window_pct
 #  ────────────────────────────────────────────────────────────
-#  % de la ventana con taper Hamming en cada extremo
-#  (10% → 5% a cada lado).
+#  % de la longitud de epoch con taper Hamming repartido en
+#  ambos extremos (10.0 → 5 % a cada lado).
+#
+#  Salidas escritas en [6/8] (_save_spectral_phase_results)
+#  ────────────────────────────────────────────────────────────
+#    tables/psd_by_channel.csv
+#    tables/band_power_summary.csv
+#    tables/regional_psd.csv
+#    tables/spectral_indices.csv
+#    json/spectral_summary.json
+#    figures/psd_all_channels.png
+#    figures/band_power_summary.png
 #
 [spectral]
 nfft       = 1024
@@ -490,22 +535,20 @@ window_pct = 10.0
 
 # ─── Bandas de frecuencia ──────────────────────────────────────
 #
-#  _band_power_from_psd() (PowerSpectrum.jl:98–99)
+#  _band_power_from_psd() (PowerSpectrum.jl)
 #  Intervalo SEMIABIERTO [flo, fhi) por banda.
-#  Cada banda se calcula de forma independiente (no son máscaras
+#  Cada banda se integra de forma independiente (no son máscaras
 #  mutuamente excluyentes de un único reparto de bins).
 #
-#  Solape / hueco entre bandas
+#  Solape / hueco entre bandas (con estos límites)
 #  ────────────────────────────────────────────────────────────
-#  Con estos límites:
 #    · SOLAPE  THETA / ALPHA      en 7.8–8.0 Hz
-#      (esos bins cuentan en ambas bandas)
+#      (esos bins cuentan en AMBAS bandas)
 #    · HUECO   ALPHA / BETA_LOW   en 11.7–12.0 Hz
 #      (esos bins no cuentan en ninguna)
 #
-#  Ya así en todo el dataset actual — la suma de las 7 bandas
-#  NO coincidirá exactamente con la potencia total por este
-#  motivo; no es un error de cálculo.
+#  Consecuencia: la suma de las 7 bandas NO coincide con la
+#  potencia total integrada del PSD; no es un error de cálculo.
 #
 [bands]
 DELTA     = [0.5,   4.0]
@@ -520,7 +563,8 @@ GAMMA     = [30.0, 50.0]
 # ─── Conectividad ──────────────────────────────────────────────
 #
 #  Método activo: cfg.connectivity["wpli_method"]
-#  (_build_estimator, wPLI.jl:89)
+#  (_build_estimator, wPLI.jl) — paso [7/8] del pipeline.
+#  Los surrogates ([surrogates]) reutilizan el mismo estimador.
 #
 #  wpli_method = "hilbert"  ·  activo · OBLIGATORIO
 #  ────────────────────────────────────────────────────────────
@@ -591,6 +635,14 @@ GAMMA     = [30.0, 50.0]
 #    de todo el análisis (conectividad, group_statistics…).
 #    Alternativa si se decide que DELTA no es fiable con
 #    épocas de 1 s y se prefiere no reportarla.
+#
+#  Salidas escritas en [7/8] (_save_connectivity_phase_results)
+#  ────────────────────────────────────────────────────────────
+#    tables/connectivity/wpli_{band}.csv
+#    tables/connectivity/connectivity_edges.csv
+#    tables/connectivity/network_metrics.csv
+#    json/connectivity_summary.json
+#    figures/connectivity/wpli_{band}.png
 #
 [connectivity]
 wpli_method              = "hilbert"
@@ -711,7 +763,7 @@ threshold_method = "proportional"   # alternativa: "absolute"
 
 # ─── Surrogates / Inferencia estadística ───────────────────────
 #
-#  surrogate_test() (Surrogates.jl:28)
+#  surrogate_test() (Surrogates.jl) — tras [7/8] wPLI.
 #  Desplazamiento circular independiente por canal/época,
 #  con el MISMO estimador de conectividad que la corrida
 #  observada (hilbert / fourier_csd / multitaper, según
@@ -737,14 +789,24 @@ threshold_method = "proportional"   # alternativa: "absolute"
 #  recomendaba ≥ 200. Con 200, el suelo baja a ≈ 0.005,
 #  dejando margen real para superar la corrección BH-FDR.
 #
-#  method  ·  INERTE
+#  method  ·  INERTE (metadato)
 #  ────────────────────────────────────────────────────────────
-#  surrogate_test() (Surrogates.jl) siempre usa circular_shift
-#  pase lo que pase aquí; esta clave solo se muestra en
-#  logs/JSON como metadato.
+#  surrogate_test() siempre usa circular_shift pase lo que
+#  pase aquí; esta clave solo se muestra en logs/JSON.
 #  "phase_shuffle" (valor de single_subject.toml) no existe
 #  como método implementado — se deja "circular_shift" para
 #  que el metadato sea al menos veraz.
+#
+#  Salidas (solo si enabled=true; _save_surrogate_results)
+#  ────────────────────────────────────────────────────────────
+#    tables/connectivity/wpli_observed_{band}.csv
+#    tables/connectivity/wpli_pvalues_{band}.csv
+#    tables/connectivity/wpli_qvalues_{band}.csv
+#    tables/connectivity/wpli_significant_{band}.csv
+#    tables/connectivity/surrogate_null_stats_{band}.csv
+#    tables/connectivity/significant_connections.csv
+#    tables/connectivity/surrogate_quality.csv
+#    json/surrogate_summary.json
 #
 [surrogates]
 enabled      = false
@@ -752,7 +814,7 @@ n_surrogates = 200
 method       = "circular_shift"  # informativo — ver nota arriba
 alpha        = 0.05              # nivel de significancia FDR
 fdr_method   = "bh"              # "bh" (Benjamini-Hochberg) | "bonferroni"
-seed         = 42                # semilla base (+ índice de banda — Surrogates.jl:54)
+seed         = 42                # semilla base (+ índice de banda — Surrogates.jl)
 
 
 # ═══════════════════════════════════════════════════════════════

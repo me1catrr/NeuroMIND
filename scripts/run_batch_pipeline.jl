@@ -1,38 +1,53 @@
-#!/usr/bin/env julia
-# NeuroMIND — scripts/run_batch_pipeline.jl
+# ═══════════════════════════════════════════════════════════════
+#  NeuroMIND — Pipeline en lote (dataset completo)
+# ═══════════════════════════════════════════════════════════════
 #
-# FASE C: Ejecución del pipeline individual para todos los sujetos del
-# dataset completo MINDEM-IMIBIC.
+#  Fase C — Ejecuta run_single_subject_pipeline() para cada
+#  grabación del inventory.csv (MINDEM-IMIBIC).
 #
-# Itera sobre el inventory.csv generado por audit_full_dataset.jl,
-# crea un config temporal por sujeto/sesión/condición y llama a
-# run_single_subject_pipeline().  Los resultados se guardan en:
-#   results/subjects/sub-{id}/ses-{sess}/{task}/
+#  Por cada trabajo crea un TOML temporal: copia config/pipeline.toml
+#  y sobreescribe [subject] y [paths] (write_temp_config).
 #
-# Config base: config/pipeline.toml (unificado 2026-07-21; sustituye a
-# batch_pipeline.toml y single_subject.toml, archivados en deprecated/code/config/).
-# De ese fichero se copia todo salvo [subject] y [paths], que este script
-# sobreescribe por cada trabajo del lote (ver write_temp_config).
+# ───────────────────────────────────────────────────────────────
+#  Fichero    scripts/run_batch_pipeline.jl
+#  Autor      Rafael Castro Triguero <me1catrr@uco.es>
+#  Modificado 22-07-2026
+# ───────────────────────────────────────────────────────────────
 #
-# Uso:
-#   julia --project=. scripts/run_batch_pipeline.jl
-#   julia --project=. scripts/run_batch_pipeline.jl --condition EC
-#   julia --project=. scripts/run_batch_pipeline.jl --condition EO
-#   julia --project=. scripts/run_batch_pipeline.jl --group MS --session T1
-#   julia --project=. scripts/run_batch_pipeline.jl --subjects M11,M12,M13
-#   julia --project=. scripts/run_batch_pipeline.jl --dry-run
+#  Invocación: julia --project=. scripts/<este-script>.jl …
+#  Sin shebang: #!/usr/bin/env julia no activaría --project=.
 #
-# Opciones de filtrado (combinables):
-#   --condition  EC | EO | ALL  (defecto: ALL)
-#   --group      MS | HC | ALL  (defecto: ALL)
-#   --session    T1 | T2 | ALL  (defecto: ALL)
-#   --subjects   lista separada por comas de subject_id (ej. M11,M12,MC01)
-#   --skip-done  no reprocesar si ya existe overview.csv en results/
-#   --dry-run    solo listar lo que se procesaría, sin ejecutar
-#   --max-subjects  N  procesar solo los primeros N sujetos
+#  Prerrequisito
+#  ─────────────
+#    data/full_data/inventory.csv  (audit_full_dataset.jl)
+#    data/bids/                    (build_bids_full.jl)
 #
-# Salida adicional:
-#   results/logs/batch_run_YYYY-MM-DD_HH-MM.csv
+#  Config base
+#  ───────────
+#    config/pipeline.toml
+#
+#  Uso
+#  ───
+#    julia --project=. scripts/run_batch_pipeline.jl
+#    julia --project=. scripts/run_batch_pipeline.jl --condition EC
+#    julia --project=. scripts/run_batch_pipeline.jl --group MS --session T1
+#    julia --project=. scripts/run_batch_pipeline.jl --subjects M11,M12,MC01
+#    julia --project=. scripts/run_batch_pipeline.jl --dry-run
+#
+#  Opciones (combinables)
+#  ──────────────────────
+#    --condition      EC | EO | ALL          (defecto: ALL)
+#    --group          MS | HC | ALL          (defecto: ALL)
+#    --session        T1 | T2 | ALL          (defecto: ALL)
+#    --subjects       id1,id2,…
+#    --skip-done      omitir si existe overview.csv
+#    --dry-run        listar sin ejecutar
+#    --max-subjects N  limitar a los primeros N sujetos
+#
+#  Salida
+#  ──────
+#    results/subjects/sub-{id}/ses-{sess}/{task}/
+#    results/logs/batch_run_YYYY-MM-DD_HH-MM.csv
 
 using Dates, TOML
 
@@ -144,7 +159,7 @@ end
 function already_done(bids_id::String, sess::String, cond::String)::Bool
     task = cond == "EC" ? "eyesclosed" : "eyesopen"
     overview = joinpath(RESULTS, "subjects",
-                        "sub-$(bids_id)", "ses-$(sess)", task, "overview.csv")
+                        "sub-$(bids_id)", "ses-$(sess)", task, "tables", "overview.csv")
     isfile(overview)
 end
 
