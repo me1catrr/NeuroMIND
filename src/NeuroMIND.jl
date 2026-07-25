@@ -50,7 +50,7 @@ using Serialization, TOML, FFTW, DSP, StatsBase
 include("types.jl")
 export PipelineConfig, RecordingMeta, EEGRecording, EpochSet
 export ICAResult, SpectralResult, ConnectivityMatrix, SurrogateResult
-export GraphMetrics, Session, Subject, GroupAnalysis, LongitudinalAnalysis
+export GraphMetrics, Session, Subject, GroupAnalysis
 export ClinicalData, StatResult
 export n_channels, n_samples, n_epochs, n_samples_epoch, duration
 
@@ -124,9 +124,14 @@ export compare_groups_stats
 # ═══════════════════════════════════════════════════════════════
 
 # ─── Longitudinal ──────────────────────────────────────────────
-#  Comparación T1 → T2 intra-sujeto.
-include("longitudinal/LongitudinalAnalysis.jl")
-export compute_longitudinal, group_mean_connectivity, compare_groups
+#  Análisis T1→T2: scripts/run_longitudinal_analysis.jl
+#  Visor interactivo: src/longitudinal/plot_longitudinal.jl (CLI :8780)
+#  Helpers figuras: src/viz/GroupVizCommon.jl + group_viewer_common.js
+#  Regenerar PNG: scripts/regenerate_group_figures.jl
+
+# ─── Transversal ───────────────────────────────────────────────
+#  Análisis MS vs Control: scripts/run_transversal_analysis.jl
+#  Visor interactivo: src/transversal/plot_transversal.jl (CLI :8781)
 
 # ─── Visualización ─────────────────────────────────────────────
 #  Figuras PNG/SVG (topomapas, heatmaps, espectros, grafos).
@@ -136,7 +141,7 @@ include("visualization/Spectra.jl")
 include("visualization/GraphPlots.jl")
 include("visualization/ClinicalPlots.jl")
 export plot_topomap, plot_connectivity_heatmap, plot_spectrum
-export plot_spectrum_grid, plot_group_comparison, plot_longitudinal_evolution
+export plot_spectrum_grid, plot_group_comparison
 export plot_graph_metrics, plot_clinical_correlation, plot_surrogate_distribution
 export save_figure
 

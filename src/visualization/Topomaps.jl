@@ -187,30 +187,3 @@ function _topomap_resolve_style(
     end
     return cmap, cbl, cr
 end
-
-"""
-    plot_longitudinal_evolution(la::LongitudinalAnalysis; colormap=:viridis) -> Figure
-
-Visualiza la evolución temporal de la conectividad media de un sujeto.
-"""
-function plot_longitudinal_evolution(la::LongitudinalAnalysis; colormap=:viridis)::CairoMakie.Figure
-    n_visits = length(la.visits)
-    n_visits == 0 && error("Sin datos longitudinales")
-
-    fig = CairoMakie.Figure(size=(300 * n_visits, 350))
-
-    global_max = maximum(maximum(m) for m in la.connectivity_over_time)
-
-    for (k, (visit, W)) in enumerate(zip(la.visits, la.connectivity_over_time))
-        ax = CairoMakie.Axis(fig[1, k];
-            title  = visit,
-            aspect = DataAspect(),
-        )
-        CairoMakie.heatmap!(ax, W; colormap, colorrange=(0.0, global_max))
-    end
-
-    CairoMakie.Label(fig[0, :],
-        "$(la.subject_id) — wPLI $(la.band) ($(la.condition)) evolución temporal";
-        fontsize=14)
-    return fig
-end

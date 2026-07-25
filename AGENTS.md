@@ -3,7 +3,7 @@
 > **Single source of truth for AI agents.**
 > Read automatically by Claude Code, Cursor, OpenAI Codex CLI, and any other AI assistant
 > on project open. **Keep this file up to date — it is the authoritative project context.**
-> Last updated: 2026-07-21.
+> Last updated: 2026-07-25.
 >
 > **README.md is the authoritative source for the pipeline, config/pipeline.toml,
 > outputs and results structure.** This file keeps agent-specific rules (Git, dashboard,
@@ -139,10 +139,15 @@ Surrogates automatically use the **same estimator** as the observed computation.
 | `src/connectivity/wPLI.jl` | `compute_wpli` — 3 estimators: Hilbert, FourierCSD, Multitaper |
 | `src/connectivity/CSD.jl` | `apply_csd` (optional, `use_csd = false` by default) |
 | `src/io/BrainVisionLoader.jl` | Native BrainVision binary reader (.vhdr + .eeg, IEEE_FLOAT_32) |
-| `config/pipeline.toml` | **Single config** for all 7 active scripts (see README §5) |
+| `config/pipeline.toml` | **Single config** for all active scripts (see README §5) |
 | `scripts/run_batch_pipeline.jl` | **Phase C** — batch pipeline with CLI filters |
-| `scripts/run_transversal_analysis.jl` | Group analysis MS vs controls |
-| `scripts/run_longitudinal_analysis.jl` | Longitudinal analysis T1 → T2 |
+| `scripts/run_transversal_analysis.jl` | Group analysis MS vs controls (figures via `GroupVizCommon`) |
+| `scripts/run_longitudinal_analysis.jl` | Longitudinal analysis T1 → T2 (figures via `GroupVizCommon`) |
+| `scripts/regenerate_group_figures.jl` | Regenerate cohort PNGs from existing CSV (no re-analysis) |
+| `src/viz/GroupVizCommon.jl` | Shared Julia helpers for cohort figures (RdBu_r, triplets, topo networks) |
+| `src/viz/group_viewer_common.js` | Shared canvas JS for interactive cohort viewers |
+| `src/transversal/plot_transversal.jl` | Interactive MS vs Control viewer → `:8781` (standalone CLI) |
+| `src/longitudinal/plot_longitudinal.jl` | Interactive T1→T2 viewer → `:8780` (standalone CLI) |
 | `mne_brain/` | MNE-Python cross-validation pipeline |
 | `tests/runtests.jl` | Unit test suite |
 
@@ -174,12 +179,19 @@ results/subjects/sub-{id}/ses-{sess}/{task}/
 ```
 
 **These files never go to the repo** (`.gitignore` via `/results/`). Group results go to
-`results/transversal/` and `results/longitudinal/` (siblings of subjects/). See README §7–8.
+`results/transversal/` and `results/longitudinal/` (siblings of subjects/). See README §7–8
+for CSV layout, figure names (`heatmap_triplet_*`, `explore_network_topN_*`), and interactive viewers.
 
 > **Single output tree (since 2026-07-21).** `_save_all_results` writes directly to the
 > BIDS `export_dir`; the old dual tree `results/{ID}/{SES}/` with `_EC`/`_EO` suffixes was
 > removed, along with the dead readers (`load_dashboard_data`, App.jl "Legacy API" routes).
 > ICA cache now lives in `export_dir/cache/`.
+
+> **Cohort viewers (since 2026-07-25).** `plot_*.jl` are standalone CLIs (not included in
+> `NeuroMIND.jl`). They serve `/static/group_viewer_common.js` and send full `edge_stats`
+> for heatmap tooltips (not only the filtered Top-N/FDR subset). Diverging colormap is
+> `Reverse(:RdBu)` (positive Δ = red) in both PNG and UI. Do not change ICA/wPLI science
+> when editing viewers — only visualization.
 
 ---
 
@@ -253,6 +265,11 @@ julia --project=. scripts/run_batch_pipeline.jl --skip-done  # resume interrupte
 julia --project=. scripts/run_transversal_analysis.jl
 julia --project=. scripts/run_longitudinal_analysis.jl
 
+# Cohort interactive viewers (standalone; not Genie)
+julia --project=. src/transversal/plot_transversal.jl      # → http://127.0.0.1:8781/
+julia --project=. src/longitudinal/plot_longitudinal.jl    # → http://127.0.0.1:8780/
+julia --project=. scripts/regenerate_group_figures.jl EC  # PNG only from CSV
+
 # Dashboard
 julia --project=. scripts/launch_dashboard.jl
 # → http://localhost:8080
@@ -263,13 +280,13 @@ cd mne_brain && python3 scripts/run_phase3_m05.py && python3 scripts/run_phase4_
 
 ---
 
-## 10. Project status (2026-05-26)
+## 10. Project status (2026-07-25)
 
 ### Dataset: MINDEM-IMIBIC
 - **41 MS patients** (M4–M44) + **37 controls** (MC1–MC40) = 78 subjects
 - **212 recordings** (.vhdr BrainVision), 206 valid for pipeline
 - **27 complete longitudinal pairs** (T1+T2, EC+EO)
-- Phases A+B complete; Phase C (batch) ready to execute
+- Phases A+B complete; **Phase C (batch) executed 2026-07-25** — 201 OK, 5 SKIP, 0 ERR (~51 min, surrogates OFF)
 
 ### Implemented and working
 - [x] Full 8-step pipeline with custom ICA + surrogates
@@ -280,22 +297,21 @@ cd mne_brain && python3 scripts/run_phase3_m05.py && python3 scripts/run_phase4_
 - [x] Panel 15: NeuroMIND-Julia vs mne_brain-MNE cross-validation, 3 stages, band power comparison
 - [x] Native BrainVisionLoader (IEEE_FLOAT_32 / INT_16)
 - [x] Batch runner with CLI filters, CSV log, skip-done
-- [x] Transversal and longitudinal analyses with FDR-BH
+- [x] Transversal and longitudinal analyses with FDR-BH (full cohort, config vigente)
+- [x] Cohort viz: `GroupVizCommon` + interactive viewers (`:8780` / `:8781`) + `regenerate_group_figures.jl`
 - [x] `erf` removed from all scripts (replaced with A&S polynomial approximation 26.2.17)
 - [x] `longitudinal_pairs.csv` format fix in `run_longitudinal_analysis.jl`
 - [x] Unit tests (241+ passing)
 - [x] PSD normalization fixed: `Pseg ./= (n_samp * fs)`
 
 ### Active branches
-- `feat/phase10-surrogates` ← **current branch**
-- Phases 5–9 have branches pending PR to main
+- Work locally; merge policy: never commit directly to `main` — use `feat/<name>`
 
 ### Pending
-- [ ] Run Phase C full dataset (`run_batch_pipeline.jl`) — ~18–50 h
-- [ ] Run transversal and longitudinal analyses with full cohort
-- [ ] Push/merge feat/phase5 → feat/phase10 branches to main
+- [ ] Push/merge outstanding feature branches to main
 - [ ] Integration tests for full pipeline
 - [ ] GitHub Actions CI (syntax check + tests)
+- [ ] Optional: channel-intersection policy for group analyses (currently hard intersect; viewers annotate N channels)
 
 ---
 
@@ -324,17 +340,25 @@ StatsBase, TOML
 ✅ Run syntax check (julia --project=. -e 'include("src/NeuroMIND.jl")') before committing
 ✅ Run tests before any merge to main
 ✅ Read only the relevant section of large files (dashboard.html is ~13 500 lines)
+✅ Cohort plotters are standalone (`plot_*.jl`); edit `src/viz/` for shared figure/JS logic
 ```
 
 ---
 
 ## 13. Changelog summary
 
+### 2026-07-25 — Phase C + cohort visualization overhaul
+- Batch: 201 OK / 5 SKIP / 0 ERR (~51 min, surrogates OFF); transversal + longitudinal regenerated.
+- `src/viz/GroupVizCommon.jl` + `group_viewer_common.js`: shared PNG/JS for cohort plots.
+- Viewers (`plot_longitudinal.jl` :8780, `plot_transversal.jl` :8781): full `edge_stats` tooltips, shared color scales, FDR banner, volcano, SEM on strip/spaghetti, `Reverse(:RdBu)` aligned with UI.
+- Analysis scripts write `heatmap_triplet_*`, topo `sig_network_*`, and `explore_network_topN_*` when FDR is empty; honest `best_band` (empty if `n_total_sig=0`).
+- `scripts/regenerate_group_figures.jl` regenerates PNGs from CSV without re-running stats.
+
 ### 2026-05-26 — wPLI multi-method + script fixes
 - `src/connectivity/wPLI.jl`: multi-method architecture (Hilbert/FourierCSD/Multitaper) using abstract types + multiple dispatch. Surrogates use the same estimator.
 - `config/batch_pipeline.toml` and `config/single_subject.toml`: new `[connectivity]` block with `wpli_method`, `[connectivity.fourier_csd]`, `[connectivity.multitaper]`.
 - `scripts/run_transversal_analysis.jl` and `run_longitudinal_analysis.jl`: fix `erf` → A&S polynomial approximation 26.2.17.
-- `src/longitudinal/LongitudinalAnalysis.jl`: same `erf` fix.
+- `scripts/run_longitudinal_analysis.jl`: same `erf` fix.
 - `scripts/run_longitudinal_analysis.jl`: fix `longitudinal_pairs.csv` reader (new boolean flag format).
 - Segmentation: `profile = "default"`, `segment_length_seconds = 2.0` in batch config.
 

@@ -3,7 +3,7 @@
 **Framework de conectividad funcional EEG basado en wPLI**
 Conectividad funcional en Esclerosis Múltiple
 Rafael Castro Triguero
-*Última modificación: 22 Julio 2026*
+*Última modificación: 25 Julio 2026*
 
 NeuroMIND toma señales EEG de reposo en formato BrainVision, las procesa de principio a fin con un pipeline reproducible de 8 pasos y genera matrices de conectividad **weighted Phase Lag Index (wPLI)** con inferencia estadística opcional. Está diseñado para el dataset **MINDEM-IMIBIC** (41 pacientes con EM + 37 controles sanos, sesiones T1/T2, condiciones ojos cerrados / abiertos) y produce resultados listos para comparar grupos y sesiones.
 
@@ -18,7 +18,7 @@ NeuroMIND toma señales EEG de reposo en formato BrainVision, las procesa de pri
 1. [¿Qué hace el pipeline?](#1-qué-hace-el-pipeline)
 2. [Contexto científico](#2-contexto-científico)
 3. [Requisitos e instalación](#3-requisitos-e-instalación)
-4. [Cadena de ejecución: los 7 scripts](#4-cadena-de-ejecución-los-7-scripts)
+4. [Cadena de ejecución: los scripts activos](#4-cadena-de-ejecución-los-7-scripts)
 5. [Configuración: `config/pipeline.toml`](#5-configuración-configpipelinetoml)
 6. [Los 8 pasos del pipeline](#6-los-8-pasos-del-pipeline)
 7. [Salidas del pipeline](#7-salidas-del-pipeline)
@@ -107,9 +107,9 @@ julia --project=. -e 'include("src/NeuroMIND.jl"); println("OK")'
 
 ---
 
-## 4. Cadena de ejecución: los 7 scripts
+## 4. Cadena de ejecución: los scripts activos
 
-Todos los lanzadores activos leen la misma configuración: `config/pipeline.toml`.
+Todos los lanzadores activos leen la misma configuración: `config/pipeline.toml` (salvo los visores `plot_*.jl`, que leen `results/` ya generados).
 
 ```bash
 # A. Preparación del dataset (una vez por dataset)
@@ -121,15 +121,23 @@ julia --project=. scripts/run_single_subject.jl
 julia --project=. scripts/run_single_subject.jl --config config/pipeline.toml --force
 
 # C. Lote completo
-julia --project=. scripts/run_batch_pipeline.jl
+julia --project=. scripts/run_batch_pipeline.jl --dry-run --skip-done   # vista previa (plan MS/HC)
+julia --project=. scripts/run_batch_pipeline.jl --skip-done             # cohorte (recomendado)
 julia --project=. scripts/run_batch_pipeline.jl --condition EC --group MS --session T1
 julia --project=. scripts/run_batch_pipeline.jl --subjects M11,M12 --skip-done --dry-run
+julia --project=. scripts/run_batch_pipeline.jl --skip-done --verbose   # tablas por sujeto (como single)
 
 # D. Análisis de grupo (post-hoc, tras el lote)
 julia --project=. scripts/run_transversal_analysis.jl
 julia --project=. scripts/run_longitudinal_analysis.jl
 
-# E. Inspección interactiva
+# E. Visores de cohorte (post-análisis; mini-servidor local)
+julia --project=. src/transversal/plot_transversal.jl      # → http://127.0.0.1:8781/
+julia --project=. src/longitudinal/plot_longitudinal.jl    # → http://127.0.0.1:8780/
+julia --project=. scripts/regenerate_group_figures.jl EC   # regenerar PNG sin re-análisis
+julia --project=. scripts/regenerate_group_figures.jl both
+
+# F. Dashboard Genie (pipeline por sujeto + paneles 0–15)
 julia --project=. scripts/launch_dashboard.jl --port 8080
 ```
 
@@ -140,6 +148,8 @@ audit_full_dataset → build_bids_full → run_single_subject (validación)
                                      → run_batch_pipeline (dataset completo)
                                             ↓
                        run_transversal_analysis / run_longitudinal_analysis
+                                            ↓
+              plot_transversal.jl / plot_longitudinal.jl   (+ regenerate_group_figures.jl)
                                             ↓
                                      launch_dashboard
 ```
@@ -152,11 +162,28 @@ audit_full_dataset → build_bids_full → run_single_subject (validación)
 | `build_bids_full.jl` | ✅ Activo | B — metadata BIDS | autónomo | `*_eeg_metadata.json`, `electrodes.tsv`, `dataset_description.json` |
 | `run_single_subject.jl` | ✅ Activo | pipeline individual | `SingleSubjectPipeline.jl` (8 pasos) | `results/subjects/sub-{ID}/ses-{SES}/{task}/` |
 | `run_batch_pipeline.jl` | ✅ Activo | C — lote | idem, en bucle sobre `inventory.csv` | misma ruta BIDS + `results/logs/batch_run_*.csv` |
-| `run_transversal_analysis.jl` | ✅ Activo | post-hoc grupal | autónomo | `results/transversal/{EC\|EO}/` |
-| `run_longitudinal_analysis.jl` | ✅ Activo | post-hoc longitudinal | autónomo | `results/longitudinal/{EC\|EO}/` |
+| `run_transversal_analysis.jl` | ✅ Activo | post-hoc grupal | autónomo + `GroupVizCommon` | `results/transversal/{EC\|EO}/` |
+| `run_longitudinal_analysis.jl` | ✅ Activo | post-hoc longitudinal | autónomo + `GroupVizCommon` | `results/longitudinal/{EC\|EO}/` |
+| `regenerate_group_figures.jl` | ✅ Activo | figuras de cohorte | `src/viz/GroupVizCommon.jl` | PNG en `figures/` (sin re-análisis) |
+| `plot_transversal.jl` | ✅ Activo | visor MS vs Ctrl | CLI + `group_viewer_common.js` | `http://127.0.0.1:8781/` |
+| `plot_longitudinal.jl` | ✅ Activo | visor T1→T2 | CLI + `group_viewer_common.js` | `http://127.0.0.1:8780/` |
 | `launch_dashboard.jl` | ✅ Activo | visualización | `webapp/App.jl` (Genie) | `http://localhost:8080` |
 
-**Opciones de `run_batch_pipeline.jl`** (combinables): `--condition` EC\|EO\|ALL · `--group` MS\|HC\|ALL · `--session` T1\|T2\|ALL · `--subjects` lista · `--max-subjects` N · `--skip-done` · `--dry-run`.
+**Opciones de `run_batch_pipeline.jl`** (combinables):
+
+| Flag | Efecto |
+|------|--------|
+| `--condition` EC\|EO\|ALL | Filtrar condición (defecto: ALL) |
+| `--group` MS\|HC\|ALL | Filtrar grupo clínico (defecto: ALL) |
+| `--session` T1\|T2\|ALL | Filtrar sesión (defecto: ALL) |
+| `--subjects` id1,id2,… | Filtrar por `subject_id` o `bids_id` (p. ej. `M5` o `M05`) |
+| `--max-subjects` N | Limitar a los primeros N **jobs** (grabaciones), no sujetos únicos |
+| `--skip-done` | Omitir si existe `tables/overview.csv` |
+| `--dry-run` | Listar plan sin ejecutar (tabla MS/HC DONE/PEND) |
+| `--with-surrogates` | Activar surrogates en el lote (por defecto **OFF**, forzado) |
+| `--verbose` | Mostrar tablas del pipeline por sujeto (como `run_single_subject.jl`) |
+
+**Comportamiento del lote (modo normal):** salida silenciosa — solo plan inicial + dashboard vivo (barra, ETA, OK/SKIP/ERR, desglose MS/HC, sujeto actual/último). El detalle por grabación queda en `pipeline_log.txt` de cada sujeto. Con `--verbose` se restaura el volcado completo por sujeto. Surrogates quedan desactivados salvo `--with-surrogates` (el lote fuerza `[surrogates].enabled` en el TOML temporal).
 
 ---
 
@@ -164,7 +191,7 @@ audit_full_dataset → build_bids_full → run_single_subject (validación)
 
 Fichero único que controla todo el pipeline. Cada grabación guarda además su propio `config_snapshot.toml`: **esa es la fuente fiable** de con qué parámetros se produjo un resultado, por encima de lo que diga el fichero de configuración en un momento dado.
 
-En modo lote, `run_batch_pipeline.jl` copia este fichero y sobreescribe `[subject]` y `[paths]` por cada trabajo; el resto de secciones se propaga sin cambios.
+En modo lote, `run_batch_pipeline.jl` copia este fichero y sobreescribe `[subject]`, `[paths]` (rutas absolutas) y `[surrogates].enabled` (OFF salvo `--with-surrogates`) por cada trabajo; el resto de secciones se propaga sin cambios.
 
 ### Catálogo de secciones
 
@@ -183,7 +210,7 @@ En modo lote, `run_batch_pipeline.jl` copia este fichero y sobreescribe `[subjec
 | `[connectivity]` | **`wpli_method = "hilbert"`** · **`use_dwpli = false`** (wPLI clásico, rango 0–1) · `filter_order = 8` · `use_csd = false` · `min_cycles_for_wpli = 4.0` · `exclude_unreliable_bands = false`. Sub-tablas `[connectivity.fourier_csd]` y `[connectivity.multitaper]` para los otros métodos. |
 | `[montage]` | **`exclude_fp2 = false`** → Fp2 SE CONSERVA: **31 canales, 465 aristas** por banda. ⚠️ Quien elimina canales es `exclude_channels`; `exclude_fp2` solo filtra Fp2 de esa lista. `n_channels_analysis` es informativo (se calcula, no se lee). |
 | `[graph]` | `density = 0.1`, `threshold_method = "proportional"`. Solo afecta a métricas binarias (path_length, efficiency, degree); strength y clustering usan la matriz completa. |
-| `[surrogates]` | `enabled = false`. Si se activa: `n_surrogates = 200`, `alpha = 0.05`, `fdr_method = "bh"`, `seed = 42`. ⚠️ `method` es inerte (siempre `circular_shift`). |
+| `[surrogates]` | `enabled = false`. Si se activa: `n_surrogates = 500`, `alpha = 0.05`, `fdr_method = "bh"`, `seed = 42`. ⚠️ `method` es inerte (siempre `circular_shift`). En lote, `run_batch_pipeline.jl` fuerza `enabled = false` salvo `--with-surrogates`. |
 | `[output]` | `figure_format = "png"`, `figure_dpi = 150`. |
 | `[paths]` | `bids_root = "data/bids"` (minúscula), `results = "results"`. |
 | `[dashboard]` | `port = 8080`, `open_browser = true`. Solo lo lee `launch_dashboard.jl`; `--port` en CLI tiene prioridad. |
@@ -246,14 +273,99 @@ El nombre BIDS ya distingue la condición por el nivel `{task}` (`eyesclosed`/`e
 
 ### Análisis de grupo
 
-Ambos scripts leen los `wpli_{banda}.csv` ya generados y escriben una carpeta por condición (39 ficheros por condición con 7 bandas):
+Diseño experimental (Fig. 3.1):
+
+| Análisis | Cohorte | Sesión | N diseño | Condiciones |
+|----------|---------|--------|----------|-------------|
+| **Transversal** | EM vs Control | **solo T1** | 44 vs 40 | **EC y EO en paralelo** (mismo contraste, sin pooling) |
+| **Longitudinal** | **solo EM** | T1 → T2 | **30 pares** (pérdidas sin T2 no se analizan) | **EC y EO en paralelo** |
+
+Ambos scripts leen derivados bajo `results/subjects/` y escriben `results/{transversal|longitudinal}/{EC|EO}/`.
 
 | Análisis | Salida | Ficheros clave |
 |----------|--------|----------------|
-| **Transversal** (MS vs Control) | `results/transversal/{EC\|EO}/` | `group_{connectivity_ms,connectivity_control,difference,statistics}_{banda}.csv`, `significant_edges_{banda}.csv`, `band_statistics.csv`, `subject_inclusion.csv`, `transversal_summary.json` |
-| **Longitudinal** (T1 → T2) | `results/longitudinal/{EC\|EO}/` | `longitudinal_{connectivity_t1,connectivity_t2,difference,statistics}_{banda}.csv`, `significant_longitudinal_edges_{banda}.csv`, `paired_subjects.csv`, `longitudinal_summary.json` |
+| **Transversal** (EM T1 vs Control) | `results/transversal/{EC\|EO}/` | ver árbol abajo |
+| **Longitudinal** (EM T1 → T2) | `results/longitudinal/{EC\|EO}/` | ver árbol abajo |
 
-El transversal requiere `data/bids/groups.csv`; el longitudinal usa `longitudinal_pairs.csv` o autodetecta los pares T1/T2 en `results/subjects/`.
+El transversal requiere `data/bids/groups.csv` (filtra `session=T1`), cruza QC (`include` / `include_with_warning`), aplica **Mann–Whitney + FDR-BH** (Welch de referencia; Cohen d) y genera:
+
+```
+results/transversal/{EC|EO}/
+├── transversal_summary.json
+├── config_snapshot.toml
+├── subject_inclusion.csv            # QC, épocas, razón exclusión
+├── subject_band_means.csv
+├── band_statistics.csv
+├── global_mean_wpli_statistics.csv
+├── group_connectivity_{ms,control}_{BAND}.csv
+├── group_difference_{BAND}.csv
+├── group_statistics_{BAND}.csv      # p Mann–Whitney, p Welch, q, d, n
+├── significant_edges_{BAND}.csv
+├── top_edges_by_effect_{BAND}.csv
+├── tables/
+│   ├── spectral/
+│   │   ├── band_power_group_statistics.csv
+│   │   └── significant_band_power_differences.csv
+│   └── network/
+│       ├── network_metrics_{ms,control,diff}_{BAND}.csv
+│       └── network_global_statistics.csv
+└── figures/
+    ├── heatmap_{ms,control,diff}_{BAND}.png
+    ├── heatmap_triplet_{BAND}.png           # Ctrl | MS | Δ (escala emparejada)
+    ├── sig_network_{BAND}.png               # solo si hay edges FDR
+    ├── explore_network_topN_{BAND}.png      # si n_sig=0: Top-20 |d| exploratorio
+    ├── group_mean_wpli_by_band.png
+    └── topo_diff_bandpower_{BAND}.png
+```
+
+Visor interactivo post-análisis (mini-servidor local; helpers en `src/viz/`):
+
+```bash
+julia --project=. src/transversal/plot_transversal.jl      # → http://127.0.0.1:8781/
+julia --project=. src/transversal/plot_transversal.jl EO
+```
+
+Lee todos los CSV/JSON de `results/transversal/{EC|EO}/`. Pestañas: Overview (KPI + banner FDR), comparación global (strip MS vs Control con media±SEM), heatmaps Control/MS/Δ (escala compartida + colorbar + overlay FDR), red FDR/top-|d|, volcano (d vs −log₁₀p), potencia Δ (anota si espectro usa más canales que wPLI) y hubs. Colormap divergente unificado (`Reverse(:RdBu)`: Δ>0 = rojo). Export PNG/CSV desde la UI.
+
+El longitudinal usa `longitudinal_pairs.csv` (`include_longitudinal=true`, solo pares EM T1+T2), cruza QC, aplica **Wilcoxon signed-rank + FDR-BH** (Cohen dz; `p_parametric` de referencia) y genera:
+
+```
+results/longitudinal/{EC|EO}/
+├── longitudinal_summary.json
+├── config_snapshot.toml
+├── paired_subjects.csv              # QC T1/T2, épocas, razón exclusión
+├── subject_band_means.csv
+├── band_statistics_longitudinal.csv
+├── longitudinal_connectivity_{t1,t2}_{BAND}.csv
+├── longitudinal_difference_{BAND}.csv
+├── longitudinal_statistics_{BAND}.csv   # p Wilcoxon, q, dz, n
+├── significant_longitudinal_edges_{BAND}.csv
+├── tables/
+│   ├── spectral/
+│   │   ├── band_power_delta_statistics.csv
+│   │   └── significant_band_power_changes.csv
+│   └── network/
+│       ├── network_metrics_{t1,t2,delta}_{BAND}.csv
+│       └── network_global_statistics.csv
+└── figures/
+    ├── heatmap_{t1,t2,delta}_{BAND}.png
+    ├── heatmap_triplet_{BAND}.png           # T1 | T2 | Δ (escala emparejada)
+    ├── sig_network_{BAND}.png               # solo si hay edges FDR
+    ├── explore_network_topN_{BAND}.png      # si n_sig=0: Top-20 |dz| exploratorio
+    ├── paired_mean_wpli_by_band.png
+    └── topo_delta_bandpower_{BAND}.png
+```
+
+Visor interactivo post-análisis (mini-servidor local; helpers en `src/viz/`):
+
+```bash
+julia --project=. src/longitudinal/plot_longitudinal.jl      # → http://127.0.0.1:8780/
+julia --project=. src/longitudinal/plot_longitudinal.jl EO
+```
+
+Lee todos los CSV/JSON de `results/longitudinal/{EC|EO}/`. Pestañas: Overview (KPI honestos: `best_band` vacío si no hay FDR; barras con n FDR y n p&lt;0.05), cambio global (spaghetti T1→T2 con media±SEM), heatmaps T1/T2/Δ, red FDR/top-|dz|, volcano, potencia Δ y hubs. Misma convención de color que el transversal. Con N≈15 pares es esperable 0 edges FDR: el banner y el modo Top-|dz| son la capa exploratoria explícita.
+
+Prerrequisito: batch (o sujetos) con wPLI en disco. Fases 13/14 del dashboard leen los CSV/JSON de la raíz (`EC`/`EO`). Para regenerar solo PNG: `scripts/regenerate_group_figures.jl`.
 
 ---
 
@@ -285,7 +397,9 @@ El pipeline individual y el lote escriben en la **misma** ruta: reprocesar un su
 
 ### Estado de los resultados
 
-En producción solo está el caso de referencia `subjects/sub-M05/ses-T2/eyesclosed/` (reprocesado el 2026-07-09), cuyo snapshot coincide con la configuración vigente. Las 204 grabaciones restantes y los análisis de grupo de mayo están archivados porque cuatro parámetros cambian los valores numéricos:
+**Fase C (lote) completada el 2026-07-25** con la configuración vigente (wPLI clásico, 31 canales, surrogates OFF): **201 OK + 5 SKIP** (`--skip-done`), **0 errores**, ~51 min. Análisis transversal y longitudinal regenerados a continuación; figuras de cohorte alineadas con `GroupVizCommon` (colormap, tripletas, redes topo / Top-N exploratorio).
+
+El caso de referencia `subjects/sub-M05/ses-T2/eyesclosed/` sigue siendo la traza detallada del anexo. Las corridas de mayo (dwPLI, 30 canales, baseline `mean`) siguen archivadas en `deprecated/results/` y **no son comparables** con el árbol actual:
 
 | Parámetro | Corridas de mayo (archivadas) | Configuración vigente |
 |-----------|-------------------------------|-----------------------|
@@ -294,7 +408,7 @@ En producción solo está el caso de referencia `subjects/sub-M05/ses-T2/eyesclo
 | `montage.exclude_fp2` | `true` — 30 canales, 435 aristas | `false` — 31 canales, 465 aristas |
 | `artifact_rejection.n_channels_used` | `30` | `31` |
 
-Las matrices wPLI tienen además dimensión distinta (30×30 vs 31×31): no son comparables. Orden previsto de regeneración: **M05 (validación) → lote completo → transversal y longitudinal**.
+Nota de montaje en análisis de grupo: la intersección dura de canales entre sujetos reduce el montaje wPLI (p. ej. ~24 ch EC transversal, ~27 ch EC longitudinal); el espectro puede seguir en ~31 ch — los visores lo anotan.
 
 ---
 
@@ -366,10 +480,13 @@ NeuroMIND/
 │   ├── spectral/               ← PowerSpectrum
 │   ├── connectivity/           ← wPLI, CSD, GraphMetrics
 │   ├── statistics/             ← Surrogates, FDR, GroupStats
-│   ├── visualization/          ← Topomaps, Heatmaps, Spectra
+│   ├── visualization/          ← Topomaps, Heatmaps, Spectra (pipeline sujeto)
+│   ├── viz/                    ← GroupVizCommon + group_viewer_common.js (cohorte)
+│   ├── longitudinal/           ← plot_longitudinal.jl (visor T1→T2, :8780)
+│   ├── transversal/            ← plot_transversal.jl (visor MS vs Ctrl, :8781)
 │   ├── report/                 ← HTMLReport
 │   └── webapp/                 ← App.jl (dashboard Genie)
-├── scripts/                    ← 7 lanzadores activos (ver §4)
+├── scripts/                    ← Lanzadores activos (ver §4) + regenerate_group_figures.jl
 ├── results/                    ← Generado por el pipeline (NO en git)
 ├── deprecated/                 ← Archivado (code/ en git, results/ ignorado)
 ├── mne_brain/                  ← Pipeline de validación MNE-Python
@@ -419,6 +536,7 @@ git ls-files | grep -E '(^data/|^results/|^deprecated/results/|\.DS_Store$|^\.cl
 
 | Fecha | Cambios |
 |-------|---------|
+| **2026-07-25** | Fase C lote completo (201 OK / 5 SKIP / 0 ERR); transversal + longitudinal regenerados; `src/viz/GroupVizCommon.jl` + `group_viewer_common.js`; visores cohorte (tooltips con stats completas, escalas compartidas, volcano, banner FDR, RdBu unificado); `explore_network_topN` / `heatmap_triplet`; `regenerate_group_figures.jl` |
 | **2026-07-21** | Configuración unificada en `config/pipeline.toml`; `run_pipeline.jl` archivado; `results/` reorganizado (subjects/transversal/longitudinal); archivo movido a `deprecated/`; montaje a 31 canales; wPLI clásico |
 | **2026-07-09** | Reprocesado del caso de referencia M05 con la configuración actual |
 | **2026-05-26** | wPLI multi-método (Hilbert / FourierCSD / Multitaper) |
@@ -1237,7 +1355,7 @@ SurrogateResult[]        →  p/q-values, máscaras, distribución nula
 
 **Hallazgos a tener en cuenta:**
 
-1. **Tiempo de cómputo:** con `n_surrogates=200` y 7 bandas, los surrogates dominan el coste (~8 min de 8.7 min totales en M05). Para el batch completo conviene evaluar `enabled=false` o reducir N.
+1. **Tiempo de cómputo:** con `n_surrogates` alto y 7 bandas, los surrogates dominan el coste (~8 min de 8.7 min totales en M05 con N=200). El lote fuerza `enabled=false` salvo `--with-surrogates`; no activarlos en el cohorte completo sin estimar el coste.
 2. **DELTA poco fiable:** con épocas de 1.0 s, DELTA tiene **0.5 ciclos/época** (< `min_cycles_for_wpli=4.0`); se calcula igualmente porque `exclude_unreliable_bands=false`. Interpretar con cautela.
 3. **FDR por banda:** la corrección BH se aplica **independientemente** en cada banda (465 tests/banda), no globalmente sobre las 3 255 aristas.
 4. **`method` en config no se lee:** `surrogate_test` siempre usa `circular_shift`; la clave `[surrogates].method` es solo informativa (el log del 2026-07-09 lo documenta explícitamente).

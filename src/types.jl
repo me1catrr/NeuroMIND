@@ -217,7 +217,7 @@ Subject(id::String, group::String) = Subject(
 )
 
 # ─────────────────────────────────────────────────────────────
-# Análisis de grupo y longitudinal
+# Análisis de grupo (API en memoria; scripts post-hoc son la vía activa)
 # ─────────────────────────────────────────────────────────────
 
 struct GroupAnalysis
@@ -232,14 +232,4 @@ struct GroupAnalysis
     channel_names::Vector{String}
     n_ms::Int
     n_ctrl::Int
-end
-
-struct LongitudinalAnalysis
-    subject_id::String
-    condition::String
-    band::String
-    visits::Vector{String}
-    connectivity_over_time::Vector{Matrix{Float64}}
-    graph_metrics_over_time::Vector{GraphMetrics}
-    channel_names::Vector{String}
 end
