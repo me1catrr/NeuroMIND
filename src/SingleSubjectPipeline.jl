@@ -1306,11 +1306,13 @@ function run_single_subject_pipeline(config_path::String)
     #
     # method en TOML es metadato: el código siempre usa
     # circular_shift (phase_shuffle no está implementado).
-    # p-valor Monte Carlo (+1): p ≥ 1/(N+1). Con N=200 → suelo ≈0.005;
-    # con N≈20 el mínimo ≈0.048 queda al borde de α=0.05.
+    # p-valor Monte Carlo (+1): p ≥ 1/(N+1). Con N=500 → suelo ≈0.002;
+    # con N=200 → ≈0.005; con N≈20 el mínimo ≈0.048 queda al borde de α.
     # FDR: bh (Benjamini–Hochberg) o bonferroni; seed base + idx banda.
     #
-    # enabled=false es el default (197/205 grabaciones del lote).
+    # Salidas (si enabled=true):
+    #   tables/surrogate/*  ·  figures/surrogate/*  ·  json/surrogate_summary.json
+    #   cache/surrogate/null_distribution_{band}.jls  (vectores nulos completos)
     #
     surr_results = SurrogateResult[]
     _surr_on   = Bool(get(cfg.surrogates, "enabled", false))
@@ -1322,39 +1324,67 @@ function run_single_subject_pipeline(config_path::String)
     _p_floor   = round(1.0 / (_n_sur + 1), digits=5)
     _wpli_est  = String(get(conn.params, "wpli_method",
                     get(cfg.connectivity, "wpli_method", "hilbert")))
+    _surr_bands = sort(collect(keys(conn.matrices)))
+    _n_surr_bands = length(_surr_bands)
+    _n_surr_total = _n_sur * _n_surr_bands
 
     _log(log_io, "\n[SUR] Inferencia por surrogates")
+    print("  [SUR] Surrogates... ")
     if !_surr_on
-        print("  [SUR] Surrogates... ")
         println("⊘  omitido (enabled=false)")
         _print_kv_table([
-            ("enabled",       "false"),
-            ("n_surrogates",  string(_n_sur)),
-            ("method (meta)", _surr_meth),
-            ("método real",   "circular_shift"),
+            ("enabled",        "false"),
+            ("n_surrogates",   string(_n_sur)),
+            ("method (meta)",  _surr_meth),
+            ("método real",    "circular_shift"),
             ("estimador wPLI", _wpli_est),
-            ("alpha",         string(_surr_alpha)),
-            ("fdr_method",    _surr_fdr),
-            ("seed",          string(_surr_seed)),
-            ("p_min teórico", string(_p_floor)),
+            ("alpha (FDR)",    string(_surr_alpha)),
+            ("fdr_method",     _surr_fdr),
+            ("seed",           string(_surr_seed)),
+            ("p_min teórico",  string(_p_floor)),
         ]; indent="        ")
         _log(log_io, "  omitido (enabled=false) · N=$(_n_sur) · FDR=$(_surr_fdr) · α=$(_surr_alpha)")
     else
-        print("  [SUR] Surrogates... ")
+        println("lanzando…")
         t_sur = now()
+        _print_kv_table([
+            ("enabled",              "true"),
+            ("n_surrogates",         string(_n_sur)),
+            ("method (meta)",        _surr_meth),
+            ("método real",          "circular_shift"),
+            ("estimador wPLI",       _wpli_est),
+            ("alpha (FDR)",          string(_surr_alpha)),
+            ("fdr_method",           _surr_fdr),
+            ("seed",                 string(_surr_seed)),
+            ("p_min teórico",        string(_p_floor)),
+            ("n_edges/banda",        string(_n_edges)),
+            ("n_bandas",             string(_n_surr_bands)),
+            ("total permutaciones",  string(_n_surr_total)),
+            ("salida tablas",        "tables/surrogate/"),
+            ("salida figuras",       "figures/surrogate/"),
+            ("salida cache nulos",   "cache/surrogate/"),
+        ]; indent="        ")
         _log(log_io, "  Método real: circular_shift (meta=$(_surr_meth)) | N=$(_n_sur) | FDR=$(_surr_fdr) | α=$(_surr_alpha) | seed=$(_surr_seed)")
-        _log(log_io, "  Estimador wPLI: $(_wpli_est) | p_min ≈ $(_p_floor)")
+        _log(log_io, "  Estimador wPLI: $(_wpli_est) | p_min ≈ $(_p_floor) | total permutaciones=$(_n_surr_total)")
 
         _band_sig_rows = Vector{Vector{String}}()
-        println()  # progreso por banda debajo de la cabecera
-        for band in sort(collect(keys(conn.matrices)))
-            print("        $(lpad(band,9))... ")
+        for (bi, band) in enumerate(_surr_bands)
             try
-                sr = surrogate_test(epochs_conn, conn, band, cfg)
+                t_band = now()
+                sr = surrogate_test(epochs_conn, conn, band, cfg;
+                    on_progress = (k, n_sur) -> begin
+                        gdone = (bi - 1) * n_sur + k
+                        _print_surrogate_progress(band, k, n_sur, gdone, _n_surr_total, t_sur, t_band)
+                    end)
                 push!(surr_results, sr)
                 n_sig = count(sr.sig_mask) ÷ 2
-                println("$(n_sig)/$(_n_edges) pares sig  (FDR thr=$(round(sr.fdr_threshold, digits=4)))")
-                _log(log_io, "  Banda $(lpad(band,9)): $(n_sig)/$(_n_edges) pares sig  FDR-thr=$(round(sr.fdr_threshold, digits=4))")
+                band_s = round(Dates.value(now() - t_band) / 1000, digits=1)
+                print("\r")
+                print("        $(lpad(band, 9))  ✓  $(n_sig)/$(_n_edges) pares sig" *
+                      "  (FDR thr=$(round(sr.fdr_threshold, digits=4)))" *
+                      "  ($(band_s) s)" * " "^20)
+                println()
+                _log(log_io, "  Banda $(lpad(band,9)): $(n_sig)/$(_n_edges) pares sig  FDR-thr=$(round(sr.fdr_threshold, digits=4))  ($(band_s) s)")
                 push!(_band_sig_rows, [
                     band,
                     string(sr.n_surrogates),
@@ -1364,28 +1394,15 @@ function run_single_subject_pipeline(config_path::String)
                     string(round(sr.fdr_threshold, digits=4)),
                 ])
             catch e
-                println("⚠ fallido: $e")
+                print("\r")
+                println("        $(lpad(band, 9))  ⚠ fallido: $e" * " "^20)
                 @warn "Surrogate fallido para $band: $e"
                 _log(log_io, "  WARN: surrogate $(band) fallido: $e")
                 push!(_band_sig_rows, [band, "—", "—", string(_n_edges), "—", "error"])
             end
         end
         sur_dur = round(Dates.value(now() - t_sur) / 1000, digits=1)
-        println("        ✓  total ($(sur_dur) s)")
-
-        _print_kv_table([
-            ("enabled",        "true"),
-            ("n_surrogates",   string(_n_sur)),
-            ("method (meta)",  _surr_meth),
-            ("método real",    "circular_shift"),
-            ("estimador wPLI", _wpli_est),
-            ("alpha",          string(_surr_alpha)),
-            ("fdr_method",     _surr_fdr),
-            ("seed",           string(_surr_seed)),
-            ("p_min teórico",  string(_p_floor)),
-            ("n_edges/banda",  string(_n_edges)),
-            ("n_bandas",       string(length(conn.matrices))),
-        ]; indent="        ")
+        println("        ✓  total surrogates ($(sur_dur) s)")
 
         if !isempty(_band_sig_rows)
             _print_cols_table(
@@ -1396,8 +1413,22 @@ function run_single_subject_pipeline(config_path::String)
         end
 
         if !isempty(surr_results)
-            _surr_files = _save_surrogate_results(surr_results, conn, export_dir, cfg, log_io)
-            _print_kv_table(_surr_files; indent="        ", headers=("Archivo", "Ruta"))
+            _surr_files = _save_surrogate_results(surr_results, conn, export_dir, cfg, log_io; dpi)
+            _tbl_files = filter(r -> startswith(r[2], "tables/") || startswith(r[2], "json/"), _surr_files)
+            _fig_files = filter(r -> startswith(r[2], "figures/"), _surr_files)
+            _cache_files = filter(r -> startswith(r[2], "cache/"), _surr_files)
+            if !isempty(_tbl_files)
+                println("        Tablas / JSON generados:")
+                _print_kv_table(_tbl_files; indent="        ", headers=("Archivo", "Ruta"))
+            end
+            if !isempty(_fig_files)
+                println("        Figuras generadas:")
+                _print_kv_table(_fig_files; indent="        ", headers=("Archivo", "Ruta"))
+            end
+            if !isempty(_cache_files)
+                println("        Cache vectores nulos (histograma empírico por arista):")
+                _print_kv_table(_cache_files; indent="        ", headers=("Archivo", "Ruta"))
+            end
         end
     end
 
@@ -2151,7 +2182,8 @@ function _save_surrogate_results(
     conn::ConnectivityMatrix,
     export_dir::String,
     cfg::PipelineConfig,
-    log_io::IO,
+    log_io::IO;
+    dpi::Int = 150,
 )::Vector{Tuple{String,String}}
     written   = Tuple{String,String}[]
     ch_names  = conn.channel_names
@@ -2163,8 +2195,10 @@ function _save_surrogate_results(
     seed_v    = Int(get(cfg.surrogates, "seed", 42))
 
     upper_idx = [(i,j) for i in 1:n for j in (i+1):n]
-    json_dir        = joinpath(export_dir, "json");                mkpath(json_dir)
-    tables_conn_dir = joinpath(export_dir, "tables", "connectivity"); mkpath(tables_conn_dir)
+    json_dir        = joinpath(export_dir, "json");                  mkpath(json_dir)
+    tables_surr_dir = joinpath(export_dir, "tables", "surrogate");   mkpath(tables_surr_dir)
+    figs_surr_dir   = joinpath(export_dir, "figures", "surrogate");  mkpath(figs_surr_dir)
+    cache_surr_dir  = joinpath(export_dir, "cache", "surrogate");    mkpath(cache_surr_dir)
 
     # Acumular conexiones significativas globales
     all_sig_rows = NamedTuple[]
@@ -2181,15 +2215,40 @@ function _save_surrogate_results(
         p_vec = [p_mat[i,j] for (i,j) in upper_idx]
         q_vec = _bh_qvalues(p_vec)
 
+        # ── Cache: vector nulo completo (n_ch × n_ch × n_sur) ─
+        # Permite reconstruir histogramas empíricos por arista
+        # (p.ej. plot_surrogate.jl / figura tipo report).
+        try
+            cache_name = "null_distribution_$(band).jls"
+            cache_path = joinpath(cache_surr_dir, cache_name)
+            payload = Dict{String,Any}(
+                "band"             => band,
+                "channels"         => collect(String, ch_names),
+                "n_surrogates"     => sr.n_surrogates,
+                "n_channels"       => n,
+                "null_distribution"=> null_d,
+                "observed"         => W_obs,
+                "p_values"         => p_mat,
+                "fdr_threshold"    => sr.fdr_threshold,
+            )
+            Serialization.serialize(cache_path, payload)
+            push!(written, (cache_name, "cache/surrogate/$(cache_name)"))
+            _log(log_io, "  Cache nulo $(band): $(cache_name) " *
+                 "($(round(filesize(cache_path)/1024/1024; digits=2)) MB)")
+        catch e
+            @warn "No se pudo guardar null_distribution_$(band).jls: $e"
+            _log(log_io, "  WARN: cache null_distribution_$(band) fallido: $e")
+        end
+
         # ── Observado ─────────────────────────────────────────
         obs_df = DataFrame(hcat(ch_names, W_obs), vcat(["channel"], ch_names))
-        CSV.write(joinpath(tables_conn_dir, "wpli_observed_$(band).csv"), obs_df)
-        push!(written, ("wpli_observed_$(band).csv", "tables/connectivity/wpli_observed_$(band).csv"))
+        CSV.write(joinpath(tables_surr_dir, "wpli_observed_$(band).csv"), obs_df)
+        push!(written, ("wpli_observed_$(band).csv", "tables/surrogate/wpli_observed_$(band).csv"))
 
         # ── p-values ──────────────────────────────────────────
         p_df = DataFrame(hcat(ch_names, p_mat), vcat(["channel"], ch_names))
-        CSV.write(joinpath(tables_conn_dir, "wpli_pvalues_$(band).csv"), p_df)
-        push!(written, ("wpli_pvalues_$(band).csv", "tables/connectivity/wpli_pvalues_$(band).csv"))
+        CSV.write(joinpath(tables_surr_dir, "wpli_pvalues_$(band).csv"), p_df)
+        push!(written, ("wpli_pvalues_$(band).csv", "tables/surrogate/wpli_pvalues_$(band).csv"))
 
         # ── q-values (matriz simétrica) ───────────────────────
         q_mat = zeros(Float64, n, n)
@@ -2197,14 +2256,14 @@ function _save_surrogate_results(
             q_mat[i,j] = q_vec[k]; q_mat[j,i] = q_vec[k]
         end
         q_df = DataFrame(hcat(ch_names, q_mat), vcat(["channel"], ch_names))
-        CSV.write(joinpath(tables_conn_dir, "wpli_qvalues_$(band).csv"), q_df)
-        push!(written, ("wpli_qvalues_$(band).csv", "tables/connectivity/wpli_qvalues_$(band).csv"))
+        CSV.write(joinpath(tables_surr_dir, "wpli_qvalues_$(band).csv"), q_df)
+        push!(written, ("wpli_qvalues_$(band).csv", "tables/surrogate/wpli_qvalues_$(band).csv"))
 
         # ── Máscara significativa ─────────────────────────────
         sig_int = Int.(sr.sig_mask)
         mask_df = DataFrame(hcat(ch_names, sig_int), vcat(["channel"], ch_names))
-        CSV.write(joinpath(tables_conn_dir, "wpli_significant_$(band).csv"), mask_df)
-        push!(written, ("wpli_significant_$(band).csv", "tables/connectivity/wpli_significant_$(band).csv"))
+        CSV.write(joinpath(tables_surr_dir, "wpli_significant_$(band).csv"), mask_df)
+        push!(written, ("wpli_significant_$(band).csv", "tables/surrogate/wpli_significant_$(band).csv"))
 
         # ── Estadísticas de la distribución nula por par ──────
         null_mean_mat = dropdims(mean(null_d, dims=3), dims=3)
@@ -2222,10 +2281,21 @@ function _save_surrogate_results(
                             (W_obs[i,j] - null_mean_mat[i,j]) / null_std_mat[i,j] : 0.0,
                             digits=3)
         ) for (k,(i,j)) in enumerate(upper_idx)]
-        CSV.write(joinpath(tables_conn_dir, "surrogate_null_stats_$(band).csv"),
+        CSV.write(joinpath(tables_surr_dir, "surrogate_null_stats_$(band).csv"),
                   DataFrame(null_rows))
         push!(written, ("surrogate_null_stats_$(band).csv",
-                        "tables/connectivity/surrogate_null_stats_$(band).csv"))
+                        "tables/surrogate/surrogate_null_stats_$(band).csv"))
+
+        # ── Figura: distribución nula agregada ────────────────
+        try
+            fig = _plot_surrogate_null_band(sr)
+            fig_name = "surrogate_null_$(band).png"
+            save_figure(fig, joinpath(figs_surr_dir, fig_name); dpi)
+            push!(written, (fig_name, "figures/surrogate/$(fig_name)"))
+        catch e
+            @warn "No se pudo generar surrogate_null_$(band).png: $e"
+            _log(log_io, "  WARN: figura surrogate_null_$(band) fallida: $e")
+        end
 
         # ── Conexiones significativas (q < alpha) ─────────────
         for (k,(i,j)) in enumerate(upper_idx)
@@ -2267,20 +2337,20 @@ function _save_surrogate_results(
     if !isempty(all_sig_rows)
         sig_df = DataFrame(all_sig_rows)
         sort!(sig_df, :q_value)
-        CSV.write(joinpath(tables_conn_dir, "significant_connections.csv"), sig_df)
+        CSV.write(joinpath(tables_surr_dir, "significant_connections.csv"), sig_df)
     else
-        CSV.write(joinpath(tables_conn_dir, "significant_connections.csv"),
+        CSV.write(joinpath(tables_surr_dir, "significant_connections.csv"),
             DataFrame(ch_a=String[], ch_b=String[], band=String[],
                       wpli_obs=Float64[], p_value=Float64[],
                       q_value=Float64[], z_score=Float64[]))
     end
     push!(written, ("significant_connections.csv",
-                    "tables/connectivity/significant_connections.csv"))
+                    "tables/surrogate/significant_connections.csv"))
 
     # ── Guardar QC por banda ──────────────────────────────────
     qc_df = DataFrame(qc_bands)
-    CSV.write(joinpath(tables_conn_dir, "surrogate_quality.csv"), qc_df)
-    push!(written, ("surrogate_quality.csv", "tables/connectivity/surrogate_quality.csv"))
+    CSV.write(joinpath(tables_surr_dir, "surrogate_quality.csv"), qc_df)
+    push!(written, ("surrogate_quality.csv", "tables/surrogate/surrogate_quality.csv"))
 
     # ── Generar surrogate_summary.json ───────────────────────
     n_sig_total = length(all_sig_rows)
@@ -2308,7 +2378,7 @@ function _save_surrogate_results(
     end
     push!(written, ("surrogate_summary.json", "json/surrogate_summary.json"))
 
-    _log(log_io, "  Surrogates guardados: $(n_sig_total) conexiones significativas en $(length(surr_results)) bandas")
+    _log(log_io, "  Surrogates guardados: $(n_sig_total) conexiones significativas en $(length(surr_results)) bandas → tables/surrogate/, figures/surrogate/, cache/surrogate/")
     return written
 end
 
@@ -2428,6 +2498,101 @@ function _log(io::IO, msg::String)
     ts  = Dates.format(now(), "HH:MM:SS")
     println(io, "[$(ts)] $(msg)")
     flush(io)
+end
+
+"""
+    _format_eta_s(seconds) -> String
+
+Formatea segundos restantes como `Xs`, `Xm Ys` o `Xh Ym`.
+"""
+function _format_eta_s(seconds::Real)::String
+    s = max(0.0, Float64(seconds))
+    if s < 60
+        return string(round(Int, s), "s")
+    elseif s < 3600
+        m = floor(Int, s / 60)
+        r = round(Int, s - 60 * m)
+        return "$(m)m $(r)s"
+    else
+        h = floor(Int, s / 3600)
+        m = floor(Int, (s - 3600 * h) / 60)
+        return "$(h)h $(m)m"
+    end
+end
+
+"""
+    _print_surrogate_progress(band, k, n_sur, gdone, gtotal, t0, t_band)
+
+Barra de progreso en una sola línea (`\\r`) con ETA por banda y global.
+"""
+function _print_surrogate_progress(
+    band::String,
+    k::Int,
+    n_sur::Int,
+    gdone::Int,
+    gtotal::Int,
+    t0,
+    t_band;
+    bar_w::Int = 20,
+)
+    # Throttle: cada ~2% o último de banda (evita flood en N grande)
+    step = max(1, n_sur ÷ 50)
+    (k % step != 0 && k != n_sur) && return
+
+    elapsed_g = Dates.value(now() - t0) / 1000.0
+    elapsed_b = Dates.value(now() - t_band) / 1000.0
+    pct_b = n_sur > 0 ? k / n_sur : 1.0
+    pct_g = gtotal > 0 ? gdone / gtotal : 1.0
+    eta_b = (k > 0 && pct_b < 1.0) ? elapsed_b * (1.0 / pct_b - 1.0) : 0.0
+    eta_g = (gdone > 0 && pct_g < 1.0) ? elapsed_g * (1.0 / pct_g - 1.0) : 0.0
+    filled = round(Int, pct_b * bar_w)
+    bar = "█"^filled * "░"^(bar_w - filled)
+    msg = "        $(lpad(band, 9))  $(lpad(string(k), 4))/$n_sur  $bar  " *
+          "$(lpad(string(round(Int, 100 * pct_b)), 3))%" *
+          "  ETA $(_format_eta_s(eta_b))" *
+          "  · global $gdone/$gtotal  ETA $(_format_eta_s(eta_g))"
+    print("\r", msg, " "^8)
+    flush(stdout)
+end
+
+"""
+    _plot_surrogate_null_band(sr) -> Figure
+
+Histograma de la media wPLI nula por surrogate (agregado sobre el
+triángulo superior), con la media observada marcada.
+"""
+function _plot_surrogate_null_band(sr::SurrogateResult)::CairoMakie.Figure
+    W_obs = sr.observed
+    null_d = sr.null_distribution
+    n = size(W_obs, 1)
+    n_sur = size(null_d, 3)
+
+    obs_mean = mean(W_obs[i, j] for i in 1:n for j in (i+1):n)
+    null_means = Float64[
+        mean(null_d[i, j, k] for i in 1:n for j in (i+1):n)
+        for k in 1:n_sur
+    ]
+
+    fig = CairoMakie.Figure(size = (640, 420))
+    ax = CairoMakie.Axis(fig[1, 1];
+        title  = "Surrogates nulos — $(sr.band) (media triángulo superior)",
+        xlabel = "wPLI medio (nulo)",
+        ylabel = "Frecuencia",
+        titlesize = 12,
+    )
+    CairoMakie.hist!(ax, null_means; bins=min(40, max(10, n_sur ÷ 10)),
+                     color=(:steelblue, 0.65), strokewidth=0.4)
+    CairoMakie.vlines!(ax, [obs_mean]; color=:tomato, linewidth=2.0,
+                       label="μ obs = $(round(obs_mean; digits=4))")
+    CairoMakie.vlines!(ax, [mean(null_means)]; color=:gray40, linewidth=1.5,
+                       linestyle=:dash,
+                       label="μ nulo = $(round(mean(null_means); digits=4))")
+    CairoMakie.axislegend(ax; position=:rt, labelsize=9)
+    CairoMakie.Label(fig[2, 1],
+        "N=$(sr.n_surrogates) · FDR thr=$(round(sr.fdr_threshold; digits=4)) · " *
+        "p_min=$(round(1/(sr.n_surrogates+1); digits=5))";
+        fontsize=10, color=:gray40)
+    return fig
 end
 
 """

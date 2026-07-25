@@ -81,10 +81,12 @@ function plot_surrogate_distribution(
     )
 
     CairoMakie.hist!(ax, null; bins=30, color=(:steelblue, 0.6), strokewidth=0.5)
+    null_mean = mean(null)
+    CairoMakie.vlines!(ax, [null_mean]; color=:royalblue, linewidth=1.5,
+                       linestyle=:dash, label="Media nula = $(round(null_mean, digits=3))")
     CairoMakie.vlines!(ax, [obs]; color=:tomato, linewidth=2,
                        label="Observado = $(round(obs, digits=3))\np = $(round(p_val, digits=4))")
-    CairoMakie.vlines!(ax, [surr.fdr_threshold]; color=:orange, linewidth=1.5,
-                       linestyle=:dash, label="FDR thr = $(round(surr.fdr_threshold, digits=4))")
+    # Nota: fdr_threshold es umbral en escala p, no wPLI — no se dibuja en este eje.
     CairoMakie.axislegend(ax; position=:rt, labelsize=9)
 
     save_path !== nothing && CairoMakie.save(save_path, fig; px_per_unit=2)

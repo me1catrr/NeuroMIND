@@ -799,18 +799,20 @@ threshold_method = "proportional"   # alternativa: "absolute"
 #
 #  Salidas (solo si enabled=true; _save_surrogate_results)
 #  ────────────────────────────────────────────────────────────
-#    tables/connectivity/wpli_observed_{band}.csv
-#    tables/connectivity/wpli_pvalues_{band}.csv
-#    tables/connectivity/wpli_qvalues_{band}.csv
-#    tables/connectivity/wpli_significant_{band}.csv
-#    tables/connectivity/surrogate_null_stats_{band}.csv
-#    tables/connectivity/significant_connections.csv
-#    tables/connectivity/surrogate_quality.csv
+#    tables/surrogate/wpli_observed_{band}.csv
+#    tables/surrogate/wpli_pvalues_{band}.csv
+#    tables/surrogate/wpli_qvalues_{band}.csv
+#    tables/surrogate/wpli_significant_{band}.csv
+#    tables/surrogate/surrogate_null_stats_{band}.csv
+#    tables/surrogate/significant_connections.csv
+#    tables/surrogate/surrogate_quality.csv
+#    figures/surrogate/surrogate_null_{band}.png
+#    cache/surrogate/null_distribution_{band}.jls  ← vectores nulos (n×n×N)
 #    json/surrogate_summary.json
 #
 [surrogates]
-enabled      = false
-n_surrogates = 200
+enabled      = false             # true solo para runs con inferencia (costoso: ~N×bandas)
+n_surrogates = 500               # recomendado para publicación (p_min ≈ 0.002)
 method       = "circular_shift"  # informativo — ver nota arriba
 alpha        = 0.05              # nivel de significancia FDR
 fdr_method   = "bh"              # "bh" (Benjamini-Hochberg) | "bonferroni"

@@ -39,6 +39,19 @@ function launch_webapp(cfg::PipelineConfig;
         get(d, cond, lowercase(cond))
     end
 
+    """Primera ruta existente entre candidatos relativos a `base`."""
+    function _first_existing(base::String, rels::AbstractVector{<:AbstractString})::String
+        for r in rels
+            p = joinpath(base, r)
+            isfile(p) && return p
+        end
+        return joinpath(base, first(rels))
+    end
+
+    function _any_existing(base::String, rels::AbstractVector{<:AbstractString})::Bool
+        any(r -> isfile(joinpath(base, r)), rels)
+    end
+
     function _serve_csv(path::String)
         if isfile(path)
             try
@@ -645,8 +658,11 @@ function launch_webapp(cfg::PipelineConfig;
             "7"  => fe("pipeline_log.txt") ? "completed" : "pending",
             "8"  => fe("psd_by_channel.csv") ? "completed" : "pending",
             "9"  => fe("wpli_ALPHA.csv") ? "completed" : "pending",
-            "10" => fe("surrogate_summary.json") ? "completed" :
-                    fe("significant_connections.csv") ? "completed" : "pending",
+            "10" => (_any_existing(base, ["json/surrogate_summary.json", "surrogate_summary.json"]) ||
+                     _any_existing(base, ["tables/surrogate/significant_connections.csv",
+                                          "tables/connectivity/significant_connections.csv",
+                                          "significant_connections.csv"])) ?
+                    "completed" : "pending",
             "11" => fe("band_power_summary.csv") ? "completed" : "pending",
             "12" => "pending",
         )
@@ -1969,12 +1985,28 @@ function launch_webapp(cfg::PipelineConfig;
         band = string(get(getpayload(), :band, "ALPHA"))
 
         res_base   = joinpath(bids_root, "sub-$(subj)", "ses-$(sess)", cond)
-        summ_path  = joinpath(res_base, "surrogate_summary.json")
-        sig_path   = joinpath(res_base, "significant_connections.csv")
-        qc_path    = joinpath(res_base, "surrogate_quality.csv")
-        null_path  = joinpath(res_base, "surrogate_null_stats_$(band).csv")
-        obs_path   = joinpath(res_base, "wpli_observed_$(band).csv")
-        pval_path  = joinpath(res_base, "wpli_pvalues_$(band).csv")
+        summ_path  = _first_existing(res_base, [
+            "json/surrogate_summary.json", "surrogate_summary.json"])
+        sig_path   = _first_existing(res_base, [
+            "tables/surrogate/significant_connections.csv",
+            "tables/connectivity/significant_connections.csv",
+            "significant_connections.csv"])
+        qc_path    = _first_existing(res_base, [
+            "tables/surrogate/surrogate_quality.csv",
+            "tables/connectivity/surrogate_quality.csv",
+            "surrogate_quality.csv"])
+        null_path  = _first_existing(res_base, [
+            "tables/surrogate/surrogate_null_stats_$(band).csv",
+            "tables/connectivity/surrogate_null_stats_$(band).csv",
+            "surrogate_null_stats_$(band).csv"])
+        obs_path   = _first_existing(res_base, [
+            "tables/surrogate/wpli_observed_$(band).csv",
+            "tables/connectivity/wpli_observed_$(band).csv",
+            "wpli_observed_$(band).csv"])
+        pval_path  = _first_existing(res_base, [
+            "tables/surrogate/wpli_pvalues_$(band).csv",
+            "tables/connectivity/wpli_pvalues_$(band).csv",
+            "wpli_pvalues_$(band).csv"])
         log_path   = joinpath(res_base, "pipeline_log.txt")
 
         surr_run = isfile(summ_path) || isfile(sig_path)
@@ -2295,9 +2327,10 @@ function launch_webapp(cfg::PipelineConfig;
         # ── Surrogate summary ────────────────────────────────────
         surrogates = Dict{String,Any}("n_sig_total" => 0, "best_band" => "",
                                        "has_surrogates" => false)
-        if fe("surrogate_summary.json")
+        summ_surr = _first_existing(base, ["json/surrogate_summary.json", "surrogate_summary.json"])
+        if isfile(summ_surr)
             try
-                txt = read(joinpath(base, "surrogate_summary.json"), String)
+                txt = read(summ_surr, String)
                 surrogates["has_surrogates"] = true
                 m = match(r"\"n_sig_total\"\s*:\s*([0-9]+)", txt)
                 m !== nothing && (surrogates["n_sig_total"] = parse(Int, m.captures[1]))
@@ -2317,9 +2350,13 @@ function launch_webapp(cfg::PipelineConfig;
 
         # ── Top significant connections ──────────────────────────
         top_connections = Dict{String,Any}[]
-        if fe("significant_connections.csv")
+        sig_surr = _first_existing(base, [
+            "tables/surrogate/significant_connections.csv",
+            "tables/connectivity/significant_connections.csv",
+            "significant_connections.csv"])
+        if isfile(sig_surr)
             try
-                df = CSV.read(joinpath(base, "significant_connections.csv"), DataFrame)
+                df = CSV.read(sig_surr, DataFrame)
                 sort!(df, :q_value)
                 for row in eachrow(df[1:min(10, nrow(df)), :])
                     push!(top_connections, Dict{String,Any}(
@@ -2355,7 +2392,8 @@ function launch_webapp(cfg::PipelineConfig;
             "8"  => fe("psd_by_channel.csv")     ? "completed" : "pending",
             "9"  => fe("wpli_ALPHA.csv") || fe("connectivity_summary.json") ?
                     "completed" : "pending",
-            "10" => fe("surrogate_summary.json") ? "completed" : "pending",
+            "10" => _any_existing(base, ["json/surrogate_summary.json", "surrogate_summary.json"]) ?
+                    "completed" : "pending",
         )
         n_done = count(v -> v == "completed", values(statuses))
         timing["phases_done"] = n_done
@@ -2424,17 +2462,30 @@ function launch_webapp(cfg::PipelineConfig;
             ("Espectral", ["psd_by_channel.csv","band_power_summary.csv"]),
             ("Conectividad wPLI", ["connectivity_summary.json","connectivity_edges.csv"]),
             ("Surrogates", [
-                "surrogate_summary.json","surrogate_quality.csv",
-                "significant_connections.csv"]),
+                "json/surrogate_summary.json",
+                "tables/surrogate/surrogate_quality.csv",
+                "tables/surrogate/significant_connections.csv"]),
             ("wPLI por banda", vcat([
-                ["wpli_$(b).csv","wpli_observed_$(b).csv","wpli_pvalues_$(b).csv",
-                 "wpli_qvalues_$(b).csv","wpli_significant_$(b).csv",
-                 "surrogate_null_stats_$(b).csv"]
+                ["tables/connectivity/wpli_$(b).csv",
+                 "tables/surrogate/wpli_observed_$(b).csv",
+                 "tables/surrogate/wpli_pvalues_$(b).csv",
+                 "tables/surrogate/wpli_qvalues_$(b).csv",
+                 "tables/surrogate/wpli_significant_$(b).csv",
+                 "tables/surrogate/surrogate_null_stats_$(b).csv"]
                 for b in BANDS]...)),
         ]
 
-        # Figures (from figures/ subdir)
-        fig_files = isdir(fig_dir) ? readdir(fig_dir) : String[]
+        # Figures (recursivo bajo figures/, p.ej. figures/surrogate/)
+        fig_files = String[]
+        if isdir(fig_dir)
+            for (root, _, files) in walkdir(fig_dir)
+                for f in files
+                    rel = relpath(joinpath(root, f), fig_dir)
+                    push!(fig_files, rel)
+                end
+            end
+            sort!(fig_files)
+        end
         push!(categories_def, ("Figuras", fig_files))
 
         result_cats = Dict{String,Any}[]
