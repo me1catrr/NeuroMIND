@@ -127,17 +127,22 @@ julia --project=. scripts/run_batch_pipeline.jl --condition EC --group MS --sess
 julia --project=. scripts/run_batch_pipeline.jl --subjects M11,M12 --skip-done --dry-run
 julia --project=. scripts/run_batch_pipeline.jl --skip-done --verbose   # tablas por sujeto (como single)
 
-# D. Análisis de grupo (post-hoc, tras el lote)
+# D. Análisis de grupo (post-hoc, tras el lote) — estadística + TODAS las
+# figuras (exploratorias + manuscrito EC + síntesis si procede) en una sola pasada
 julia --project=. scripts/run_transversal_analysis.jl
 julia --project=. scripts/run_longitudinal_analysis.jl
 
 # E. Visores de cohorte (post-análisis; mini-servidor local)
-julia --project=. src/transversal/plot_transversal.jl      # → http://127.0.0.1:8781/
-julia --project=. src/longitudinal/plot_longitudinal.jl    # → http://127.0.0.1:8780/
-julia --project=. scripts/regenerate_group_figures.jl EC   # regenerar PNG sin re-análisis
-julia --project=. scripts/regenerate_group_figures.jl both
+julia --project=. src/interactive/plot_transversal.jl      # → http://127.0.0.1:8781/
+julia --project=. src/interactive/plot_longitudinal.jl    # → http://127.0.0.1:8780/
 
-# F. Dashboard Genie (pipeline por sujeto + paneles 0–15)
+# F. Visores auxiliares de sujeto único (verificación puntual; mini-servidor local)
+julia --project=. src/interactive/aux/sub-M05_ses-T2_eyesclosed/plot_raw.jl              # → :8765
+julia --project=. src/interactive/aux/sub-M05_ses-T2_eyesclosed/plot_connectivity.jl     # → :8774
+julia --project=. src/interactive/aux/sub-M05_ses-T2_eyesclosed/plot_surrogate.jl        # → :8775
+# … 9 más, uno por aspecto del pipeline — tabla completa en el Anexo (§"Visores auxiliares")
+
+# G. Dashboard Genie (pipeline por sujeto + paneles 0–15)
 julia --project=. scripts/launch_dashboard.jl --port 8080
 ```
 
@@ -145,13 +150,14 @@ julia --project=. scripts/launch_dashboard.jl --port 8080
 
 ```
 audit_full_dataset → build_bids_full → run_single_subject (validación)
-                                     → run_batch_pipeline (dataset completo)
-                                            ↓
-                       run_transversal_analysis / run_longitudinal_analysis
-                                            ↓
-              plot_transversal.jl / plot_longitudinal.jl   (+ regenerate_group_figures.jl)
-                                            ↓
-                                     launch_dashboard
+                                            │            → run_batch_pipeline (dataset completo)
+                                            │                   ↓
+                                            │      run_transversal_analysis / run_longitudinal_analysis
+                                            │                   ↓
+                                            │  plot_transversal.jl / plot_longitudinal.jl  (src/interactive/)
+                                            ↓                   ↓
+                        src/interactive/aux/*.jl          launch_dashboard
+                        (verificación puntual, un sujeto)
 ```
 
 ### Estado de los scripts
@@ -162,11 +168,11 @@ audit_full_dataset → build_bids_full → run_single_subject (validación)
 | `build_bids_full.jl` | ✅ Activo | B — metadata BIDS | autónomo | `*_eeg_metadata.json`, `electrodes.tsv`, `dataset_description.json` |
 | `run_single_subject.jl` | ✅ Activo | pipeline individual | `SingleSubjectPipeline.jl` (8 pasos) | `results/subjects/sub-{ID}/ses-{SES}/{task}/` |
 | `run_batch_pipeline.jl` | ✅ Activo | C — lote | idem, en bucle sobre `inventory.csv` | misma ruta BIDS + `results/logs/batch_run_*.csv` |
-| `run_transversal_analysis.jl` | ✅ Activo | post-hoc grupal | autónomo + `GroupVizCommon` | `results/transversal/{EC\|EO}/` |
-| `run_longitudinal_analysis.jl` | ✅ Activo | post-hoc longitudinal | autónomo + `GroupVizCommon` | `results/longitudinal/{EC\|EO}/` |
-| `regenerate_group_figures.jl` | ✅ Activo | figuras de cohorte | `src/viz/GroupVizCommon.jl` | PNG en `figures/` (sin re-análisis) |
-| `plot_transversal.jl` | ✅ Activo | visor MS vs Ctrl | CLI + `group_viewer_common.js` | `http://127.0.0.1:8781/` |
-| `plot_longitudinal.jl` | ✅ Activo | visor T1→T2 | CLI + `group_viewer_common.js` | `http://127.0.0.1:8780/` |
+| `run_transversal_analysis.jl` | ✅ Activo | post-hoc grupal | lanzador fino → `src/transversal/Transversal.jl` | `results/transversal/{eyesclosed\|eyesopen}/{tables,figures}/` |
+| `run_longitudinal_analysis.jl` | ✅ Activo | post-hoc longitudinal | lanzador fino → `src/longitudinal/Longitudinal.jl` | `results/longitudinal/{eyesclosed\|eyesopen}/{tables,figures}/` + `results/summary/` |
+| `plot_transversal.jl` | ✅ Activo | visor MS vs Ctrl | CLI en `src/interactive/` + `viewer_support.jl`/`viewer_common.js` | `http://127.0.0.1:8781/` |
+| `plot_longitudinal.jl` | ✅ Activo | visor T1→T2 | CLI en `src/interactive/` + `viewer_support.jl`/`viewer_common.js` | `http://127.0.0.1:8780/` |
+| `src/interactive/aux/sub-M05_ses-T2_eyesclosed/*.jl` (×12) | ✅ Activo | verificación sujeto único | 12 CLIs independientes, sockets propios | `:8765`–`:8775` (tabla completa en el Anexo) |
 | `launch_dashboard.jl` | ✅ Activo | visualización | `webapp/App.jl` (Genie) | `http://localhost:8080` |
 
 **Opciones de `run_batch_pipeline.jl`** (combinables):
@@ -280,92 +286,172 @@ Diseño experimental (Fig. 3.1):
 | **Transversal** | EM vs Control | **solo T1** | 44 vs 40 | **EC y EO en paralelo** (mismo contraste, sin pooling) |
 | **Longitudinal** | **solo EM** | T1 → T2 | **30 pares** (pérdidas sin T2 no se analizan) | **EC y EO en paralelo** |
 
-Ambos scripts leen derivados bajo `results/subjects/` y escriben `results/{transversal|longitudinal}/{EC|EO}/`.
+Ambos scripts leen derivados bajo `results/subjects/` y escriben
+`results/{transversal|longitudinal}/{eyesclosed|eyesopen}/{tables,figures}/`
+— misma convención `eyesclosed`/`eyesopen` que `results/subjects/`. Cada
+lanzamiento hace **estadística + todas las figuras en una sola pasada**
+(exploratorias, todas las bandas y condiciones; forest/raincloud/matrices/
+red+potencia "de manuscrito", solo `eyesclosed`) — no existe un modo
+"solo figuras" separado.
 
 | Análisis | Salida | Ficheros clave |
 |----------|--------|----------------|
-| **Transversal** (EM T1 vs Control) | `results/transversal/{EC\|EO}/` | ver árbol abajo |
-| **Longitudinal** (EM T1 → T2) | `results/longitudinal/{EC\|EO}/` | ver árbol abajo |
+| **Transversal** (EM T1 vs Control) | `results/transversal/{eyesclosed\|eyesopen\|combined}/` | ver árbol abajo |
+| **Longitudinal** (EM T1 → T2) | `results/longitudinal/{eyesclosed\|eyesopen}/` | ver árbol abajo |
 
 El transversal requiere `data/bids/groups.csv` (filtra `session=T1`), cruza QC (`include` / `include_with_warning`), aplica **Mann–Whitney + FDR-BH** (Welch de referencia; Cohen d) y genera:
 
 ```
-results/transversal/{EC|EO}/
+results/transversal/{eyesclosed|eyesopen}/
 ├── transversal_summary.json
 ├── config_snapshot.toml
-├── subject_inclusion.csv            # QC, épocas, razón exclusión
-├── subject_band_means.csv
-├── band_statistics.csv
-├── global_mean_wpli_statistics.csv
-├── group_connectivity_{ms,control}_{BAND}.csv
-├── group_difference_{BAND}.csv
-├── group_statistics_{BAND}.csv      # p Mann–Whitney, p Welch, q, d, n
-├── significant_edges_{BAND}.csv
-├── top_edges_by_effect_{BAND}.csv
+├── statistics_contract.toml          # schema v2 + procedencia y métodos obligatorios
 ├── tables/
-│   ├── spectral/
-│   │   ├── band_power_group_statistics.csv
-│   │   └── significant_band_power_differences.csv
-│   └── network/
-│       ├── network_metrics_{ms,control,diff}_{BAND}.csv
-│       └── network_global_statistics.csv
+│   ├── subject_inclusion.csv            # QC, épocas, razón exclusión
+│   ├── subject_band_means.csv
+│   ├── band_statistics.csv               # familias/recuentos total, nominal, Top-20 y FDR
+│   ├── global_mean_wpli_statistics.csv   # cuantiles, r_rb, d pooled e IC95% persistidos
+│   ├── group_connectivity_{ms,control}_{BAND}.csv
+│   ├── group_difference_{BAND}.csv
+│   ├── group_statistics_{BAND}.csv      # p/q, r_rb, d pooled, rango |d| y flags nominal/FDR
+│   ├── significant_edges_{BAND}.csv
+│   ├── band_power_group_statistics.csv
+│   ├── significant_band_power_differences.csv
+│   ├── network_metrics_{ms,control,diff}_{BAND}.csv
+│   ├── network_global_statistics.csv
+│   └── figures_manifest.tsv             # procedencia de las figuras generadas en esta condición
 └── figures/
     ├── heatmap_{ms,control,diff}_{BAND}.png
     ├── heatmap_triplet_{BAND}.png           # Ctrl | MS | Δ (escala emparejada)
     ├── sig_network_{BAND}.png               # solo si hay edges FDR
     ├── explore_network_topN_{BAND}.png      # si n_sig=0: Top-20 |d| exploratorio
     ├── group_mean_wpli_by_band.png
-    └── topo_diff_bandpower_{BAND}.png
+    ├── raincloud_{BAND}.png                 # distribución individual wPLI, las 7 bandas
+    ├── power_effect_heatmap_channel_band.png  # Cohen d canal×banda (potencia), overlay FDR
+    ├── topo_diff_bandpower_{BAND}.png
+    └── transversal_{global_effects_by_band,alpha_individual_distribution,   # solo eyesclosed
+                     alpha_connectivity_matrices,alpha_network_and_power}.png
+
+results/transversal/combined/                # interacción grupo×condición EC×EO
+├── tables/
+│   ├── subject_ec_eo_paired.csv         # wPLI EC/EO por sujeto·banda (join de subject_band_means.csv)
+│   ├── interaction_ec_eo_by_band.csv    # diff-of-diff (EM:EC−EO) − (Ctrl:EC−EO), p/q/d/IC95%
+│   ├── subject_ec_eo_common_channels.csv          # sensibilidad: wPLI EC/EO restringido a
+│   │                                                 canales comunes por sujeto (no agregado por banda)
+│   ├── interaction_ec_eo_by_band_common_channels.csv  # misma interacción, montaje común
+│   └── figures_manifest.tsv
+└── figures/
+    ├── interaction_ec_eo_forest.png         # forest del diff-of-diff, FDR-BH entre 7 bandas
+    └── interaction_ec_eo_slopeplots.png     # trayectorias EC→EO por sujeto, small-multiples/banda
 ```
 
-Visor interactivo post-análisis (mini-servidor local; helpers en `src/viz/`):
+La interacción usa solo sujetos con datos válidos en **ambas** condiciones oculares (join
+por `subject_id`+`banda` entre `eyesclosed/tables/subject_band_means.csv` y su equivalente
+en `eyesopen/`); se genera una vez, después de procesar las dos condiciones. La sensibilidad
+de montaje común repite el mismo contraste recargando wPLI crudo y restringiendo cada sujeto
+a sus canales comunes EC∩EO individuales (mediana 30, rango 28–31 en el dataset actual) —
+descarta que la ausencia de interacción se deba a comparar montajes distintos entre
+condiciones. Sin figura propia (solo tablas); mismas columnas que `interaction_ec_eo_by_band.csv`.
+
+Visor interactivo post-análisis (mini-servidor local; helpers en `src/interactive/`):
 
 ```bash
-julia --project=. src/transversal/plot_transversal.jl      # → http://127.0.0.1:8781/
-julia --project=. src/transversal/plot_transversal.jl EO
+julia --project=. src/interactive/plot_transversal.jl      # → http://127.0.0.1:8781/
+julia --project=. src/interactive/plot_transversal.jl EO
 ```
 
-Lee todos los CSV/JSON de `results/transversal/{EC|EO}/`. Pestañas: Overview (KPI + banner FDR), comparación global (strip MS vs Control con media±SEM), heatmaps Control/MS/Δ (escala compartida + colorbar + overlay FDR), red FDR/top-|d|, volcano (d vs −log₁₀p), potencia Δ (anota si espectro usa más canales que wPLI) y hubs. Colormap divergente unificado (`Reverse(:RdBu)`: Δ>0 = rojo). Export PNG/CSV desde la UI.
+Lee los artefactos de producción de
+`results/transversal/{eyesclosed|eyesopen}/`. Julia es la única fuente
+estadística: el frontend dibuja y formatea las medias, cuantiles, `effect_rrb`,
+`effect_d_pooled`, p/q e IC95% bootstrap ya persistidos. Pestañas: Overview
+(KPI + familias/recuentos FDR), comparación global, heatmaps Control/MS/Δ
+(escala compartida + overlay FDR), red FDR/nominal/Top-|d|, volcano
+(d pooled vs −log₁₀p), potencia Δ con cobertura por canal y hubs. Colormap
+divergente unificado (`Reverse(:RdBu)`: Δ>0 = rojo). Export PNG/CSV desde la UI.
 
-El longitudinal usa `longitudinal_pairs.csv` (`include_longitudinal=true`, solo pares EM T1+T2), cruza QC, aplica **Wilcoxon signed-rank + FDR-BH** (Cohen dz; `p_parametric` de referencia) y genera:
+El contrato transversal es estricto y está versionado mediante
+`statistics_contract.toml` (`schema_version = 2`). Registra
+`statistics_source`, los ámbitos FDR de aristas, bandas globales y potencia,
+método/iteraciones/semilla bootstrap, convención de cuantiles y métodos de
+Mann–Whitney, `effect_rrb` y `effect_d_pooled`. Los CSV conservan precisión
+completa; el redondeo ocurre únicamente al representar. Si falta el contrato,
+un artefacto o un campo obligatorio, el visor no recalcula ni reconstruye:
+muestra «Resultados incompatibles con el visor actual» y solicita regenerar
+el análisis transversal.
+
+El longitudinal usa las banderas por condición de `longitudinal_pairs.csv`
+(`has_t1_ec && has_t2_ec` para EC; equivalente para EO), sin exigir que el mismo
+sujeto tenga también la otra condición. Cruza QC y aplica **Wilcoxon signed-rank
+exacto condicional + FDR-BH** (programación dinámica para N≤30; `r_rb` pareado
+como efecto principal y Cohen dz complementario). Captura
+`mean_strength` por sujeto/banda directamente en el mismo cálculo de
+`network_global_statistics.csv`, sin reconstrucción aparte:
 
 ```
-results/longitudinal/{EC|EO}/
+results/longitudinal/{eyesclosed|eyesopen}/
 ├── longitudinal_summary.json
 ├── config_snapshot.toml
-├── paired_subjects.csv              # QC T1/T2, épocas, razón exclusión
-├── subject_band_means.csv
-├── band_statistics_longitudinal.csv
-├── longitudinal_connectivity_{t1,t2}_{BAND}.csv
-├── longitudinal_difference_{BAND}.csv
-├── longitudinal_statistics_{BAND}.csv   # p Wilcoxon, q, dz, n
-├── significant_longitudinal_edges_{BAND}.csv
+├── statistics_contract.toml          # schema v2 + procedencia y métodos obligatorios
 ├── tables/
-│   ├── spectral/
-│   │   ├── band_power_delta_statistics.csv
-│   │   └── significant_band_power_changes.csv
-│   └── network/
-│       ├── network_metrics_{t1,t2,delta}_{BAND}.csv
-│       └── network_global_statistics.csv
+│   ├── paired_subjects.csv              # QC T1/T2, épocas, bandas disponibles y razón exclusión
+│   ├── subject_band_means.csv           # mean wPLI equivalente, mismo montaje común que estimando C
+│   ├── band_statistics_longitudinal.csv # n_edges, n_nominal, n_sig y tamaño familia FDR
+│   ├── longitudinal_connectivity_{t1,t2}_{BAND}.csv
+│   ├── longitudinal_difference_{BAND}.csv
+│   ├── longitudinal_statistics_{BAND}.csv   # p/q, effect_dz, rango |dz| y flags nominal/FDR
+│   ├── significant_longitudinal_edges_{BAND}.csv
+│   ├── band_power_delta_statistics.csv  # BH entre canales/banda + N/cobertura por canal
+│   ├── significant_band_power_changes.csv
+│   ├── network_metrics_{t1,t2,delta}_{BAND}.csv
+│   ├── network_global_statistics.csv    # effect_rrb/effect_dz, cuantiles e IC95% persistidos
+│   ├── mean_strength_scores.csv         # por sujeto×banda×T1/T2, estimando C
+│   └── figures_manifest.tsv             # solo eyesclosed — procedencia de las 3 figuras "de manuscrito"
 └── figures/
     ├── heatmap_{t1,t2,delta}_{BAND}.png
     ├── heatmap_triplet_{BAND}.png           # T1 | T2 | Δ (escala emparejada)
     ├── sig_network_{BAND}.png               # solo si hay edges FDR
     ├── explore_network_topN_{BAND}.png      # si n_sig=0: Top-20 |dz| exploratorio
-    ├── paired_mean_wpli_by_band.png
-    └── topo_delta_bandpower_{BAND}.png
+    ├── paired_mean_wpli_by_band.png          # montaje común; leyenda T1/T2
+    ├── topo_delta_bandpower_{BAND}.png       # marca FDR y N reducido
+    ├── power_effect_heatmap_channel_band.png # dz canal×banda; FDR + N reducido
+    └── longitudinal_{global_changes_by_band,alpha_delta_individual_changes,  # solo eyesclosed
+                       alpha_connectivity_matrices}.png
 ```
 
-Visor interactivo post-análisis (mini-servidor local; helpers en `src/viz/`):
+`results/summary/summary_transversal_longitudinal_effects.png` (+ `figures_manifest.tsv`)
+se genera desde el segundo de los dos análisis que se lance, comprobando si
+el otro ya tiene resultados en disco — no hace falta relanzar nada si el
+orden se invierte.
+
+Visor interactivo post-análisis (mini-servidor local; helpers en `src/interactive/`):
 
 ```bash
-julia --project=. src/longitudinal/plot_longitudinal.jl      # → http://127.0.0.1:8780/
-julia --project=. src/longitudinal/plot_longitudinal.jl EO
+julia --project=. src/interactive/plot_longitudinal.jl      # → http://127.0.0.1:8780/
+julia --project=. src/interactive/plot_longitudinal.jl EO
 ```
 
-Lee todos los CSV/JSON de `results/longitudinal/{EC|EO}/`. Pestañas: Overview (KPI honestos: `best_band` vacío si no hay FDR; barras con n FDR y n p&lt;0.05), cambio global (spaghetti T1→T2 con media±SEM), heatmaps T1/T2/Δ, red FDR/top-|dz|, volcano, potencia Δ y hubs. Misma convención de color que el transversal. Con N≈15 pares es esperable 0 edges FDR: el banner y el modo Top-|dz| son la capa exploratoria explícita.
+Lee todos los CSV/JSON de `results/longitudinal/{eyesclosed|eyesopen}/tables/`.
+Julia es la única fuente de estadísticos: el frontend solo dibuja y formatea los
+cuantiles, `r_rb`, dz, p/q e IC95% bootstrap ya escritos por producción. Las cuatro
+pestañas separan resumen, cambio T1→T2, conectividad y potencia/nodos. Mean wPLI se
+presenta como normalización exacta de mean strength
+(`mean_strength = (n_channels−1) × mean_wPLI`), no como evidencia independiente.
+La conectividad distingue explícitamente aristas evaluadas, nominales, FDR y Top-N;
+el volcano usa −log₁₀p con color FDR. En potencia, BH se aplica entre canales dentro
+de cada banda y la opacidad del topograma refleja la cobertura por canal.
 
-Prerrequisito: batch (o sujetos) con wPLI en disco. Fases 13/14 del dashboard leen los CSV/JSON de la raíz (`EC`/`EO`). Para regenerar solo PNG: `scripts/regenerate_group_figures.jl`.
+El contrato longitudinal es estricto y está versionado mediante
+`statistics_contract.toml` (`schema_version = 2`). Registra
+`statistics_source`, los tres ámbitos FDR, método/iteraciones/semilla bootstrap,
+convención de cuantiles y métodos de `effect_rrb`/`effect_dz`. Los CSV guardan
+precisión completa; el redondeo ocurre únicamente en pantalla. Los nombres
+canónicos son `effect_dz`, `effect_dz_ci_low/high`, `median_diff`,
+`q1_diff` y `q3_diff`. Hodges–Lehmann no forma parte del análisis vigente y no
+se sintetiza en el visor. Si falta el contrato o un campo/artefacto obligatorio,
+el visor no usa fallbacks: muestra «Resultados incompatibles con el visor actual»
+y solicita regenerar el análisis longitudinal.
+
+Prerrequisito: batch (o sujetos) con wPLI en disco. Fases 13/14 del dashboard leen los CSV/JSON de `tables/`. No hay PDF ni carpeta `results/publication/` — solo PNG, integradas en `figures/` junto a las exploratorias. Sincronización con el informe LaTeX (`Report_Pre/figures/plots/`) manual, ver AGENTS.md §9.
 
 ---
 
@@ -379,9 +465,10 @@ results/
 ├── subjects/                run_single_subject.jl · run_batch_pipeline.jl
 │   └── sub-{ID}/ses-{T1|T2}/{eyesclosed|eyesopen}/
 ├── transversal/             run_transversal_analysis.jl
-│   └── {EC|EO}/
+│   └── {eyesclosed|eyesopen|combined}/{tables,figures}/   # combined = interacción EC×EO
 ├── longitudinal/            run_longitudinal_analysis.jl
-│   └── {EC|EO}/
+│   └── {eyesclosed|eyesopen}/{tables,figures}/
+├── summary/                 síntesis transversal↔longitudinal (generada por el 2º análisis)
 ├── qc/qc_decision_table.csv
 ├── logs/batch_run_{timestamp}.csv
 └── subjects_index.csv
@@ -480,18 +567,20 @@ NeuroMIND/
 │   ├── spectral/               ← PowerSpectrum
 │   ├── connectivity/           ← wPLI, CSD, GraphMetrics
 │   ├── statistics/             ← Surrogates, FDR, GroupStats
-│   ├── visualization/          ← Topomaps, Heatmaps, Spectra (pipeline sujeto)
-│   ├── viz/                    ← GroupVizCommon + group_viewer_common.js (cohorte)
-│   ├── longitudinal/           ← plot_longitudinal.jl (visor T1→T2, :8780)
-│   ├── transversal/            ← plot_transversal.jl (visor MS vs Ctrl, :8781)
-│   ├── report/                 ← HTMLReport
+│   ├── visualization/          ← Topomaps, Heatmaps, Spectra, GraphPlots (pipeline sujeto)
+│   ├── longitudinal/           ← Longitudinal.jl (estadística + TODAS las figuras,
+│   │                              una pasada; visor en interactive/, ver abajo)
+│   ├── transversal/            ← Transversal.jl (idem)
+│   ├── interactive/            ← TODOS los visores HTTP interactivos: plot_{transversal,
+│   │                              longitudinal}.jl, viewer_support.jl, viewer_common.js,
+│   │                              aux/sub-M05_ses-T2_eyesclosed/ (12 visores sujeto único)
 │   └── webapp/                 ← App.jl (dashboard Genie)
-├── scripts/                    ← Lanzadores activos (ver §4) + regenerate_group_figures.jl
+├── scripts/                    ← Lanzadores activos (ver §4)
 ├── results/                    ← Generado por el pipeline (NO en git)
 ├── deprecated/                 ← Archivado (code/ en git, results/ ignorado)
 ├── mne_brain/                  ← Pipeline de validación MNE-Python
 ├── report/                     ← Informe científico LaTeX
-├── tests/ · test/              ← runtests.jl
+├── test/                       ← suite canónica Julia (runtests.jl)
 ├── config/pipeline.toml · Project.toml · Manifest.toml
 ├── README.md · AGENTS.md · CLAUDE.md
 └── NeuroMIND Claude Code/      ← Referencia de arquitectura (PDF)
@@ -536,7 +625,11 @@ git ls-files | grep -E '(^data/|^results/|^deprecated/results/|\.DS_Store$|^\.cl
 
 | Fecha | Cambios |
 |-------|---------|
-| **2026-07-25** | Fase C lote completo (201 OK / 5 SKIP / 0 ERR); transversal + longitudinal regenerados; `src/viz/GroupVizCommon.jl` + `group_viewer_common.js`; visores cohorte (tooltips con stats completas, escalas compartidas, volcano, banner FDR, RdBu unificado); `explore_network_topN` / `heatmap_triplet`; `regenerate_group_figures.jl` |
+| **2026-07-28 (cont.)** | Suite consolidada en la ubicación canónica `test/runtests.jl`: eliminado el wrapper y la carpeta plural `tests/`, `Test` declarado en `[extras]/[targets]` y `Printf` explicitado en `[deps]`, encabezado normalizado con inventario y finalidad de los 36 `@testset`; mismo archivo para ejecución directa y `Pkg.test()`. |
+| **2026-07-28** | Auditoría y endurecimiento longitudinal: selección T1–T2 independiente por condición (recupera M07 en EC), Wilcoxon exacto condicional para N≤30 con método trazable en CSV/JSON/snapshot, `subject_band_means` alineado con el montaje común del estimando C, `n_bands_ok` real también en excluidos QC, aliases explícitos `n_edges`/`mean_abs_dz`, leyenda T1/T2, marcado naranja de N reducido en potencia, nuevo heatmap canal×banda y leyendas de manuscrito multilínea. |
+| **2026-07-27 (cont.)** | `Transversal.jl`: 3 figuras nuevas por lanzamiento — raincloud de wPLI por sujeto generalizado a las 7 bandas (antes solo ALPHA-EC de manuscrito), heatmap canal×banda de Cohen d para potencia con overlay FDR (resume los 14 topomapas Δ-potencia), e interacción grupo×condición EC×EO (forest diff-of-diff + slope plots por sujeto) en `results/transversal/combined/`, calculada tras procesar ambas condiciones sobre los sujetos con datos válidos en EC y EO |
+| **2026-07-27** | Simplificación radical de la capa de cohorte (auditoría + rediseño, ver AGENTS.md §13 para el detalle completo). `src/transversal/Transversal.jl` y `src/longitudinal/Longitudinal.jl` — un único módulo por dominio con estadística+figuras juntas, generadas siempre en la misma pasada — sustituyen 8 archivos (`{Transversal,Longitudinal}{Figures,Manuscript}.jl` + `src/visualization/{GroupVizCommon,PublicationCommon,PublicationTheme,SummaryFigures}.jl`); `run_{transversal,longitudinal}_analysis.jl` quedan como lanzadores finos. `results/{transversal,longitudinal}/EC\|EO/` → `{eyesclosed,eyesopen}/{tables,figures}/` (alineado con `results/subjects/`). `results/publication/` eliminada — sin PDF, figuras de manuscrito en `figures/` junto a las exploratorias, síntesis en `results/summary/`. `reconstruct_longitudinal_C!` eliminada de raíz (mean_strength por sujeto capturado en la misma pasada de `network_global_statistics.csv`). Visores interactivos reubicados a `src/interactive/` (incl. `aux/`, ex `scripts/aux_viewers/`) con `viewer_support.jl` propio. Código muerto podado en `src/visualization/` (`ClinicalPlots.jl`, funciones sin uso) y huérfanos eliminados (`src/report/HTMLReport.jl`, `src/dashboard/`) |
+| **2026-07-25** | Fase C lote completo (201 OK / 5 SKIP / 0 ERR); transversal + longitudinal regenerados; `GroupVizCommon` + `group_viewer_common.js`; visores cohorte (tooltips con stats completas, escalas compartidas, volcano, banner FDR, RdBu unificado); `explore_network_topN` / `heatmap_triplet` |
 | **2026-07-21** | Configuración unificada en `config/pipeline.toml`; `run_pipeline.jl` archivado; `results/` reorganizado (subjects/transversal/longitudinal); archivo movido a `deprecated/`; montaje a 31 canales; wPLI clásico |
 | **2026-07-09** | Reprocesado del caso de referencia M05 con la configuración actual |
 | **2026-05-26** | wPLI multi-método (Hilbert / FourierCSD / Multitaper) |
@@ -1497,3 +1590,52 @@ pipeline_log.txt cerrado · resumen en consola
 
 **Próximos pasos sugeridos:** (1) unificar rutas de salida en `SingleSubjectPipeline.jl`; (2) reintegrar módulos de figuras extendidas; (3) alinear config repo con snapshot M05 o documentar TOML de verificación; (4) ejecutar batch completo con `[surrogates] enabled` evaluado conscientemente.
 
+### Visores auxiliares interactivos (verificación M05)
+
+Además del dashboard Genie (16 paneles, todo el pipeline) y los visores de cohorte
+(§7, `plot_transversal.jl`/`plot_longitudinal.jl`), existen **12 visores standalone**
+en `src/interactive/aux/sub-M05_ses-T2_eyesclosed/`, uno por aspecto del pipeline
+individual. Se diseñaron como herramientas de comprobación puntual durante la
+verificación de M05 tras la unificación de salida BIDS (2026-07-21) — inspeccionar
+una señal, una matriz o una figura sin tener que abrir el dashboard completo ni
+relanzar el pipeline.
+
+**Patrón común a los 12:** mismo estilo que los visores de cohorte — servidor HTTP
+mínimo sobre `Sockets` puro (sin `HTTP.jl` ni Genie), sirven una UI HTML/canvas
+autocontenida, botón "Guardar PNG" que exporta la figura con CairoMakie **en el mismo
+directorio del script**. Leen directamente los CSV/JSON de
+`results/subjects/sub-M05/ses-T2/eyesclosed/` (ruta resuelta contra la raíz del
+proyecto, no relativa a `results/`). **Están hardcodeados a este sujeto/sesión/tarea**
+(`SUBJECT`/`SESSION`/`TASK`); para otro sujeto habría que copiar la carpeta y editar
+esas constantes en cada script — no son parametrizables desde CLI.
+
+| Script | Puerto | Qué muestra | Entrada principal |
+|--------|--------|-------------|--------------------|
+| `plot_raw.jl` | `:8765` | Señal cruda: selector de canales, ventana temporal, escala; exporta PNG | `tables/raw_signal.csv` |
+| `plot_raw_butterfly.jl` | `:8766` | Vista multicanal apilada (offset vertical, montaje completo) | `tables/raw_signal.csv` |
+| `plot_spectral.jl` | `:8767`* | Análisis espectral, 4 modos: potencia absoluta, PSD, potencia relativa, ASD | `psd_by_channel.csv`, `band_power_summary.csv`, `spectral_indices.csv`, `regional_psd.csv` |
+| `plot_spectral_PSD.jl` | `:8767`* | PSD de un canal vs PSD promedio + potencia por banda e índices espectrales | igual que el anterior |
+| `plot_raw_histogram.jl` | `:8768` | Histograma de amplitud por canal (rejilla) + modo combinado con μ±2σ/3σ | `tables/raw_signal.csv` |
+| `plot_filtered_vs_raw.jl` | `:8769` | Superpone señal cruda y cada etapa de filtrado (notch → bandreject → HP → LP) | `raw_signal.csv` + `filtered_signal_{etapa}.csv` |
+| `plot_ica_components.jl` | `:8770` | Panel de revisión ICA: componente activo (topo/PSD/features) vs comparados vs decisión | `tables/ica/*.csv`, `json/ica_summary.json`, `figures/ica/ica_topomap_*.png` |
+| `plot_ica_before_after.jl` | `:8771` | Señal filtrada pre-ICA vs señal limpia post-ICA, por canal (10 s) | `tables/ica/ica_signal_{before,after}.csv` |
+| `plot_epochs.jl` | `:8772` | Regenera figuras de segmentación: histograma de calidad, overlay de épocas válidas, época rechazada apilada (reconstruye señal post-ICA desde caché) | `segments_table.csv`, `rejected_segments.csv`, `cache/ica_result.jls` |
+| `plot_baseline.jl` | `:8773` | Compara un canal/época antes/después de `apply_baseline` (por defecto C4, época de mayor \|offset\|) | `cache/ica_result.jls`, `segments_table.csv`, `config_snapshot.toml` |
+| `plot_connectivity.jl` | `:8774` | wPLI v2: threshold/Top-N, heatmap, grafo 10-20, hubs (strength/degree/clustering/betweenness) | `tables/connectivity/wpli_{BANDA}.csv`, `connectivity_edges.csv`, `network_metrics.csv` |
+| `plot_surrogate.jl` | `:8775` | Surrogates/inferencia: heatmaps p/q/z/sig, contraste obs. vs nula, grafo FDR, volcano | `tables/surrogate/*`, `json/surrogate_summary.json`, `cache/surrogate/null_distribution_*.jls` |
+
+\* `plot_spectral.jl` y `plot_spectral_PSD.jl` comparten el puerto 8767 — no lanzarlos a la vez.
+
+```bash
+julia --project=. src/interactive/aux/sub-M05_ses-T2_eyesclosed/plot_connectivity.jl
+# → http://127.0.0.1:8774/  (Ctrl+C para detener)
+```
+
+> **Por qué viven fuera de `results/`.** Nacieron dentro de
+> `results/subjects/sub-M05/ses-T2/eyesclosed/figures/aux/` (gitignored) y se
+> versionaron el 2026-07-25 (inicialmente en `scripts/aux_viewers/`, movidos a
+> `src/interactive/aux/` el 2026-07-27 junto con el resto de visores interactivos —
+> no son lanzadores, son código de una funcionalidad completa) para no perderlos si
+> se regenera esa carpeta (p. ej. con el "clean-slate por unidad hoja" propuesto en
+> `docs/TDD_ejecucion_rutinas.md`). Los PNG/CSV que generan al pulsar "Guardar" no
+> se versionan (`.gitignore` local en esa carpeta) — solo el código.
