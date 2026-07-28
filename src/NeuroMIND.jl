@@ -124,31 +124,29 @@ export compare_groups_stats
 # ═══════════════════════════════════════════════════════════════
 
 # ─── Longitudinal ──────────────────────────────────────────────
-#  Análisis T1→T2: scripts/run_longitudinal_analysis.jl
-#  Visor interactivo: src/longitudinal/plot_longitudinal.jl (CLI :8780)
-#  Helpers figuras: src/viz/GroupVizCommon.jl + group_viewer_common.js
-#  Regenerar PNG: scripts/regenerate_group_figures.jl
+#  Lanzador: scripts/run_longitudinal_analysis.jl
+#  Estadística + TODAS las figuras (una sola pasada): src/longitudinal/Longitudinal.jl
+#  Visor interactivo: src/interactive/plot_longitudinal.jl (CLI :8780)
 
 # ─── Transversal ───────────────────────────────────────────────
-#  Análisis MS vs Control: scripts/run_transversal_analysis.jl
-#  Visor interactivo: src/transversal/plot_transversal.jl (CLI :8781)
+#  Lanzador: scripts/run_transversal_analysis.jl
+#  Estadística + TODAS las figuras (una sola pasada): src/transversal/Transversal.jl
+#  Visor interactivo: src/interactive/plot_transversal.jl (CLI :8781)
+
+# ─── Visores interactivos (cohorte + sujeto único) ─────────────
+#  Todos en src/interactive/: plot_transversal.jl, plot_longitudinal.jl,
+#  viewer_support.jl (IO/JSON compartido), viewer_common.js,
+#  aux/sub-M05_ses-T2_eyesclosed/ (12 visores standalone de sujeto único)
 
 # ─── Visualización ─────────────────────────────────────────────
-#  Figuras PNG/SVG (topomapas, heatmaps, espectros, grafos).
+#  Figuras PNG del pipeline por sujeto (topomapas, heatmaps, espectros).
 include("visualization/Topomaps.jl")
 include("visualization/Heatmaps.jl")
 include("visualization/Spectra.jl")
 include("visualization/GraphPlots.jl")
-include("visualization/ClinicalPlots.jl")
-export plot_topomap, plot_connectivity_heatmap, plot_spectrum
-export plot_spectrum_grid, plot_group_comparison
-export plot_graph_metrics, plot_clinical_correlation, plot_surrogate_distribution
+export plot_topomap, plot_connectivity_heatmap
+export plot_spectrum_grid
 export save_figure
-
-# ─── Informes HTML ─────────────────────────────────────────────
-#  Reportes por sujeto, grupo y longitudinal.
-include("report/HTMLReport.jl")
-export generate_report, generate_group_report, generate_longitudinal_report
 
 
 # ═══════════════════════════════════════════════════════════════

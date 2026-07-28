@@ -2538,9 +2538,10 @@ function launch_webapp(cfg::PipelineConfig;
         cond     = _normalize_cond(cond_raw)
         band     = uppercase(string(get(getpayload(), :band, "ALPHA")))
 
-        # El script guarda en .../group/transversal/EC/ o /EO/
+        # El script guarda en .../transversal/eyesclosed/ o /eyesopen/
         cond_short = cond == "eyesclosed" ? "EC" : (cond == "eyesopen" ? "EO" : uppercase(cond_raw))
-        grp_dir    = joinpath(res_root, "transversal", cond_short)
+        grp_dir    = joinpath(res_root, "transversal", cond)
+        tab_dir    = joinpath(grp_dir, "tables")
 
         # Función auxiliar de existencia en grp_dir
         gfe(f) = isfile(joinpath(grp_dir, f))
@@ -2561,6 +2562,34 @@ function launch_webapp(cfg::PipelineConfig;
         )
 
         gfe("transversal_summary.json") || return json(empty_resp)
+        contract_path = joinpath(grp_dir, "statistics_contract.toml")
+        contract_ok = false
+        contract_error = ""
+        try
+            contract = TOML.parsefile(contract_path)
+            required = [
+                "schema_version", "statistics_source",
+                "fdr_scope_edges", "fdr_scope_global", "fdr_scope_power",
+                "bootstrap_method", "bootstrap_iterations", "bootstrap_seed",
+                "quantile_method", "rrb_method", "effect_d_pooled_method",
+                "mannwhitney_method",
+            ]
+            missing_fields = filter(k -> !haskey(contract, k), required)
+            isempty(missing_fields) ||
+                error("faltan campos: $(join(missing_fields, ", "))")
+            Int(contract["schema_version"]) == 2 ||
+                error("schema_version=$(contract["schema_version"]); se requiere 2")
+            contract_ok = true
+        catch e
+            contract_error = "Resultados incompatibles con el visor actual. " *
+                             "Regenere el análisis transversal. " * sprint(showerror, e)
+        end
+        if !contract_ok
+            empty_resp["ok"] = false
+            empty_resp["incompatible"] = true
+            empty_resp["error"] = contract_error
+            return json(empty_resp)
+        end
 
         # ── Parse transversal_summary.json ────────────────────
         summ = Dict{String,Any}(
@@ -2588,7 +2617,7 @@ function launch_webapp(cfg::PipelineConfig;
 
         # ── Función para leer matriz n×n ──────────────────────
         function read_matrix_csv(fname)
-            p = joinpath(grp_dir, fname)
+            p = joinpath(tab_dir, fname)
             isfile(p) || return Dict("channels"=>String[],"values"=>Vector{Vector{Float64}}())
             try
                 df  = CSV.read(p, DataFrame)
@@ -2608,7 +2637,7 @@ function launch_webapp(cfg::PipelineConfig;
         # ── Significant edges ─────────────────────────────────
         sig_edges = Dict{String,Any}[]
         try
-            p = joinpath(grp_dir, "significant_edges_$(band).csv")
+            p = joinpath(tab_dir, "significant_edges_$(band).csv")
             if isfile(p)
                 df = CSV.read(p, DataFrame)
                 for row in eachrow(df)
@@ -2620,17 +2649,17 @@ function launch_webapp(cfg::PipelineConfig;
                         "diff"     => Float64(row.diff),
                         "p_value"  => Float64(row.p_value),
                         "q_value"  => Float64(row.q_value),
-                        "effect_d" => Float64(row.effect_d),
+                        "effect_d_pooled" => Float64(row.effect_d_pooled),
                     ))
                 end
-                sort!(sig_edges, by=r->abs(r["effect_d"]), rev=true)
+                sort!(sig_edges, by=r->abs(r["effect_d_pooled"]), rev=true)
             end
         catch e; @warn "significant_edges parse error: $e"; end
 
         # ── Band statistics ───────────────────────────────────
         band_stats = Dict{String,Any}[]
         try
-            p = joinpath(grp_dir, "band_statistics.csv")
+            p = joinpath(tab_dir, "band_statistics.csv")
             if isfile(p)
                 df = CSV.read(p, DataFrame)
                 for row in eachrow(df)
@@ -2644,7 +2673,7 @@ function launch_webapp(cfg::PipelineConfig;
                         "ms_mean"    => Float64(row.ms_mean),
                         "diff_mean"  => Float64(row.diff_mean),
                         "mean_p"     => Float64(row.mean_p),
-                        "mean_d"     => Float64(row.mean_d),
+                        "mean_abs_d_pooled" => Float64(row.mean_abs_d_pooled),
                     ))
                 end
             end
@@ -2653,7 +2682,7 @@ function launch_webapp(cfg::PipelineConfig;
         # ── Per-subject band means (for distribution) ─────────
         subject_means = Dict{String,Any}[]
         try
-            p = joinpath(grp_dir, "subject_band_means.csv")
+            p = joinpath(tab_dir, "subject_band_means.csv")
             if isfile(p)
                 df = CSV.read(p, DataFrame)
                 for row in eachrow(df)
@@ -2670,7 +2699,7 @@ function launch_webapp(cfg::PipelineConfig;
         # ── Subject inclusion ─────────────────────────────────
         inclusion = Dict{String,Any}[]
         try
-            p = joinpath(grp_dir, "subject_inclusion.csv")
+            p = joinpath(tab_dir, "subject_inclusion.csv")
             if isfile(p)
                 df = CSV.read(p, DataFrame)
                 for row in eachrow(df)
@@ -2708,7 +2737,8 @@ function launch_webapp(cfg::PipelineConfig;
         cond     = _normalize_cond(cond_raw)
         band     = uppercase(string(get(getpayload(), :band, "ALPHA")))
         cond_short = cond == "eyesclosed" ? "EC" : (cond == "eyesopen" ? "EO" : uppercase(cond_raw))
-        grp_dir    = joinpath(res_root, "longitudinal", cond_short)
+        grp_dir    = joinpath(res_root, "longitudinal", cond)
+        tab_dir    = joinpath(grp_dir, "tables")
 
         gfe(f) = isfile(joinpath(grp_dir, f))
 
@@ -2728,6 +2758,33 @@ function launch_webapp(cfg::PipelineConfig;
         )
 
         gfe("longitudinal_summary.json") || return json(empty_resp)
+        contract_path = joinpath(grp_dir, "statistics_contract.toml")
+        contract_ok = false
+        contract_error = ""
+        try
+            contract = TOML.parsefile(contract_path)
+            required = [
+                "schema_version", "statistics_source",
+                "fdr_scope_edges", "fdr_scope_global", "fdr_scope_power",
+                "bootstrap_method", "bootstrap_iterations", "bootstrap_seed",
+                "quantile_method", "rrb_method", "effect_dz_method",
+            ]
+            missing_fields = filter(k -> !haskey(contract, k), required)
+            isempty(missing_fields) ||
+                error("faltan campos: $(join(missing_fields, ", "))")
+            Int(contract["schema_version"]) == 2 ||
+                error("schema_version=$(contract["schema_version"]); se requiere 2")
+            contract_ok = true
+        catch e
+            contract_error = "Resultados incompatibles con el visor actual. " *
+                             "Regenere el análisis longitudinal. " * sprint(showerror, e)
+        end
+        if !contract_ok
+            empty_resp["ok"] = false
+            empty_resp["incompatible"] = true
+            empty_resp["error"] = contract_error
+            return json(empty_resp)
+        end
 
         summ = Dict{String,Any}(
             "n_paired"=>0,"n_t1"=>0,"n_t2"=>0,"n_loss"=>0,
@@ -2749,7 +2806,7 @@ function launch_webapp(cfg::PipelineConfig;
         catch e; @warn "longitudinal_summary.json parse error: $e"; end
 
         function read_matrix_csv(fname)
-            p = joinpath(grp_dir, fname)
+            p = joinpath(tab_dir, fname)
             isfile(p) || return Dict("channels"=>String[],"values"=>Vector{Vector{Float64}}())
             try
                 df  = CSV.read(p, DataFrame)
@@ -2765,7 +2822,7 @@ function launch_webapp(cfg::PipelineConfig;
 
         sig_edges = Dict{String,Any}[]
         try
-            p = joinpath(grp_dir, "significant_longitudinal_edges_$(band).csv")
+            p = joinpath(tab_dir, "significant_longitudinal_edges_$(band).csv")
             if isfile(p)
                 df = CSV.read(p, DataFrame)
                 for row in eachrow(df)
@@ -2777,16 +2834,16 @@ function launch_webapp(cfg::PipelineConfig;
                         "diff"    => Float64(row.diff),
                         "p_value" => Float64(row.p_value),
                         "q_value" => Float64(row.q_value),
-                        "effect_d"=> Float64(row.effect_d),
+                        "effect_dz"=> Float64(row.effect_dz),
                     ))
                 end
-                sort!(sig_edges, by=r->abs(r["effect_d"]), rev=true)
+                sort!(sig_edges, by=r->abs(r["effect_dz"]), rev=true)
             end
         catch e; @warn "sig longitudinal edges: $e"; end
 
         band_stats = Dict{String,Any}[]
         try
-            p = joinpath(grp_dir, "band_statistics_longitudinal.csv")
+            p = joinpath(tab_dir, "band_statistics_longitudinal.csv")
             if isfile(p)
                 df = CSV.read(p, DataFrame)
                 for row in eachrow(df)
@@ -2800,7 +2857,7 @@ function launch_webapp(cfg::PipelineConfig;
                         "t2_mean"   => Float64(row.t2_mean),
                         "diff_mean" => Float64(row.diff_mean),
                         "mean_p"    => Float64(row.mean_p),
-                        "mean_d"    => Float64(row.mean_d),
+                        "mean_abs_dz"=> Float64(row.mean_abs_dz),
                     ))
                 end
             end
@@ -2808,7 +2865,7 @@ function launch_webapp(cfg::PipelineConfig;
 
         subject_means = Dict{String,Any}[]
         try
-            p = joinpath(grp_dir, "subject_band_means.csv")
+            p = joinpath(tab_dir, "subject_band_means.csv")
             if isfile(p)
                 df = CSV.read(p, DataFrame)
                 for row in eachrow(df)
@@ -2824,7 +2881,7 @@ function launch_webapp(cfg::PipelineConfig;
 
         paired_subjects = Dict{String,Any}[]
         try
-            p = joinpath(grp_dir, "paired_subjects.csv")
+            p = joinpath(tab_dir, "paired_subjects.csv")
             if isfile(p)
                 df = CSV.read(p, DataFrame)
                 for row in eachrow(df)

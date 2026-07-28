@@ -1,0 +1,4 @@
+# Solo se versiona el código (*.jl). Las figuras/CSV que generan estos
+# visores al pulsar "Guardar" son salidas reproducibles, no fuente.
+*.png
+*.csv
