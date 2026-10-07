@@ -74,5 +74,16 @@ Thumbs.db
 **/*apikey*
 **/*api_key*
 
-# --- graphify (grafo de conocimiento local; se regenera con /graphify .) ---
-graphify-out/
+# --- graphify (grafo versionado para compartirlo entre ordenadores) ---
+# Se versionan graph.json, GRAPH_REPORT.md, graph.html, manifest y cache/
+# (la caché semántica evita repetir la extracción con LLM en el otro equipo).
+# Solo se ignora lo que depende de la máquina o de una ejecución concreta:
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/.graphify_detect.json
+graphify-out/.graphify_ast.json
+graphify-out/.graphify_uncached.txt
+graphify-out/.graphify_cached.json
+graphify-out/.graphify_chunk_*.json
+graphify-out/.graphify_semantic*.json
+graphify-out/.graphify_extract*.json
