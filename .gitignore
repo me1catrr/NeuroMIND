@@ -87,3 +87,5 @@ graphify-out/.graphify_cached.json
 graphify-out/.graphify_chunk_*.json
 graphify-out/.graphify_semantic*.json
 graphify-out/.graphify_extract*.json
+# Copias de seguridad automáticas que graphify hace antes de reescribir el grafo
+graphify-out/20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
