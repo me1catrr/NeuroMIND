@@ -3,7 +3,7 @@
 > **Single source of truth for AI agents.**
 > Read automatically by Claude Code, Cursor, OpenAI Codex CLI, and any other AI assistant
 > on project open. **Keep this file up to date — it is the authoritative project context.**
-> Last updated: 2026-07-28.
+> Last updated: 2026-10-07.
 >
 > **README.md is the authoritative source for the pipeline, config/pipeline.toml,
 > outputs and results structure.** This file keeps agent-specific rules (Git, dashboard,
@@ -312,11 +312,22 @@ julia --project=. scripts/launch_dashboard.jl
 
 # MNE-Python validation
 cd mne_brain && python3 scripts/run_phase3_m05.py && python3 scripts/run_phase4_m05.py --apply-suggestions
+
+# Knowledge graph (graphify 0.9.79, versionado en graphify-out/) — consultar ANTES de leer código
+graphify query "<pregunta>"          # subgrafo acotado (BFS)
+graphify explain "GroupStats.jl"     # nodo + vecinos
+graphify path "A" "B"                # camino más corto entre dos conceptos
+graphify update .                    # re-extrae código (AST, sin LLM); el hook post-commit ya lo hace
+open graphify-out/graph.html         # grafo interactivo
+# Setup por equipo (una vez): pipx install graphifyy==0.9.79 (o uv tool install),
+# aplicar graphify-out/patches/graphify_julia_returntype.patch (comando en su cabecera)
+# y `graphify hook install`. Limitación conocida: no resuelve llamadas a funciones
+# exportadas vía `using NeuroMIND` (p. ej. desde test/) — "sin aristas" ≠ código muerto.
 ```
 
 ---
 
-## 10. Project status (2026-07-28)
+## 10. Project status (2026-10-07)
 
 ### Dataset: MINDEM-IMIBIC
 - **41 MS patients** (M4–M44) + **37 controls** (MC1–MC40) = 78 subjects
@@ -351,12 +362,18 @@ cd mne_brain && python3 scripts/run_phase3_m05.py && python3 scripts/run_phase4_
 - [x] PSD normalization fixed: `Pseg ./= (n_samp * fs)`
 
 ### Active branches
-- Work locally; merge policy: never commit directly to `main` — use `feat/<name>`
+- Merge policy: never commit directly to `main` — use `feat/<name>`
+- `feat/graphify-setup` → PR me1catrr/NeuroMIND#5 (21 commits: trabajo de julio + graphify)
+- `feat/ci` → PR me1catrr/NeuroMIND#6, apilado sobre #5 (fusionar #5 primero)
 
 ### Pending
-- [ ] Push/merge outstanding feature branches to main
+- [ ] Review/merge PR #5 and then PR #6 into main
 - [ ] Integration tests for full pipeline
-- [ ] GitHub Actions CI (syntax check + tests)
+- [ ] GitHub Actions CI: workflow added in PR #6 (`.github/workflows/ci.yml`); confirm first green run
+- [ ] Decide GroupStats.jl/FDR.jl: production (Transversal/Longitudinal) does not call them —
+      only test/runtests.jl does (confirmed 2026-10-07 with graphify + grep)
+- [ ] Report_Pre/figures/plots/ out of sync with results/ since 2026-07-27 (manual sync)
+- [ ] Report graphify Julia return-type bug upstream (local patch in graphify-out/patches/)
 - [ ] Optional: channel-intersection policy for group analyses (currently hard intersect; viewers annotate N channels)
 
 ---
@@ -394,6 +411,23 @@ StatsBase, TOML
 ---
 
 ## 13. Changelog summary
+
+### 2026-10-07 — graphify versionado, parche Julia y CI
+
+- `graphify-out/` versionado (grafo 1471 nodos / 3015 aristas / 64 comunidades,
+  etiquetas en español) para compartirlo entre los dos equipos; se ignoran solo
+  los archivos dependientes de máquina/ejecución y las copias fechadas.
+  `.gitattributes` registra el merge driver de `graph.json`; hooks git
+  post-commit/post-checkout reconstruyen el AST en segundo plano.
+- graphify 0.9.79 ignoraba las funciones Julia con tipo de retorno
+  (`function f(x)::T`, 253/762 funciones, p. ej. todo `Epochs.jl` y `FDR.jl`):
+  parche local en `graphify-out/patches/` (aplicar en cada equipo).
+- `CLAUDE.md` con sección graphify + hook PreToolUse (`.claude/settings.json`,
+  ruta `$HOME/.local/bin/graphify`, portable entre equipos);
+  `.cursor/rules/graphify.mdc` para Cursor.
+- CI con GitHub Actions (PR #6): chequeo de datos versionados, syntax check y
+  `test/runtests.jl` con Julia 1.12. Suite local: 449/449 pass.
+- Plan de continuación (Report_Pre + revisión de resultados): `docs/PLAN_continuacion_2026-10.md`.
 
 ### 2026-07-28 (cont.) — Visor transversal con estadística única de producción
 
