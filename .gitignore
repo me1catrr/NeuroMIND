@@ -73,3 +73,6 @@ Thumbs.db
 **/*token*
 **/*apikey*
 **/*api_key*
+
+# --- graphify (grafo de conocimiento local; se regenera con /graphify .) ---
+graphify-out/
