@@ -39,6 +39,19 @@ function launch_webapp(cfg::PipelineConfig;
         get(d, cond, lowercase(cond))
     end
 
+    """Primera ruta existente entre candidatos relativos a `base`."""
+    function _first_existing(base::String, rels::AbstractVector{<:AbstractString})::String
+        for r in rels
+            p = joinpath(base, r)
+            isfile(p) && return p
+        end
+        return joinpath(base, first(rels))
+    end
+
+    function _any_existing(base::String, rels::AbstractVector{<:AbstractString})::Bool
+        any(r -> isfile(joinpath(base, r)), rels)
+    end
+
     function _serve_csv(path::String)
         if isfile(path)
             try
@@ -633,7 +646,7 @@ function launch_webapp(cfg::PipelineConfig;
 
         # Inferir estado de cada fase a partir de archivos existentes
         statuses = Dict{String,String}(
-            "0"  => isfile(joinpath(project_root, "config", "single_subject.toml")) ?
+            "0"  => isfile(joinpath(project_root, "config", "pipeline.toml")) ?
                     "completed" : "pending",
             "1"  => fe("overview.csv") ? "completed" : "pending",
             "2"  => fe("overview.csv") ? "completed" : "pending",
@@ -645,8 +658,11 @@ function launch_webapp(cfg::PipelineConfig;
             "7"  => fe("pipeline_log.txt") ? "completed" : "pending",
             "8"  => fe("psd_by_channel.csv") ? "completed" : "pending",
             "9"  => fe("wpli_ALPHA.csv") ? "completed" : "pending",
-            "10" => fe("surrogate_summary.json") ? "completed" :
-                    fe("significant_connections.csv") ? "completed" : "pending",
+            "10" => (_any_existing(base, ["json/surrogate_summary.json", "surrogate_summary.json"]) ||
+                     _any_existing(base, ["tables/surrogate/significant_connections.csv",
+                                          "tables/connectivity/significant_connections.csv",
+                                          "significant_connections.csv"])) ?
+                    "completed" : "pending",
             "11" => fe("band_power_summary.csv") ? "completed" : "pending",
             "12" => "pending",
         )
@@ -1969,12 +1985,28 @@ function launch_webapp(cfg::PipelineConfig;
         band = string(get(getpayload(), :band, "ALPHA"))
 
         res_base   = joinpath(bids_root, "sub-$(subj)", "ses-$(sess)", cond)
-        summ_path  = joinpath(res_base, "surrogate_summary.json")
-        sig_path   = joinpath(res_base, "significant_connections.csv")
-        qc_path    = joinpath(res_base, "surrogate_quality.csv")
-        null_path  = joinpath(res_base, "surrogate_null_stats_$(band).csv")
-        obs_path   = joinpath(res_base, "wpli_observed_$(band).csv")
-        pval_path  = joinpath(res_base, "wpli_pvalues_$(band).csv")
+        summ_path  = _first_existing(res_base, [
+            "json/surrogate_summary.json", "surrogate_summary.json"])
+        sig_path   = _first_existing(res_base, [
+            "tables/surrogate/significant_connections.csv",
+            "tables/connectivity/significant_connections.csv",
+            "significant_connections.csv"])
+        qc_path    = _first_existing(res_base, [
+            "tables/surrogate/surrogate_quality.csv",
+            "tables/connectivity/surrogate_quality.csv",
+            "surrogate_quality.csv"])
+        null_path  = _first_existing(res_base, [
+            "tables/surrogate/surrogate_null_stats_$(band).csv",
+            "tables/connectivity/surrogate_null_stats_$(band).csv",
+            "surrogate_null_stats_$(band).csv"])
+        obs_path   = _first_existing(res_base, [
+            "tables/surrogate/wpli_observed_$(band).csv",
+            "tables/connectivity/wpli_observed_$(band).csv",
+            "wpli_observed_$(band).csv"])
+        pval_path  = _first_existing(res_base, [
+            "tables/surrogate/wpli_pvalues_$(band).csv",
+            "tables/connectivity/wpli_pvalues_$(band).csv",
+            "wpli_pvalues_$(band).csv"])
         log_path   = joinpath(res_base, "pipeline_log.txt")
 
         surr_run = isfile(summ_path) || isfile(sig_path)
@@ -2187,84 +2219,6 @@ function launch_webapp(cfg::PipelineConfig;
         ))
     end
 
-    # ─── Legacy API (mantener compatibilidad) ─────────────────
-
-    route("/api/subjects") do
-        dirs = isdir(res_root) ?
-               filter(d -> isdir(joinpath(res_root, d)) &&
-                            d ∉ ["group", "subjects"],
-                      readdir(res_root)) : String[]
-        json(Dict("subjects" => dirs))
-    end
-
-    route("/api/sessions/:subj") do
-        subj_dir = joinpath(res_root, params(:subj))
-        sess = isdir(subj_dir) ?
-               filter(d -> isdir(joinpath(subj_dir, d)), readdir(subj_dir)) :
-               String[]
-        json(Dict("sessions" => sess))
-    end
-
-    route("/api/figures/:subj/:sess/:cond") do
-        fig_dir = joinpath(res_root, params(:subj), params(:sess), "figures")
-        cond    = params(:cond)
-        figs    = isdir(fig_dir) ?
-                  filter(f -> endswith(f, ".png") &&
-                              (cond == "ALL" || isempty(cond) || occursin(cond, f)),
-                         readdir(fig_dir)) : String[]
-        json(Dict("figures" => figs))
-    end
-
-    route("/api/image") do
-        rel      = string(get(getpayload(), :path, ""))
-        abs_path = joinpath(res_root, rel)
-        if isfile(abs_path) && endswith(abs_path, ".png")
-            json(Dict("data" => base64encode(read(abs_path)), "ok" => true))
-        else
-            json(Dict("ok" => false, "error" => "No encontrado: $rel"))
-        end
-    end
-
-    route("/api/table") do
-        rel      = string(get(getpayload(), :path, ""))
-        abs_path = joinpath(res_root, rel)
-        if isfile(abs_path) && endswith(abs_path, ".csv")
-            df   = CSV.read(abs_path, DataFrame)
-            rows = [Dict(zip(names(df), collect(r))) for r in eachrow(df)]
-            json(Dict("ok" => true, "columns" => names(df), "rows" => rows))
-        else
-            json(Dict("ok" => false, "rows" => [], "columns" => []))
-        end
-    end
-
-    route("/api/export/:subj/:sess") do
-        subj  = params(:subj)
-        sess  = params(:sess)
-        base  = joinpath(res_root, subj, sess)
-        files = Dict{String,Vector{String}}(
-            "tables"  => String[],
-            "figures" => String[],
-            "logs"    => String[],
-        )
-        for (key, subdir) in [("tables","tables"), ("figures","figures"), ("logs","logs")]
-            d = joinpath(base, subdir)
-            isdir(d) && (files[key] = readdir(d))
-        end
-        json(files)
-    end
-
-    route("/api/report/:subj/:sess/:cond") do
-        subj     = params(:subj)
-        sess     = params(:sess)
-        cond     = params(:cond)
-        rep_path = joinpath(res_root, subj, sess, "reports", "report_$(cond).html")
-        if isfile(rep_path)
-            json(Dict("ok" => true, "html" => read(rep_path, String)))
-        else
-            json(Dict("ok" => false, "html" => ""))
-        end
-    end
-
     # ─── API: Fase 11 — Resultados Finales ──────────────────────
     route("/api/phase11_summary") do
         subj = string(get(getpayload(), :subj, "M05"))
@@ -2373,9 +2327,10 @@ function launch_webapp(cfg::PipelineConfig;
         # ── Surrogate summary ────────────────────────────────────
         surrogates = Dict{String,Any}("n_sig_total" => 0, "best_band" => "",
                                        "has_surrogates" => false)
-        if fe("surrogate_summary.json")
+        summ_surr = _first_existing(base, ["json/surrogate_summary.json", "surrogate_summary.json"])
+        if isfile(summ_surr)
             try
-                txt = read(joinpath(base, "surrogate_summary.json"), String)
+                txt = read(summ_surr, String)
                 surrogates["has_surrogates"] = true
                 m = match(r"\"n_sig_total\"\s*:\s*([0-9]+)", txt)
                 m !== nothing && (surrogates["n_sig_total"] = parse(Int, m.captures[1]))
@@ -2395,9 +2350,13 @@ function launch_webapp(cfg::PipelineConfig;
 
         # ── Top significant connections ──────────────────────────
         top_connections = Dict{String,Any}[]
-        if fe("significant_connections.csv")
+        sig_surr = _first_existing(base, [
+            "tables/surrogate/significant_connections.csv",
+            "tables/connectivity/significant_connections.csv",
+            "significant_connections.csv"])
+        if isfile(sig_surr)
             try
-                df = CSV.read(joinpath(base, "significant_connections.csv"), DataFrame)
+                df = CSV.read(sig_surr, DataFrame)
                 sort!(df, :q_value)
                 for row in eachrow(df[1:min(10, nrow(df)), :])
                     push!(top_connections, Dict{String,Any}(
@@ -2433,7 +2392,8 @@ function launch_webapp(cfg::PipelineConfig;
             "8"  => fe("psd_by_channel.csv")     ? "completed" : "pending",
             "9"  => fe("wpli_ALPHA.csv") || fe("connectivity_summary.json") ?
                     "completed" : "pending",
-            "10" => fe("surrogate_summary.json") ? "completed" : "pending",
+            "10" => _any_existing(base, ["json/surrogate_summary.json", "surrogate_summary.json"]) ?
+                    "completed" : "pending",
         )
         n_done = count(v -> v == "completed", values(statuses))
         timing["phases_done"] = n_done
@@ -2502,17 +2462,30 @@ function launch_webapp(cfg::PipelineConfig;
             ("Espectral", ["psd_by_channel.csv","band_power_summary.csv"]),
             ("Conectividad wPLI", ["connectivity_summary.json","connectivity_edges.csv"]),
             ("Surrogates", [
-                "surrogate_summary.json","surrogate_quality.csv",
-                "significant_connections.csv"]),
+                "json/surrogate_summary.json",
+                "tables/surrogate/surrogate_quality.csv",
+                "tables/surrogate/significant_connections.csv"]),
             ("wPLI por banda", vcat([
-                ["wpli_$(b).csv","wpli_observed_$(b).csv","wpli_pvalues_$(b).csv",
-                 "wpli_qvalues_$(b).csv","wpli_significant_$(b).csv",
-                 "surrogate_null_stats_$(b).csv"]
+                ["tables/connectivity/wpli_$(b).csv",
+                 "tables/surrogate/wpli_observed_$(b).csv",
+                 "tables/surrogate/wpli_pvalues_$(b).csv",
+                 "tables/surrogate/wpli_qvalues_$(b).csv",
+                 "tables/surrogate/wpli_significant_$(b).csv",
+                 "tables/surrogate/surrogate_null_stats_$(b).csv"]
                 for b in BANDS]...)),
         ]
 
-        # Figures (from figures/ subdir)
-        fig_files = isdir(fig_dir) ? readdir(fig_dir) : String[]
+        # Figures (recursivo bajo figures/, p.ej. figures/surrogate/)
+        fig_files = String[]
+        if isdir(fig_dir)
+            for (root, _, files) in walkdir(fig_dir)
+                for f in files
+                    rel = relpath(joinpath(root, f), fig_dir)
+                    push!(fig_files, rel)
+                end
+            end
+            sort!(fig_files)
+        end
         push!(categories_def, ("Figuras", fig_files))
 
         result_cats = Dict{String,Any}[]
@@ -2565,9 +2538,10 @@ function launch_webapp(cfg::PipelineConfig;
         cond     = _normalize_cond(cond_raw)
         band     = uppercase(string(get(getpayload(), :band, "ALPHA")))
 
-        # El script guarda en .../group/transversal/EC/ o /EO/
+        # El script guarda en .../transversal/eyesclosed/ o /eyesopen/
         cond_short = cond == "eyesclosed" ? "EC" : (cond == "eyesopen" ? "EO" : uppercase(cond_raw))
-        grp_dir    = joinpath(res_root, "group", "transversal", cond_short)
+        grp_dir    = joinpath(res_root, "transversal", cond)
+        tab_dir    = joinpath(grp_dir, "tables")
 
         # Función auxiliar de existencia en grp_dir
         gfe(f) = isfile(joinpath(grp_dir, f))
@@ -2588,6 +2562,34 @@ function launch_webapp(cfg::PipelineConfig;
         )
 
         gfe("transversal_summary.json") || return json(empty_resp)
+        contract_path = joinpath(grp_dir, "statistics_contract.toml")
+        contract_ok = false
+        contract_error = ""
+        try
+            contract = TOML.parsefile(contract_path)
+            required = [
+                "schema_version", "statistics_source",
+                "fdr_scope_edges", "fdr_scope_global", "fdr_scope_power",
+                "bootstrap_method", "bootstrap_iterations", "bootstrap_seed",
+                "quantile_method", "rrb_method", "effect_d_pooled_method",
+                "mannwhitney_method",
+            ]
+            missing_fields = filter(k -> !haskey(contract, k), required)
+            isempty(missing_fields) ||
+                error("faltan campos: $(join(missing_fields, ", "))")
+            Int(contract["schema_version"]) == 2 ||
+                error("schema_version=$(contract["schema_version"]); se requiere 2")
+            contract_ok = true
+        catch e
+            contract_error = "Resultados incompatibles con el visor actual. " *
+                             "Regenere el análisis transversal. " * sprint(showerror, e)
+        end
+        if !contract_ok
+            empty_resp["ok"] = false
+            empty_resp["incompatible"] = true
+            empty_resp["error"] = contract_error
+            return json(empty_resp)
+        end
 
         # ── Parse transversal_summary.json ────────────────────
         summ = Dict{String,Any}(
@@ -2615,7 +2617,7 @@ function launch_webapp(cfg::PipelineConfig;
 
         # ── Función para leer matriz n×n ──────────────────────
         function read_matrix_csv(fname)
-            p = joinpath(grp_dir, fname)
+            p = joinpath(tab_dir, fname)
             isfile(p) || return Dict("channels"=>String[],"values"=>Vector{Vector{Float64}}())
             try
                 df  = CSV.read(p, DataFrame)
@@ -2635,7 +2637,7 @@ function launch_webapp(cfg::PipelineConfig;
         # ── Significant edges ─────────────────────────────────
         sig_edges = Dict{String,Any}[]
         try
-            p = joinpath(grp_dir, "significant_edges_$(band).csv")
+            p = joinpath(tab_dir, "significant_edges_$(band).csv")
             if isfile(p)
                 df = CSV.read(p, DataFrame)
                 for row in eachrow(df)
@@ -2647,17 +2649,17 @@ function launch_webapp(cfg::PipelineConfig;
                         "diff"     => Float64(row.diff),
                         "p_value"  => Float64(row.p_value),
                         "q_value"  => Float64(row.q_value),
-                        "effect_d" => Float64(row.effect_d),
+                        "effect_d_pooled" => Float64(row.effect_d_pooled),
                     ))
                 end
-                sort!(sig_edges, by=r->abs(r["effect_d"]), rev=true)
+                sort!(sig_edges, by=r->abs(r["effect_d_pooled"]), rev=true)
             end
         catch e; @warn "significant_edges parse error: $e"; end
 
         # ── Band statistics ───────────────────────────────────
         band_stats = Dict{String,Any}[]
         try
-            p = joinpath(grp_dir, "band_statistics.csv")
+            p = joinpath(tab_dir, "band_statistics.csv")
             if isfile(p)
                 df = CSV.read(p, DataFrame)
                 for row in eachrow(df)
@@ -2671,7 +2673,7 @@ function launch_webapp(cfg::PipelineConfig;
                         "ms_mean"    => Float64(row.ms_mean),
                         "diff_mean"  => Float64(row.diff_mean),
                         "mean_p"     => Float64(row.mean_p),
-                        "mean_d"     => Float64(row.mean_d),
+                        "mean_abs_d_pooled" => Float64(row.mean_abs_d_pooled),
                     ))
                 end
             end
@@ -2680,7 +2682,7 @@ function launch_webapp(cfg::PipelineConfig;
         # ── Per-subject band means (for distribution) ─────────
         subject_means = Dict{String,Any}[]
         try
-            p = joinpath(grp_dir, "subject_band_means.csv")
+            p = joinpath(tab_dir, "subject_band_means.csv")
             if isfile(p)
                 df = CSV.read(p, DataFrame)
                 for row in eachrow(df)
@@ -2697,7 +2699,7 @@ function launch_webapp(cfg::PipelineConfig;
         # ── Subject inclusion ─────────────────────────────────
         inclusion = Dict{String,Any}[]
         try
-            p = joinpath(grp_dir, "subject_inclusion.csv")
+            p = joinpath(tab_dir, "subject_inclusion.csv")
             if isfile(p)
                 df = CSV.read(p, DataFrame)
                 for row in eachrow(df)
@@ -2735,7 +2737,8 @@ function launch_webapp(cfg::PipelineConfig;
         cond     = _normalize_cond(cond_raw)
         band     = uppercase(string(get(getpayload(), :band, "ALPHA")))
         cond_short = cond == "eyesclosed" ? "EC" : (cond == "eyesopen" ? "EO" : uppercase(cond_raw))
-        grp_dir    = joinpath(res_root, "group", "longitudinal", cond_short)
+        grp_dir    = joinpath(res_root, "longitudinal", cond)
+        tab_dir    = joinpath(grp_dir, "tables")
 
         gfe(f) = isfile(joinpath(grp_dir, f))
 
@@ -2755,6 +2758,33 @@ function launch_webapp(cfg::PipelineConfig;
         )
 
         gfe("longitudinal_summary.json") || return json(empty_resp)
+        contract_path = joinpath(grp_dir, "statistics_contract.toml")
+        contract_ok = false
+        contract_error = ""
+        try
+            contract = TOML.parsefile(contract_path)
+            required = [
+                "schema_version", "statistics_source",
+                "fdr_scope_edges", "fdr_scope_global", "fdr_scope_power",
+                "bootstrap_method", "bootstrap_iterations", "bootstrap_seed",
+                "quantile_method", "rrb_method", "effect_dz_method",
+            ]
+            missing_fields = filter(k -> !haskey(contract, k), required)
+            isempty(missing_fields) ||
+                error("faltan campos: $(join(missing_fields, ", "))")
+            Int(contract["schema_version"]) == 2 ||
+                error("schema_version=$(contract["schema_version"]); se requiere 2")
+            contract_ok = true
+        catch e
+            contract_error = "Resultados incompatibles con el visor actual. " *
+                             "Regenere el análisis longitudinal. " * sprint(showerror, e)
+        end
+        if !contract_ok
+            empty_resp["ok"] = false
+            empty_resp["incompatible"] = true
+            empty_resp["error"] = contract_error
+            return json(empty_resp)
+        end
 
         summ = Dict{String,Any}(
             "n_paired"=>0,"n_t1"=>0,"n_t2"=>0,"n_loss"=>0,
@@ -2776,7 +2806,7 @@ function launch_webapp(cfg::PipelineConfig;
         catch e; @warn "longitudinal_summary.json parse error: $e"; end
 
         function read_matrix_csv(fname)
-            p = joinpath(grp_dir, fname)
+            p = joinpath(tab_dir, fname)
             isfile(p) || return Dict("channels"=>String[],"values"=>Vector{Vector{Float64}}())
             try
                 df  = CSV.read(p, DataFrame)
@@ -2792,7 +2822,7 @@ function launch_webapp(cfg::PipelineConfig;
 
         sig_edges = Dict{String,Any}[]
         try
-            p = joinpath(grp_dir, "significant_longitudinal_edges_$(band).csv")
+            p = joinpath(tab_dir, "significant_longitudinal_edges_$(band).csv")
             if isfile(p)
                 df = CSV.read(p, DataFrame)
                 for row in eachrow(df)
@@ -2804,16 +2834,16 @@ function launch_webapp(cfg::PipelineConfig;
                         "diff"    => Float64(row.diff),
                         "p_value" => Float64(row.p_value),
                         "q_value" => Float64(row.q_value),
-                        "effect_d"=> Float64(row.effect_d),
+                        "effect_dz"=> Float64(row.effect_dz),
                     ))
                 end
-                sort!(sig_edges, by=r->abs(r["effect_d"]), rev=true)
+                sort!(sig_edges, by=r->abs(r["effect_dz"]), rev=true)
             end
         catch e; @warn "sig longitudinal edges: $e"; end
 
         band_stats = Dict{String,Any}[]
         try
-            p = joinpath(grp_dir, "band_statistics_longitudinal.csv")
+            p = joinpath(tab_dir, "band_statistics_longitudinal.csv")
             if isfile(p)
                 df = CSV.read(p, DataFrame)
                 for row in eachrow(df)
@@ -2827,7 +2857,7 @@ function launch_webapp(cfg::PipelineConfig;
                         "t2_mean"   => Float64(row.t2_mean),
                         "diff_mean" => Float64(row.diff_mean),
                         "mean_p"    => Float64(row.mean_p),
-                        "mean_d"    => Float64(row.mean_d),
+                        "mean_abs_dz"=> Float64(row.mean_abs_dz),
                     ))
                 end
             end
@@ -2835,7 +2865,7 @@ function launch_webapp(cfg::PipelineConfig;
 
         subject_means = Dict{String,Any}[]
         try
-            p = joinpath(grp_dir, "subject_band_means.csv")
+            p = joinpath(tab_dir, "subject_band_means.csv")
             if isfile(p)
                 df = CSV.read(p, DataFrame)
                 for row in eachrow(df)
@@ -2851,7 +2881,7 @@ function launch_webapp(cfg::PipelineConfig;
 
         paired_subjects = Dict{String,Any}[]
         try
-            p = joinpath(grp_dir, "paired_subjects.csv")
+            p = joinpath(tab_dir, "paired_subjects.csv")
             if isfile(p)
                 df = CSV.read(p, DataFrame)
                 for row in eachrow(df)

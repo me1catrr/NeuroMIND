@@ -30,6 +30,8 @@ function load_config(path::String)::PipelineConfig
         get(raw, "longitudinal",       Dict()),
         get(raw, "statistics",         Dict()),
         get(raw, "export",             Dict()),
+        get(raw, "qc",                 Dict()),
+        get(raw, "montage",            Dict()),
         root,
     )
 end
@@ -78,7 +80,10 @@ bids_root_dir(cfg::PipelineConfig)  = joinpath(cfg.root, cfg.paths["bids_root"])
 web_public_dir(cfg::PipelineConfig) = joinpath(cfg.root, get(cfg.paths, "web_public", "web/public"))
 
 function subject_results_dir(cfg::PipelineConfig, subject_id::String, session_id::String)
-    joinpath(results_dir(cfg), subject_id, session_id)
+    # Árbol ÚNICO: BIDS. Antes devolvía results/{ID}/{SES} (árbol heredado,
+    # eliminado el 2026-07-21). Ahora apunta al nivel sub-/ses- de BIDS para
+    # que ningún consumidor pueda recrear el árbol paralelo.
+    joinpath(results_dir(cfg), "subjects", "sub-$(subject_id)", "ses-$(session_id)")
 end
 
 function ensure_dirs(cfg::PipelineConfig, subject_id::String, session_id::String)
@@ -87,7 +92,10 @@ function ensure_dirs(cfg::PipelineConfig, subject_id::String, session_id::String
         mkpath(joinpath(base, sub))
     end
     # Directorios compartidos de grupo
-    mkpath(joinpath(results_dir(cfg), "group", "figures"))
-    mkpath(joinpath(results_dir(cfg), "group", "tables"))
+    # Nivel grupo: transversal/ y longitudinal/ son hermanos de subjects/
+    for grp in ("transversal", "longitudinal")
+        mkpath(joinpath(results_dir(cfg), grp, "figures"))
+        mkpath(joinpath(results_dir(cfg), grp, "tables"))
+    end
     base
 end

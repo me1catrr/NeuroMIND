@@ -14,7 +14,7 @@
 # Si la clave no existe se asume "default".
 
 """
-    filter_recording(rec, cfg) -> EEGRecording
+    filter_recording(rec, cfg; on_step=nothing) -> EEGRecording
 
 Aplica la cadena completa de filtrado según `cfg.filtering["profile"]`.
 
@@ -29,8 +29,14 @@ Perfil `"default"` (legacy):
   2. Low-pass   (filtfilt)
   3. Notch      (filtfilt, si notch_hz > 0)
   4. Bandreject (filtfilt, si bandreject_lo > 0 && hi > lo)
+
+Si `on_step` es una función `(key::String, step_rec::EEGRecording) -> Any`,
+se invoca **después de cada filtro aplicado** con la clave de archivo
+(`"notch"`, `"bandreject"`, `"highpass"`, `"lowpass"`) y la señal
+acumulada hasta ese paso. No altera el resultado final.
 """
-function filter_recording(rec::EEGRecording, cfg::PipelineConfig)::EEGRecording
+function filter_recording(rec::EEGRecording, cfg::PipelineConfig;
+                          on_step::Union{Nothing,Function}=nothing)::EEGRecording
     f       = cfg.filtering
     data    = copy(rec.data)
     fs      = rec.meta.fs
@@ -43,23 +49,44 @@ function filter_recording(rec::EEGRecording, cfg::PipelineConfig)::EEGRecording
     lo      = Float64(get(f, "bandreject_lo",  0.0))
     hi      = Float64(get(f, "bandreject_hi",  0.0))
 
+    # Emite la señal acumulada tras un paso (misma matriz que sigue la cadena).
+    _emit = function (key::String)
+        on_step === nothing && return
+        on_step(key, EEGRecording(rec.meta, data, rec.times))
+    end
+
     if profile == "eeg_julia"
         # ── Reproducibilidad EEG_Julia ─────────────────────────
         # Paso 1 — Notch causal (filt, order 4, bw 1 Hz)
-        nz > 0.0 && (data = _filt(data, fs, :notch;    freq=nz, bw=nbw,       order=ord, method=:filt))
+        if nz > 0.0
+            data = _filt(data, fs, :notch; freq=nz, bw=nbw, order=ord, method=:filt)
+            _emit("notch")
+        end
         # Paso 2 — Bandreject causal (filt, order 4, 99.5–100.5 Hz)
-        lo > 0.0 && hi > lo && (data = _filt(data, fs, :bandstop; freq=(lo,hi), order=ord, method=:filt))
+        if lo > 0.0 && hi > lo
+            data = _filt(data, fs, :bandstop; freq=(lo, hi), order=ord, method=:filt)
+            _emit("bandreject")
+        end
         # Paso 3 — Highpass zero-phase (filtfilt, order 4)
         data = _filt(data, fs, :highpass; freq=hp, order=ord, method=:filtfilt)
+        _emit("highpass")
         # Paso 4 — Lowpass zero-phase (filtfilt, order 4)
-        data = _filt(data, fs, :lowpass;  freq=lp, order=ord, method=:filtfilt)
+        data = _filt(data, fs, :lowpass; freq=lp, order=ord, method=:filtfilt)
+        _emit("lowpass")
     else
         # ── Protocolo BrainVision / legacy ─────────────────────
-        data = _filt(data, fs, :highpass; freq=hp,  order=ord)
-        data = _filt(data, fs, :lowpass;  freq=lp,  order=ord)
-        nz > 0.0 && (data = _filt(data, fs, :notch; freq=nz, bw=nbw))
-        lo > 0.0 && hi > lo &&
-            (data = _filt(data, fs, :bandstop; freq=(lo, hi), order=ord))
+        data = _filt(data, fs, :highpass; freq=hp, order=ord)
+        _emit("highpass")
+        data = _filt(data, fs, :lowpass; freq=lp, order=ord)
+        _emit("lowpass")
+        if nz > 0.0
+            data = _filt(data, fs, :notch; freq=nz, bw=nbw)
+            _emit("notch")
+        end
+        if lo > 0.0 && hi > lo
+            data = _filt(data, fs, :bandstop; freq=(lo, hi), order=ord)
+            _emit("bandreject")
+        end
     end
 
     return EEGRecording(rec.meta, data, rec.times)

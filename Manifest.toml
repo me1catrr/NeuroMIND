@@ -2,7 +2,7 @@
 
 julia_version = "1.12.3"
 manifest_format = "2.0"
-project_hash = "8dbb139fa71ee0a5675043e4602566183a2356a7"
+project_hash = "834654b3734a56f0a218ecd6c38e980deed7d6c9"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1108,7 +1108,7 @@ uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
 version = "1.3.0"
 
 [[deps.NeuroMIND]]
-deps = ["Base64", "CSV", "CairoMakie", "DSP", "DataFrames", "Dates", "FFTW", "Genie", "LinearAlgebra", "Random", "Serialization", "Statistics", "StatsBase", "TOML"]
+deps = ["Base64", "CSV", "CairoMakie", "DSP", "DataFrames", "Dates", "FFTW", "Genie", "LinearAlgebra", "Printf", "Random", "Serialization", "Statistics", "StatsBase", "TOML"]
 path = "."
 uuid = "b1c3e5d8-9f2a-4a7b-8c4e-1d2f3a4b5c6d"
 version = "0.2.0"

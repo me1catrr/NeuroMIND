@@ -1,20 +1,35 @@
-#!/usr/bin/env julia
-# NeuroMIND — scripts/audit_full_dataset.jl
+# ═══════════════════════════════════════════════════════════════
+#  NeuroMIND — Auditoría del dataset MINDEM-IMIBIC
+# ═══════════════════════════════════════════════════════════════
 #
-# FASE A: Auditoría completa del dataset MINDEM-IMIBIC.
-# Escanea todos los .vhdr de la carpeta de datos brutos, normaliza los
-# nombres de condición (>15 variantes ortográficas), detecta pares T1/T2,
-# y genera los archivos de metadatos necesarios para el pipeline.
+#  Fase A — Escanea los .vhdr brutos, normaliza condiciones
+#  (>15 variantes ortográficas), detecta pares T1/T2 y genera
+#  los metadatos necesarios para el pipeline.
 #
-# Uso:
-#   julia --project=. scripts/audit_full_dataset.jl
-#   julia --project=. scripts/audit_full_dataset.jl --data path/to/raw
+# ───────────────────────────────────────────────────────────────
+#  Fichero    scripts/audit_full_dataset.jl
+#  Autor      Rafael Castro Triguero <me1catrr@uco.es>
+#  Modificado 22-07-2026
+# ───────────────────────────────────────────────────────────────
 #
-# Salida (todos en data/full_data/ y data/bids/):
-#   data/full_data/inventory.csv          — inventario completo
-#   data/bids/participants.tsv            — BIDS participants
-#   data/bids/groups.csv                  — etiquetas grupo para análisis transversal
-#   data/bids/longitudinal_pairs.csv      — pares T1/T2 para análisis longitudinal
+#  Invocación: julia --project=. scripts/<este-script>.jl …
+#  Sin shebang: #!/usr/bin/env julia no activaría --project=.
+#
+#  Uso
+#  ───
+#    julia --project=. scripts/audit_full_dataset.jl
+#    julia --project=. scripts/audit_full_dataset.jl --data ruta/raw
+#
+#  Opciones
+#  ────────
+#    --data  PATH   carpeta de .vhdr brutos (defecto interno del script)
+#
+#  Salida
+#  ──────
+#    data/full_data/inventory.csv
+#    data/bids/participants.tsv
+#    data/bids/groups.csv
+#    data/bids/longitudinal_pairs.csv
 
 using Dates
 

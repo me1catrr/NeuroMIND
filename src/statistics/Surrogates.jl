@@ -16,7 +16,7 @@
 #   Theiler et al. (1992) Physica D — surrogates en series temporales
 
 """
-    surrogate_test(epochs, conn, band, cfg) -> SurrogateResult
+    surrogate_test(epochs, conn, band, cfg; on_progress=nothing) -> SurrogateResult
 
 Prueba de significancia wPLI mediante surrogates de desplazamiento circular.
 
@@ -24,12 +24,16 @@ Genera `n_surrogates` permutaciones y construye la distribución nula del wPLI.
 La máscara de significancia se obtiene aplicando FDR-BH al triángulo superior.
 
 p-valor: (#{W_null >= W_obs} + 1) / (n_sur + 1)  — nunca puede ser 0.
+
+`on_progress` (opcional): callback `(k::Int, n_sur::Int) -> Nothing` llamado
+tras cada permutación (para barras de progreso en terminal).
 """
 function surrogate_test(
     epochs::EpochSet,
     conn::ConnectivityMatrix,
     band::String,
-    cfg::PipelineConfig
+    cfg::PipelineConfig;
+    on_progress = nothing,
 )::SurrogateResult
 
     sur_cfg   = cfg.surrogates
@@ -65,6 +69,9 @@ function surrogate_test(
         W_null[:, :, k] = _compute_band_matrix(
             estimator, data_sur, fs, f1, f2, n_ch, n_samp, n_seg
         )
+        if on_progress !== nothing
+            on_progress(k, n_sur)
+        end
     end
 
     # ─── p-valores con corrección Monte Carlo ───────────────────

@@ -1,0 +1,35 @@
+# graphify 0.9.79: el extractor Julia ignora funciones con tipo de retorno
+# (function f(x)::T, f(x)::T = ..., ... where {T}). Aplicar con:
+#   patch -p1 -N -d "$($(cat graphify-out/.graphify_python) -c 'import graphify,os;print(os.path.dirname(os.path.dirname(graphify.__file__)))')" < graphify-out/patches/graphify_julia_returntype.patch
+--- a/graphify/extractors/julia.py	2026-10-07 17:37:49
++++ b/graphify/extractors/julia.py	2026-10-07 17:37:49
+@@ -103,11 +103,19 @@
+             return None, None
+         name_node = next((c for c in type_head.children if c.type == "identifier"), None)
+         return (_read_text(name_node, source) if name_node else None), None
++
++    def _unwrap_call(node):
++        """Peel `f(x)::T` (typed_expression) and `f(x) where {T}` (where_expression)
++        wrappers down to the underlying call_expression, if any."""
++        while node is not None and node.type in ("typed_expression", "where_expression") and node.children:
++            node = node.children[0]
++        return node
+ 
+     def _func_name_from_signature(sig_node) -> str | None:
+         """Extract function name from a Julia signature node (call_expression > identifier)."""
+         for child in sig_node.children:
+-            if child.type == "call_expression":
++            child = _unwrap_call(child)
++            if child is not None and child.type == "call_expression":
+                 callee = child.children[0] if child.children else None
+                 if callee and callee.type == "identifier":
+                     return _read_text(callee, source)
+@@ -292,7 +300,7 @@
+ 
+         # Short function: foo(x) = expr
+         if t == "assignment":
+-            lhs = node.children[0] if node.children else None
++            lhs = _unwrap_call(node.children[0]) if node.children else None
+             if lhs and lhs.type == "call_expression" and lhs.children:
+                 callee = lhs.children[0]
+                 if callee.type == "identifier":

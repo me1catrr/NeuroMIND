@@ -1,0 +1,18 @@
+# =========================
+# NeuroMIND — exclusiones de graphify
+# =========================
+# graphify ya respeta .gitignore (data/, results/, …). Aquí solo se añade lo
+# que sí está en disco pero encarece el grafo sin aportar estructura de código.
+
+# Informe y cuaderno (repositorios/documentos aparte; ~170 imágenes)
+Report_Pre/
+Cuaderno/
+
+# Código archivado
+deprecated/
+
+# SPA del dashboard (~58 000 palabras; se clasifica como documento)
+web/views/dashboard.html
+
+# Fotografías sueltas (montaje de electrodos, etc.)
+*.jpg

@@ -1,17 +1,37 @@
-#!/usr/bin/env julia
-# NeuroMIND — scripts/build_bids_full.jl
+# ═══════════════════════════════════════════════════════════════
+#  NeuroMIND — Construcción BIDS ligera (dataset completo)
+# ═══════════════════════════════════════════════════════════════
 #
-# FASE B: Construcción de estructura BIDS ligera para el dataset completo.
-# Lee el inventario generado por audit_full_dataset.jl y crea:
-#   - Metadata JSON por grabación (apunta al .vhdr original, sin copiar datos)
-#   - Electrodes TSV por sujeto/sesión (copia del template 10-20 de 31 canales)
-#   - dataset_description.json
+#  Fase B — Lee el inventario de audit_full_dataset.jl y crea:
+#    · metadata JSON por grabación (apunta al .vhdr; no copia datos)
+#    · electrodes TSV por sujeto/sesión (plantilla 10-20, 31 ch)
+#    · dataset_description.json
 #
-# Uso:
-#   julia --project=. scripts/build_bids_full.jl
-#   julia --project=. scripts/build_bids_full.jl --inventory /path/to/inventory.csv
+# ───────────────────────────────────────────────────────────────
+#  Fichero    scripts/build_bids_full.jl
+#  Autor      Rafael Castro Triguero <me1catrr@uco.es>
+#  Modificado 22-07-2026
+# ───────────────────────────────────────────────────────────────
 #
-# Requiere haber ejecutado audit_full_dataset.jl previamente.
+#  Invocación: julia --project=. scripts/<este-script>.jl …
+#  Sin shebang: #!/usr/bin/env julia no activaría --project=.
+#
+#  Prerrequisito
+#  ─────────────
+#    data/full_data/inventory.csv
+#
+#  Uso
+#  ───
+#    julia --project=. scripts/build_bids_full.jl
+#    julia --project=. scripts/build_bids_full.jl --inventory ruta.csv
+#
+#  Opciones
+#  ────────
+#    --inventory  PATH   CSV de inventario (defecto: data/full_data/inventory.csv)
+#
+#  Salida
+#  ──────
+#    data/bids/sub-*/ses-*/…  (metadatos BIDS ligeros)
 
 using Dates
 

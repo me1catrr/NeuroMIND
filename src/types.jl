@@ -25,6 +25,8 @@ struct PipelineConfig
     longitudinal::Dict{String,Any}
     statistics::Dict{String,Any}
     export_cfg::Dict{String,Any}
+    qc::Dict{String,Any}
+    montage::Dict{String,Any}
     root::String
 end
 
@@ -101,7 +103,12 @@ struct ICAResult
     activations::Matrix{Float64}        # (components × samples)
     rejected_components::Vector{Int}
     variance_explained::Vector{Float64}
+    diagnostics::Dict{String,Any}       # convergencia FastICA + métricas PCA
 end
+
+# Compat: llamadas antiguas sin diagnostics
+ICAResult(meta, A, W, S, rej, var_exp) =
+    ICAResult(meta, A, W, S, rej, var_exp, Dict{String,Any}())
 
 # ─────────────────────────────────────────────────────────────
 # Spectral
@@ -210,7 +217,7 @@ Subject(id::String, group::String) = Subject(
 )
 
 # ─────────────────────────────────────────────────────────────
-# Análisis de grupo y longitudinal
+# Análisis de grupo (API en memoria; scripts post-hoc son la vía activa)
 # ─────────────────────────────────────────────────────────────
 
 struct GroupAnalysis
@@ -225,14 +232,4 @@ struct GroupAnalysis
     channel_names::Vector{String}
     n_ms::Int
     n_ctrl::Int
-end
-
-struct LongitudinalAnalysis
-    subject_id::String
-    condition::String
-    band::String
-    visits::Vector{String}
-    connectivity_over_time::Vector{Matrix{Float64}}
-    graph_metrics_over_time::Vector{GraphMetrics}
-    channel_names::Vector{String}
 end

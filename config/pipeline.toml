@@ -1,130 +1,838 @@
-# NeuroMIND — Configuración del pipeline
-# Parámetros extraídos del protocolo del estudio BRAIN (Castro Triguero, 2026)
+# ═══════════════════════════════════════════════════════════════
+#  NeuroMIND — Configuración unificada del pipeline
+# ═══════════════════════════════════════════════════════════════
+#
+#  Sustituye a:
+#    · config/single_subject.toml
+#    · config/batch_pipeline.toml
+#
+#  Objetivo
+#  ────────
+#  Una sola fuente de parámetros para todos los scripts:
+#    · scripts/run_single_subject.jl
+#    · scripts/run_batch_pipeline.jl
+#    · scripts/run_transversal_analysis.jl
+#    · scripts/run_longitudinal_analysis.jl
+#    · scripts/launch_dashboard.jl
+#  y para src/ (SingleSubjectPipeline y módulos que consumen
+#  PipelineConfig). Así se evita que dos ficheros diverjan
+#  en silencio.
+#
+#  Nota
+#  ────
+#  No confundir con deprecated/code/config/pipeline.toml
+#  (archivado 2026-07-21; solo lo usa el orquestador obsoleto
+#  deprecated/code/src/Pipeline.jl). Este fichero es nuevo y activo;
+#  la coincidencia de nombre es casual.
+#
+#  Construcción
+#  ────────────
+#  Secciones añadidas de forma incremental. En cada una se
+#  resuelven explícitamente las diferencias entre el perfil
+#  «un solo sujeto» (antes single_subject.toml) y el perfil
+#  «lote» (antes batch_pipeline.toml). No se arrastran
+#  divergencias sin decidir.
+#
+# ───────────────────────────────────────────────────────────────
+#  Fichero    config/pipeline.toml
+#  Proyecto   NeuroMIND
+#  Autor      Rafael Castro Triguero <me1catrr@uco.es>
+#  Creado     21-07-2026
+#  Modificado 22-07-2026
+#  Estado     completo — fuente única activa del pipeline
+# ───────────────────────────────────────────────────────────────
+#
+#  Índice de secciones
+#  ───────────────────
+#
+#  A · Entrada y rutas
+#      [subject]  [recording]  [qc]  [paths]  [output]
+#
+#  B · Preprocesado
+#      [filtering]  [ica]  [segmentation]  [baseline]
+#      [artifact_rejection]
+#
+#  C · Análisis
+#      [spectral]  [bands]  [connectivity]  [montage]  [graph]
+#
+#  D · Inferencia
+#      [surrogates]
+#
+#  E · Interfaz
+#      [dashboard]
 
-[project]
-name    = "BRAIN_MS_EEG_Connectivity"
-version = "1.0"
-pi      = "Rafael Castro Triguero"
-date    = "2026-05-06"
 
-[study]
-# Diseño experimental confirmado desde BRAIN.pdf
-n_ms_t1      = 44      # Pacientes EM en T1
-n_ms_t2      = 30      # Pacientes EM en T2 (14 pérdidas)
-n_controls   = 40      # Controles sanos
-n_dropouts   = 14      # Pérdidas en seguimiento
-conditions   = ["EO", "EC"]          # Eyes Open, Eyes Closed
-groups       = ["MS", "Control"]
-sessions     = ["T1", "T2"]          # T2 solo para MS
-design       = "transversal+longitudinal"
+# ═══════════════════════════════════════════════════════════════
+#  A · Entrada y rutas
+# ═══════════════════════════════════════════════════════════════
 
-[paths]
-bids_root  = "data/BIDS"
-results    = "results"
-data_cache = "data/cache"
-web_public = "web/public"
 
+# ─── Identificación del sujeto ─────────────────────────────────
+#
+#  Fuente de los 4 campos según el modo de ejecución.
+#
+#  Modo single  ·  run_single_subject.jl → load_ss_config
+#  ────────────────────────────────────────────────────────────
+#  Los campos de abajo se leen literalmente de este fichero.
+#
+#    subject_id = "auto"
+#      → primer *_eeg_data.tsv en {paths.bids_root}/raw/
+#        (orden alfabético; detect_first_subject,
+#         SingleSubjectPipeline.jl:169)
+#
+#    subject_id = "M05"  (u otro id BIDS)
+#      → se usa tal cual, sin autodetección
+#
+#  Modo batch  ·  run_batch_pipeline.jl
+#  ────────────────────────────────────────────────────────────
+#  Este bloque se IGNORA por completo.
+#  Cada trabajo del lote sobreescribe los 4 campos desde
+#  data/full_data/inventory.csv, filtrado por CLI:
+#    · --condition / --group / --session
+#    · --subjects / --max-subjects / --skip-done
+#  (write_temp_config, run_batch_pipeline.jl:148)
+#
+#  Los valores de abajo no tienen efecto en batch; solo sirven
+#  para pruebas puntuales en modo single (p. ej. sub-M05).
+#
+[subject]
+subject_id = "M05"         # "auto" | id BIDS          — solo modo single
+session_id = "T2"          # "T1" | "T2"               — solo modo single
+task       = "eyesclosed"  # "eyesclosed" | "eyesopen" — solo modo single
+run        = 1
+
+
+# ─── Parámetros de grabación ───────────────────────────────────
+#
+#  sampling_rate
+#  ────────────────────────────────────────────────────────────
+#  → cfg.recording["fs"] (load_ss_config, SingleSubjectPipeline.jl:84).
+#  Se usa como FALLBACK cuando el metadata del origen no trae "fs"
+#  (SingleSubjectPipeline.jl:230). Con BrainVision el fs real se lee
+#  del .vhdr, así que este valor rara vez decide — pero declararlo
+#  evita depender de un default oculto en el código.
+#  Confirmado 500.0 Hz en los .vhdr de todo el dataset.
+#
+#  reference  ·  antes invisible · INFORMATIVO
+#  ────────────────────────────────────────────────────────────
+#  Ningún .toml lo declaraba; se lee con fallback "average" en
+#  SingleSubjectPipeline.jl:932 y webapp/App.jl:1660.
+#  Solo alimenta metadatos (spectral_summary.json / dashboard):
+#  NO aplica ningún re-referenciado real a la señal.
+#
 [recording]
-fs               = 500.0        # Hz (BrainVision Analyzer: 500 muestras/s)
-duration_s       = 100.0        # segundos de resting-state
-n_channels       = 32           # electrodos 10-20
-reference        = "average"    # re-referencia a promedio (post-ICA)
-montage          = "10-20"
-ground           = "Fpz"
+sampling_rate = 500.0
+reference     = "average"   # informativo — no re-referencia la señal
 
+
+# ─── Control de calidad ────────────────────────────────────────
+#
+#  bad_channel_zscore_threshold
+#  ────────────────────────────────────────────────────────────
+#  |z-score| de RMS por canal para marcar bad_ch.
+#
+#  amplitude_warning_sigma_uv  ·  antes invisible
+#  ────────────────────────────────────────────────────────────
+#  Ningún .toml lo declaraba; siempre usó este default
+#  (SingleSubjectPipeline.jl:363).
+#  Dispara el flag amplitude_warning en qc_decision_table.csv
+#  cuando σ̄ de la señal cruda supera este valor.
+#
+#  QC extendido (Report_Pre/chapters/03_raw.tex)
+#  ────────────────────────────────────────────────────────────
+#  welch_nfft / hfnoise_* / snr_* → HFNoise y SNR(dB) en
+#  channel_statistics.csv (columnas hfnoise, snr_db).
+#  Asimetría/curtosis/corr. media no requieren claves extra.
+#
+[qc]
+bad_channel_zscore_threshold = 3.0
+amplitude_warning_sigma_uv   = 20.0
+welch_nfft       = 1024
+hfnoise_band     = [25.0, 45.0]
+hfnoise_ref_band = [1.0,  45.0]
+snr_signal_band  = "ALPHA"
+snr_noise_band   = "GAMMA"
+
+
+# ─── Rutas ─────────────────────────────────────────────────────
+#
+#  bids_root = "data/bids"  ·  minúscula · OBLIGATORIO
+#  ────────────────────────────────────────────────────────────
+#  Es la ruta que crean de verdad:
+#    · audit_full_dataset.jl
+#    · build_bids_full.jl
+#    · run_batch_pipeline.jl
+#  single_subject.toml usaba "data/BIDS" (mayúscula) — funciona
+#  hoy solo porque macOS/iCloud no distingue mayúsculas;
+#  fallaría en Linux / Docker / FS case-sensitive.
+#
+#  data_cache / web_public  ·  omitidos a propósito
+#  ────────────────────────────────────────────────────────────
+#  Si se escriben aquí NO tienen efecto en el pipeline
+#  individual/batch — load_ss_config()
+#  (SingleSubjectPipeline.jl:81–82) los hardcodea a
+#  "data/cache" y "web/public" sin leer el TOML.
+#  Se omiten para no sugerir un control que no existe.
+#
+[paths]
+bids_root = "data/bids"
+results   = "results"
+
+
+# ─── Salida ────────────────────────────────────────────────────
+#
+[output]
+figure_format = "png"
+figure_dpi    = 150
+
+
+# ═══════════════════════════════════════════════════════════════
+#  B · Preprocesado
+# ═══════════════════════════════════════════════════════════════
+
+
+# ─── Filtrado ──────────────────────────────────────────────────
+#
+#  Perfil activo: cfg.filtering["profile"]
+#  Si la clave falta o no coincide, filter_recording() cae
+#  SILENCIOSAMENTE a "default" (Filtering.jl:37).
+#  No dejar este campo vacío ni mal escrito.
+#
+#  profile = "eeg_julia"  ·  activo
+#  ────────────────────────────────────────────────────────────
+#  Reproduce EEG_Julia/src/Preprocessing/filtering.jl
+#
+#    1. Notch        50 Hz (49.5–50.5)    order 4    filt      (causal)
+#    2. Bandreject   99.5–100.5 Hz        order 4    filt      (causal)
+#    3. High-pass    0.5 Hz               order 4    filtfilt  (zero-phase)
+#    4. Low-pass     150.0 Hz             order 4    filtfilt  (zero-phase)
+#
+#  profile = "default"  ·  legacy
+#  ────────────────────────────────────────────────────────────
+#  NeuroMIND / protocolo BrainVision.
+#  Mismos valores numéricos; orden de aplicación distinto:
+#
+#    1. High-pass   (filtfilt)
+#    2. Low-pass    (filtfilt)
+#    3. Notch       (filtfilt, si notch_hz > 0)
+#    4. Bandreject  (filtfilt, si bandreject_hi > lo)
+#
 [filtering]
-# Reproducibilidad EEG_Julia (refs: EEG_Julia/src/Preprocessing/filtering.jl,
-#                                    EEG_Julia/config/default_config.jl)
-# Cadena: Notch(filt,50Hz,bw1Hz) → Bandreject(filt,100Hz,bw1Hz) → HP(filtfilt,0.5Hz) → LP(filtfilt,150Hz)
-profile          = "eeg_julia"
-highpass_hz      = 0.5          # EEG_Julia Highpass_cutoff (filtfilt, order_design=4)
-lowpass_hz       = 150.0        # EEG_Julia Lowpass_cutoff  (filtfilt, order_design=4)
-notch_hz         = 50.0         # EEG_Julia Notch_cutoff    (filt, order=4)
-notch_bw_hz      = 1.0          # EEG_Julia Notch_width=1.0 → 49.5–50.5 Hz
-bandreject_lo    = 99.5         # EEG_Julia Bandreject_freq=100, bw=1.0 → 99.5–100.5 Hz
-bandreject_hi    = 100.5        # EEG_Julia (mismo)
-filter_order     = 4            # EEG_Julia: todos los filtros usan order=4
+profile       = "eeg_julia"
+highpass_hz   = 0.5      # EEG_Julia: Highpass_cutoff = 0.5, order_design = 4
+lowpass_hz    = 150.0    # EEG_Julia: Lowpass_cutoff  = 150, order_design = 4
+notch_hz      = 50.0     # EEG_Julia: Notch_cutoff    = 50,  order = 4
+notch_bw_hz   = 1.0      # EEG_Julia: Notch_width     = 1.0 → 49.5–50.5 Hz
+bandreject_lo = 99.5     # EEG_Julia: Bandreject_freq = 100, bw = 1.0 → 99.5–100.5 Hz
+bandreject_hi = 100.5    # idem
+filter_order  = 4        # Notch / Bandreject / HP / LP order = 4
 
-[segmentation]
-epoch_length_s   = 1.0          # 1 segundo = 500 muestras a 500 Hz
-epoch_overlap    = 0.0          # Sin solapamiento
-min_epochs       = 20           # Mínimo para análisis válido
 
-[baseline]
-method           = "mean"       # Sustracción de media del epoch
-apply            = true
-n_passes         = 2            # Doble corrección de baseline (pre y post AR)
-
-[artifact_rejection]
-amplitude_threshold_uv = 100.0  # μV — umbral de amplitud pico-a-pico
-gradient_threshold_uv  = 50.0   # μV/muestra — umbral de gradiente
-enabled                = true
-
+# ─── ICA ───────────────────────────────────────────────────────
+#
+#  Perfil activo: cfg.ica["profile"]
+#  (run_ica, ICACore.jl; si falta, cae a "default")
+#
+#  profile = "eeg_julia"  ·  activo
+#  ────────────────────────────────────────────────────────────
+#  Reproducibilidad estricta con EEG_Julia/src/ICA/ICA.jl
+#
+#    n_components / max_iter / tol / seed / max_attempts → IGNORADOS
+#    el código los fija a n_channels / 512 / 1e-7 / 1234 / 1
+#    sin leer el TOML. A = inv(W_total). Sin reinicios.
+#
+#  profile = "default"  ·  modo reducido
+#  ────────────────────────────────────────────────────────────
+#  Aquí SÍ se leen n_components / max_iter / tol / seed /
+#  max_attempts. Fallback interno: 30 / 500 / 1e-5 / 42 / 1.
+#  A = pinv(W_total). Si max_attempts > 1 y no converge, reintenta
+#  con seed+1, seed+2, …
+#
+#  verbose = false  ·  salida terminal
+#  ────────────────────────────────────────────────────────────
+#  true → muestra también tabla whitening/ortogonalidad y
+#  detalle de intentos aunque solo haya uno.
+#
+#  artifact_threshold  ·  umbral de score para clasificar "artifact"
+#  ────────────────────────────────────────────────────────────
+#  Usado por evaluate_ica_components (resumen de terminal,
+#  ica_component_features.csv) Y por el rechazo automático
+#  (auto_reject, ver más abajo). Un único cálculo — ya no hay
+#  1.5 hardcodeado por separado en _save_ica_results.
+#
 [ica]
-n_components     = 30           # Confirmado en BRAIN.pdf
-method           = "fastica"
-random_seed      = 42
-max_iter         = 500
-tolerance        = 1e-5
+profile            = "eeg_julia"
+n_components       = 0       # 0 / "auto" = todos los canales — solo si profile="default"
+max_iter           = 512     # solo si profile="default"
+tol                = 1e-7    # solo si profile="default"
+seed               = 1234    # solo si profile="default"
+max_attempts       = 1       # solo si profile="default"; eeg_julia fuerza 1
+verbose            = false   # true → métricas whitening + detalle intentos
+artifact_threshold = 1.5     # score > umbral → "artifact" (ocular/muscle/line/jump)
 
+#  Rechazo de componentes
+#  ────────────────────────────────────────────────────────────
+#  Precedencia (apply_ica_rejection actúa siempre sobre índices
+#  resueltos por esta cascada, nunca sobre las dos fuentes a la vez):
+#
+#    1. ica_labels.csv MANUAL en results/subjects/.../{task}/
+#       (inspección humana; columnas component,label) → si existe,
+#       GANA siempre sobre lo automático, sin importar auto_reject.
+#    2. Si no hay CSV manual y auto_reject=true → se rechazan los
+#       componentes con artifact_type != "brain" (score > umbral de
+#       arriba) y se persisten en ica_labels_auto.csv (trazabilidad).
+#    3. Si no hay CSV manual y auto_reject=false → no se rechaza
+#       nada; artifact_score/artifact_type quedan solo orientativos.
+#
+#  auto_reject = true   ·  activo — rechazo automático por score/threshold
+#  ────────────────────────────────────────────────────────────
+#  Recomendado para correr el batch completo sin inspección manual
+#  previa. Cambia la señal que llega a segmentación/wPLI para
+#  cualquier sujeto sin ica_labels.csv manual: re-cross-check contra
+#  EEG_Julia/ antes de dar resultados por definitivos (AGENTS.md §2).
+#
+#  auto_reject = false  ·  alternativa — solo rechazo manual
+#  ────────────────────────────────────────────────────────────
+#  Comportamiento previo a 2026-07-22: sin ica_labels.csv manual se
+#  conservan todos los componentes. Útil para reproducir resultados
+#  ya generados con el pipeline antiguo, o durante inspección manual.
+auto_reject = true
+
+
+# ─── Segmentación ──────────────────────────────────────────────
+#
+#  Perfil activo: cfg.segmentation["profile"]
+#  (segment_recording, Epochs.jl:15)
+#
+#  profile = "eeg_julia"  ·  activo
+#  ────────────────────────────────────────────────────────────
+#  Fijado aquí — coincide con TODO el dataset ya generado
+#  (incluido el caso de referencia M05).
+#  Fuerza epoch_length_s = 1.0, epoch_overlap = 0.0
+#  e ignora los dos campos de abajo (Epochs.jl:17–19).
+#
+#  profile = "default"  ·  configurable
+#  ────────────────────────────────────────────────────────────
+#  Si se cambia, SÍ lee epoch_length_s / epoch_overlap de aquí.
+#
+#  Nombres de clave  ·  CAPA DE TRADUCCIÓN — no renombrar
+#  ────────────────────────────────────────────────────────────
+#  El TOML DEBE usar estos nombres. load_ss_config()
+#  (SingleSubjectPipeline.jl:70–99) los lee y los traduce al
+#  objeto PipelineConfig con OTROS nombres:
+#
+#    TOML                      →  cfg.segmentation
+#    ─────────────────────────    ────────────────────
+#    segment_length_seconds    →  epoch_length_s
+#    overlap_seconds           →  epoch_overlap
+#                                 (fracción: overlap_s / seg_len_s)
+#    min_segments              →  min_epochs
+#
+#  Epochs.jl:21–22,133 lee el objeto YA TRADUCIDO, no el TOML.
+#  Si aquí se escribieran epoch_length_s / epoch_overlap /
+#  min_epochs, load_ss_config NO los vería y caería a sus
+#  fallbacks (2.0 / 0.0 / 10) en silencio.
+#
+#  segment_length_seconds = 1.0  ·  no 2.0
+#  ────────────────────────────────────────────────────────────
+#  Con profile="eeg_julia" la segmentación real siempre es de
+#  1.0 s (segment_recording la fuerza, Epochs.jl:17–19), pero
+#  este valor SÍ se reporta como metadato: _save_spectral_extras
+#  (SingleSubjectPipeline.jl:929) lo lee para spectral_summary.json.
+#  Los .toml originales tenían 2.0 → ese JSON venía informando
+#  épocas de 2.0 s cuando en realidad eran de 1.0 s.
+#
+#  min_segments  ·  SÍ excluye sujetos (no es solo un @warn)
+#  ────────────────────────────────────────────────────────────
+#  En Epochs.jl:133 solo dispara @warn, pero la línea 597 lo pasa
+#  a _update_qc_decision_table, donde es criterio de EXCLUSIÓN
+#  DURA (SingleSubjectPipeline.jl:1839–1841):
+#    n_epochs_valid < min_epochs → final_decision = "exclude"
+#
+#  Se mantiene 10 (valor de ambos .toml originales) para preservar
+#  las 205 decisiones QC ya generadas. Subirlo a 20 reclasificaría
+#  M13/T1/EC (15 epochs válidos, hoy "include") a "exclude" y
+#  obligaría a regenerar qc/qc_decision_table.csv.
+#
+#  Historial
+#  ────────────────────────────────────────────────────────────
+#  batch_pipeline.toml tenía profile = "eeg_julia" cuando se
+#  generó el batch real (2026-05-25/26); se cambió a "default"
+#  el 2026-05-26 (commit 1c6ce0a) DESPUÉS de esa ejecución,
+#  sin re-lanzar el batch.
+#  Se fija aquí "eeg_julia" para no romper la reproducibilidad
+#  de los resultados existentes.
+#
+[segmentation]
+profile                = "eeg_julia"
+segment_length_seconds = 1.0   # → cfg.epoch_length_s · el perfil eeg_julia lo ignora
+                               #   en el cálculo, pero SÍ se reporta como metadato
+overlap_seconds        = 0.0   # → cfg.epoch_overlap (fracción)
+min_segments           = 10    # → cfg.min_epochs · EXCLUYE si n_valid < este valor
+
+
+# ─── Corrección de baseline ────────────────────────────────────
+#
+#  Se aplica dos veces por defecto:
+#    · siempre antes del rechazo de artefactos
+#      (SingleSubjectPipeline.jl:502)
+#    · segunda vez después, solo si n_passes >= 2
+#      (línea 504; con n_passes = 1 no hay segunda pasada)
+#
+#  method = "first_window_mean"  ·  activo
+#  ────────────────────────────────────────────────────────────
+#  Resta la media de [muestra 1, baseline_end_s × fs]
+#  de cada epoch/canal
+#  (EEG_Julia: 0.00–0.10 s → muestras 1–50 a 500 Hz).
+#  Reproducibilidad estricta con el caso de referencia M05.
+#
+#  method = "mean"  ·  alternativa
+#  ────────────────────────────────────────────────────────────
+#  Resta la media de todo el epoch.
+#  Es lo que corrió el lote MINDEM-IMIBIC ya procesado
+#  (ver segmentation_summary.json de cualquier sujeto del lote).
+#  Cambiar a este valor dejaría de reproducir M05, pero
+#  coincidiría con esos 205 resultados.
+#
+#  method = "median"  ·  alternativa
+#  ────────────────────────────────────────────────────────────
+#  Resta la mediana de todo el epoch.
+#  Más robusta a outliers puntuales que "mean".
+#
+#  baseline_start_s  ·  INERTE
+#  ────────────────────────────────────────────────────────────
+#  NO afecta al cálculo — apply_baseline() (Epochs.jl:54–78)
+#  nunca lo lee; la ventana de "first_window_mean" siempre
+#  arranca en t = 0.
+#  Se guarda solo como metadato informativo en
+#  config_snapshot.toml / overview.
+#
+#  apply = false → desactiva la corrección por completo
+#  (Epochs.jl:55).
+#
+[baseline]
+apply            = true
+method           = "first_window_mean"  # alternativas: "mean" | "median"
+baseline_start_s = 0.0                  # informativo — no afecta al cálculo
+baseline_end_s   = 0.10                 # fin ventana (s) — EEG_Julia: 0–100 ms
+n_passes         = 2                    # 1 = solo pre-AR; 2 = pre-AR + post-AR
+
+
+# ─── Rechazo de artefactos ─────────────────────────────────────
+#
+#  Perfil activo: cfg.artifact_rejection["profile"]
+#  (reject_artifacts, Epochs.jl:95)
+#
+#  profile = "eeg_julia"  ·  activo
+#  ────────────────────────────────────────────────────────────
+#  ±70 µV, sin gradiente, sobre los PRIMEROS n_channels_used
+#  canales POR POSICIÓN (no por nombre).
+#  Se IGNORAN:
+#    · amplitude_threshold_uv
+#    · gradient_threshold_uv
+#    · use_gradient
+#
+#  profile = "default"  ·  configurable
+#  ────────────────────────────────────────────────────────────
+#  amplitude_threshold_uv (±) + gradient_threshold_uv,
+#  sobre TODOS los canales (n_channels_used no aplica).
+#
+#  Riesgo metodológico  ·  n_channels_used es POSICIONAL
+#  ────────────────────────────────────────────────────────────
+#  El umbral se aplica a los N primeros canales por POSICIÓN en
+#  el .vhdr, no por nombre.
+#
+#  Con el valor actual (31) el riesgo queda neutralizado: se
+#  criban TODOS los canales, así que da igual en qué posición
+#  esté Fp2. La advertencia siguiente aplica solo si se vuelve
+#  a 30 (es decir, si se pone [montage] exclude_fp2 = true):
+#  entonces se asumiría que Fp2 es siempre el canal Nº 31 por
+#  posición en el .vhdr crudo de cada sujeto.
+#
+#  BrainVisionLoader.jl lee ch_names en el orden literal del
+#  fichero, y validate_channels() (SingleSubjectPipeline.jl:266)
+#  solo comprueba que los nombres existan (setdiff/intersect)
+#  — NUNCA reordena canales.
+#
+#  Si algún sujeto tuviera Fp2 en otra posición, el rechazo
+#  (y compute_channel_coverage / compute_epoch_quality_report)
+#  se aplicaría al conjunto equivocado sin aviso.
+#
+#  Pendiente: auditar que Fp2 sea la posición 31 en los .vhdr
+#  de los ~75 sujetos antes de confiar ciegamente en este valor.
+#
+#  before_event_ms / after_event_ms  ·  INERTES
+#  ────────────────────────────────────────────────────────────
+#  Se guardan y se muestran en JSON/dashboard, pero NUNCA se
+#  usan en el rechazo real (confirmado en código).
+#
+[artifact_rejection]
+enabled                = true
+profile                = "eeg_julia"
+
+#  Activos con profile = "eeg_julia"
+min_amplitude_uv       = -70.0
+max_amplitude_uv       =  70.0
+n_channels_used        = 31       # posicional · 31 = TODOS los canales, incluido Fp2.
+                                  #   Coherente con [montage] exclude_fp2 = false:
+                                  #   si se conserva Fp2 en el análisis, también debe
+                                  #   pasar la criba de artefactos ±70 µV. Con 30 se
+                                  #   quedaría fuera justo el canal más problemático.
+                                  #   Volver a 30 si se pone exclude_fp2 = true.
+
+#  Activos con profile = "default"
+amplitude_threshold_uv = 100.0
+gradient_threshold_uv  = 50.0
+use_gradient           = true
+
+#  Guardados pero SIN efecto en el rechazo (solo metadato)
+before_event_ms        = 200
+after_event_ms         = 300
+
+
+# ═══════════════════════════════════════════════════════════════
+#  C · Análisis
+# ═══════════════════════════════════════════════════════════════
+
+
+# ─── Análisis espectral ────────────────────────────────────────
+#
+#  compute_psd() (PowerSpectrum.jl) — paso [6/8] del pipeline.
+#  FFT con ventana Hamming-taper, estilo BrainVision Analyzer.
+#  PSD media sobre epochs válidos (post-AR).
+#
+#  nfft
+#  ────────────────────────────────────────────────────────────
+#  Se aplica max(nfft, n_samp) — es un MÍNIMO, no una constante.
+#  Con epoch_length_s = 1.0 y fs = 500 Hz (n_samp = 500),
+#  el valor de abajo (1024) se mantiene vía zero-padding.
+#
+#    resolución   fs / nfft  ≈  0.488 Hz/bin
+#    n_bins       nfft/2+1   =  513
+#
+#  Si epoch_length_s > 2.048 s (n_samp > 1024 a 500 Hz), el nfft
+#  efectivo crece automáticamente.
+#
+#  window_pct
+#  ────────────────────────────────────────────────────────────
+#  % de la longitud de epoch con taper Hamming repartido en
+#  ambos extremos (10.0 → 5 % a cada lado).
+#
+#  Salidas escritas en [6/8] (_save_spectral_phase_results)
+#  ────────────────────────────────────────────────────────────
+#    tables/psd_by_channel.csv
+#    tables/band_power_summary.csv
+#    tables/regional_psd.csv
+#    tables/spectral_indices.csv
+#    json/spectral_summary.json
+#    figures/psd_all_channels.png
+#    figures/band_power_summary.png
+#
 [spectral]
-# Parámetros FFT estilo BrainVision Analyzer
-nfft             = 512          # Zero-padding → resolución Δf = 500/512 ≈ 0.977 Hz
-window           = "hamming"    # Ventana Hamming-taper
-window_pct       = 10.0         # 10% de taper (estilo BrainVision)
-zero_padding     = true
-output_unit      = "uV2"        # Potencia en μV²
+nfft       = 1024
+window_pct = 10.0
 
+
+# ─── Bandas de frecuencia ──────────────────────────────────────
+#
+#  _band_power_from_psd() (PowerSpectrum.jl)
+#  Intervalo SEMIABIERTO [flo, fhi) por banda.
+#  Cada banda se integra de forma independiente (no son máscaras
+#  mutuamente excluyentes de un único reparto de bins).
+#
+#  Solape / hueco entre bandas (con estos límites)
+#  ────────────────────────────────────────────────────────────
+#    · SOLAPE  THETA / ALPHA      en 7.8–8.0 Hz
+#      (esos bins cuentan en AMBAS bandas)
+#    · HUECO   ALPHA / BETA_LOW   en 11.7–12.0 Hz
+#      (esos bins no cuentan en ninguna)
+#
+#  Consecuencia: la suma de las 7 bandas NO coincide con la
+#  potencia total integrada del PSD; no es un error de cálculo.
+#
 [bands]
-# Bandas espectrales del protocolo (confirmadas en BRAIN.pdf)
-DELTA     = [0.5,  4.0]
-THETA     = [4.0,  8.0]
-ALPHA     = [7.8,  11.7]
+DELTA     = [0.5,   4.0]
+THETA     = [4.0,   8.0]
+ALPHA     = [7.8,  11.7]   # rango asimétrico — ver solape/hueco arriba
 BETA_LOW  = [12.0, 15.0]
 BETA_MID  = [15.0, 18.0]
 BETA_HIGH = [18.0, 30.0]
 GAMMA     = [30.0, 50.0]
 
+
+# ─── Conectividad ──────────────────────────────────────────────
+#
+#  Método activo: cfg.connectivity["wpli_method"]
+#  (_build_estimator, wPLI.jl) — paso [7/8] del pipeline.
+#  Los surrogates ([surrogates]) reutilizan el mismo estimador.
+#
+#  wpli_method = "hilbert"  ·  activo · OBLIGATORIO
+#  ────────────────────────────────────────────────────────────
+#  Necesario para reproducir los resultados existentes.
+#  Verificado en config_snapshot.toml de M05 y de varios
+#  sujetos del lote (M07, M09, MC01, MC10): ninguno tenía
+#  wpli_method escrito; todos cayeron al default "hilbert"
+#  del código.
+#  "fourier_csd" (valor que tenía batch_pipeline.toml)
+#  NUNCA se ha usado para generar ningún resultado real.
+#
+#  Butterworth bandpass + señal analítica Hilbert.
+#  Rápido; método de todos los resultados existentes.
+#  Sensible a artefactos de borde de filtro.
+#
+#  wpli_method = "fourier_csd"  ·  documentado · inactivo
+#  ────────────────────────────────────────────────────────────
+#  Espectro cruzado FFT con ventana Hann / Hamming / rect
+#  (sección [connectivity.fourier_csd] más abajo).
+#  Definición espectral directa, conceptualmente más limpio.
+#  Sin usar en este dataset — cambiar aquí invalida la
+#  comparación con todo lo ya generado.
+#
+#  wpli_method = "multitaper"  ·  documentado · inactivo
+#  ────────────────────────────────────────────────────────────
+#  DPSS multitaper (sección [connectivity.multitaper]).
+#  Equivalente a MNE spectral_connectivity_epochs.
+#  Mejor compromiso varianza–sesgo; más costoso.
+#  Sin usar en este dataset.
+#
+#  use_dwpli = false  ·  activo · decisión tomada
+#  ────────────────────────────────────────────────────────────
+#  Prioriza reproducibilidad exacta del caso M05 sobre la
+#  comparabilidad grupal del lote existente.
+#
+#  false  ·  wPLI clásico (Vinck 2011)
+#    |E[Im]| / E[|Im|], rango [0, 1]
+#    Es lo que usó M05.
+#    Sesgado por n_epochs (variable entre sujetos → puede
+#    introducir diferencias espurias en comparaciones de
+#    grupo), pero reproduce exactamente el caso validado.
+#
+#  true  ·  dwPLI no sesgado
+#    (E[Im]² − E[Im²]) / (E[|Im|]² − E[Im²]), rango [−1, 1]
+#    Es lo que usó el lote de 205 grabaciones
+#    (verificado en sus config_snapshot.toml).
+#    Recomendado para comparaciones grupales (corrige el
+#    sesgo por n_epochs). Más defendible para MS vs control
+#    con tamaños de muestra distintos, pero divergiría de M05.
+#
+#  min_cycles_for_wpli / DELTA
+#  ────────────────────────────────────────────────────────────
+#  Con epoch_length_s = 1.0 (fijado en [segmentation]),
+#  DELTA (f_low = 0.5 Hz) tiene solo 0.5 ciclos/época —
+#  muy por debajo de este mínimo.
+#  Dispara un @warn en cada corrida; no se excluye salvo
+#  que exclude_unreliable_bands = true.
+#
+#  exclude_unreliable_bands = false  ·  activo
+#  ────────────────────────────────────────────────────────────
+#  Solo avisa (@warn) de bandas poco fiables; no las quita.
+#  Comportamiento real de TODOS los resultados existentes
+#  (incluido el lote, pese a que batch_pipeline.toml decía
+#  true — nunca se ejecutó así; ver config_snapshot.toml).
+#
+#  true  ·  omite del resultado cualquier banda por debajo
+#    de min_cycles. Con la config actual eliminaría DELTA
+#    de todo el análisis (conectividad, group_statistics…).
+#    Alternativa si se decide que DELTA no es fiable con
+#    épocas de 1 s y se prefiere no reportarla.
+#
+#  Salidas escritas en [7/8] (_save_connectivity_phase_results)
+#  ────────────────────────────────────────────────────────────
+#    tables/connectivity/wpli_{band}.csv
+#    tables/connectivity/connectivity_edges.csv
+#    tables/connectivity/network_metrics.csv
+#    json/connectivity_summary.json
+#    figures/connectivity/wpli_{band}.png
+#
 [connectivity]
-method           = "wpli"       # Weighted Phase Lag Index
-filter_order     = 8            # Butterworth orden 8 (estilo BrainVision)
-aggregation      = "across_segments"  # Método Vinck 2011
-use_csd          = false        # CSD OPCIONAL (activar con use_csd = true)
-csd_method       = "spline"     # Laplaciano esférico si use_csd = true
-min_epochs_wpli  = 20           # Mínimo de epochs para wPLI válido
+wpli_method              = "hilbert"
+use_dwpli                = false
+min_cycles_for_wpli      = 4.0
+exclude_unreliable_bands = false
+use_csd                  = false   # CSD opcional — false en todos los resultados
+                                   # true → apply_csd (CSD.jl) antes del wPLI
+                                   # (sin validar en este dataset)
+filter_order             = 8       # Butterworth — solo si wpli_method="hilbert"
 
-[surrogates]
-n_surrogates     = 200          # Número de permutaciones de fase
-method           = "phase_shuffle"   # Phase-shuffling
-alpha            = 0.05         # Nivel de significancia
-fdr_method       = "bh"         # Benjamini-Hochberg (q < 0.05)
 
+# ─── Conectividad · fourier_csd (inactivo) ─────────────────────
+#
+[connectivity.fourier_csd]
+window = "hann"   # alternativas: "hamming" | "rect"
+nfft   = 0        # 0 = longitud completa de la época
+
+
+# ─── Conectividad · multitaper (inactivo) ──────────────────────
+#
+[connectivity.multitaper]
+nw       = 4.0    # time-bandwidth product (típico 2.0–5.0; mayor = más suavizado)
+n_tapers = 0      # 0 = automático: floor(2*nw) − 1 (nw=4.0 → 7 tapers)
+low_bias = true   # descartar tapers con λ < 0.9
+
+
+# ─── Montaje principal ─────────────────────────────────────────
+#
+#  Mecánica real (SingleSubjectPipeline.jl:463–470)
+#  ────────────────────────────────────────────────────────────
+#  Quien elimina canales es exclude_channels. exclude_fp2 NO
+#  elimina nada por sí solo: solo FILTRA Fp2 de esa lista.
+#
+#    exclude_channels = ["Fp2"] · exclude_fp2 = true   → Fp2 SE ELIMINA
+#    exclude_channels = ["Fp2"] · exclude_fp2 = false  → Fp2 SE CONSERVA
+#    exclude_channels = []      · exclude_fp2 = true   → Fp2 SE CONSERVA
+#                                                        pero el flag
+#                                                        fp2_removed se
+#                                                        reporta true (!)
+#
+#  A los canales de aquí se suman siempre los bad_ch detectados
+#  por QC (z-score): all_excl = montage_excl ∪ bad_ch.
+#
+#  Estado del dataset actual
+#  ────────────────────────────────────────────────────────────
+#  · Lote MINDEM-IMIBIC (205 grabaciones): [montage] presente,
+#    Fp2 excluido → 30 canales, 435 aristas por banda.
+#  · M05 (referencia): single_subject.toml NO tenía [montage]
+#    → Fp2 conservado → 31 canales, 465 aristas.
+#    Incoherencia observada en qc_decision_table.csv: M05/T2/EC
+#    figura con fp2_removed=false y 31 ch, pero M05/T2/EO con
+#    fp2_removed=true y 30 ch.
+#
+#  exclude_fp2 = false  ·  activo · decisión tomada
+#  ────────────────────────────────────────────────────────────
+#  Conserva Fp2 → 31 canales / 465 aristas, coherente con el
+#  caso de referencia M05 (mismo criterio que use_dwpli=false
+#  y baseline method="first_window_mean").
+#
+#  Implicaciones de conservar Fp2:
+#    · Diverge de las 205 grabaciones del lote (30 ch / 435
+#      aristas). Matrices wPLI de distinta dimensión → no
+#      comparables sin re-procesar.
+#    · [artifact_rejection] n_channels_used se ha subido a 31
+#      en consecuencia, para que Fp2 también pase la criba de
+#      artefactos ±70 µV. Si se vuelve a exclude_fp2 = true,
+#      hay que devolverlo a 30.
+#
+#  Para volver al criterio del lote: exclude_fp2 = true.
+#
+#  n_channels_analysis  ·  INERTE (documental)
+#  ────────────────────────────────────────────────────────────
+#  No se lee del TOML. n_ch_analysis se CALCULA de los canales
+#  realmente activos (SingleSubjectPipeline.jl:491) y se escribe
+#  HACIA qc_decision_table.csv. Cambiar este valor no fuerza nada.
+#
+[montage]
+exclude_channels    = ["Fp2"]   # lista efectiva de exclusión (+ bad_ch de QC)
+exclude_fp2         = false     # false → Fp2 SE CONSERVA (31 canales)
+n_channels_analysis = 31        # informativo — no se lee, ver nota arriba
+
+
+# ─── Métricas de grafo ─────────────────────────────────────────
+#
+#  compute_graph_metrics() (GraphMetrics.jl:28–38).
+#
+#  El umbral SOLO afecta a las métricas BINARIAS
+#  (path_length, efficiency, degree). Las métricas PONDERADAS
+#  (strength, clustering) usan siempre la matriz wPLI completa,
+#  sin umbralizar.
+#
+#  threshold_method = "proportional"  ·  activo
+#  ────────────────────────────────────────────────────────────
+#  Mantiene el density × 100% de aristas más fuertes del
+#  triángulo superior (GraphMetrics.jl:74–77).
+#  Ventaja: densidad fija → grafos comparables entre sujetos
+#  aunque sus valores absolutos de wPLI difieran.
+#
+#  threshold_method = "absolute"  ·  alternativa
+#  ────────────────────────────────────────────────────────────
+#  Umbral en valor absoluto de wPLI; density pasa a
+#  interpretarse como ese umbral (GraphMetrics.jl:80).
+#  Menos recomendado: el wPLI absoluto depende de n_epochs, que
+#  varía entre sujetos, así que la densidad resultante no sería
+#  comparable entre ellos.
+#
 [graph]
-threshold_method = "proportional"   # Umbralización proporcional
-density          = 0.1              # 10% de conexiones más fuertes
-metrics          = ["strength", "clustering", "path_length", "efficiency", "modularity"]
+density          = 0.1              # 10% aristas más fuertes (si "proportional")
+                                    # o umbral absoluto de wPLI (si "absolute")
+threshold_method = "proportional"   # alternativa: "absolute"
 
-[clinical]
-# Variables clínicas para correlaciones (BRAIN.pdf pág. 33)
-variables        = ["EDSS", "fatigue", "cognition", "lesion_load"]
-covariates       = ["age", "sex", "disease_duration", "medication"]
 
-[longitudinal]
-sessions_ms      = ["T1", "T2"]    # Solo pacientes EM tienen seguimiento
-min_visits       = 2
-time_unit        = "months"
+# ═══════════════════════════════════════════════════════════════
+#  D · Inferencia
+# ═══════════════════════════════════════════════════════════════
 
-[statistics]
-# Estrategia estadística (BRAIN.pdf: plan estadístico del estudio)
-group_test       = "mann_whitney"  # No-paramétrico por defecto
-paired_test      = "wilcoxon"      # Para T1 vs T2 (muestras relacionadas)
-correlation      = "spearman"      # Correlación con variables clínicas
-parametric_alt   = "t_test"        # Alternativa paramétrica si distribución normal
-fdr_q            = 0.05
-bonferroni_alt   = true            # Aplicar también Bonferroni como comparación
 
-[export]
-figure_format    = "png"
-figure_dpi       = 300
-table_format     = "csv"
-report_format    = "html"          # Informes estáticos HTML
+# ─── Surrogates / Inferencia estadística ───────────────────────
+#
+#  surrogate_test() (Surrogates.jl) — tras [7/8] wPLI.
+#  Desplazamiento circular independiente por canal/época,
+#  con el MISMO estimador de conectividad que la corrida
+#  observada (hilbert / fourier_csd / multitaper, según
+#  [connectivity]).
+#
+#  enabled = false  ·  activo
+#  ────────────────────────────────────────────────────────────
+#  Coincide con AMBOS .toml originales y con 197 de las 205
+#  grabaciones ya procesadas.
+#  Computacionalmente costoso (~2–5 min extra/sujeto con
+#  n_surrogates alto).
+#  Cambiar a true para un análisis de publicación con
+#  inferencia real por sujeto.
+#
+#  n_surrogates = 200  ·  fijado (no 20/19)
+#  ────────────────────────────────────────────────────────────
+#  Con n_surrogates = 19–20 (lo único usado de verdad hasta
+#  ahora, en 8/205 grabaciones — pruebas puntuales, no un
+#  análisis sistemático), el p-valor mínimo posible es
+#  (0+1)/(20+1) ≈ 0.048 — al borde de alpha = 0.05, sin
+#  potencia real tras corrección FDR.
+#  El comentario original de single_subject.toml ya
+#  recomendaba ≥ 200. Con 200, el suelo baja a ≈ 0.005,
+#  dejando margen real para superar la corrección BH-FDR.
+#
+#  method  ·  INERTE (metadato)
+#  ────────────────────────────────────────────────────────────
+#  surrogate_test() siempre usa circular_shift pase lo que
+#  pase aquí; esta clave solo se muestra en logs/JSON.
+#  "phase_shuffle" (valor de single_subject.toml) no existe
+#  como método implementado — se deja "circular_shift" para
+#  que el metadato sea al menos veraz.
+#
+#  Salidas (solo si enabled=true; _save_surrogate_results)
+#  ────────────────────────────────────────────────────────────
+#    tables/surrogate/wpli_observed_{band}.csv
+#    tables/surrogate/wpli_pvalues_{band}.csv
+#    tables/surrogate/wpli_qvalues_{band}.csv
+#    tables/surrogate/wpli_significant_{band}.csv
+#    tables/surrogate/surrogate_null_stats_{band}.csv
+#    tables/surrogate/significant_connections.csv
+#    tables/surrogate/surrogate_quality.csv
+#    figures/surrogate/surrogate_null_{band}.png
+#    cache/surrogate/null_distribution_{band}.jls  ← vectores nulos (n×n×N)
+#    json/surrogate_summary.json
+#
+[surrogates]
+enabled      = false             # true solo para runs con inferencia (costoso: ~N×bandas)
+n_surrogates = 500               # recomendado para publicación (p_min ≈ 0.002)
+method       = "circular_shift"  # informativo — ver nota arriba
+alpha        = 0.05              # nivel de significancia FDR
+fdr_method   = "bh"              # "bh" (Benjamini-Hochberg) | "bonferroni"
+seed         = 42                # semilla base (+ índice de banda — Surrogates.jl)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  E · Interfaz
+# ═══════════════════════════════════════════════════════════════
+
+
+# ─── Dashboard ─────────────────────────────────────────────────
+#
+#  Leído SOLO por scripts/launch_dashboard.jl
+#  (parseo directo del TOML; no forma parte de PipelineConfig /
+#  cfg.dashboard en ningún otro módulo de src/).
+#
+#  --port en línea de comandos tiene prioridad sobre el valor
+#  de aquí.
+#
+[dashboard]
+port         = 8080
+open_browser = true   # abrir navegador automáticamente al lanzar

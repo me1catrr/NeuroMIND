@@ -2,14 +2,14 @@
 # Proyecto: Framework EEG Julia para conectividad funcional en Esclerosis Múltiple
 # Repo: https://github.com/me1catrr/NeuroMIND
 # Desarrollador: Rafael Castro Triguero (me1catrr@uco.es)
-# Última actualización: 2026-05-21
+# Última actualización: 2026-07-28
 
 ## Lenguaje y entorno
 
 - Lenguaje principal: **Julia 1.9+** (no Python, no R, no Jupyter)
 - Package manager: `Pkg` con `Project.toml` / `Manifest.toml`
 - Dashboard: **Genie.jl** (web local, no GitHub Pages, no Node.js)
-- Tests: `julia --project=. tests/runtests.jl`
+- Tests: `julia --project=. test/runtests.jl` o `julia --project=. -e 'using Pkg; Pkg.test()'`
 - Sintaxis check: `julia --project=. -e 'include("src/NeuroMIND.jl"); println("OK")'`
 
 ## Arquitectura del proyecto

@@ -3963,8 +3963,8 @@ tr.row-warn:hover td { background: #fef9c3; }
     <!-- Not-run placeholder -->
     <div id="p13-not-run-block" class="p13-not-run" style="display:none">
       <div style="font-size:44px;margin-bottom:14px">🧬</div>
-      <div style="font-size:17px;font-weight:700;color:var(--text-1);margin-bottom:8px">Análisis transversal aún no ejecutado</div>
-      <div style="font-size:12px;max-width:500px;line-height:1.7;margin-bottom:18px;color:var(--text-2)">
+      <div id="p13-not-run-title" style="font-size:17px;font-weight:700;color:var(--text-1);margin-bottom:8px">Análisis transversal aún no ejecutado</div>
+      <div id="p13-not-run-text" style="font-size:12px;max-width:500px;line-height:1.7;margin-bottom:18px;color:var(--text-2)">
         Crea <code style="background:var(--bg-2);padding:1px 5px;border-radius:4px">data/BIDS/groups.csv</code>
         con columnas <code style="background:var(--bg-2);padding:1px 5px;border-radius:4px">subject_id, group, session_id</code>
         (group: MS / Control) y ejecuta:
@@ -4206,8 +4206,8 @@ tr.row-warn:hover td { background: #fef9c3; }
     <!-- Not-run placeholder -->
     <div id="p14-not-run-block" class="p14-not-run" style="display:none">
       <div style="font-size:44px;margin-bottom:14px">📈</div>
-      <div style="font-size:17px;font-weight:700;color:var(--text-1);margin-bottom:8px">Análisis longitudinal aún no ejecutado</div>
-      <div style="font-size:12px;max-width:520px;line-height:1.7;margin-bottom:18px;color:var(--text-2)">
+      <div id="p14-not-run-title" style="font-size:17px;font-weight:700;color:var(--text-1);margin-bottom:8px">Análisis longitudinal aún no ejecutado</div>
+      <div id="p14-not-run-text" style="font-size:12px;max-width:520px;line-height:1.7;margin-bottom:18px;color:var(--text-2)">
         El análisis detecta automáticamente sujetos con sesiones T1 y T2 en
         <code style="background:var(--bg-2);padding:1px 5px;border-radius:4px">results/subjects/</code>,
         o puedes crear
@@ -12860,7 +12860,16 @@ async function loadPhase13() {
     if (!d.run) {
       if (notRun)  notRun.style.display  = '';
       if (content) content.style.display = 'none';
-      if (chip) { chip.className = 'status-chip pending'; chip.textContent = 'Pendiente'; }
+      const title = document.getElementById('p13-not-run-title');
+      const text = document.getElementById('p13-not-run-text');
+      if (d.incompatible) {
+        if (title) title.textContent = 'Resultados incompatibles con el visor actual';
+        if (text) text.textContent = d.error ||
+          'Regenere el análisis transversal con la versión de producción correspondiente.';
+        if (chip) { chip.className = 'status-chip error'; chip.textContent = 'Incompatible'; }
+      } else if (chip) {
+        chip.className = 'status-chip pending'; chip.textContent = 'Pendiente';
+      }
       return;
     }
 
@@ -12996,7 +13005,7 @@ function _p13RenderGlobalMetrics(bandStats, summary) {
   const nSig  = s.n_total_sig ?? 0;
   const nPairs= bs.reduce((a,r) => a + (r.n_pairs||0), 0);
   const bestB = s.best_band || '—';
-  const meanD = bs.length ? (bs.reduce((a,r) => a + Math.abs(r.mean_d||0), 0) / bs.length).toFixed(3) : '—';
+  const meanD = bs.length ? (bs.reduce((a,r) => a + Math.abs(r.mean_abs_d_pooled||0), 0) / bs.length).toFixed(3) : '—';
   const ctrlG = bs.length ? (bs.reduce((a,r) => a + (r.ctrl_mean||0), 0) / bs.length).toFixed(3) : '—';
   const msG   = bs.length ? (bs.reduce((a,r) => a + (r.ms_mean||0), 0) / bs.length).toFixed(3) : '—';
   const nBands= bs.filter(r => r.n_sig > 0).length;
@@ -13181,7 +13190,7 @@ function _p13RenderTopTable(sigEdges) {
   }
   tbody.innerHTML = sigEdges.slice(0, 25).map(e => {
     const dColor = e.diff > 0 ? '#dc2626' : '#2563eb';
-    const q = e.q_value.toFixed(3), d = e.effect_d.toFixed(2);
+    const q = e.q_value.toFixed(3), d = e.effect_d_pooled.toFixed(2);
     const qCls = e.q_value < 0.01 ? 'color:#059669;font-weight:700' : 'color:var(--text-1)';
     return `<tr>
       <td>${e.ch_a}</td><td>${e.ch_b}</td>
@@ -13258,7 +13267,7 @@ function _p13RenderBandStats(bandStats) {
     tbody.innerHTML = `<tr><td colspan="7" style="padding:12px;text-align:center;color:var(--text-3)">Sin datos</td></tr>`;
     return;
   }
-  const maxD = Math.max(...bandStats.map(r => Math.abs(r.mean_d||0)), 1e-4);
+  const maxD = Math.max(...bandStats.map(r => Math.abs(r.mean_abs_d_pooled||0)), 1e-4);
   tbody.innerHTML = bandStats.map(r => {
     const d    = (r.diff_mean||0);
     const dCol = d > 0 ? '#dc2626' : (d < 0 ? '#2563eb' : 'var(--text-2)');
@@ -13273,7 +13282,7 @@ function _p13RenderBandStats(bandStats) {
       <td style="text-align:right;font-family:monospace">${(r.mean_p||1).toFixed(3)}</td>
       <td style="text-align:right;font-family:monospace;font-weight:${sig?'700':'400'};color:${sig?'#059669':'var(--text-2)'}">
         ${r.n_sig} sig</td>
-      <td style="text-align:right;font-family:monospace">${(r.mean_d||0).toFixed(3)}</td>
+      <td style="text-align:right;font-family:monospace">${(r.mean_abs_d_pooled||0).toFixed(3)}</td>
     </tr>`;
   }).join('');
 }
@@ -13316,7 +13325,7 @@ function p13ExportMatrices() {
 function p13ExportEdges() {
   const d = P13.data;
   if (!d?.run || !d.sig_edges?.length) { alert('Sin edges significativos.'); return; }
-  const headers = ['ch_a','ch_b','ctrl_mean','ms_mean','diff','p_value','q_value','effect_d'];
+  const headers = ['ch_a','ch_b','ctrl_mean','ms_mean','diff','p_value','q_value','effect_d_pooled'];
   const rows = d.sig_edges.map(e => headers.map(h => e[h] ?? '').join(','));
   const blob = new Blob([headers.join(',')+'\n'+rows.join('\n')], { type:'text/csv' });
   const a = document.createElement('a');
@@ -13328,7 +13337,7 @@ function p13ExportEdges() {
 function p13ExportStats() {
   const d = P13.data;
   if (!d?.run || !d.band_stats?.length) { alert('Sin estadísticas por banda.'); return; }
-  const headers = ['band','ctrl_mean','ms_mean','diff_mean','mean_p','n_sig','mean_d'];
+  const headers = ['band','ctrl_mean','ms_mean','diff_mean','mean_p','n_sig','mean_abs_d_pooled'];
   const rows = d.band_stats.map(r => headers.map(h => r[h] ?? '').join(','));
   const blob = new Blob([headers.join(',')+'\n'+rows.join('\n')], { type:'text/csv' });
   const a = document.createElement('a');
@@ -13394,7 +13403,16 @@ async function loadPhase14() {
     if (!d.run) {
       if (notRun)  notRun.style.display  = '';
       if (content) content.style.display = 'none';
-      if (chip) { chip.className = 'status-chip pending'; chip.textContent = 'Pendiente'; }
+      const title = document.getElementById('p14-not-run-title');
+      const text = document.getElementById('p14-not-run-text');
+      if (d.incompatible) {
+        if (title) title.textContent = 'Resultados incompatibles con el visor actual';
+        if (text) text.textContent = d.error ||
+          'Regenere el análisis longitudinal con la versión de producción correspondiente.';
+        if (chip) { chip.className = 'status-chip error'; chip.textContent = 'Incompatible'; }
+      } else if (chip) {
+        chip.className = 'status-chip pending'; chip.textContent = 'Pendiente';
+      }
       return;
     }
 
@@ -13534,7 +13552,7 @@ function _p14RenderGlobalMetrics(bandStats, summary) {
   const nSig  = s.n_total_sig ?? 0;
   const nPairs= bs.reduce((a,r) => a+(r.n_pairs||0), 0);
   const bestB = s.best_band || '—';
-  const meanD = bs.length ? (bs.reduce((a,r)=>a+Math.abs(r.mean_d||0),0)/bs.length).toFixed(3):'—';
+  const meanD = bs.length ? (bs.reduce((a,r)=>a+Math.abs(r.mean_abs_dz||0),0)/bs.length).toFixed(3):'—';
   const t1G   = bs.length ? (bs.reduce((a,r)=>a+(r.t1_mean||0),0)/bs.length).toFixed(3):'—';
   const t2G   = bs.length ? (bs.reduce((a,r)=>a+(r.t2_mean||0),0)/bs.length).toFixed(3):'—';
   const nBands= bs.filter(r=>r.n_sig>0).length;
@@ -13672,7 +13690,7 @@ function _p14RenderTopTable(sigEdges) {
       <td style="text-align:right;font-family:monospace">${e.t2_mean.toFixed(3)}</td>
       <td style="text-align:right;font-family:monospace;color:${dCol};font-weight:700">${(e.diff>0?'+':'')+e.diff.toFixed(3)}</td>
       <td style="text-align:right;font-family:monospace;${qCls}">${e.q_value.toFixed(3)}</td>
-      <td style="text-align:right;font-family:monospace">${e.effect_d.toFixed(2)}</td>
+      <td style="text-align:right;font-family:monospace">${e.effect_dz.toFixed(2)}</td>
     </tr>`;
   }).join('');
 }
@@ -13733,7 +13751,7 @@ function _p14RenderBandStats(bandStats) {
       <td style="text-align:right;font-family:monospace">${(r.mean_p||1).toFixed(3)}</td>
       <td style="text-align:right;font-weight:${sig?'700':'400'};color:${sig?'#059669':'var(--text-2)'}">
         ${r.n_sig} sig</td>
-      <td style="text-align:right;font-family:monospace">${(r.mean_d||0).toFixed(3)}</td>
+      <td style="text-align:right;font-family:monospace">${(r.mean_abs_dz||0).toFixed(3)}</td>
     </tr>`;
   }).join('');
 }
@@ -13770,7 +13788,7 @@ function p14ExportMatrices() {
 function p14ExportEdges() {
   const d=P14.data;
   if(!d?.run||!d.sig_edges?.length){alert('Sin edges significativos.'); return;}
-  const h=['ch_a','ch_b','t1_mean','t2_mean','diff','p_value','q_value','effect_d'];
+  const h=['ch_a','ch_b','t1_mean','t2_mean','diff','p_value','q_value','effect_dz'];
   const rows=d.sig_edges.map(e=>h.map(k=>e[k]??'').join(','));
   const blob=new Blob([h.join(',')+'\n'+rows.join('\n')],{type:'text/csv'});
   const a=document.createElement('a');
@@ -13780,7 +13798,7 @@ function p14ExportEdges() {
 function p14ExportStats() {
   const d=P14.data;
   if(!d?.run||!d.band_stats?.length){alert('Sin estadísticas.'); return;}
-  const h=['band','t1_mean','t2_mean','diff_mean','mean_p','n_sig','mean_d'];
+  const h=['band','t1_mean','t2_mean','diff_mean','mean_p','n_sig','mean_abs_dz'];
   const rows=d.band_stats.map(r=>h.map(k=>r[k]??'').join(','));
   const blob=new Blob([h.join(',')+'\n'+rows.join('\n')],{type:'text/csv'});
   const a=document.createElement('a');

@@ -1,10 +1,38 @@
-#!/usr/bin/env julia
-# NeuroMIND — Dashboard interactivo
+# ═══════════════════════════════════════════════════════════════
+#  NeuroMIND — Dashboard interactivo (Genie.jl)
+# ═══════════════════════════════════════════════════════════════
 #
-# Uso:
-#   julia --project=. scripts/launch_dashboard.jl
-#   julia --project=. scripts/launch_dashboard.jl --port 9090
-#   julia --project=. scripts/launch_dashboard.jl --no-browser
+#  Arranca el servidor local del dashboard.
+#  Lee [dashboard] de config/pipeline.toml; --port en CLI tiene
+#  prioridad sobre el TOML.
+#
+# ───────────────────────────────────────────────────────────────
+#  Fichero    scripts/launch_dashboard.jl
+#  Autor      Rafael Castro Triguero <me1catrr@uco.es>
+#  Modificado 22-07-2026
+# ───────────────────────────────────────────────────────────────
+#
+#  Invocación: julia --project=. scripts/<este-script>.jl …
+#  Sin shebang: #!/usr/bin/env julia no activaría --project=.
+#
+#  Config
+#  ──────
+#    config/pipeline.toml  →  sección [dashboard]
+#
+#  Uso
+#  ───
+#    julia --project=. scripts/launch_dashboard.jl
+#    julia --project=. scripts/launch_dashboard.jl --port 9090
+#    julia --project=. scripts/launch_dashboard.jl --no-browser
+#
+#  Opciones
+#  ────────
+#    --port N        puerto HTTP (defecto: 8080 o [dashboard].port)
+#    --no-browser    no abrir el navegador al arrancar
+#
+#  Salida
+#  ──────
+#    http://localhost:<port>
 
 using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
@@ -27,21 +55,21 @@ let args = ARGS
 end
 
 # ─── Configuración ────────────────────────────────────────────
-root      = joinpath(@__DIR__, "..")
-ss_config = joinpath(root, "config", "single_subject.toml")
-pl_config = joinpath(root, "config", "pipeline.toml")
+root        = joinpath(@__DIR__, "..")
+config_path = joinpath(root, "config", "pipeline.toml")
 
-cfg = if isfile(ss_config)
-    load_ss_config(ss_config)
-else
-    load_config(pl_config)
-end
+isfile(config_path) ||
+    error("Config no encontrada: $(config_path)\n" *
+          "→ config/pipeline.toml es la configuración única del proyecto.")
 
-# Puerto desde single_subject.toml si no se pasó --port
-if !any(a -> a == "--port", ARGS) && isfile(ss_config)
-    raw = TOML.parsefile(ss_config)
-    port      = Int(get(get(raw, "dashboard", Dict()), "port", port))
-    open_brsr = Bool(get(get(raw, "dashboard", Dict()), "open_browser", open_brsr))
+cfg = load_ss_config(config_path)
+
+# [dashboard] del TOML — --port en CLI tiene prioridad
+if !any(a -> a == "--port", ARGS)
+    raw       = TOML.parsefile(config_path)
+    dash      = get(raw, "dashboard", Dict())
+    port      = Int(get(dash, "port", port))
+    open_brsr = Bool(get(dash, "open_browser", open_brsr))
 end
 
 println("Iniciando NeuroMIND Dashboard → http://localhost:$(port)")
