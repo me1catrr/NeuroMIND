@@ -1,0 +1,56 @@
+# =========================
+# NeuroMIND — CI (GitHub Actions)
+# =========================
+# Reproduce las comprobaciones que AGENTS.md (§12) exige antes de fusionar
+# en main: repositorio sin datos, syntax check del módulo y suite completa.
+#
+# Los tests de regresión con el dataset real leen results/ (gitignored); en
+# CI no existe, así que esos @testset se registran como skipped por diseño.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Julia ${{ matrix.julia-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # Manifest.toml está resuelto con Julia 1.12.
+        julia-version: ['1.12']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # AGENTS.md §8: nunca versionar datos, resultados ni configuración local.
+      - name: Repositorio sin datos
+        run: |
+          if git ls-files | grep -E '(^data/|^results/|\.DS_Store$|^\.claude/|^\.vscode/)'; then
+            echo "::error::Hay archivos que no deben versionarse (ver AGENTS.md §8)"
+            exit 1
+          fi
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.julia-version }}
+
+      - uses: julia-actions/cache@v2
+
+      - uses: julia-actions/julia-buildpkg@v1
+
+      - name: Syntax check
+        run: julia --project=. -e 'include("src/NeuroMIND.jl"); println("OK")'
+
+      - name: Tests
+        run: julia --project=. test/runtests.jl
