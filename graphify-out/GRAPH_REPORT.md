@@ -1,68 +1,77 @@
 # Graph Report - NeuroMIND  (2026-10-07)
 
 ## Corpus Check
-- cluster-only mode — file stats not available
+- 98 files · ~189,682 words
+- Verdict: corpus is large enough that graph structure adds value.
+- Unclassified: 9 file(s) not represented in the graph (top: (none) 6, .toml 3)
 
 ## Summary
-- 1471 nodes · 3015 edges · 64 communities (55 shown, 9 thin omitted)
+- 1479 nodes · 3022 edges · 71 communities (62 shown, 9 thin omitted)
 - Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 174 edges (avg confidence: 0.87)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `f884fa21`
+- Built from commit: `c8d8e1c2`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- mne_brain: wPLI y tests de conectividad
-- mne_brain: scripts de ejecución por fases
+- compute_wpli
+- run_full_pipeline.py
 - Transversal.jl: estadística y figuras
-- Longitudinal.jl: estadística y figuras
-- mne_brain: épocas y preprocesado
-- mne_brain: ICA y validación fase 8
+- Longitudinal
+- epochs.py
+- run_phase8_validation.py
 - Suite de tests Julia
-- Auditoría y construcción BIDS
-- mne_brain: configuración y espectro
-- mne_brain: carga BIDS/BrainVision
-- mne_brain: tipos y config
+- audit_full_dataset.jl
+- load_config
+- loader.py
+- types.py
 - Tipos centrales Julia (types.jl)
-- Comparación de rechazos NeuroMIND vs MNE
+- compare_neuromind_mne_rejections.py
 - Visor aux: surrogates
-- Visor transversal interactivo
+- plot_transversal.jl
 - Visor aux: épocas
 - Visor aux: componentes ICA
 - Visor aux: baseline
-- Visor longitudinal interactivo
+- plot_longitudinal.jl
 - mne_brain: filtrado y QC
 - viewer_common.js (UI compartida)
-- mne_brain: tests de procesado
-- Pipeline single-subject y batch
+- numpy
+- SingleSubjectPipeline.jl
 - Visor aux: conectividad
 - Visor aux: espectro
 - Visor aux: histograma raw
-- Visor aux: señal raw y auditorías
+- plot_raw.jl
 - Visor aux: ICA antes/después
-- Estadística de grupo (GroupStats.jl)
+- GroupStats.jl
 - Visor aux: PSD espectral
 - Visor aux: filtrado vs raw
-- mne_brain: PSD
+- run_batch_pipeline.jl
 - Visor aux: butterfly raw
 - Módulo NeuroMIND.jl
 - Estimadores wPLI (wPLI.jl)
 - Dashboard Genie (App.jl)
-- Visor transversal: contrato y errores
+- IncompatibleTransversalResultsError
 - Reglas de agentes (AGENTS.md)
 - Soporte de visores (ViewerSupport)
 - Visión general (README)
 - Lanzadores de análisis de grupo
-- Visor longitudinal: contrato y errores
+- IncompatibleResultsError
 - Config.jl (rutas)
 - Pipeline de 8 pasos (doc)
 - ICA FastICA (ICACore.jl)
-- Simplificación de la capa de cohorte
-- mne_brain: EpochSet
+- argparse
+- Single-subject viewer flow raw->filter->ICA->epochs->spectral->connectivity->surrogate
+- Clean-slate per leaf unit + manifest
+- Longitudinal.jl
+- ica_core.py
+- Batch & group analysis audit 2026-07-25
+- Plan de continuación — Report_Pre + revisión de código/resultados
+- PowerSpectrum.jl
 - Lanzador del dashboard
 - Clasificación ICA (Julia)
+- src/interactive README (viewer launch guide)
 - Filtrado (Filtering.jl)
 - Surrogates.jl
 - GraphPlots.jl
@@ -90,16 +99,16 @@
 10. `make_epochs()` - 17 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `Circular-shift surrogate test` --references--> `compute_wpli()`  [INFERRED]
-  README.md → src/connectivity/wPLI.jl
 - `Dynamic per-subject QC channel exclusion (z>3)` --references--> `run_single_subject_pipeline()`  [INFERRED]
   AGENTS.md → src/SingleSubjectPipeline.jl
+- `Circular-shift surrogate test` --references--> `compute_wpli()`  [INFERRED]
+  README.md → src/connectivity/wPLI.jl
+- `load_ss_config()` --shares_data_with--> `config/pipeline.toml (single config)`  [EXTRACTED]
+  src/SingleSubjectPipeline.jl → README.md
 - `8-step single-subject pipeline` --implements--> `run_single_subject_pipeline()`  [EXTRACTED]
   README.md → src/SingleSubjectPipeline.jl
 - `paired_change_summary()` --implements--> `Bootstrap 95% CI (B=5000, fixed seed)`  [EXTRACTED]
   src/longitudinal/Longitudinal.jl → README.md
-- `compute_wpli()` --implements--> `FourierCSD wPLI estimator`  [EXTRACTED]
-  src/connectivity/wPLI.jl → README.md
 
 ## Import Cycles
 - None detected.
@@ -112,57 +121,57 @@
 - **Cohort statistics production → contract → viewer flow** — src_transversal_transversal, src_longitudinal_longitudinal, readme_statistics_contract_v2, src_interactive_plot_transversal, src_interactive_plot_longitudinal, agents_single_statistics_source [INFERRED 0.85]
 - **Threats to group-analysis validity identified in Phase C audit** — docs_audits_batch_and_group_analysis_audit_2026_07_25_untested_group_statistics, docs_audits_batch_and_group_analysis_audit_2026_07_25_longitudinal_pairing_filter_bug, docs_audits_batch_and_group_analysis_audit_2026_07_25_hard_intersect_channel_policy, docs_audits_batch_and_group_analysis_audit_2026_07_25_dynamic_qc_channel_exclusion, docs_audits_batch_and_group_analysis_audit_2026_07_25_group_results_summary [INFERRED 0.85]
 
-## Communities (64 total, 9 thin omitted)
+## Communities (71 total, 9 thin omitted)
 
-### Community 0 - "mne_brain: wPLI y tests de conectividad"
-Cohesion: 0.10
-Nodes (15): main(), _resolve_dirs(), compute_wpli(), connectivity_matrices(), _plot_wpli_heatmap(), save_connectivity_results(), _make_coupled_epochs(), _make_epochs() (+7 more)
+### Community 0 - "compute_wpli"
+Cohesion: 0.11
+Nodes (14): main(), compute_wpli(), connectivity_matrices(), _plot_wpli_heatmap(), save_connectivity_results(), _make_coupled_epochs(), _make_epochs(), test_coupled_channels_have_higher_alpha_wpli() (+6 more)
 
-### Community 1 - "mne_brain: scripts de ejecución por fases"
-Cohesion: 0.05
-Nodes (41): build_all(), build_metadata_dict(), copy_support_files(), load_inventory(), load_participants(), main(), read_vhdr_with_mne(), resolve_vhdr_path() (+33 more)
+### Community 1 - "run_full_pipeline.py"
+Cohesion: 0.13
+Nodes (23): append_log_row(), build_parser(), discover_recordings(), _elapsed(), _exclude_recording(), _exclusion_path(), filter_recordings(), is_batch_mode() (+15 more)
 
 ### Community 2 - "Transversal.jl: estadística y figuras"
 Cohesion: 0.07
 Nodes (77): anatomical_order(), apply_theme!(), _assign_ranks(), _band_row(), bh_qvalues(), bootstrap_cohen_d_ci(), bootstrap_mean_diff_ci(), _ch_xy() (+69 more)
 
-### Community 3 - "Longitudinal.jl: estadística y figuras"
+### Community 3 - "Longitudinal"
 Cohesion: 0.06
-Nodes (75): mean_strength = (n_channels−1) × mean_wPLI normalization, Bootstrap 95% CI (B=5000, fixed seed), anatomical_order(), apply_theme!(), _as_bool(), _assign_ranks(), _band_scores(), bh_qvalues() (+67 more)
+Nodes (74): Bootstrap 95% CI (B=5000, fixed seed), anatomical_order(), apply_theme!(), _as_bool(), _assign_ranks(), _band_scores(), bh_qvalues(), bootstrap_cohen_dz_ci() (+66 more)
 
-### Community 4 - "mne_brain: épocas y preprocesado"
-Cohesion: 0.14
-Nodes (10): main(), apply_baseline(), epoch_summary(), load_cleaned_raw(), make_epochs(), _npz_to_raw(), reject_artifacts(), save_epoch_results() (+2 more)
+### Community 4 - "epochs.py"
+Cohesion: 0.09
+Nodes (19): main(), apply_baseline(), epoch_summary(), load_cleaned_raw(), make_epochs(), _npz_to_raw(), reject_artifacts(), save_epoch_exclusion() (+11 more)
 
-### Community 5 - "mne_brain: ICA y validación fase 8"
+### Community 5 - "run_phase8_validation.py"
 Cohesion: 0.06
-Nodes (33): main(), _save_matrix(), _save_topomaps(), _align_channels(), _fig_band_power(), _fig_heatmaps(), _fig_psd(), _fig_wpli_scatter_ba() (+25 more)
+Nodes (35): CLAUDE.md (@AGENTS.md include), mne_brain AGENTS.md, Batch errors 'Epochs-object is empty' (AR ±70 µV), mne_brain Phase 8 surrogates + FDR (pending), mne_brain pipeline_config.yaml, EEG frequency bands (ALPHA 7.8-11.7 Hz, 7 bands), surrogates config (200, phase_shuffle, BH), mne_brain README (+27 more)
 
 ### Community 6 - "Suite de tests Julia"
 Cohesion: 0.15
 Nodes (15): Test suite consolidated in test/runtests.jl, Test, _cfg_seg(), _cfg_with_ica(), _cfg_with_root(), _cfg_with_surrogates(), CSV, DataFrames (+7 more)
 
-### Community 7 - "Auditoría y construcción BIDS"
-Cohesion: 0.10
-Nodes (23): Dynamic QC channel exclusion (bad_ch always merged), FDR-BH applied per band (7 families), Group results: transversal EC 21 sig (ALPHA), EO 3, longitudinal 0, Hard-intersect channel policy in group analyses, Longitudinal pairing filter-order bug, Dataset preparation (Phase A audit + Phase B BIDS), _bids_subject_id(), is_excluded() (+15 more)
+### Community 7 - "audit_full_dataset.jl"
+Cohesion: 0.11
+Nodes (21): FDR-BH applied per band (7 families), Group results: transversal EC 21 sig (ALPHA), EO 3, longitudinal 0, Longitudinal pairing filter-order bug, Dataset preparation (Phase A audit + Phase B BIDS), _bids_subject_id(), is_excluded(), Dates, load_demographics() (+13 more)
 
-### Community 8 - "mne_brain: configuración y espectro"
-Cohesion: 0.12
-Nodes (14): default_config_path(), load_config(), compute_psd(), _make_alpha_epochs(), _make_epochs(), test_band_power_keys_match_config(), test_band_power_shape_and_positive(), test_mean_spectrum_equals_epoch_mean() (+6 more)
+### Community 8 - "load_config"
+Cohesion: 0.09
+Nodes (17): default_config_path(), load_config(), compute_band_power(), compute_psd(), mean_spectrum(), save_spectral_results(), _make_alpha_epochs(), _make_epochs() (+9 more)
 
-### Community 9 - "mne_brain: carga BIDS/BrainVision"
+### Community 9 - "loader.py"
 Cohesion: 0.11
 Nodes (20): bids_root_dir(), BrainVisionHeader, find_vhdr_by_name(), _first_existing(), load_eeg_bids(), load_eeg_brainvision(), load_eeg_tsv(), load_electrode_positions() (+12 more)
 
-### Community 10 - "mne_brain: tipos y config"
-Cohesion: 0.10
-Nodes (13): _normalize_bands(), ClinicalData, ConnectivityMatrix, GraphMetrics, GroupAnalysis, LongitudinalAnalysis, PipelineConfig, Session (+5 more)
+### Community 10 - "types.py"
+Cohesion: 0.08
+Nodes (14): _normalize_bands(), ClinicalData, ConnectivityMatrix, EpochSet, GraphMetrics, GroupAnalysis, LongitudinalAnalysis, PipelineConfig (+6 more)
 
 ### Community 11 - "Tipos centrales Julia (types.jl)"
 Cohesion: 0.16
 Nodes (16): ClinicalData, ConnectivityMatrix, duration(), EEGRecording, EpochSet, GraphMetrics, GroupAnalysis, ICAResult (+8 more)
 
-### Community 12 - "Comparación de rechazos NeuroMIND vs MNE"
+### Community 12 - "compare_neuromind_mne_rejections.py"
 Cohesion: 0.20
 Nodes (18): _as_int(), _as_pct(), build_parser(), compare_recordings(), _decision(), _diff(), _fmt_top(), load_julia_recordings() (+10 more)
 
@@ -170,9 +179,9 @@ Nodes (18): _as_int(), _as_pct(), build_parser(), compare_recordings(), _decisio
 Cohesion: 0.08
 Nodes (47): _auto_interpret(), _band_json(), BandPack, _cache_get(), _ch_index(), _contrast_json(), _edge_row(), _extract_null_dist() (+39 more)
 
-### Community 14 - "Visor transversal interactivo"
+### Community 14 - "plot_transversal.jl"
 Cohesion: 0.13
-Nodes (22): handle_request(), html_page(), CairoMakie, CSV, DataFrames, Dates, Sockets, Statistics (+14 more)
+Nodes (23): _cond_dir(), handle_request(), html_page(), CairoMakie, CSV, DataFrames, Dates, Sockets (+15 more)
 
 ### Community 15 - "Visor aux: épocas"
 Cohesion: 0.10
@@ -186,9 +195,9 @@ Nodes (30): _components_json(), compute_ic_psd(), _decision_explanation(), _feat
 Cohesion: 0.10
 Nodes (30): _apply_bl(), _baseline_end_s(), BaselineStore, compute_offset_table(), _epoch_max_offset(), _epoch_raw(), handle_request(), html_page() (+22 more)
 
-### Community 18 - "Visor longitudinal interactivo"
+### Community 18 - "plot_longitudinal.jl"
 Cohesion: 0.13
-Nodes (23): handle_request(), _honest_best_from_summary(), html_page(), CairoMakie, CSV, DataFrames, Dates, Sockets (+15 more)
+Nodes (24): _cond_dir(), handle_request(), _honest_best_from_summary(), html_page(), CairoMakie, CSV, DataFrames, Dates (+16 more)
 
 ### Community 19 - "mne_brain: filtrado y QC"
 Cohesion: 0.11
@@ -198,13 +207,13 @@ Nodes (18): EEGRecording, apply_bandreject(), apply_highpass(), apply_lowpass(),
 Cohesion: 0.22
 Nodes (15): barChart(), bindHeatmap(), drawColorbar(), drawGraph(), drawHeatmap(), drawStrength(), drawTopo(), drawVolcano() (+7 more)
 
-### Community 21 - "mne_brain: tests de procesado"
-Cohesion: 0.16
-Nodes (8): _inject_artifact(), _make_raw(), test_baseline_idempotent_on_zero_mean(), test_baseline_zeroes_epoch_mean(), test_clean_signal_survives_ar(), test_make_epochs_count_and_duration(), test_make_epochs_no_overlap(), test_reject_drops_contaminated_epoch()
+### Community 21 - "numpy"
+Cohesion: 0.13
+Nodes (15): run_phase4(), main(), _save_matrix(), _save_topomaps(), _bandpower(), compute_ica_features(), evaluate_ica_components(), _kurtosis() (+7 more)
 
-### Community 22 - "Pipeline single-subject y batch"
-Cohesion: 0.05
-Nodes (63): Hard channel intersection across cohort, Dynamic per-subject QC channel exclusion (z>3), Phase C batch run 2026-07-25 (201 OK/5 SKIP/0 ERR), config/pipeline.toml (single config), Progress (ProgressMeter), RunLogging (LoggingExtras TeeLogger), Logging, 31-channel montage (exclude_fp2=false, 465 edges) (+55 more)
+### Community 22 - "SingleSubjectPipeline.jl"
+Cohesion: 0.13
+Nodes (35): RunLogging (LoggingExtras TeeLogger), _bh_qvalues(), detect_first_subject(), _format_eta_s(), _ica_config_hash(), _ica_effective_params(), CairoMakie, Serialization (+27 more)
 
 ### Community 23 - "Visor aux: conectividad"
 Cohesion: 0.09
@@ -218,17 +227,17 @@ Nodes (29): _band_payload(), _band_row(), _curve_series(), handle_request(), htm
 Cohesion: 0.15
 Nodes (25): _channel_stats(), _grid_dims(), handle_request(), _hist_json_channel(), _histogram(), html_page(), CairoMakie, CSV (+17 more)
 
-### Community 26 - "Visor aux: señal raw y auditorías"
-Cohesion: 0.05
-Nodes (48): Batch & group analysis audit 2026-07-25, Versioning of 12 single-subject aux viewers out of results/, Report_Pre citability precondition (reprocess with current config), Uncurated duplicate recording M16 T1 EC, Phase C batch run (201 OK / 5 SKIP / 0 ERR), Traceability audit — M05 run (2026-07-14), channel_statistics_compare.csv without generator, ICA cache temporal mix (FastICA May vs pipeline July) (+40 more)
+### Community 26 - "plot_raw.jl"
+Cohesion: 0.16
+Nodes (16): handle_request(), html_page(), CairoMakie, CSV, DataFrames, Dates, Sockets, load_store() (+8 more)
 
 ### Community 27 - "Visor aux: ICA antes/después"
 Cohesion: 0.14
 Nodes (22): handle_request(), html_page(), ICASignalStore, CairoMakie, CSV, DataFrames, Dates, Sockets (+14 more)
 
-### Community 28 - "Estadística de grupo (GroupStats.jl)"
-Cohesion: 0.12
-Nodes (23): CLAUDE.md (@AGENTS.md include), Untested production group statistics (GroupStats.jl unused), Welch/paired t-tests use Z (normal) approximation, mne_brain AGENTS.md, Batch errors 'Epochs-object is empty' (AR ±70 µV), mne_brain Phase 8 surrogates + FDR (pending), mne_brain pipeline_config.yaml, EEG frequency bands (ALPHA 7.8-11.7 Hz, 7 bands) (+15 more)
+### Community 28 - "GroupStats.jl"
+Cohesion: 0.29
+Nodes (13): Untested production group statistics (GroupStats.jl unused), Welch/paired t-tests use Z (normal) approximation, statistics section (mann_whitney, wilcoxon, fdr_q 0.05), _assign_ranks(), _collect_wpli(), compare_groups_stats(), _empty_stat(), _erf_approx() (+5 more)
 
 ### Community 29 - "Visor aux: PSD espectral"
 Cohesion: 0.14
@@ -238,9 +247,9 @@ Nodes (22): _band_row(), handle_request(), html_page(), _index_row(), CairoMakie
 Cohesion: 0.16
 Nodes (18): handle_request(), html_page(), CairoMakie, CSV, DataFrames, Dates, Sockets, _load_stage_csv() (+10 more)
 
-### Community 31 - "mne_brain: PSD"
-Cohesion: 0.22
-Nodes (3): compute_band_power(), mean_spectrum(), save_spectral_results()
+### Community 31 - "run_batch_pipeline.jl"
+Cohesion: 0.09
+Nodes (26): Phase C batch run 2026-07-25 (201 OK/5 SKIP/0 ERR), config/pipeline.toml (single config), Report_Pre citability precondition (reprocess with current config), Uncurated duplicate recording M16 T1 EC, Phase C batch run (201 OK / 5 SKIP / 0 ERR), Progress (ProgressMeter), Logging, 31-channel montage (exclude_fp2=false, 465 edges) (+18 more)
 
 ### Community 32 - "Visor aux: butterfly raw"
 Cohesion: 0.16
@@ -258,9 +267,9 @@ Nodes (43): Condition-specific T1–T2 pair selection, MINDEM-IMIBIC dataset (41
 Cohesion: 0.18
 Nodes (10): Base64, Genie, Genie.Renderer.Html, Genie.Renderer.Json, Genie.Requests, Genie.Router, Genie.Server, Dates (+2 more)
 
-### Community 36 - "Visor transversal: contrato y errores"
-Cohesion: 0.22
-Nodes (11): _cond_dir(), CondStore, IncompatibleTransversalResultsError, load_condition(), load_viewer(), _require_columns(), _required_csv(), _required_matrix() (+3 more)
+### Community 36 - "IncompatibleTransversalResultsError"
+Cohesion: 0.26
+Nodes (9): CondStore, IncompatibleTransversalResultsError, load_condition(), _require_columns(), _required_csv(), _required_matrix(), TransViewer, validate_condition_contract() (+1 more)
 
 ### Community 37 - "Reglas de agentes (AGENTS.md)"
 Cohesion: 0.33
@@ -278,9 +287,9 @@ Nodes (5): 12 single-subject aux viewers (:8765–:8775), Genie dashboard (panel
 Cohesion: 0.29
 Nodes (5): A&S 7.1.26 polynomial erf approximation, Longitudinal, TOML, TOML, Transversal
 
-### Community 41 - "Visor longitudinal: contrato y errores"
-Cohesion: 0.22
-Nodes (11): _cond_dir(), CondStore, IncompatibleResultsError, load_condition(), load_viewer(), LongViewer, _require_columns(), _required_csv() (+3 more)
+### Community 41 - "IncompatibleResultsError"
+Cohesion: 0.26
+Nodes (9): CondStore, IncompatibleResultsError, load_condition(), LongViewer, _require_columns(), _required_csv(), _required_matrix(), validate_condition_contract() (+1 more)
 
 ### Community 42 - "Config.jl (rutas)"
 Cohesion: 0.27
@@ -294,9 +303,37 @@ Nodes (3): 8-step single-subject pipeline, load_eeg_brainvision(), read_vhdr_hea
 Cohesion: 0.53
 Nodes (5): Independent Component Analysis (ICA), _fastica_attempt(), run_ica(), _sym_decorr(), _whiten_pca()
 
-### Community 48 - "Simplificación de la capa de cohorte"
-Cohesion: 0.29
-Nodes (4): Cohort layer radical simplification 2026-07-27, Manual sync of figures to Report_Pre/figures/plots, Cohort interactive viewers (:8780/:8781), statistics_contract.toml schema v2
+### Community 45 - "argparse"
+Cohesion: 0.14
+Nodes (6): main(), _load_ica_suggestions(), _resolve_dirs(), main(), _resolve_dirs(), _resolve_dirs()
+
+### Community 46 - "Single-subject viewer flow raw->filter->ICA->epochs->spectral->connectivity->surrogate"
+Cohesion: 0.15
+Nodes (13): Dynamic QC channel exclusion (bad_ch always merged), Hard-intersect channel policy in group analyses, Prompt: Validar M05 tras la unificación, Lazy Genie loading (dashboard not compiled by pipeline), Single BIDS output tree (legacy results/{ID}/{SES} removed), sub-M05/ses-T2/eyesclosed reference run, M05 validation checklist (checks A-G), TDD — Sistema de ejecución de rutinas (+5 more)
+
+### Community 47 - "Clean-slate per leaf unit + manifest"
+Cohesion: 0.20
+Nodes (10): Versioning of 12 single-subject aux viewers out of results/, Atomic staging directory ({unit}.tmp/ + mv swap), Console (Crayons, TTY/ASCII degradation), Preflight checks (fail early), ResultsManager, run_manifest.json (per execution unit), RunContext, RunManifest module (+2 more)
+
+### Community 48 - "Longitudinal.jl"
+Cohesion: 0.28
+Nodes (5): Cohort layer radical simplification 2026-07-27, mean_strength = (n_channels−1) × mean_wPLI normalization, Manual sync of figures to Report_Pre/figures/plots, Cohort interactive viewers (:8780/:8781), statistics_contract.toml schema v2
+
+### Community 49 - "ica_core.py"
+Cohesion: 0.27
+Nodes (5): ICAResult, _explained_variance(), MNEICAResult, recording_to_raw(), run_ica()
+
+### Community 50 - "Batch & group analysis audit 2026-07-25"
+Cohesion: 0.27
+Nodes (10): Hard channel intersection across cohort, Dynamic per-subject QC channel exclusion (z>3), Batch & group analysis audit 2026-07-25, Traceability audit — M05 run (2026-07-14), channel_statistics_compare.csv without generator, ICA cache temporal mix (FastICA May vs pipeline July), ICA auto-rejection log vs load_ica_labels code mismatch, Missing git_commit / config_hash / run_id (+2 more)
+
+### Community 51 - "Plan de continuación — Report_Pre + revisión de código/resultados"
+Cohesion: 0.25
+Nodes (7): 0. Estado al cerrar, 1. Cómo trabajar en Cursor, 2. Bucle por capítulo (Report_Pre ↔ código ↔ resultados), 3. Mapa capítulo → código → salidas, 4. Cola de trabajo (orden sugerido), Plan de continuación — Report_Pre + revisión de código/resultados, Prompt de arranque para Cursor
+
+### Community 52 - "PowerSpectrum.jl"
+Cohesion: 0.60
+Nodes (3): _band_power_from_psd(), compute_psd(), _hamming_taper()
 
 ### Community 53 - "Lanzador del dashboard"
 Cohesion: 0.50
@@ -341,8 +378,8 @@ Nodes (3): has_manual_ica_labels(), _ica_manual_label_candidates(), load_ica_lab
   mne_brain/config/pipeline_config.yaml · relation: conceptually_related_to
 
 ## Knowledge Gaps
-- **203 isolated node(s):** `ClinicalData`, `GraphMetrics`, `GroupAnalysis`, `LongitudinalAnalysis`, `Session` (+198 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 445 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **208 isolated node(s):** `0. Estado al cerrar`, `1. Cómo trabajar en Cursor`, `2. Bucle por capítulo (Report_Pre ↔ código ↔ resultados)`, `3. Mapa capítulo → código → salidas`, `Prompt de arranque para Cursor` (+203 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 451 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
 - **9 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
@@ -350,15 +387,15 @@ _Questions this graph is uniquely positioned to answer:_
 
 - **What is the exact relationship between `Untested production group statistics (GroupStats.jl unused)` and `statistics section (mann_whitney, wilcoxon, fdr_q 0.05)`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
-- **Why does `Single-subject viewer flow raw->filter->ICA->epochs->spectral->connectivity->surrogate` connect `Visor aux: señal raw y auditorías` to `Visor aux: componentes ICA`, `Visor aux: surrogates`, `Visor transversal interactivo`, `Visor aux: conectividad`?**
-  _High betweenness centrality (0.213) - this node is a cross-community bridge._
+- **Why does `Single-subject viewer flow raw->filter->ICA->epochs->spectral->connectivity->surrogate` connect `Single-subject viewer flow raw->filter->ICA->epochs->spectral->connectivity->surrogate` to `Visor aux: surrogates`, `Visor aux: componentes ICA`, `src/interactive README (viewer launch guide)`, `Visor aux: conectividad`, `plot_raw.jl`?**
+  _High betweenness centrality (0.210) - this node is a cross-community bridge._
 - **Are the 8 inferred relationships involving `load_config()` (e.g. with `run_batch()` and `run_single()`) actually correct?**
   _`load_config()` has 8 INFERRED edges - model-reasoned connections that need verification._
-- **What connects `ClinicalData`, `GraphMetrics`, `GroupAnalysis` to the rest of the system?**
-  _203 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `mne_brain: wPLI y tests de conectividad` be split into smaller, more focused modules?**
-  _Cohesion score 0.10252100840336134 - nodes in this community are weakly interconnected._
+- **What connects `0. Estado al cerrar`, `1. Cómo trabajar en Cursor`, `2. Bucle por capítulo (Report_Pre ↔ código ↔ resultados)` to the rest of the system?**
+  _208 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `compute_wpli` be split into smaller, more focused modules?**
+  _Cohesion score 0.11174242424242424 - nodes in this community are weakly interconnected._
 - **What is the exact relationship between `mne_brain pipeline_config.yaml` and `Config mirror sync policy (YAML <-> Julia TOML)`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
-- **Why does `AGENTS.md — NeuroMIND agent guide` connect `Reglas de agentes (AGENTS.md)` to `Estimadores wPLI (wPLI.jl)`, `Longitudinal.jl: estadística y figuras`, `Dashboard Genie (App.jl)`, `Suite de tests Julia`, `Visión general (README)`, `ICA FastICA (ICACore.jl)`, `Simplificación de la capa de cohorte`, `Pipeline single-subject y batch`, `Visor aux: señal raw y auditorías`, `Estadística de grupo (GroupStats.jl)`?**
-  _High betweenness centrality (0.157) - this node is a cross-community bridge._
+- **Why does `AGENTS.md — NeuroMIND agent guide` connect `Reglas de agentes (AGENTS.md)` to `Estimadores wPLI (wPLI.jl)`, `Dashboard Genie (App.jl)`, `run_phase8_validation.py`, `Suite de tests Julia`, `Visión general (README)`, `ICA FastICA (ICACore.jl)`, `Longitudinal.jl`, `Batch & group analysis audit 2026-07-25`, `run_batch_pipeline.jl`?**
+  _High betweenness centrality (0.171) - this node is a cross-community bridge._
