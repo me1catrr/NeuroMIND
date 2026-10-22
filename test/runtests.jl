@@ -929,25 +929,182 @@ end
         @test contract["bootstrap_iterations"] == Longitudinal.BOOTSTRAP_N
     end
 
-    # La selección debe conservar un par EC aunque include_longitudinal=false
-    # por ausencia de EO: las condiciones se evalúan por separado.
+    # Los pares se calculan del inventario (registro único de grabaciones).
+    # M07 no tiene T1 EO: debe conservarse el par EC y descartarse el EO,
+    # porque las condiciones se evalúan por separado.
     mktempdir() do tmp
-        bids = joinpath(tmp, "bids")
-        mkpath(bids)
-        CSV.write(joinpath(bids, "longitudinal_pairs.csv"), DataFrame(
-            subject_id=["M7", "M8"],
-            bids_id=["M07", "M08"],
-            has_t1_ec=[true, true],
-            has_t1_eo=[false, true],
-            has_t2_ec=[true, true],
-            has_t2_eo=[true, true],
-            include_longitudinal=[false, true],
+        tables = joinpath(tmp, "data", "tables")
+        mkpath(tables)
+        recs = [("M7", "M07", "T1", "EC"), ("M7", "M07", "T2", "EC"), ("M7", "M07", "T2", "EO"),
+                ("M8", "M08", "T1", "EC"), ("M8", "M08", "T1", "EO"),
+                ("M8", "M08", "T2", "EC"), ("M8", "M08", "T2", "EO"),
+                ("MC1", "MC01", "T1", "EC"), ("MC1", "MC01", "T1", "EO")]
+        CSV.write(joinpath(tables, "inventory.csv"), DataFrame(
+            subject_id=[r[1] for r in recs],
+            bids_id=[r[2] for r in recs],
+            group=[startswith(r[1], "MC") ? "HC" : "MS" for r in recs],
+            bids_session=[r[3] for r in recs],
+            condition=[r[4] for r in recs],
+            excluded=fill(false, length(recs)),
         ))
-        pairs = Longitudinal.load_pairs(tmp, joinpath(tmp, "results"), bids)
-        @test length(pairs) == 2
+        pairs = Longitudinal.load_pairs(tmp, joinpath(tmp, "results"), joinpath(tmp, "data", "bids"))
+        @test length(pairs) == 2          # el control no entra
         m07 = only(filter(p -> p.subject_id == "M07", pairs))
         @test m07.has_ec
         @test !m07.has_eo
+        m08 = only(filter(p -> p.subject_id == "M08", pairs))
+        @test m08.has_ec && m08.has_eo
+    end
+
+    # Regresión del dataset real ALPHA–EC. `results/` es deliberadamente
+    # gitignored; en un checkout sin derivados se registra como skipped.
+    reg_dir = joinpath(@__DIR__, "..", "results", "transversal", "eyesclosed", "tables")
+    reg_files = [
+        joinpath(reg_dir, "global_mean_wpli_statistics.csv"),
+        joinpath(reg_dir, "subject_band_means.csv"),
+        joinpath(reg_dir, "band_statistics.csv"),
+        joinpath(reg_dir, "group_statistics_ALPHA.csv"),
+        joinpath(reg_dir, "band_power_group_statistics.csv"),
+    ]
+    if all(isfile, reg_files)
+        global_stats = CSV.read(reg_files[1], DataFrame)
+        subject_means = CSV.read(reg_files[2], DataFrame)
+        band_stats = CSV.read(reg_files[3], DataFrame)
+        edges = CSV.read(reg_files[4], DataFrame)
+        power = CSV.read(reg_files[5], DataFrame)
+        alpha = only(eachrow(filter(r -> string(r.band) == "ALPHA", global_stats)))
+        alpha_band = only(eachrow(filter(r -> string(r.band) == "ALPHA", band_stats)))
+        alpha_subjects = filter(r -> string(r.band) == "ALPHA", subject_means)
+        ms_values = Float64.(filter(r -> string(r.group) == "MS", alpha_subjects).mean_wpli)
+        ctrl_values = Float64.(filter(r -> string(r.group) == "Control", alpha_subjects).mean_wpli)
+        recomputed = Transversal.independent_group_summary(
+            ms_values, ctrl_values; seed=Int(alpha.bootstrap_seed))
+        top20 = sort(filter(r -> Int(r.effect_rank_abs_d) <= 20, edges),
+                     :effect_rank_abs_d)
+
+        @test Int(alpha.schema_version) == 2
+        @test string(alpha.statistics_source) == Transversal.STATISTICS_SOURCE
+        @test string(alpha.quantile_method) == Transversal.QUANTILE_METHOD
+        @test string(alpha.rrb_method) == Transversal.RRB_METHOD
+        @test Float64(alpha.effect_rrb) ≈ 1 / 3 atol=1e-12
+        @test Float64(alpha.ms_median) ≈ 0.20864151962518226 atol=1e-14
+        @test Float64(alpha.ctrl_median) ≈ 0.16040136212782588 atol=1e-14
+        @test Float64(alpha.effect_d_pooled) ≈ 0.5480285757786955 atol=1e-13
+        @test Float64(alpha.diff) ≈ 0.06632193175905668 atol=1e-14
+        @test Float64(alpha.ms_median) == median(ms_values)
+        @test Float64(alpha.ctrl_median) == median(ctrl_values)
+        @test Float64(alpha.effect_rrb) == recomputed.effect_rrb
+        @test Float64(alpha.effect_d_pooled) == recomputed.effect_d_pooled
+        @test Int(alpha.fdr_family_size) == 7
+        @test nrow(edges) == 276
+        @test count(identity, Bool.(edges.is_nominal)) == 86
+        @test count(identity, Bool.(edges.is_fdr)) == 12
+        @test nrow(edges) == Int(alpha_band.n_edges)
+        @test nrow(edges) == Int(alpha_band.n_channels) *
+                            (Int(alpha_band.n_channels) - 1) ÷ 2
+        @test count(identity, Bool.(edges.is_nominal)) == Int(alpha_band.n_nominal)
+        @test count(identity, Bool.(edges.is_fdr)) == Int(alpha_band.n_sig)
+        @test nrow(top20) == min(20, nrow(edges))
+        @test count(identity, Bool.(top20.is_nominal)) == 20
+        @test count(identity, Bool.(top20.is_nominal)) ==
+              Int(alpha_band.top20_nominal_overlap)
+        @test sort(Int.(edges.effect_rank_abs_d)) == collect(1:nrow(edges))
+        for band in unique(String.(power.band))
+            sub = filter(r -> string(r.band) == band, power)
+            @test all(Int.(sub.fdr_family_size) .== nrow(sub))
+        end
+    else
+        @test_skip false
+    end
+end
+
+@testset "LongitudinalProductionStats" begin
+    # Wilcoxon exacto: todos los cambios positivos, n=15.
+    before = zeros(15)
+    after = Float64.(1:15)
+    p, _, method = Longitudinal.wilcoxon_p(before, after; return_method=true)
+    @test method == "exact_conditional_dp"
+    @test p ≈ 2.0 / 2.0^15 atol=1e-15
+
+    # W+=1 reproduce el caso sensible C4–FC2: p exacto = 4/2^15.
+    after_w1 = vcat(1.0, -Float64.(2:15))
+    p_w1, _ = Longitudinal.wilcoxon_p(before, after_w1)
+    @test p_w1 ≈ 4.0 / 2.0^15 atol=1e-15
+
+    # Convención de Statistics.quantile para N par (interpolación Julia).
+    even_values = Float64[1, 2, 3, 4]
+    med, q1, q3 = Longitudinal.median_iqr(even_values)
+    @test med == 2.5
+    @test q1 == 1.75
+    @test q3 == 3.25
+
+    # El resumen único de producción materializa los estadísticos que usa el
+    # visor; JavaScript no debe volver a estimarlos.
+    prod = Longitudinal.paired_change_summary(
+        zeros(4), Float64[1, 2, 3, 4]; n_boot=100, seed=20260728)
+    @test prod.median_diff == med
+    @test prod.q1_diff == q1
+    @test prod.q3_diff == q3
+    @test prod.effect_rrb == 1.0
+    @test prod.n_positive == 4
+    @test prod.n_negative == 0
+    @test prod.n_zero == 0
+
+    # El visor rechaza resultados antiguos o incompletos; nunca reconstruye
+    # estadísticos como fallback.
+    mktempdir() do tmp
+        err = try
+            validate_condition_contract(tmp)
+            nothing
+        catch e
+            e
+        end
+        @test err isa IncompatibleResultsError
+        @test occursin("Resultados incompatibles con el visor actual",
+                       sprint(showerror, err))
+        old_dir = joinpath(tmp, "old_results", "longitudinal", "eyesclosed")
+        mkpath(old_dir)
+        old_viewer = load_viewer(results_root=joinpath(tmp, "old_results"))
+        @test isempty(old_viewer.stores)
+        @test occursin("Resultados incompatibles con el visor actual",
+                       old_viewer.errors["EC"])
+        @test_throws IncompatibleResultsError _require_columns(
+            DataFrame(schema_version=[2]), [:schema_version, :effect_dz], "legacy.csv")
+        @test_throws IncompatibleResultsError _require_columns(
+            DataFrame(schema_version=[1], effect_dz=[0.0]),
+            [:schema_version, :effect_dz], "legacy.csv")
+        Longitudinal.write_statistics_contract(joinpath(tmp, "statistics_contract.toml"), "EC")
+        contract = validate_condition_contract(tmp)
+        @test contract["schema_version"] == 2
+        @test contract["statistics_source"] == Longitudinal.STATISTICS_SOURCE
+        @test contract["bootstrap_iterations"] == Longitudinal.BOOTSTRAP_N
+    end
+
+    # Los pares se calculan del inventario (registro único de grabaciones).
+    # M07 no tiene T1 EO: debe conservarse el par EC y descartarse el EO,
+    # porque las condiciones se evalúan por separado.
+    mktempdir() do tmp
+        tables = joinpath(tmp, "data", "tables")
+        mkpath(tables)
+        recs = [("M7", "M07", "T1", "EC"), ("M7", "M07", "T2", "EC"), ("M7", "M07", "T2", "EO"),
+                ("M8", "M08", "T1", "EC"), ("M8", "M08", "T1", "EO"),
+                ("M8", "M08", "T2", "EC"), ("M8", "M08", "T2", "EO"),
+                ("MC1", "MC01", "T1", "EC"), ("MC1", "MC01", "T1", "EO")]
+        CSV.write(joinpath(tables, "inventory.csv"), DataFrame(
+            subject_id=[r[1] for r in recs],
+            bids_id=[r[2] for r in recs],
+            group=[startswith(r[1], "MC") ? "HC" : "MS" for r in recs],
+            bids_session=[r[3] for r in recs],
+            condition=[r[4] for r in recs],
+            excluded=fill(false, length(recs)),
+        ))
+        pairs = Longitudinal.load_pairs(tmp, joinpath(tmp, "results"), joinpath(tmp, "data", "bids"))
+        @test length(pairs) == 2          # el control no entra
+        m07 = only(filter(p -> p.subject_id == "M07", pairs))
+        @test m07.has_ec
+        @test !m07.has_eo
+        m08 = only(filter(p -> p.subject_id == "M08", pairs))
+        @test m08.has_ec && m08.has_eo
     end
 
     # Regresión del dataset real ALPHA–EC. `results/` es deliberadamente

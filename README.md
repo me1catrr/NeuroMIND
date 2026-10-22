@@ -91,7 +91,7 @@ Tablas CSV · Figuras PNG · Dashboard · Análisis de grupo · Informe PDF
 ## 3. Requisitos e instalación
 
 - **Julia** 1.9 – 1.12
-- Datos BrainVision en `data/full_data/`
+- Datos BrainVision originales en `data/sourcedata/brainvision/` y hojas clínicas en `data/sourcedata/clinical/` (ver §Fase 0)
 - Para el informe: LaTeX (`latexmk` + XeLaTeX)
 
 ```bash
@@ -164,8 +164,8 @@ audit_full_dataset → build_bids_full → run_single_subject (validación)
 
 | Script | Estado | Fase | Orquestador | Salida principal |
 |--------|--------|------|-------------|------------------|
-| `audit_full_dataset.jl` | ✅ Activo | A — inventario | autónomo | `inventory.csv`, `participants.tsv`, `groups.csv`, `longitudinal_pairs.csv` |
-| `build_bids_full.jl` | ✅ Activo | B — metadata BIDS | autónomo | `*_eeg_metadata.json`, `electrodes.tsv`, `dataset_description.json` |
+| `audit_full_dataset.jl` | ✅ Activo | A — inventario + clínica | autónomo | `data/tables/inventory.csv`, `data/bids/participants.tsv` |
+| `build_bids_full.jl` | ✅ Activo | B — dataset BIDS-EEG | autónomo | `data/bids/sub-*/ses-*/eeg/` (tripletes renombrados, recortes de M04/M05/M06 T1, electrodos) |
 | `run_single_subject.jl` | ✅ Activo | pipeline individual | `SingleSubjectPipeline.jl` (8 pasos) | `results/subjects/sub-{ID}/ses-{SES}/{task}/` |
 | `run_batch_pipeline.jl` | ✅ Activo | C — lote | idem, en bucle sobre `inventory.csv` | misma ruta BIDS + `results/logs/batch_run_*.csv` |
 | `run_transversal_analysis.jl` | ✅ Activo | post-hoc grupal | lanzador fino → `src/transversal/Transversal.jl` | `results/transversal/{eyesclosed\|eyesopen}/{tables,figures}/` |
@@ -203,7 +203,7 @@ En modo lote, `run_batch_pipeline.jl` copia este fichero y sobreescribe `[subjec
 
 | Sección | Parámetros y decisiones vigentes |
 |---------|----------------------------------|
-| `[subject]` | `subject_id` / `session_id` / `task` / `run`. **Solo aplica en modo single.** En lote, `run_batch_pipeline.jl` los sobreescribe desde `inventory.csv`. `subject_id = "auto"` autodetecta el primer `*_eeg_data.tsv` de `{bids_root}/raw/`. |
+| `[subject]` | `subject_id` / `session_id` / `task` / `run`. **Solo aplica en modo single.** En lote, `run_batch_pipeline.jl` los sobreescribe desde `inventory.csv`. `subject_id = "auto"` autodetecta la primera `*_eeg.vhdr` de `{bids_root}/sub-*/ses-*/eeg/`. |
 | `[recording]` | `sampling_rate = 500.0` (fallback; el fs real se lee del `.vhdr`). `reference = "average"` (informativo — no re-referencia la señal). |
 | `[qc]` | `bad_channel_zscore_threshold = 3.0` · `amplitude_warning_sigma_uv = 20.0`. |
 | `[filtering]` | `profile = "eeg_julia"`: Notch 50 Hz (49.5–50.5) y Bandreject 99.5–100.5 Hz **causales** (`filt`); HP 0.5 Hz y LP 150 Hz **zero-phase** (`filtfilt`). Orden 4. |
@@ -299,7 +299,7 @@ red+potencia "de manuscrito", solo `eyesclosed`) — no existe un modo
 | **Transversal** (EM T1 vs Control) | `results/transversal/{eyesclosed\|eyesopen\|combined}/` | ver árbol abajo |
 | **Longitudinal** (EM T1 → T2) | `results/longitudinal/{eyesclosed\|eyesopen}/` | ver árbol abajo |
 
-El transversal requiere `data/bids/groups.csv` (filtra `session=T1`), cruza QC (`include` / `include_with_warning`), aplica **Mann–Whitney + FDR-BH** (Welch de referencia; Cohen d) y genera:
+El transversal toma la cohorte de `data/tables/inventory.csv` (grabaciones T1 válidas), cruza QC (`include` / `include_with_warning`), aplica **Mann–Whitney + FDR-BH** (Welch de referencia; Cohen d) y genera:
 
 ```
 results/transversal/{eyesclosed|eyesopen}/
@@ -379,7 +379,7 @@ un artefacto o un campo obligatorio, el visor no recalcula ni reconstruye:
 muestra «Resultados incompatibles con el visor actual» y solicita regenerar
 el análisis transversal.
 
-El longitudinal usa las banderas por condición de `longitudinal_pairs.csv`
+El longitudinal calcula los pares desde `data/tables/inventory.csv` (ya no hay `longitudinal_pairs.csv`) y usa las banderas por condición
 (`has_t1_ec && has_t2_ec` para EC; equivalente para EO), sin exigir que el mismo
 sujeto tenga también la otra condición. Cruza QC y aplica **Wilcoxon signed-rank
 exacto condicional + FDR-BH** (programación dinámica para N≤30; `r_rb` pareado
@@ -554,8 +554,10 @@ NeuroMIND/
 ├── config/
 │   └── pipeline.toml           ← ⭐ CONFIGURACIÓN ÚNICA (la leen los 7 scripts)
 ├── data/
-│   ├── bids/                   ← BIDS ligero (metadata JSON, sin señales)
-│   └── full_data/              ← .vhdr crudos + inventory.csv
+│   ├── sourcedata/             ← solo lectura: brainvision/ (originales), clinical/ (Excel), docs/
+│   ├── bids/                   ← dataset BIDS-EEG real (se valida con bids-validator)
+│   ├── tables/                 ← inventory.csv (registro único de grabaciones)
+│   └── _archive/               ← copias previas a la reforma (borrables tras verificar)
 ├── src/                        ← Código Julia
 │   ├── NeuroMIND.jl            ← Entry point del módulo
 │   ├── types.jl                ← EEGRecording, EpochSet, ICAResult, …
@@ -680,68 +682,64 @@ Los nombres siguen BIDS (`sub-{ID}/ses-{SES}/{task}/`) y no llevan sufijo `_EC`/
 
 > **Nota histórica.** La corrida del 2026-07-09 se hizo con el código previo, que además escribía un árbol heredado `results/M05/T2/` con sufijos `_EC` y copiaba al BIDS. Ese doble árbol se eliminó; las corridas actuales producen solo la carpeta de arriba.
 
-### Fase 0 — Preparación del dataset (verificado M05)
+### Fase 0 — Preparación del dataset
 
-La Fase 0 es **previa al pipeline de 8 pasos**. No procesa señal EEG; solo inventaría los `.vhdr` crudos y crea la metadata BIDS ligera que alimenta el paso 1/8 (`load_single_subject`).
+La Fase 0 es **previa al pipeline de 8 pasos**. No procesa señal EEG: inventaría los `.vhdr` originales, fusiona las fuentes clínicas y construye un dataset **BIDS-EEG real** que alimenta el paso 1/8 (`load_single_subject`).
 
 ```
-data/full_data/Pacientes MINDEM_IMIBIC_…/*.vhdr
-        │
-        ▼
+data/sourcedata/brainvision/*.vhdr   data/sourcedata/clinical/anteriores/*.xlsx|csv   config/raw_selection.csv
+            │                                    │                                   │
+            └──────────────┬─────────────────────┴───────────────────────────────────┘
+                           ▼
 [Fase A] scripts/audit_full_dataset.jl
-        │  inventory.csv, participants.tsv, groups.csv, longitudinal_pairs.csv
-        ▼
-[Fase B] scripts/build_bids_full.jl
-        │  *_eeg_metadata.json, electrodes.tsv, dataset_description.json
-        ▼
-[Paso 1/8] load_single_subject → lee metadata JSON (+ .vhdr o TSV si existe)
+         │  data/tables/inventory.csv  ·  data/bids/participants.tsv
+         ▼
+[Fase B] scripts/build_bids_full.jl      (plantillas en config/bids/)
+         │  data/bids/sub-*/ses-*/eeg/…  ·  dataset_description.json  ·  README.md  ·  participants.json
+         ▼
+[Validar] bids-validator-deno data/bids  (0 errores)
+         ▼
+[Paso 1/8] load_single_subject → lee el tríptico .vhdr/.eeg del propio árbol BIDS
 ```
 
-**Comandos (ejecutar una vez por dataset, o al añadir grabaciones nuevas):**
+**Comandos (una vez por dataset, o al añadir grabaciones o actualizar las hojas clínicas):**
 
 ```bash
 julia --project=. scripts/audit_full_dataset.jl
-julia --project=. scripts/build_bids_full.jl
+julia --project=. scripts/build_bids_full.jl                  # --subjects M05,M04 para un subconjunto
+uv tool install bids-validator-deno && bids-validator-deno data/bids
 ```
 
-**Salidas globales (sin figuras):**
+**Estructura de `data/` (todo bajo `.gitignore`):**
 
-| Script | Fichero | Ubicación |
-|--------|---------|-----------|
-| Fase A | `inventory.csv` | `data/full_data/inventory.csv` |
-| Fase A | `participants.tsv` | `data/bids/participants.tsv` |
-| Fase A | `groups.csv` | `data/bids/groups.csv` |
-| Fase A | `longitudinal_pairs.csv` | `data/bids/longitudinal_pairs.csv` |
-| Fase B | `*_eeg_metadata.json` | `data/bids/raw/` (uno por grabación válida) |
-| Fase B | `*_electrodes.tsv` | `data/bids/electrodes/` (uno por sujeto/sesión) |
-| Fase B | `dataset_description.json` | `data/bids/dataset_description.json` |
+| Carpeta | Contenido | Se regenera |
+|---------|-----------|:-----------:|
+| `data/sourcedata/brainvision/` | Tripletes BrainVision originales (nunca se modifican) | no |
+| `data/sourcedata/clinical/` | `datos_clinicos_unificados.{xlsx,csv}` (documento maestro actual, generado por `scripts/build_clinical_master.jl`) y `anteriores/` con las fuentes originales: base MIND-EM (EDSS, D-FIS, BDI-II, fechas), hoja y `originales_javier/`, demográficos | no |
+| `data/sourcedata/docs/` | Protocolo, informes y presentaciones de origen | no |
+| `data/tables/inventory.csv` | Una fila por grabación (incluye excluidas y motivo); rutas relativas a la raíz del proyecto | sí (Fase A) |
+| `data/bids/` | Dataset BIDS-EEG: señal renombrada, sidecars, electrodos, `participants.tsv` | sí (Fases A+B) |
+| `data/_archive/` | Copias previas a la reforma y archivos apartados (`bids_descartados/`) | — |
 
-> La Fase B **no copia** los binarios BrainVision (`.eeg`/`.vhdr`); el JSON apunta al `.vhdr` original vía `vhdr_path`.
+**Qué hace cada fase:**
 
-**Comprobación M05 — `eyesclosed` / ses-T2 (2026-07-13):**
+- **Fase A** aplica las decisiones de `config/raw_selection.csv` (selección de raws y recortes de Javier), fusiona las hojas clínicas (Excel MIND-EM para pacientes, CSV demográfico para controles y nivel educativo, categorías de Javier) y escribe `participants.tsv` (24 columnas, descritas en `participants.json`). Imprime las discrepancias entre fuentes.
+- **Fase B** comprueba que los 209 `.vhdr` comparten canales y orden, copia cada `.eeg` con el nombre BIDS (clon de bloques en APFS, sin duplicar espacio real), reescribe `DataFile=`/`MarkerFile=` en `.vhdr`/`.vmrk` (así desaparecen las iniciales de los nombres) y **corta antes de cualquier filtro** los raws únicos de M04, M05 y M06 en T1 en dos grabaciones con intervalos semiabiertos `[tmin, tmax)`. Lo que deja de ser válido se mueve a `data/_archive/bids_descartados/`.
+- Los sidecars comunes (`task-*_eeg.json`, `task-*_channels.tsv`) están en la raíz y se heredan por el principio de herencia de BIDS; `electrodes.tsv` y `coordsystem.json` van en cada sesión.
+
+**Validación y comprobaciones (2026-10-15):**
 
 | Comprobación | Resultado |
 |--------------|-----------|
-| Filas en `inventory.csv` | 3: T1 excluida (paradigma ODDBALL), T2 EC ✅, T2 EO ✅ |
-| `bids_id` | `M05` (ID crudo del estudio: `M5`) |
-| `participants.tsv` | `sub-M05` · grupo MS · sexo F · edad 51 · `has_t1=false` · `has_t2=true` |
-| `longitudinal_pairs.csv` | `include_longitudinal=false` (sin T1 resting EC+EO; solo T2 válido) |
-| Metadata BIDS | `data/bids/raw/sub-M05_ses-T2_task-eyesclosed_run-01_eeg_metadata.json` |
-| `vhdr` fuente | `…/M5_T2_MLLERGAS_011221_OJOS CERRADOS.vhdr` — **existe en disco** |
-| `electrodes.tsv` | `data/bids/electrodes/sub-M05_ses-T2_electrodes.tsv` — 31 canales EEG + REF/GND |
-| Parámetros en metadata | `fs=500 Hz`, `n_channels=31`, `task=eyesclosed`, `group=MS` |
-| `dataset_description.json` | Presente en `data/bids/` |
-| Figuras Fase 0 | Ninguna (esperado) |
+| `bids-validator-deno data/bids` (v3.0.2) | 0 errores · 4 avisos documentados en `data/bids/README.md` |
+| Señal BIDS frente a `sourcedata` (MNE, 210 registros) | idéntica muestra a muestra (incluidos los 6 recortes) |
+| Cohorte | 77 participantes (41 EM + 36 HC), 105 sesiones, 210 grabaciones (105 EC + 105 EO) |
+| Canales | 31 en todos los `.vhdr`, mismo orden, último canal Fp2 |
 
-**Hallazgos a tener en cuenta:**
+> Los sidecars estándar sustituyen al antiguo `*_eeg_metadata.json`, que guardaba una ruta absoluta del Mac que lo generó. El dataset ya es portable: `vhdr_path` no existe y el inventario usa rutas relativas.
+> El validador no está en `Project.toml`: es una herramienta externa (`uv tool install bids-validator-deno`).
 
-1. **Carga real en paso 1/8:** existe un `sub-M05_ses-T2_task-eyesclosed_run-01_eeg_data.tsv` (~16 MB, 31 ch × 50 180 muestras). `load_single_subject` prioriza el TSV si está presente, aunque el metadata diga `data_format=brainvision`. Para M05 EC, el pipeline del 2026-07-09 cargó por **TSV**, no por `.vhdr` directo.
-2. **Ruta absoluta en metadata:** el campo `vhdr_path` del JSON guarda una ruta de otro usuario (`/Users/rafa/…`). El inventario tiene la ruta actual correcta; conviene regenerar metadata si se migra de máquina.
-3. **T1 de M05:** la grabación T1 es paradigma cognitivo (ODDBALL), marcada `excluded=true` — no entra al pipeline de reposo.
-
-**Estado Fase 0 M05:** ✅ preparación verificada — listo para el paso 1/8.
-
-### Fase 1/8 — Carga de datos (verificado M05)
+### Fase 1/8 — Carga de datos
 
 El paso 1/8 lee la señal cruda y valida el montaje contra `electrodes.tsv`. **No genera ficheros propios** en el momento de la carga; deja un objeto `EEGRecording` en memoria que alimenta todos los pasos siguientes.
 
@@ -752,13 +750,12 @@ config/pipeline.toml  →  load_ss_config()
         │
         ▼
 [subject] subject_id / session_id / task / run
-        │  ("auto" → detect_first_subject en data/bids/raw/)
+        │  ("auto" → detect_first_subject: primera *_eeg.vhdr de data/bids/sub-*/ses-*/eeg/)
         ▼
-load_single_subject()  ──►  EEGRecording  (canales × muestras)
-        │                    ├─ ruta TSV si existe *_eeg_data.tsv
-        │                    └─ ruta BrainVision si no hay TSV (load_eeg_brainvision)
+load_single_subject()  ──►  EEGRecording  (canales × muestras, µV)
+        │                    └─ load_eeg_brainvision (.vhdr + .eeg del árbol BIDS)
         ▼
-validate_channels()  ──►  compara nombres de canal vs electrodes.tsv
+validate_channels()  ──►  compara nombres de canal vs sub-X_ses-Y_electrodes.tsv
 ```
 
 **Rutinas y módulos:**
@@ -766,18 +763,19 @@ validate_channels()  ──►  compara nombres de canal vs electrodes.tsv
 | Rutina | Archivo | Función |
 |--------|---------|---------|
 | `load_ss_config` | `src/SingleSubjectPipeline.jl` | Parsea el TOML → `PipelineConfig` |
-| `detect_first_subject` | `src/SingleSubjectPipeline.jl` | Solo si `subject_id = "auto"`: primer `*_eeg_data.tsv` en `data/bids/raw/` |
-| `load_single_subject` | `src/SingleSubjectPipeline.jl` | Orquesta carga TSV o BrainVision |
+| `detect_first_subject` | `src/SingleSubjectPipeline.jl` | Solo si `subject_id = "auto"`: primera grabación BIDS por orden alfabético |
+| `load_single_subject` | `src/SingleSubjectPipeline.jl` | Resuelve la ruta BIDS y carga la grabación |
+| `bids_vhdr_path`, `bids_electrodes_path` | `src/io/Config.jl` | Rutas del árbol `sub-X/ses-Y/eeg/` |
 | `load_eeg_brainvision` | `src/io/BrainVisionLoader.jl` | Lee `.vhdr` + `.eeg` (IEEE_FLOAT_32, escala µV) |
 | `validate_channels` | `src/SingleSubjectPipeline.jl` | Cruza nombres de canal con `electrodes.tsv` |
 
-**Entradas M05 (desde Fase 0):**
+**Entradas M05 EC T2:**
 
 | Fichero | Rol |
 |---------|-----|
-| `data/bids/raw/sub-M05_ses-T2_task-eyesclosed_run-01_eeg_metadata.json` | `fs`, `n_channels`, `data_format` |
-| `data/bids/raw/sub-M05_ses-T2_task-eyesclosed_run-01_eeg_data.tsv` | **Señal usada** (único TSV del dataset; 205 metadata JSON, 1 TSV) |
-| `data/bids/electrodes/sub-M05_ses-T2_electrodes.tsv` | Posiciones 10-20 para validación y topomaps |
+| `data/bids/sub-M05/ses-T2/eeg/sub-M05_ses-T2_task-eyesclosed_run-01_eeg.{vhdr,vmrk,eeg}` | Señal (50 180 muestras × 31 canales) |
+| `data/bids/sub-M05/ses-T2/eeg/sub-M05_ses-T2_electrodes.tsv` | Posiciones 10-20 para validación y topomaps |
+| `data/bids/task-eyesclosed_eeg.json` | Sidecar heredado: referencia FCz, filtros de adquisición, equipo |
 
 **Salidas relacionadas con la carga** (escritas en pasos posteriores, no en 1/8):
 
@@ -789,7 +787,7 @@ validate_channels()  ──►  compara nombres de canal vs electrodes.tsv
 
 > El paso 1/8 **no produce figuras**.
 
-**Comprobación M05 — ejecución 2026-07-09:**
+**Comprobación M05 — ejecución 2026-07-09 (referencia):**
 
 | Comprobación | Esperado | Verificado |
 |--------------|----------|------------|
@@ -798,10 +796,8 @@ validate_channels()  ──►  compara nombres de canal vs electrodes.tsv
 | Frecuencia de muestreo | 500 Hz | ✅ |
 | Duración | 100.36 s | ✅ (50 180 / 500) |
 | Validación electrodos | OK | ✅ `electrode_validation = Validación OK` |
-| Formato de carga | TSV (prioridad sobre BrainVision) | ✅ único `*_eeg_data.tsv` del dataset |
-| Nombres de canal | Fz…Fp2 (orden 10-20) | ✅ coinciden en TSV, `raw_signal.csv` y `electrodes.tsv` |
-| Primer valor Fz (t=0 s) | −7.1946 µV | ✅ TSV ≡ `raw_signal.csv` |
-| `subject_id = "auto"` | Detecta M05 | ✅ es el único TSV en `data/bids/raw/` |
+| Nombres de canal | Fz…Fp2 (orden 10-20) | ✅ coinciden en la señal, `raw_signal.csv` y `electrodes.tsv` |
+| Primer valor Fz (t=0 s) | −7.1946 µV | ✅ el `.eeg` del BIDS da −7.19459 µV |
 
 **Traza en `pipeline_log.txt`:**
 
@@ -814,12 +810,11 @@ validate_channels()  ──►  compara nombres de canal vs electrodes.tsv
 
 **Hallazgos a tener en cuenta:**
 
-1. **M05 es un caso especial de carga:** de 205 grabaciones con metadata JSON, solo M05 tiene además un `*_eeg_data.tsv` legacy. El resto del cohorte cargará por **BrainVision** (`BrainVisionLoader.jl`) cuando se ejecute el batch.
-2. **Prioridad TSV > BrainVision:** si existe `*_eeg_data.tsv`, `load_single_subject` lo usa aunque el JSON diga `data_format=brainvision` (comportamiento en `SingleSubjectPipeline.jl` L217–227).
-3. **`detect_first_subject` solo busca TSV:** con `subject_id="auto"` fallará si no hay ningún `*_eeg_data.tsv` en `data/bids/raw/`. Para otros sujetos, fijar `subject_id = "M05"` (o el ID concreto) en el TOML.
-4. **`raw_signal.csv` no es salida del paso 1/8:** se escribe en el paso 4/8 (`_save_raw_signal`) como copia de auditoría de la señal cruda cargada al inicio.
+1. **Una sola vía de carga.** Hasta octubre de 2026 existía una ruta TSV heredada (solo M05) con prioridad sobre BrainVision; la corrida canónica de M05 del 2026-07-09 se cargó por ella. Se eliminó: todas las grabaciones cargan del tríptico BrainVision del árbol BIDS. Los valores coinciden (primer valor de Fz arriba).
+2. **Recortes ya aplicados.** M04, M05 y M06 en T1 se parten en la Fase B, antes de filtrar; el cargador no aplica ninguna ventana temporal (cierra PRE-03). Cada grabación recortada lleva un sidecar `*_eeg.json` con `SourceWindow`.
+3. **`raw_signal.csv` no es salida del paso 1/8:** se escribe en el paso 4/8 (`_save_raw_signal`) como copia de auditoría de la señal cruda cargada al inicio.
 
-**Estado Fase 1/8 M05:** ✅ carga y validación verificadas — listo para el paso 2/8 (QC).
+**Estado Fase 1/8:** ✅ carga y validación verificadas — listo para el paso 2/8 (QC).
 
 ### Fase 2/8 — QC de canales (verificado M05)
 

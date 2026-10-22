@@ -683,15 +683,16 @@ function launch_webapp(cfg::PipelineConfig;
         sess = string(get(getpayload(), :sess, "T2"))
         cond = _normalize_cond(string(get(getpayload(), :cond, "EC")))
 
-        raw_dir  = joinpath(project_root, "data", "BIDS", "raw")
-        elec_dir = joinpath(project_root, "data", "BIDS", "electrodes")
+        bids_dir = joinpath(project_root, "data", "bids")
+        raw_dir  = bids_eeg_dir(bids_dir, subj, sess)   # sub-X/ses-Y/eeg/
+        elec_dir = raw_dir
         prefix   = "sub-$(subj)_ses-$(sess)_task-$(cond)_run-01"
-        tsv_file  = "$(prefix)_eeg_data.tsv"
-        meta_file = "$(prefix)_metadata.json"
+        tsv_file  = "$(prefix)_eeg.vhdr"
+        meta_file = "task-$(cond)_eeg.json"   # sidecar heredado, en la raíz BIDS
         elec_file = "sub-$(subj)_ses-$(sess)_electrodes.tsv"
 
         tsv_path  = joinpath(raw_dir,  tsv_file)
-        meta_path = joinpath(raw_dir,  meta_file)
+        meta_path = joinpath(bids_dir, meta_file)
         elec_path = joinpath(elec_dir, elec_file)
 
         # Metadata como raw string (se parsea en JS con JSON.parse)
@@ -756,16 +757,17 @@ function launch_webapp(cfg::PipelineConfig;
         sess = string(get(getpayload(), :sess, "T2"))
         cond = _normalize_cond(string(get(getpayload(), :cond, "EC")))
 
-        raw_dir  = joinpath(project_root, "data", "BIDS", "raw")
-        elec_dir = joinpath(project_root, "data", "BIDS", "electrodes")
+        bids_dir = joinpath(project_root, "data", "bids")
+        raw_dir  = bids_eeg_dir(bids_dir, subj, sess)   # sub-X/ses-Y/eeg/
+        elec_dir = raw_dir
         prefix   = "sub-$(subj)_ses-$(sess)_task-$(cond)_run-01"
-        tsv_file = "$(prefix)_eeg_data.tsv"
-        meta_file= "$(prefix)_metadata.json"
+        tsv_file = "$(prefix)_eeg.vhdr"
+        meta_file= "task-$(cond)_eeg.json"   # sidecar heredado, en la raíz BIDS
         elec_file= "sub-$(subj)_ses-$(sess)_electrodes.tsv"
 
         # Metadata JSON como string crudo (parseado en JS con JSON.parse)
         meta_raw = ""
-        meta_path = joinpath(raw_dir, meta_file)
+        meta_path = joinpath(bids_dir, meta_file)
         isfile(meta_path) && (meta_raw = read(meta_path, String))
 
         # Disponibilidad de resultados procesados
@@ -804,7 +806,7 @@ function launch_webapp(cfg::PipelineConfig;
             "meta_json"        => meta_raw,
             "file_tree"        => Dict(
                 "tsv"        => Dict("name"=>tsv_file,  "exists"=>isfile(joinpath(raw_dir,  tsv_file))),
-                "metadata"   => Dict("name"=>meta_file, "exists"=>isfile(joinpath(raw_dir,  meta_file))),
+                "metadata"   => Dict("name"=>meta_file, "exists"=>isfile(joinpath(bids_dir, meta_file))),
                 "electrodes" => Dict("name"=>elec_file, "exists"=>isfile(joinpath(elec_dir, elec_file))),
             ),
             "results"          => Dict(
@@ -826,12 +828,13 @@ function launch_webapp(cfg::PipelineConfig;
         sess = string(get(getpayload(), :sess, "T2"))
         cond = _normalize_cond(string(get(getpayload(), :cond, "EC")))
 
-        raw_dir   = joinpath(project_root, "data", "BIDS", "raw")
+        bids_dir  = joinpath(project_root, "data", "bids")
+        raw_dir   = bids_eeg_dir(bids_dir, subj, sess)   # sub-X/ses-Y/eeg/
         prefix    = "sub-$(subj)_ses-$(sess)_task-$(cond)_run-01"
-        tsv_file  = "$(prefix)_eeg_data.tsv"
-        meta_file = "$(prefix)_metadata.json"
+        tsv_file  = "$(prefix)_eeg.vhdr"
+        meta_file = "task-$(cond)_eeg.json"   # sidecar heredado, en la raíz BIDS
         tsv_path  = joinpath(raw_dir, tsv_file)
-        meta_path = joinpath(raw_dir, meta_file)
+        meta_path = joinpath(bids_dir, meta_file)
 
         res_base  = joinpath(bids_root, "sub-$(subj)", "ses-$(sess)", cond)
         ov_path   = joinpath(res_base, "overview.csv")

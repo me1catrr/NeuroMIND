@@ -76,7 +76,7 @@
 #  Los campos de abajo se leen literalmente de este fichero.
 #
 #    subject_id = "auto"
-#      → primer *_eeg_data.tsv en {paths.bids_root}/raw/
+#      → primera *_eeg.vhdr en {paths.bids_root}/sub-*/ses-*/eeg/
 #        (orden alfabético; detect_first_subject,
 #         SingleSubjectPipeline.jl:169)
 #
@@ -87,7 +87,7 @@
 #  ────────────────────────────────────────────────────────────
 #  Este bloque se IGNORA por completo.
 #  Cada trabajo del lote sobreescribe los 4 campos desde
-#  data/full_data/inventory.csv, filtrado por CLI:
+#  data/tables/inventory.csv, filtrado por CLI:
 #    · --condition / --group / --session
 #    · --subjects / --max-subjects / --skip-done
 #  (write_temp_config, run_batch_pipeline.jl:148)
@@ -107,10 +107,10 @@ run        = 1
 #  sampling_rate
 #  ────────────────────────────────────────────────────────────
 #  → cfg.recording["fs"] (load_ss_config, SingleSubjectPipeline.jl:84).
-#  Se usa como FALLBACK cuando el metadata del origen no trae "fs"
-#  (SingleSubjectPipeline.jl:230). Con BrainVision el fs real se lee
-#  del .vhdr, así que este valor rara vez decide — pero declararlo
-#  evita depender de un default oculto en el código.
+#  Valor de referencia del montaje de adquisición. El fs real de cada
+#  grabación se lee siempre de su .vhdr (BrainVisionLoader.jl), así
+#  que este valor no decide la carga — pero declararlo evita depender
+#  de un default oculto en el código.
 #  Confirmado 500.0 Hz en los .vhdr de todo el dataset.
 #
 #  reference  ·  antes invisible · INFORMATIVO
@@ -162,9 +162,9 @@ snr_noise_band   = "GAMMA"
 #    · audit_full_dataset.jl
 #    · build_bids_full.jl
 #    · run_batch_pipeline.jl
-#  single_subject.toml usaba "data/BIDS" (mayúscula) — funciona
-#  hoy solo porque macOS/iCloud no distingue mayúsculas;
-#  fallaría en Linux / Docker / FS case-sensitive.
+#  Es la raíz del dataset BIDS-EEG (sub-*/ses-*/eeg/). Debe escribirse
+#  en minúscula: la carpeta es data/bids y en Linux / Docker / FS
+#  case-sensitive "data/BIDS" no la encontraría.
 #
 #  data_cache / web_public  ·  omitidos a propósito
 #  ────────────────────────────────────────────────────────────

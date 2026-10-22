@@ -1,14 +1,11 @@
-"""BIDS and BrainVision loaders compatible with NeuroMIND outputs."""
+"""Loader for the NeuroMIND BIDS-EEG dataset (`NeuroMIND/data/bids/`)."""
 
 from __future__ import annotations
 
 import csv
-import json
 import re
-import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 
@@ -41,6 +38,24 @@ class BrainVisionHeader:
     eeg_file: str
 
 
+def bids_eeg_dir(bids_root: str | Path, subject_id: str, session_id: str) -> Path:
+    """`{bids_root}/sub-X/ses-Y/eeg`, where each session keeps its recordings."""
+    return Path(bids_root) / f"sub-{subject_id}" / f"ses-{session_id}" / "eeg"
+
+
+def bids_vhdr_path(
+    bids_root: str | Path, subject_id: str, session_id: str, task: str, run: int = 1
+) -> Path:
+    prefix = f"sub-{subject_id}_ses-{session_id}_task-{task}_run-{run:02d}"
+    return bids_eeg_dir(bids_root, subject_id, session_id) / f"{prefix}_eeg.vhdr"
+
+
+def bids_electrodes_path(bids_root: str | Path, subject_id: str, session_id: str) -> Path:
+    return bids_eeg_dir(bids_root, subject_id, session_id) / (
+        f"sub-{subject_id}_ses-{session_id}_electrodes.tsv"
+    )
+
+
 def load_eeg_bids(
     cfg: PipelineConfig,
     subject_id: str,
@@ -48,72 +63,30 @@ def load_eeg_bids(
     condition: str,
     *,
     run: int = 1,
-    source: str = "auto",
 ) -> EEGRecording:
-    """Load a NeuroMIND BIDS recording as an `EEGRecording` in microvolts.
+    """Load a recording of the BIDS-EEG dataset as an `EEGRecording` in microvolts.
 
-    The project currently has two supported layouts:
-
-    - lightweight BIDS metadata pointing to the original BrainVision `.vhdr`
-    - TSV exports with rows as channels and columns as samples
+    The BrainVision trio lives in the BIDS tree itself, so no side metadata or
+    absolute paths are needed. Recordings cut from a single raw file (M04, M05
+    and M06 at T1) are already cropped in the dataset.
     """
     task = normalize_task(condition)
     bids_root = bids_root_dir(cfg)
-    raw_dir = bids_root / "raw"
-    prefix = f"sub-{subject_id}_ses-{session_id}_task-{task}_run-{run:02d}"
+    vhdr_path = bids_vhdr_path(bids_root, subject_id, session_id, task, run)
+    if not vhdr_path.is_file():
+        raise FileNotFoundError(f"BIDS EEG recording not found: {vhdr_path}")
 
-    metadata_path = _first_existing(
-        raw_dir / f"{prefix}_eeg_metadata.json",
-        raw_dir / f"{prefix}_metadata.json",
+    channel_positions = load_electrode_positions(
+        bids_electrodes_path(bids_root, subject_id, session_id)
     )
-    data_tsv_path = raw_dir / f"{prefix}_eeg_data.tsv"
-
-    metadata: dict[str, Any] = {}
-    if metadata_path is not None:
-        metadata = _read_json(metadata_path)
-
-    electrodes_path = bids_root / "electrodes" / f"sub-{subject_id}_ses-{session_id}_electrodes.tsv"
-    channel_positions = load_electrode_positions(electrodes_path)
-
-    source = source.lower()
-    if source not in {"auto", "brainvision", "tsv"}:
-        raise ValueError("source must be one of: auto, brainvision, tsv")
-
-    vhdr_path = resolve_vhdr_path(cfg, metadata.get("vhdr_path"))
-    if source in {"auto", "brainvision"} and vhdr_path:
-        try:
-            return load_eeg_brainvision(
-                vhdr_path,
-                subject_id,
-                session_id,
-                task,
-                run=run,
-                channel_positions=channel_positions,
-            )
-        except ModuleNotFoundError:
-            if source == "brainvision" or not data_tsv_path.is_file():
-                raise
-            warnings.warn(
-                "MNE is not installed; falling back to NeuroMIND TSV export.",
-                RuntimeWarning,
-                stacklevel=2,
-            )
-
-    if source in {"auto", "tsv"} and data_tsv_path.is_file():
-        return load_eeg_tsv(
-            data_tsv_path,
-            metadata,
-            subject_id,
-            session_id,
-            task,
-            run=run,
-            channel_positions=channel_positions,
-        )
-
-    searched = [str(data_tsv_path)]
-    if metadata_path is not None:
-        searched.append(str(metadata_path))
-    raise FileNotFoundError(f"No BIDS EEG data found for {prefix}; searched: {searched}")
+    return load_eeg_brainvision(
+        vhdr_path,
+        subject_id,
+        session_id,
+        task,
+        run=run,
+        channel_positions=channel_positions,
+    )
 
 
 def load_eeg_brainvision(
@@ -168,50 +141,6 @@ def load_eeg_brainvision(
     )
     times = np.arange(data_uv.shape[1], dtype=np.float64) / fs
     return EEGRecording(meta=meta, data=data_uv, times=times)
-
-
-def load_eeg_tsv(
-    data_path: str | Path,
-    metadata: dict[str, Any] | None,
-    subject_id: str,
-    session_id: str,
-    task: str,
-    *,
-    run: int = 1,
-    channel_positions: dict[str, tuple[float, float]] | None = None,
-) -> EEGRecording:
-    """Load NeuroMIND TSV EEG exports with rows as channels."""
-    path = Path(data_path).expanduser().resolve()
-    if not path.is_file():
-        raise FileNotFoundError(f"EEG TSV not found: {path}")
-
-    rows: list[list[str]] = []
-    with path.open("r", encoding="utf-8", newline="") as handle:
-        reader = csv.reader(handle, delimiter="\t")
-        header = next(reader, None)
-        if header is None or not header or header[0] != "Channel":
-            raise ValueError(f"Invalid NeuroMIND TSV header in {path}")
-        rows = [row for row in reader if row]
-
-    ch_names = [row[0] for row in rows]
-    data = np.asarray([[float(value) for value in row[1:]] for row in rows], dtype=np.float64)
-    meta_raw = metadata or {}
-    fs = float(meta_raw.get("fs", meta_raw.get("SamplingFrequency", 500.0)))
-    condition = CONDITION_BY_TASK.get(task, task)
-
-    meta = RecordingMeta(
-        subject_id=subject_id,
-        session_id=session_id,
-        condition=condition,
-        run=run,
-        fs=fs,
-        n_channels=len(ch_names),
-        channel_names=ch_names,
-        channel_positions=channel_positions,
-        bids_path=str(path),
-    )
-    times = np.arange(data.shape[1], dtype=np.float64) / fs
-    return EEGRecording(meta=meta, data=data, times=times)
 
 
 def read_vhdr_header(vhdr_path: str | Path) -> BrainVisionHeader:
@@ -271,43 +200,11 @@ def read_vhdr_header(vhdr_path: str | Path) -> BrainVisionHeader:
     )
 
 
-def resolve_vhdr_path(cfg: PipelineConfig, metadata_vhdr_path: str | None) -> Path | None:
-    """Resolve a metadata `vhdr_path`, preferring the configured raw data root.
-
-    NeuroMIND metadata may point to a local mirror. For mne_brain, the canonical
-    BrainVision source can be configured as `paths.raw_data_root`; matching is by
-    basename, and files under an `EXCLUIDOS` folder are ignored.
-    """
-    if not metadata_vhdr_path:
-        return None
-
-    metadata_path = Path(metadata_vhdr_path).expanduser()
-    raw_root = raw_data_root_dir(cfg)
-    if raw_root is not None:
-        match = find_vhdr_by_name(raw_root, metadata_path.name)
-        if match is not None:
-            return match
-
-    if metadata_path.is_file():
-        return metadata_path.resolve()
-    return metadata_path
-
-
-def find_vhdr_by_name(raw_data_root: str | Path, filename: str) -> Path | None:
-    """Find a `.vhdr` by filename under `raw_data_root`, skipping excluded data."""
-    root = Path(raw_data_root).expanduser().resolve()
-    if not root.is_dir():
-        return None
-    for path in root.rglob(filename):
-        if any(part.upper() == "EXCLUIDOS" for part in path.parts):
-            continue
-        if path.is_file():
-            return path.resolve()
-    return None
-
-
 def load_electrode_positions(tsv_path: str | Path) -> dict[str, tuple[float, float]] | None:
-    """Load 2D electrode positions from a NeuroMIND electrodes TSV."""
+    """Load 2D electrode positions from a BIDS `*_electrodes.tsv`.
+
+    Rows whose optional `type` column is not EEG (e.g. legacy REF/GND rows) are skipped.
+    """
     path = Path(tsv_path).expanduser().resolve()
     if not path.is_file():
         return None
@@ -333,55 +230,17 @@ def normalize_task(condition: str) -> str:
 
 
 def bids_root_dir(cfg: PipelineConfig) -> Path:
-    """Resolve the BIDS root, accepting paths relative to mne_brain or NeuroMIND."""
+    """Resolve the BIDS root, accepting paths relative to mne_brain or NeuroMIND.
+
+    The default is `../data/bids`, the NeuroMIND dataset next to this project.
+    """
     configured = Path(str(cfg.paths["bids_root"]))
-    candidates = []
-    if configured.is_absolute():
-        candidates.append(configured)
-    else:
-        candidates.extend(
-            [
-                cfg.root / configured,
-                cfg.root.parent / configured,
-                cfg.root / str(configured).replace("BIDS", "bids"),
-                cfg.root.parent / str(configured).replace("BIDS", "bids"),
-            ]
-        )
-
-    existing = [candidate for candidate in candidates if candidate.is_dir()]
-    for candidate in existing:
-        raw_dir = candidate / "raw"
-        if raw_dir.is_dir() and any(raw_dir.iterdir()):
-            return candidate.resolve()
-    for candidate in existing:
-        if (candidate / "electrodes").is_dir() and any((candidate / "electrodes").iterdir()):
-            return candidate.resolve()
-    if existing:
-        return existing[0].resolve()
-
-    return candidates[0].resolve()
-
-
-def raw_data_root_dir(cfg: PipelineConfig) -> Path | None:
-    configured = cfg.paths.get("raw_data_root")
-    if not configured:
-        return None
-
-    path = Path(str(configured)).expanduser()
-    candidates = [path] if path.is_absolute() else [cfg.root / path, cfg.root.parent / path]
+    candidates = (
+        [configured]
+        if configured.is_absolute()
+        else [cfg.root / configured, cfg.root.parent / configured]
+    )
     for candidate in candidates:
-        if candidate.is_dir():
+        if (candidate / "dataset_description.json").is_file():
             return candidate.resolve()
-    return candidates[0].resolve() if candidates else None
-
-
-def _read_json(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
-
-
-def _first_existing(*paths: Path) -> Path | None:
-    for path in paths:
-        if path.is_file():
-            return path
-    return None
+    return candidates[0].resolve()

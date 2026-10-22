@@ -49,8 +49,8 @@ git config --global user.email "me1catrr@uco.es"
 ```
 Etapa A (una vez)        Etapa B (cada sujeto × condición)         Etapa C (grupal)
                             ┌─[3] QC + Filtrado ─────────┐
-build_bids_full.py          │                            │
-  → data/BIDS/raw/*.json    │  [4] ICA (FastICA, 30 IC)  │           transversal/
+build_bids_full.jl (Julia)  │                            │
+  → ../data/bids/sub-*/…    │  [4] ICA (FastICA, 30 IC)  │           transversal/
                             │                            │ ────────→ longitudinal
                             │  [5] Epochs + AR (±70 µV)  │           (pendiente)
                             │                            │
@@ -79,11 +79,11 @@ SIEMPRE antes de segmentar (Fase 5). El orden no es negociable.
 |---------|-----|
 | `config/pipeline_config.yaml` | Parámetros científicos (espejo de `NeuroMIND/config/single_subject.toml`) |
 | `pyproject.toml` | Dependencias + setup del paquete instalable (`mne-brain 0.1.0`) |
-| `scripts/build_bids_full.py` | **Etapa A** — Lee inventory.csv + .vhdr → genera 205 JSON BIDS en `data/BIDS/raw/` |
+| *(NeuroMIND)* `scripts/build_bids_full.jl` | **Etapa A** — la construye Julia: dataset BIDS-EEG en `../data/bids/`; mne_brain solo lo lee |
 | `scripts/run_full_pipeline.py` | **Etapa B** — Entrypoint unificado (single subject + batch). Detecta modo automáticamente según flags |
 | `scripts/run_phase3..7_m05.py` | Scripts auxiliares por fase (debug, no usar en producción) |
 | `scripts/run_phase8_validation.py` | Comparación cross-pipeline NeuroMIND vs mne_brain → `validation/reports/` |
-| `src/mne_brain/bids/loader.py` | `load_eeg_bids` con resolución de `vhdr_path` y fallback TSV |
+| `src/mne_brain/bids/loader.py` | `load_eeg_bids`: lee el tríptico del árbol `sub-*/ses-*/eeg/` y los electrodos de la sesión |
 | `src/mne_brain/preprocessing/` | `filter_recording` + `qc_report` (Fase 3) |
 | `src/mne_brain/ica/` | `run_ica` + `compute_ica_features` + `apply_ica_rejection` (Fase 4) |
 | `src/mne_brain/processing/epochs.py` | `make_epochs` + `apply_baseline` + `reject_artifacts` (Fase 5) |
@@ -109,9 +109,8 @@ pytest tests/unit/test_spectral.py -v          # un módulo
 # Verificar sintaxis de un script sin ejecutarlo
 python -c "import importlib.util; importlib.util.spec_from_file_location('x','scripts/run_full_pipeline.py').loader.exec_module(__import__('types').ModuleType('x'))"
 
-# Etapa A — (re)construir metadatos BIDS
-python scripts/build_bids_full.py              # default: todos los recordings
-python scripts/build_bids_full.py --overwrite  # forzar reescritura
+# Etapa A — el dataset BIDS-EEG se (re)construye desde NeuroMIND/Julia
+#   julia --project=. scripts/build_bids_full.jl   (en la raíz de NeuroMIND)
 
 # Etapa B — un sujeto
 python scripts/run_full_pipeline.py --subject M07 --session T1
@@ -141,17 +140,7 @@ git ls-files | grep -E '(^data/|^results/|\.DS_Store$|^\.venv/|\.egg-info)'
 mne_brain/
 ├── config/
 │   └── pipeline_config.yaml        ← parámetros científicos
-├── data/
-│   └── BIDS/                       ← metadatos ligeros (no datos binarios)
-│       ├── raw/                    ← 205 *_eeg_metadata.json
-│       ├── electrodes/             ← posiciones 10-20 (TSV)
-│       ├── participants.tsv
-│       ├── groups.csv
-│       ├── longitudinal_pairs.csv
-│       ├── dataset_description.json
-│       └── BrainVision_hardware_software_metadata.md
 ├── scripts/
-│   ├── build_bids_full.py          ← Etapa A
 │   ├── run_full_pipeline.py        ← Etapa B (single + batch unificado)
 │   ├── run_phase3_m05.py …         ← auxiliares por fase (debug)
 │   └── run_phase8_validation.py    ← comparación cross-pipeline
@@ -250,7 +239,7 @@ Cualquier cambio en estos valores debe sincronizarse con NeuroMIND/Julia.
 - [x] Configuración YAML espejada de NeuroMIND
 - [x] Loaders BIDS + BrainVision (`mne.io.read_raw_brainvision`)
 - [x] **Pipeline Fases 3–7 completo y funcional**
-- [x] **Etapa A** — `build_bids_full.py`: 205 metadata JSON generados sin errores en ~2 s, usando MNE Python para leer cabeceras
+- [x] **Etapa A** — pasa a NeuroMIND/Julia (`build_bids_full.jl`, 2026-10-15): dataset BIDS-EEG validado en `../data/bids/`; `build_bids_full.py` y la copia `mne_brain/data/BIDS` se eliminaron
 - [x] **Etapa B** — `run_full_pipeline.py`: entry point unificado single + batch
   - Detección automática de modo (single si `--subject X --session Y`, batch si `--all` o filtros)
   - Tolerancia a fallos (un sujeto roto no detiene el batch)
@@ -336,7 +325,7 @@ gh pr create --title "..." --body "..."
 
 **Lo que NUNCA va al repo:**
 
-- `data/` — señales EEG reales (los JSONs de BIDS sí, son metadata sin payload)
+- `data/` — señales EEG reales y datos clínicos (el BIDS vive en `../data/bids/`, que tampoco se versiona)
 - `results/` — derivados por sujeto, logs
 - `.venv/`, `.pytest_cache/`, `__pycache__/`, `*.egg-info/`
 - `.DS_Store`, `.env`

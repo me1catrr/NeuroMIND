@@ -1,0 +1,117 @@
+{
+    "participant_id": {
+        "Description": "BIDS subject label. Original project code with zero-padded number (M5 -> sub-M05; controls MC9 -> sub-MC09)."
+    },
+    "group": {
+        "Description": "Diagnostic group.",
+        "Levels": {
+            "MS": "Patient with multiple sclerosis",
+            "HC": "Healthy control"
+        }
+    },
+    "sex": {
+        "Description": "Sex of the participant.",
+        "Levels": {
+            "F": "Female",
+            "M": "Male"
+        }
+    },
+    "age": {
+        "Description": "Age in years at the first assessment (T1).",
+        "Units": "years"
+    },
+    "birth_date": {
+        "Description": "Date of birth (ISO 8601). Identifying information; available for patients only."
+    },
+    "education_level": {
+        "Description": "Educational level, ordinal project coding 1-3 (NIVEL EDUCATIVO of the demographic sheet). The meaning of each category is not documented in the source files.",
+        "Levels": {
+            "1": "Category 1",
+            "2": "Category 2",
+            "3": "Category 3"
+        }
+    },
+    "has_t1": {
+        "Description": "At least one valid EEG recording at T1.",
+        "Levels": {"true": "yes", "false": "no"}
+    },
+    "has_t2": {
+        "Description": "At least one valid EEG recording at T2.",
+        "Levels": {"true": "yes", "false": "no"}
+    },
+    "inclusion_date_t1": {
+        "Description": "Date of inclusion / first assessment (ISO 8601). Identifying information."
+    },
+    "inclusion_date_t2": {
+        "Description": "Date of the follow-up assessment (ISO 8601). Identifying information."
+    },
+    "months_t1_t2": {
+        "Description": "Months between T1 and T2 (column T.INTERVENCION of the clinical database).",
+        "Units": "months"
+    },
+    "diagnosis": {
+        "Description": "MS clinical course.",
+        "Levels": {
+            "EMRR": "Relapsing-remitting MS",
+            "EMPP": "Primary progressive MS"
+        }
+    },
+    "treatment_t1": {
+        "Description": "Disease-modifying treatment at T1 (names normalised)."
+    },
+    "treatment_t2": {
+        "Description": "Disease-modifying treatment at T2 (names normalised)."
+    },
+    "edss_t1": {
+        "Description": "Expanded Disability Status Scale at T1 (0-10).",
+        "Units": "score"
+    },
+    "edss_t2": {
+        "Description": "Expanded Disability Status Scale at T2 (0-10).",
+        "Units": "score"
+    },
+    "dfis_t1": {
+        "Description": "Daily Fatigue Impact Scale (D-FIS) at T1; also available for controls.",
+        "Units": "score"
+    },
+    "dfis_t2": {
+        "Description": "Daily Fatigue Impact Scale (D-FIS) at T2.",
+        "Units": "score"
+    },
+    "bdi_t1": {
+        "Description": "Beck Depression Inventory II at T1; also available for controls.",
+        "Units": "score"
+    },
+    "bdi_t2": {
+        "Description": "Beck Depression Inventory II at T2.",
+        "Units": "score"
+    },
+    "edss_group": {
+        "Description": "Disability category used in the cross-sectional analysis (clinical team classification).",
+        "Levels": {
+            "mild": "Lower EDSS (LEVE)",
+            "severe": "Higher EDSS (GRAVE)"
+        }
+    },
+    "dfis_group_t1": {
+        "Description": "Fatigue category from the D-FIS median of all patients with T1. Use in cross-sectional analyses.",
+        "Levels": {
+            "low": "Below the median (BAJA)",
+            "high": "Above the median (ALTA)"
+        }
+    },
+    "dfis_group_t1t2": {
+        "Description": "Fatigue category from the D-FIS median of patients with both T1 and T2. Use in longitudinal analyses only; the median differs from dfis_group_t1.",
+        "Levels": {
+            "low": "Below the median (BAJA)",
+            "high": "Above the median (ALTA)"
+        }
+    },
+    "fatigue_response": {
+        "Description": "Magnitude of the fatigue change between T1 and T2 (patients with T2 only).",
+        "Levels": {
+            "greater": "Larger change (MAYOR)",
+            "lesser": "Smaller change (MENOR)"
+        }
+    }
+}

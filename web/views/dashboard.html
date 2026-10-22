@@ -3965,9 +3965,9 @@ tr.row-warn:hover td { background: #fef9c3; }
       <div style="font-size:44px;margin-bottom:14px">🧬</div>
       <div id="p13-not-run-title" style="font-size:17px;font-weight:700;color:var(--text-1);margin-bottom:8px">Análisis transversal aún no ejecutado</div>
       <div id="p13-not-run-text" style="font-size:12px;max-width:500px;line-height:1.7;margin-bottom:18px;color:var(--text-2)">
-        Crea <code style="background:var(--bg-2);padding:1px 5px;border-radius:4px">data/BIDS/groups.csv</code>
-        con columnas <code style="background:var(--bg-2);padding:1px 5px;border-radius:4px">subject_id, group, session_id</code>
-        (group: MS / Control) y ejecuta:
+        La cohorte sale de <code style="background:var(--bg-2);padding:1px 5px;border-radius:4px">data/tables/inventory.csv</code>
+        (se genera con <code style="background:var(--bg-2);padding:1px 5px;border-radius:4px">scripts/audit_full_dataset.jl</code>).
+        Con el inventario y los resultados del lote, ejecuta:
         <br><code style="background:var(--bg-2);padding:4px 10px;border-radius:4px;display:inline-block;margin-top:8px">
           julia --project=. scripts/run_transversal_analysis.jl
         </code>
@@ -4208,12 +4208,11 @@ tr.row-warn:hover td { background: #fef9c3; }
       <div style="font-size:44px;margin-bottom:14px">📈</div>
       <div id="p14-not-run-title" style="font-size:17px;font-weight:700;color:var(--text-1);margin-bottom:8px">Análisis longitudinal aún no ejecutado</div>
       <div id="p14-not-run-text" style="font-size:12px;max-width:520px;line-height:1.7;margin-bottom:18px;color:var(--text-2)">
-        El análisis detecta automáticamente sujetos con sesiones T1 y T2 en
-        <code style="background:var(--bg-2);padding:1px 5px;border-radius:4px">results/subjects/</code>,
-        o puedes crear
-        <code style="background:var(--bg-2);padding:1px 5px;border-radius:4px">data/BIDS/longitudinal_pairs.csv</code>
-        con columnas <code style="background:var(--bg-2);padding:1px 5px;border-radius:4px">subject_id, session_t1, session_t2</code>.<br>
-        Luego ejecuta:
+        Los pares T1/T2 se calculan de
+        <code style="background:var(--bg-2);padding:1px 5px;border-radius:4px">data/tables/inventory.csv</code>
+        (y, si no existe, se detectan en
+        <code style="background:var(--bg-2);padding:1px 5px;border-radius:4px">results/subjects/</code>).<br>
+        Ejecuta:
         <br><code style="background:var(--bg-2);padding:4px 10px;border-radius:4px;display:inline-block;margin-top:8px">
           julia --project=. scripts/run_longitudinal_analysis.jl
         </code>
@@ -5708,7 +5707,7 @@ function drawP2DistSvg() {
 function p2ShowChannelTable() { switchPhase(3); }
 function p2ExportCSV() {
   const { subj, sess } = State;
-  alert(`Archivo: data/BIDS/raw/sub-${subj}_ses-${sess}_task-eyesclosed_run-01_eeg_data.tsv\nAbre la carpeta BIDS para copiar el archivo TSV.`);
+  alert(`Archivo: data/bids/sub-${subj}/ses-${sess}/eeg/sub-${subj}_ses-${sess}_task-eyesclosed_run-01_eeg.vhdr\nAbre la carpeta BIDS para localizar el tríptico BrainVision.`);
 }
 function p2FullScreen() {
   const c = document.getElementById('p2-multi-canvas');
@@ -6469,11 +6468,10 @@ function renderPhase1FileTree(data) {
 
   el.innerHTML = `
     <div class="file-tree" style="line-height:2">
-      <div><span class="ft-dir">📁 data/BIDS/</span></div>
-      <div style="padding-left:14px"><span class="ft-dir">├── raw/</span></div>
-      <div style="padding-left:28px">│ ├─ ${ok(ft.tsv?.exists, ft.tsv?.name || '—', ft.tsv?.size_kb)}</div>
-      <div style="padding-left:28px">│ └─ ${ok(ft.metadata?.exists, ft.metadata?.name || '—', ft.metadata?.size_kb)}</div>
-      <div style="padding-left:14px"><span class="ft-dir">└── electrodes/</span></div>
+      <div><span class="ft-dir">📁 data/bids/</span></div>
+      <div style="padding-left:14px">├─ ${ok(ft.metadata?.exists, ft.metadata?.name || '—', ft.metadata?.size_kb)} <span style="color:var(--text-3);font-size:10px">(sidecar heredado)</span></div>
+      <div style="padding-left:14px"><span class="ft-dir">└── ${data.file_tree?.subj || 'sub-…'}/${data.file_tree?.sess || 'ses-…'}/eeg/</span></div>
+      <div style="padding-left:28px">&nbsp; ├─ ${ok(ft.tsv?.exists, ft.tsv?.name || '—', ft.tsv?.size_kb)}</div>
       <div style="padding-left:28px">&nbsp; └─ ${ok(ft.electrodes?.exists, ft.electrodes?.name || '—', ft.electrodes?.size_kb)}</div>
     </div>
     <div style="margin-top:10px;padding:6px 8px;border-radius:6px;font-size:11px;display:flex;align-items:center;gap:6px;
@@ -6799,7 +6797,7 @@ function renderPhase1ValidationChecklist(meta, data, validation) {
       ok:     ft.tsv?.exists || ft.metadata?.exists,
       detail: ft.tsv?.exists || ft.metadata?.exists
         ? 'La estructura de carpetas sigue el estándar BIDS.'
-        : 'Directorio data/BIDS/ no encontrado o vacío.',
+        : 'Directorio data/bids/ no encontrado o vacío.',
     },
     {
       label:  'Archivos requeridos',
@@ -7349,7 +7347,7 @@ function renderPhase0Interpretation(projData) {
 
   if (!hasData) {
     bar.className   = 'interp-bar warn';
-    txt.textContent = 'Faltan archivos BIDS críticos para el sujeto seleccionado. Verifica que los archivos TSV y metadata estén en data/BIDS/raw/ antes de ejecutar el pipeline.';
+    txt.textContent = 'Faltan archivos BIDS críticos para el sujeto seleccionado. Verifica que la grabación (.vhdr/.eeg) y los electrodos estén en data/bids/sub-…/ses-…/eeg/ antes de ejecutar el pipeline.';
   } else if (!hasPipeline) {
     bar.className   = 'interp-bar';
     txt.textContent = 'Dataset detectado correctamente. Revisa la información del proyecto y ejecuta el pipeline para generar los resultados de análisis (Fases 3–9).';
@@ -7360,7 +7358,7 @@ function renderPhase0Interpretation(projData) {
 }
 
 function openBidsFolder() {
-  alert(`Carpeta BIDS:\ndata/BIDS/raw/\n\nAbre esta carpeta en tu explorador de archivos para revisar los archivos crudos.`);
+  alert(`Carpeta BIDS:\ndata/bids/\n\nAbre esta carpeta en tu explorador de archivos para revisar los archivos crudos.`);
 }
 
 // ═══════════════════════════════════════════════════

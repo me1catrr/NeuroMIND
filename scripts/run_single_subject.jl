@@ -19,7 +19,7 @@
 #  Por defecto: config/pipeline.toml
 #
 #  El bloque [subject] define sujeto / sesión / tarea.
-#  subject_id = "auto" → primer sujeto en {paths.bids_root}/raw/
+#  subject_id = "auto" → primera grabación en {paths.bids_root}/sub-*/ses-*/eeg/
 #
 #  Uso
 #  ───

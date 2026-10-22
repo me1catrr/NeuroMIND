@@ -79,6 +79,20 @@ data_cache_dir(cfg::PipelineConfig) = joinpath(cfg.root, cfg.paths["data_cache"]
 bids_root_dir(cfg::PipelineConfig)  = joinpath(cfg.root, cfg.paths["bids_root"])
 web_public_dir(cfg::PipelineConfig) = joinpath(cfg.root, get(cfg.paths, "web_public", "web/public"))
 
+# Dataset BIDS-EEG: {bids_root}/sub-X/ses-Y/eeg/sub-X_ses-Y_task-T_run-NN_eeg.{vhdr,vmrk,eeg}
+# y, por sesión, sub-X_ses-Y_electrodes.tsv. Reciben la raíz BIDS como String para
+# poder usarse también desde los módulos de grupo, que no construyen PipelineConfig.
+bids_eeg_dir(bids_root::AbstractString, subject_id, session_id) =
+    joinpath(bids_root, "sub-$(subject_id)", "ses-$(session_id)", "eeg")
+
+bids_vhdr_path(bids_root::AbstractString, subject_id, session_id, task, run::Integer=1) =
+    joinpath(bids_eeg_dir(bids_root, subject_id, session_id),
+             "sub-$(subject_id)_ses-$(session_id)_task-$(task)_run-$(lpad(run, 2, '0'))_eeg.vhdr")
+
+bids_electrodes_path(bids_root::AbstractString, subject_id, session_id) =
+    joinpath(bids_eeg_dir(bids_root, subject_id, session_id),
+             "sub-$(subject_id)_ses-$(session_id)_electrodes.tsv")
+
 function subject_results_dir(cfg::PipelineConfig, subject_id::String, session_id::String)
     # Árbol ÚNICO: BIDS. Antes devolvía results/{ID}/{SES} (árbol heredado,
     # eliminado el 2026-07-21). Ahora apunta al nivel sub-/ses- de BIDS para

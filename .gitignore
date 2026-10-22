@@ -13,6 +13,13 @@
 /reports/
 /report/
 /exports/
+# Datos clínicos y señal EEG: nunca se versionan, estén donde estén (ficha ADQ-10).
+*.xlsx
+*.vhdr
+*.vmrk
+*.eeg
+# Cuaderno riemanniano: repositorio Git propio. No añadirlo como submódulo.
+/NeuroMIND_Riemannian_EEG/
 
 # Keep empty directory placeholders if they are added intentionally.
 !/data/.gitkeep
