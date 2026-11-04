@@ -36,10 +36,18 @@ jobs:
       # AGENTS.md §8: nunca versionar datos, resultados ni configuración local.
       - name: Repositorio sin datos
         run: |
-          if git ls-files | grep -E '(^data/|^results/|\.DS_Store$|^\.claude/|^\.vscode/)'; then
+          # data, results y mne_brain/results son enlaces simbólicos locales:
+          # ni el enlace ni su contenido se versionan.
+          if git ls-files | grep -E '(^(data|results|mne_brain/results|deprecated/results)(/|$)|\.DS_Store$|^\.claude/|^\.vscode/)'; then
             echo "::error::Hay archivos que no deben versionarse (ver AGENTS.md §8)"
             exit 1
           fi
+
+      # AGENTS.md §8: el mismo control que el hook pre-commit, sobre todo el árbol.
+      # Falla si hay nombres de archivo crudos de la adquisición, formatos EEG o
+      # clínicos, o PDFs fuera de docs/. Solo informa de rutas y recuentos.
+      - name: Auditoría de identificadores
+        run: bash scripts/hooks/pre-commit --all
 
       - uses: julia-actions/setup-julia@v2
         with:
