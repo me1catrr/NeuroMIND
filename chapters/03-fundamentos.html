@@ -263,13 +263,13 @@ window.Quarto = {
 
 
 <div class="nm-meta nm-meta-capitulo" role="note">
-<p>v0.1.1 · modificado el 28/10/2026 · lectura 32 min · estudio 50 min</p>
+<p>v0.1.2 · modificado el 04/11/2026 · lectura 31 min · estudio 50 min</p>
 </div>
 <div class="nm-nav">
 <table><caption>Secciones de este capítulo. <strong>Lectura</strong>: tiempo de leer el texto (200 palabras/min). <strong>Estudio</strong>: lectura más ecuaciones, preguntas y simulaciones (criterios en <code>metadata/criterios-tiempos.yml</code>).</caption>
 <thead><tr><th>Sección</th><th>Lectura</th><th>Estudio</th></tr></thead><tbody>
 <tr><td><a href="#sec-fundamentos-que-mide">¿Qué mide realmente un EEG?</a></td><td>1 min</td><td>5 min</td></tr>
-<tr><td><a href="#sec-fundamentos-origen">Origen fisiológico de la señal EEG</a></td><td>3 min</td><td>10 min</td></tr>
+<tr><td><a href="#sec-fundamentos-origen">Origen fisiológico de la señal EEG</a></td><td>2 min</td><td>10 min</td></tr>
 <tr><td><a href="#sec-fundamentos-oscilaciones">Oscilaciones y bandas de frecuencia</a></td><td>4 min</td><td>5 min</td></tr>
 <tr><td><a href="#sec-fundamentos-cadena">Cadena de adquisición y digitalización</a></td><td>3 min</td><td>5 min</td></tr>
 <tr><td><a href="#sec-sistema-10-20">Sistema internacional 10–20</a></td><td>2 min</td><td>5 min</td></tr>
@@ -281,7 +281,7 @@ window.Quarto = {
 <tr><td><a href="#sec-mapa-codigo-global">Anexo del capítulo: mapa global del código</a></td><td>3 min</td><td>5 min</td></tr>
 <tr><td><a href="#sec-sintesis-fundamentos">Síntesis y preguntas para discutir</a></td><td>3 min</td><td>10 min</td></tr>
 <tr><td><a href="#sec-dudas-fundamentos">Dudas del proyecto</a></td><td>6 min</td><td>10 min</td></tr>
-</tbody><tfoot><tr><th>Capítulo completo</th><th>32 min</th><th>50 min</th></tr></tfoot></table></div>
+</tbody><tfoot><tr><th>Capítulo completo</th><th>31 min</th><th>50 min</th></tr></tfoot></table></div>
 <section id="objetivos-de-aprendizaje" class="level2 unnumbered" data-origen="ampliacion">
 <h2 class="unnumbered anchored" data-anchor-id="objetivos-de-aprendizaje">Objetivos de aprendizaje</h2>
 <p><strong>Objetivo del capítulo.</strong> Qué mide un electrodo, cómo se forma cada canal frente a la referencia y qué puede y qué no puede decir el EEG sobre el cerebro.</p>
@@ -367,30 +367,22 @@ window.Quarto = {
 <section id="sec-fundamentos-origen" class="level2 page-columns page-full" data-number="3.2">
 <h2 data-number="3.2" class="anchored" data-anchor-id="sec-fundamentos-origen"><span class="header-section-number">3.2</span> Origen fisiológico de la señal EEG</h2>
 <div class="nm-meta" role="note">
-<p>v0.1.0 · modificado el 28/10/2026 · lectura 3 min · estudio 10 min</p>
+<p>v0.1.1 · modificado el 04/11/2026 · lectura 2 min · estudio 10 min</p>
 </div>
 <p>El registro EEG parte de la actividad neuronal. Las corrientes postsinápticas en neuronas piramidales se propagan a través del volumen conductor formado por encéfalo, cráneo, cuero cabelludo y piel. Los electrodos situados sobre el cuero cabelludo detectan diferencias de potencial, que posteriormente se amplifican, se filtran y se convierten a formato digital.</p>
 
 <div class="no-row-height column-margin column-container"><div class="">
 <p><strong>Referencia histórica:</strong> El primer electroencefalograma humano fue registrado en 1924 por Hans Berger, quien documentó por primera vez las oscilaciones eléctricas espontáneas del cerebro sobre el cuero cabelludo <span class="citation" data-cites="IriarteFranco2013">(<a href="99-referencias.html#ref-IriarteFranco2013" role="doc-biblioref">Iriarte Franco y Artieda González-Granda 2013</a>)</span>. Desde entonces, el EEG se ha consolidado como herramienta de diagnóstico, pronóstico y orientación terapéutica en neurofisiología clínica.</p>
-</div></div><div id="fig-neurona-estructura" class="nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Esquema de una neurona de izquierda a derecha, con rótulos en castellano: dendritas, que reciben señales de otras neuronas; soma, que integra la información, con el núcleo en su interior; axón con segmentos amarillos de vaina de mielina separados por nodos de Ranvier, y terminales sinápticas que transmiten la señal a la siguiente célula. Una flecha bajo el dibujo indica la dirección de la señal nerviosa. Debajo, un recuadro de comunicación neuronal muestra una neurona presináptica que libera neurotransmisores en el espacio sináptico hacia una neurona postsináptica. Lleva la nota «Esquema ilustrativo, no son datos».">
+</div></div><div id="fig-neurona-estructura" class="nm-figura-svg nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Dos paneles. A la izquierda, una neurona piramidal vertical con sus partes rotuladas: dendritas en la parte superior, una sinapsis en la dendrita apical a la que llega el axón de otra neurona, el soma triangular con su núcleo, el axón hacia abajo con segmentos de vaina de mielina separados por nodos de Ranvier y las terminales sinápticas al final. Una flecha naranja indica la corriente postsináptica, que entra en la sinapsis, marcada con un signo menos, y sale junto al soma, marcada con un signo más, y vuelve por el exterior. A la derecha, dos trazos frente al tiempo: el potencial de acción del axón, un pico rápido y breve, y el potencial postsináptico de dendritas y soma, una onda más lenta y pequeña; tres de ellas desplazadas en el tiempo se suman en una onda mayor. Un texto final explica que el EEG recoge sobre todo esa suma de potenciales postsinápticos de muchas neuronas.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-neurona-estructura-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="../assets/figures/cap03/Neurona.png" class="nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Esquema de una neurona de izquierda a derecha, con rótulos en castellano: dendritas, que reciben señales de otras neuronas; soma, que integra la información, con el núcleo en su interior; axón con segmentos amarillos de vaina de mielina separados por nodos de Ranvier, y terminales sinápticas que transmiten la señal a la siguiente célula. Una flecha bajo el dibujo indica la dirección de la señal nerviosa. Debajo, un recuadro de comunicación neuronal muestra una neurona presináptica que libera neurotransmisores en el espacio sináptico hacia una neurona postsináptica. Lleva la nota «Esquema ilustrativo, no son datos».">
+<img src="../assets/figures/cap03/neurona_eeg.svg" class="nm-figura-svg nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Dos paneles. A la izquierda, una neurona piramidal vertical con sus partes rotuladas: dendritas en la parte superior, una sinapsis en la dendrita apical a la que llega el axón de otra neurona, el soma triangular con su núcleo, el axón hacia abajo con segmentos de vaina de mielina separados por nodos de Ranvier y las terminales sinápticas al final. Una flecha naranja indica la corriente postsináptica, que entra en la sinapsis, marcada con un signo menos, y sale junto al soma, marcada con un signo más, y vuelve por el exterior. A la derecha, dos trazos frente al tiempo: el potencial de acción del axón, un pico rápido y breve, y el potencial postsináptico de dendritas y soma, una onda más lenta y pequeña; tres de ellas desplazadas en el tiempo se suman en una onda mayor. Un texto final explica que el EEG recoge sobre todo esa suma de potenciales postsinápticos de muchas neuronas.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-neurona-estructura-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figura&nbsp;3.1: Estructura de la neurona y comunicación sináptica. El EEG registra el efecto sumado de miles de eventos de este tipo —corrientes postsinápticas en dendritas y soma— no potenciales de acción individuales viajando por el axón. <em>Ilustración conceptual generada con FigureLabs (IA), sin datos del estudio.</em>
+Figura&nbsp;3.1: Neurona piramidal de la corteza y las dos señales eléctricas que produce. El EEG registra el efecto sumado de miles de eventos de este tipo —corrientes postsinápticas en dendritas y soma— no potenciales de acción individuales viajando por el axón. Esquema propio del libro, sin datos ni escala.
 </figcaption>
 </figure>
 </div>
-<details class="nm-detalle">
-<summary>
-Procedencia y limitaciones de esta imagen
-</summary>
-<p><strong>Procedencia.</strong> Ilustración conceptual generada con FigureLabs (IA generativa) el 13 de octubre de 2026, sin datos del estudio. Sustituye a una figura anterior que repetía el rótulo «Núcleo» y cuyas líneas de «Axón» y «Vaina de mielina» no terminaban en la estructura correspondiente; se revisó a mano el resultado. Fuente: ficha de procedencia del informe original.</p>
-<p><strong>Limitaciones documentadas.</strong> Es un esquema, no está a escala; la mielina se dibuja como segmentos separados y el axón como un filamento continuo; la sinapsis inferior es química y simplificada (no distingue el neurotransmisor).</p>
-<p><strong>Licencia.</strong> Los términos de uso y los derechos de distribución de la imagen no están documentados en el informe: <span class="estado e-pendiente">pendiente</span></p>
-</details>
 <div class="nm-box nm-ingenieros" data-rotulo="Para ingenieros · potencial postsináptico frente a potencial de acción">
 <p>Una neurona produce dos tipos de señal eléctrica. El <strong>potencial de acción</strong> (60–80 mV) es el disparo que viaja por el axón; el <strong>potencial postsináptico</strong> es la respuesta, más lenta y pequeña, de las dendritas y el soma a ese disparo. El EEG no ve disparos sueltos: ve la suma de corrientes postsinápticas de del orden de <span class="math inline">10^8</span> neuronas piramidales que actúan a la vez. Por eso mide actividad sincronizada de grandes poblaciones, no neuronas individuales.</p>
 </div>
@@ -578,7 +570,7 @@ Tabla&nbsp;3.2: Aspectos a revisar en el registro eyes open / eyes closed.
 <section id="sec-fundamentos-cadena" class="level2 page-columns page-full" data-number="3.4">
 <h2 data-number="3.4" class="anchored" data-anchor-id="sec-fundamentos-cadena"><span class="header-section-number">3.4</span> Cadena de adquisición y digitalización</h2>
 <div class="nm-meta" role="note">
-<p>v0.1.0 · modificado el 28/10/2026 · lectura 3 min · estudio 5 min</p>
+<p>v0.1.1 · modificado el 04/11/2026 · lectura 3 min · estudio 5 min</p>
 </div>
 <p>De forma operativa, la cadena de registro puede leerse como una transformación progresiva desde una fuente biológica distribuida hasta una matriz digital analizable. A continuación se recorre cada etapa: qué ocurre, qué señal queda disponible y qué conviene vigilar antes del preprocesado.</p>
 
@@ -602,20 +594,15 @@ Figura&nbsp;3.4: Cadena de adquisición y digitalización de EEG: desde la activ
 </div>
 <p><strong>Actividad neuronal.</strong> En el origen, corrientes postsinápticas sincronizadas en poblaciones de neuronas piramidales generan campos eléctricos corticales débiles, distribuidos y variables en el tiempo. El EEG no observa esa fuente de forma directa: el registro refleja actividad agregada de muchas células a la vez.</p>
 <p><strong>Volumen conductor.</strong> Al abandonar la corteza, las corrientes atraviesan encéfalo, líquido cefalorraquídeo, cráneo, cuero cabelludo y piel. Al llegar al cuero cabelludo, los potenciales aparecen atenuados y espacialmente suavizados. La conducción de volumen reduce la resolución espacial y mezcla contribuciones de fuentes distintas; este efecto condiciona la interpretación topográfica posterior.</p>
-<div id="fig-volumen-conductor" class="nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Corte esquemático de la cabeza con capas de abajo arriba: corteza cerebral con una neurona piramidal cortical, líquido cefalorraquídeo, hueso craneal y, sobre el cuero cabelludo, gel electrolítico, un electrodo de superficie y un cable conductor. Una flecha naranja parte del potencial postsináptico de la neurona, atraviesa las capas hacia el electrodo y sigue por el cable.">
+<div id="fig-volumen-conductor" class="nm-figura-svg nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Dos paneles. A la izquierda, un corte por capas de abajo arriba: corteza, líquido cefalorraquídeo, cráneo y cuero cabelludo, con cuatro electrodos con gel encima. En la corteza, un grupo de neuronas piramidales resaltado en naranja actúa a la vez como fuente, con una flecha hacia arriba; a su alrededor, líneas de potencial en forma de arco se abren y se debilitan al subir por las capas. A la derecha, dos perfiles del potencial frente a la posición: sobre la corteza, un pico alto y estrecho; en el cuero cabelludo, una curva más baja y más ancha. Una flecha entre ambos indica atenuación y suavizado espacial.">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-volumen-conductor-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="../assets/figures/cap03/volumen_conductor.png" class="nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Corte esquemático de la cabeza con capas de abajo arriba: corteza cerebral con una neurona piramidal cortical, líquido cefalorraquídeo, hueso craneal y, sobre el cuero cabelludo, gel electrolítico, un electrodo de superficie y un cable conductor. Una flecha naranja parte del potencial postsináptico de la neurona, atraviesa las capas hacia el electrodo y sigue por el cable.">
+<img src="../assets/figures/cap03/volumen_conductor_capas.svg" class="nm-figura-svg nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Dos paneles. A la izquierda, un corte por capas de abajo arriba: corteza, líquido cefalorraquídeo, cráneo y cuero cabelludo, con cuatro electrodos con gel encima. En la corteza, un grupo de neuronas piramidales resaltado en naranja actúa a la vez como fuente, con una flecha hacia arriba; a su alrededor, líneas de potencial en forma de arco se abren y se debilitan al subir por las capas. A la derecha, dos perfiles del potencial frente a la posición: sobre la corteza, un pico alto y estrecho; en el cuero cabelludo, una curva más baja y más ancha. Una flecha entre ambos indica atenuación y suavizado espacial.">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-volumen-conductor-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figura&nbsp;3.5: Ilustración conceptual de la conducción de volumen en EEG: la señal cortical se atenúa y se suaviza espacialmente al atravesar encéfalo, cráneo y cuero cabelludo antes de alcanzar los electrodos.
+Figura&nbsp;3.5: Conducción de volumen en EEG: la señal cortical se atenúa y se suaviza espacialmente al atravesar encéfalo, líquido cefalorraquídeo, cráneo y cuero cabelludo antes de alcanzar los electrodos. Esquema propio del libro, sin datos ni escala.
 </figcaption>
 </figure>
-</div>
-<div data-origen="ampliacion">
-<div class="nm-box nm-limite" data-rotulo="Sobre esta ilustración">
-<p>El anexo de procedencia de figuras del informe original <strong>no</strong> incluye <code>volumen_conductor</code> (sí incluye la neurona de la <a href="#fig-neurona-estructura" class="quarto-xref">figura&nbsp;<span>3.1</span></a>). El informe conserva además versiones <code>.svg</code> y <code>.pdf</code> que son vectorizaciones del mismo PNG; aquí se usa el PNG. Es una ilustración esquemática, no un dato, y su origen y licencia quedan como <strong>pendientes</strong> de que el autor los confirme. <span class="estado e-pendiente">pendiente</span></p>
-</div>
 </div>
 <p><strong>Electrodos.</strong> El montaje mide diferencias de potencial entre cada canal y su referencia. El gel conductor actúa como electrolito y reduce la impedancia electrodo–piel: el rango objetivo es <span class="math inline">300</span>–<span class="math inline">5\,000\,\Omega</span>, y por encima de <span class="math inline">5\,\text{k}\Omega</span> la señal degrada y aumenta la sensibilidad a artefactos de movimiento. La salida en esta fase son señales analógicas por canal, dependientes del contacto, de la referencia y de la posición del electrodo. Conviene controlar impedancias fuera de rango, mal contacto y desplazamientos del montaje.</p>
 <p><strong>Amplificación y digitalización.</strong> Un amplificador diferencial eleva la señal (amplitud útil del orden de <span class="math inline">50\,\mu\text{V}</span>) y un conversor A/D la muestrea. Para capturar el rango EEG habitual hasta $$70 Hz se requiere <span class="math inline">F_s\ge 256\,\text{Hz}</span>; se recomienda <span class="math inline">F_s=512\,\text{Hz}</span> para un registro fiable <span class="citation" data-cites="Yamada2018">(<a href="99-referencias.html#ref-Yamada2018" role="doc-biblioref">Yamada y Meng 2018</a>)</span>. Los valores de todos los canales en cada instante se multiplexan y se transmiten como una única trama digital, de modo que el resultado es una matriz canales<span class="math inline">\times</span>muestras lista para BIDS y preprocesado. En esta etapa hay que vigilar ruido de línea, saturación, filtros de hardware o software no documentados y una frecuencia de muestreo mal especificada.</p>
@@ -1782,6 +1769,19 @@ Yamada, Tōru., y Elizabeth. Meng. 2018. <em>Practical guide for clinical neurop
   </div>
 </nav>
 </div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+      &nbsp;
+    </div>   
+    <div class="nav-footer-center">
+<p>© 2026 Rafael Castro Triguero y Alejandro Galvao Carmona · <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.es">CC BY-SA 4.0</a></p>
+</div>
+    <div class="nav-footer-right">
+      &nbsp;
+    </div>
+  </div>
+</footer>
 
 
 
