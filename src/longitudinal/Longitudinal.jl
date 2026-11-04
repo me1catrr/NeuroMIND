@@ -508,7 +508,8 @@ function nodal_strength_degree(W::Matrix{Float64}; density::Float64=0.1)
 end
 
 function load_electrode_xy(bids_root, subj_id, sess_id)
-    path = joinpath(bids_root, "electrodes", "sub-$(subj_id)_ses-$(sess_id)_electrodes.tsv")
+    path = joinpath(bids_root, "sub-$(subj_id)", "ses-$(sess_id)", "eeg",
+                    "sub-$(subj_id)_ses-$(sess_id)_electrodes.tsv")
     isfile(path) || return Dict{String,Tuple{Float64,Float64}}()
     df = CSV.read(path, DataFrame; delim='\t')
     rename!(df, Dict(n => Symbol(lowercase(string(n))) for n in names(df)))
@@ -1069,50 +1070,48 @@ struct SubjPair
     has_eo::Bool
 end
 
-_as_bool(x) = x isa Bool ? x : (lowercase(string(x)) == "true")
+"""
+    pairs_table_from_inventory(inventory_path) -> DataFrame
+
+Disponibilidad T1/T2 por condición de cada sujeto, calculada del inventario
+(registro único de grabaciones). Sustituye al antiguo longitudinal_pairs.csv:
+una fila por sujeto con grabaciones válidas (`excluded=false`).
+"""
+function pairs_table_from_inventory(inventory_path)::DataFrame
+    inv = CSV.read(inventory_path, DataFrame)
+    valid = filter(r -> !r.excluded, inv)
+    out = DataFrame(subject_id=String[], bids_id=String[], has_t1_ec=Bool[], has_t1_eo=Bool[],
+                    has_t2_ec=Bool[], has_t2_eo=Bool[])
+    for bid in sort(unique(string.(valid.bids_id)))
+        rows = filter(r -> string(r.bids_id) == bid, valid)
+        has(ses, cond) = any(r -> is_t1_session(string(r.bids_session)) == (ses == "T1") &&
+                                  string(r.condition) == cond, eachrow(rows))
+        push!(out, (string(first(rows).subject_id), bid,
+                    has("T1", "EC"), has("T1", "EO"), has("T2", "EC"), has("T2", "EO")))
+    end
+    return out
+end
 
 function load_pairs(proj, res_root, bids_root)::Vector{SubjPair}
-    candidates = [joinpath(bids_root, "longitudinal_pairs.csv"),
-                  joinpath(proj, "data", "bids", "longitudinal_pairs.csv"),
-                  joinpath(proj, "data", "BIDS", "longitudinal_pairs.csv")]
-    pairs_path = ""
-    for c in candidates
-        isfile(c) && (pairs_path = c; break)
-    end
+    pairs_path = joinpath(proj, "data", "tables", "inventory.csv")
+    isfile(pairs_path) || (pairs_path = "")
     all_pairs = SubjPair[]
     n_skipped_not_incl = 0; n_skipped_ctrl = 0
 
     if !isempty(pairs_path)
-        pdf = CSV.read(pairs_path, DataFrame)
-        rename!(pdf, Dict(n => Symbol(lowercase(string(n))) for n in names(pdf)))
-        has_condition_flags = any(hasproperty(pdf, c) for c in
-                                  (:has_t1_ec, :has_t2_ec, :has_t1_eo, :has_t2_eo))
-        has_bids = hasproperty(pdf, :bids_id)
-        has_sess = hasproperty(pdf, :session_t1) && hasproperty(pdf, :session_t2)
-        has_incl_col = hasproperty(pdf, :include_longitudinal)
+        pdf = pairs_table_from_inventory(pairs_path)
         for row in eachrow(pdf)
-            sid = has_bids ? string(row.bids_id) : string(row.subject_id)
+            sid = string(row.bids_id)
             if !is_ms_id(sid); n_skipped_ctrl += 1; continue; end
-            sess_t1 = has_sess ? string(row.session_t1) : "T1"
-            sess_t2 = has_sess ? string(row.session_t2) : "T2"
-            if has_condition_flags
-                ht1ec = hasproperty(row,:has_t1_ec) && _as_bool(row.has_t1_ec)
-                ht2ec = hasproperty(row,:has_t2_ec) && _as_bool(row.has_t2_ec)
-                ht1eo = hasproperty(row,:has_t1_eo) && _as_bool(row.has_t1_eo)
-                ht2eo = hasproperty(row,:has_t2_eo) && _as_bool(row.has_t2_eo)
-                if !(ht1ec && ht2ec) && !(ht1eo && ht2eo); n_skipped_not_incl += 1; continue; end
-                push!(all_pairs, SubjPair(sid, sess_t1, sess_t2, ht1ec && ht2ec, ht1eo && ht2eo))
-            else
-                if has_incl_col && !_as_bool(row.include_longitudinal)
-                    n_skipped_not_incl += 1
-                    continue
-                end
-                push!(all_pairs, SubjPair(sid, sess_t1, sess_t2, true, true))
-            end
+            # EC y EO se evalúan por separado: basta un par completo en alguna condición
+            ec = row.has_t1_ec && row.has_t2_ec
+            eo = row.has_t1_eo && row.has_t2_eo
+            if !(ec || eo); n_skipped_not_incl += 1; continue; end
+            push!(all_pairs, SubjPair(sid, "T1", "T2", ec, eo))
         end
-        println("📋 Pares leídos desde: $pairs_path")
+        println("📋 Pares calculados desde: $pairs_path")
         println("   Comparables (EM, par EC y/o EO): $(length(all_pairs))  |  N diseño=$N_PAIRED_DESIGN")
-        n_skipped_not_incl > 0 && println("   Omitidos (sin T2 / include=false): $n_skipped_not_incl  — no se analizan")
+        n_skipped_not_incl > 0 && println("   Omitidos (sin par T1/T2 en EC ni EO): $n_skipped_not_incl  — no se analizan")
         n_skipped_ctrl > 0 && println("   Omitidos (controles): $n_skipped_ctrl")
     else
         subj_root = joinpath(res_root, "subjects")
@@ -1143,7 +1142,7 @@ function evaluate_inclusion(res_root, sp::SubjPair, cond::String, qc::Dict)
     cc = cond_code(cond)
     eligible = cc == "EC" ? sp.has_ec : sp.has_eo
     if !eligible
-        return (false, "Sin par T1/T2 para $cc en longitudinal_pairs", "n/a", "n/a",
+        return (false, "Sin par T1/T2 para $cc en el inventario", "n/a", "n/a",
                 missing, missing, missing, missing, 0)
     end
     qc_t1 = qc_decision(qc, sp.subject_id, sp.session_t1, cc)

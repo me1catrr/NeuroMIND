@@ -515,7 +515,8 @@ function nodal_strength_degree(W::Matrix{Float64}; density::Float64=0.1)
 end
 
 function load_electrode_xy(bids_root, subj_id, sess_id)
-    path = joinpath(bids_root, "electrodes", "sub-$(subj_id)_ses-$(sess_id)_electrodes.tsv")
+    path = joinpath(bids_root, "sub-$(subj_id)", "ses-$(sess_id)", "eeg",
+                    "sub-$(subj_id)_ses-$(sess_id)_electrodes.tsv")
     isfile(path) || return Dict{String,Tuple{Float64,Float64}}()
     df = CSV.read(path, DataFrame; delim='\t')
     rename!(df, Dict(n => Symbol(lowercase(string(n))) for n in names(df)))
@@ -1337,7 +1338,7 @@ function write_manifest(path, rows)
 end
 
 # ═══════════════════════════════════════════════════════════════
-#  Cohorte T1 desde groups.csv
+#  Cohorte T1 desde data/tables/inventory.csv
 # ═══════════════════════════════════════════════════════════════
 
 struct SubjT1
@@ -1346,37 +1347,33 @@ struct SubjT1
     group::String   # "MS" | "Control"
 end
 
-function load_t1_cohort(bids_root)::Vector{SubjT1}
-    groups_path = joinpath(bids_root, "groups.csv")
-    if !isfile(groups_path)
-        @warn "No se encontró groups.csv en: $groups_path"
+"""
+    load_t1_cohort(inventory_path) -> Vector{SubjT1}
+
+Candidatos del contraste transversal: sujetos con alguna grabación T1 válida
+(`excluded=false`) en el inventario, una fila por sujeto. El inventario es el
+registro único de grabaciones (audit_full_dataset.jl); ya no existe groups.csv.
+"""
+function load_t1_cohort(inventory_path)::Vector{SubjT1}
+    if !isfile(inventory_path)
+        @warn "No se encontró el inventario en: $inventory_path (ejecuta scripts/audit_full_dataset.jl)"
         exit(1)
     end
-    gdf = CSV.read(groups_path, DataFrame)
-    rename!(gdf, Dict(n => Symbol(lowercase(string(n))) for n in names(gdf)))
-    if !hasproperty(gdf, :session_id) && hasproperty(gdf, :session); rename!(gdf, :session => :session_id); end
-    if !hasproperty(gdf, :session_id) && hasproperty(gdf, :ses); rename!(gdf, :ses => :session_id); end
-    if hasproperty(gdf, :bids_id)
-        hasproperty(gdf, :subject_id) && select!(gdf, Not(:subject_id))
-        rename!(gdf, :bids_id => :subject_id)
-    end
-    missing_cols = filter(c -> !hasproperty(gdf, c), [:subject_id, :group, :session_id])
-    isempty(missing_cols) || error("groups.csv: faltan columnas: $(join(missing_cols, ", "))")
-    filter!(row -> is_t1_session(string(row.session_id)), gdf)
-    unique!(gdf, [:subject_id, :session_id, :group])
+    gdf = CSV.read(inventory_path, DataFrame)
+    missing_cols = filter(c -> !hasproperty(gdf, c), [:bids_id, :group, :bids_session, :excluded])
+    isempty(missing_cols) || error("inventory.csv: faltan columnas: $(join(missing_cols, ", "))")
+    gdf = filter(row -> !row.excluded && is_t1_session(string(row.bids_session)), gdf)
     cohort = SubjT1[]
+    seen = Set{String}()
     for row in eachrow(gdf)
-        sid, ses, grp = string(row.subject_id), string(row.session_id), string(row.group)
+        sid, ses, grp = string(row.bids_id), string(row.bids_session), string(row.group)
+        sid in seen && continue
         if is_ms_group(grp); push!(cohort, SubjT1(sid, ses, "MS"))
         elseif is_ctrl_group(grp); push!(cohort, SubjT1(sid, ses, "Control"))
-        else; @warn "Grupo desconocido '$grp' para $sid — omitido"; end
+        else; @warn "Grupo desconocido '$grp' para $sid — omitido"; continue; end
+        push!(seen, sid)
     end
-    seen = Set{String}(); uniq = SubjT1[]
-    for s in cohort
-        s.subject_id in seen && continue
-        push!(seen, s.subject_id); push!(uniq, s)
-    end
-    return uniq
+    return cohort
 end
 
 # ═══════════════════════════════════════════════════════════════
@@ -1415,7 +1412,7 @@ function run(config_path::String)
     println(" wPLI=$wpli_method  dwPLI=$use_dwpli  test=mannwhitney  density=$graph_dens")
     println("="^62)
 
-    cohort = load_t1_cohort(bids_root)
+    cohort = load_t1_cohort(joinpath(proj, "data", "tables", "inventory.csv"))
     n_ms_cand   = count(s -> s.group == "MS", cohort)
     n_ctrl_cand = count(s -> s.group == "Control", cohort)
     println("📋 Cohorte T1: EM=$n_ms_cand | Control=$n_ctrl_cand  (candidatos; N diseño $N_MS_DESIGN/$N_CTRL_DESIGN)")

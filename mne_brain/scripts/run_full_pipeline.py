@@ -58,7 +58,7 @@ import numpy as np
 import pandas as pd
 
 from mne_brain import load_config
-from mne_brain.bids import load_eeg_bids
+from mne_brain.bids import bids_root_dir, load_eeg_bids
 from mne_brain.common.types import RecordingMeta
 from mne_brain.connectivity import compute_wpli, connectivity_matrices, save_connectivity_results
 from mne_brain.ica import (
@@ -86,8 +86,8 @@ MNE_BRAIN_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BATCH_LOG = MNE_BRAIN_ROOT / "results" / "batch_pipeline_log.csv"
 
 CONDITION_BY_TASK = {"eyesclosed": "EC", "eyesopen": "EO"}
-METADATA_PATTERN = re.compile(
-    r"^sub-(?P<subject>[^_]+)_ses-(?P<session>[^_]+)_task-(?P<task>[^_]+)_run-(?P<run>\d+)_eeg_metadata\.json$"
+RECORDING_PATTERN = re.compile(
+    r"^sub-(?P<subject>[^_]+)_ses-(?P<session>[^_]+)_task-(?P<task>[^_]+)_run-(?P<run>\d+)_eeg\.vhdr$"
 )
 
 
@@ -186,7 +186,7 @@ def run_phase3(cfg, subject: str, session: str, condition: str) -> None:
     cache_dir.mkdir(parents=True, exist_ok=True)
     tables_dir.mkdir(parents=True, exist_ok=True)
 
-    rec = load_eeg_bids(cfg, subject, session, condition, source="brainvision")
+    rec = load_eeg_bids(cfg, subject, session, condition)
     print(f"  Loaded: {rec.data.shape[0]} ch × {rec.data.shape[1]} samples @ {rec.meta.fs} Hz")
 
     qc = qc_report(rec, cfg, output_dir=tables_dir)
@@ -435,26 +435,26 @@ def is_done(cfg, subject: str, session: str, condition: str) -> bool:
 
 
 def discover_recordings(cfg) -> pd.DataFrame:
-    """Scan `data/BIDS/raw/` and return one row per metadata JSON."""
-    bids_root = Path(cfg.root) / "data" / "BIDS"
-    raw_dir = bids_root / "raw"
-    if not raw_dir.is_dir():
-        raise FileNotFoundError(f"BIDS raw dir not found: {raw_dir}")
+    """Scan the BIDS-EEG dataset and return one row per `*_eeg.vhdr` recording."""
+    bids_root = bids_root_dir(cfg)
+    if not (bids_root / "dataset_description.json").is_file():
+        raise FileNotFoundError(f"BIDS dataset not found: {bids_root}")
+
+    groups: dict[str, str] = {}
+    participants = bids_root / "participants.tsv"
+    if participants.is_file():
+        table = pd.read_csv(participants, sep="\t", usecols=["participant_id", "group"])
+        groups = {str(r.participant_id).removeprefix("sub-"): str(r.group) for r in table.itertuples()}
 
     rows: list[dict[str, object]] = []
-    for path in sorted(raw_dir.glob("sub-*_eeg_metadata.json")):
-        m = METADATA_PATTERN.match(path.name)
+    for path in sorted(bids_root.glob("sub-*/ses-*/eeg/sub-*_eeg.vhdr")):
+        m = RECORDING_PATTERN.match(path.name)
         if not m:
             continue
         task = m.group("task")
         condition = CONDITION_BY_TASK.get(task)
         if condition is None:
             continue
-        try:
-            with path.open("r", encoding="utf-8") as fh:
-                meta = json.load(fh)
-        except Exception:
-            meta = {}
         rows.append(
             {
                 "subject": m.group("subject"),
@@ -462,8 +462,8 @@ def discover_recordings(cfg) -> pd.DataFrame:
                 "task": task,
                 "condition": condition,
                 "run": int(m.group("run")),
-                "group": meta.get("group", ""),
-                "json_path": str(path),
+                "group": groups.get(m.group("subject"), ""),
+                "vhdr_path": str(path),
             }
         )
     return pd.DataFrame(rows)
@@ -625,8 +625,8 @@ def run_batch(args) -> None:
 
     all_recs = discover_recordings(cfg)
     if all_recs.empty:
-        print("\n  No metadata JSON files found in data/BIDS/raw. Run "
-              "`python scripts/build_bids_full.py` first.")
+        print("\n  No *_eeg.vhdr recordings found in the BIDS dataset. Run "
+              "`julia --project=. scripts/build_bids_full.jl` in NeuroMIND first.")
         return
 
     conditions_filter = args.conditions
@@ -774,7 +774,7 @@ def build_parser() -> argparse.ArgumentParser:
     batch = parser.add_argument_group("batch mode")
     batch.add_argument(
         "--all", action="store_true",
-        help="Process every recording in data/BIDS/raw (with optional filters)",
+        help="Process every recording of the BIDS dataset (with optional filters)",
     )
     batch.add_argument(
         "--subjects", nargs="*",

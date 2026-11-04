@@ -1,0 +1,17 @@
+{
+    "Name": "MINDEM-IMIBIC Resting-State EEG",
+    "BIDSVersion": "1.10.0",
+    "DatasetType": "raw",
+    "License": "Proprietary. Not for redistribution: participants.tsv contains identifying data (dates of birth and inclusion).",
+    "Authors": ["Rafael Castro Triguero"],
+    "Acknowledgements": "Grupo BRAIN, Hospital Universitario Reina Sofía, Córdoba. Recordings and clinical assessment: MINDEM project (IMIBIC).",
+    "HowToAcknowledge": "Please cite the NeuroMIND repository when using this dataset.",
+    "ReferencesAndLinks": ["https://github.com/me1catrr/NeuroMIND"],
+    "GeneratedBy": [
+        {
+            "Name": "NeuroMIND scripts/build_bids_full.jl",
+            "Version": "0.2.0",
+            "CodeURL": "https://github.com/me1catrr/NeuroMIND"
+        }
+    ]
+}

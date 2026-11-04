@@ -1,5 +1,12 @@
 @AGENTS.md
 
+## Privacidad (regla absoluta)
+
+- **Nunca escribir nombres de archivo crudos de la adquisición** (llevan iniciales del paciente y fecha de registro) en código, comentarios, documentación, tests, mensajes de commit ni en `graphify-out/`. Se escriben anonimizados: `M12_T2_2_*_Ojoscerrados`. Si un script necesita los nombres reales, los lee en ejecución de `data/`.
+- Al auditar, contar coincidencias y dar rutas de archivo; **nunca imprimir los valores**.
+- `data`, `results` y `mne_brain/results` son enlaces simbólicos a `BRAIN/04_NeuroMIND/` (privado). No versionar nada de ahí.
+- Hook de privacidad: `git config core.hooksPath scripts/hooks`; auditoría manual: `scripts/hooks/pre-commit --all` (debe dar 0). No usar `--no-verify`.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.

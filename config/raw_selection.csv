@@ -1,0 +1,16 @@
+file_stem,subject_id,session,condition,action,tmin_s,tmax_s,reason,source
+M4_T1_*_COG-10-1,M4,T1,EO,segment,1.82,43.20,raw unico en T1; abiertos antes de cerrados,Javier Hoja1 col G
+M4_T1_*_COG-10-1,M4,T1,EC,segment,43.20,80.52,raw unico en T1; abiertos antes de cerrados,Javier Hoja1 col H
+M5_T1_*_COG-10-1,M5,T1,EO,segment,1.44,44.00,raw unico en T1; abiertos antes de cerrados,Javier Hoja1 col G
+M5_T1_*_COG-10-1,M5,T1,EC,segment,44.00,102.46,raw unico en T1; abiertos antes de cerrados,Javier Hoja1 col H
+M6_T1_*_Cog-10-1,M6,T1,EO,segment,0.00,124.40,raw unico en T1; abiertos antes de cerrados,Javier Hoja1 col G
+M6_T1_*_Cog-10-1,M6,T1,EC,segment,129.34,238.64,raw unico en T1; abiertos antes de cerrados,Javier Hoja1 col H
+M16_T1_*_ojoscerrados,M16,T1,EC,use,,,dos archivos T1 cerrados; Javier usa el que acaba en _ojoscerrados,Javier Hoja1 col H
+M16_T1_*_ojoscerradpsb,M16,T1,EC,discard,,,duplicado T1 cerrados; Javier usa _ojoscerrados,Javier Hoja1 col H
+M31_T2_*_OjosCerrados,M31,T2,EC,exclude,,,raw T2 cerrados no valido; solo analizar T1,Javier Hoja1 col I
+M31_T2_*_Ojosabiertos,M31,T2,EO,exclude,,,T2 no se analiza (decision de Javier); solo T1,Javier Hoja1 col I
+M37_T2_2_*_Ojoscerrados,M37,T2,EC,use,,,4 archivos en T2; Javier usa T2_2,Javier Hoja1 col I
+M37_T2_2_*_Ojosabiertos,M37,T2,EO,use,,,4 archivos en T2; Javier usa T2_2,Javier Hoja1 col I
+M37_T2_1_*_Ojoscerrados,M37,T2,EC,discard,,,Javier: NO usar T2_1,Javier Hoja1 col I
+M37_T2_1_*_Ojosabiertos,M37,T2,EO,discard,,,Javier: NO usar T2_1,Javier Hoja1 col I
+M7_T1_*_Cog-10-1,M7,T1,EO,use,,,archivo sin sufijo de ojos; Alejandro confirma que es el EO de T1 (no hay nada que trocear),Alejandro 2026-09-28

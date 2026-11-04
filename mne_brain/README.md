@@ -33,8 +33,8 @@ El proyecto se organiza en **tres etapas** secuenciales:
 
 ```
 ┌────────────────────────────────┐
-│  A. Construcción del BIDS      │   build_bids_full.py
-│     (metadata por grabación)   │   → data/BIDS/raw/*.json
+│  A. Dataset BIDS-EEG           │   (NeuroMIND/Julia) build_bids_full.jl
+│     (se construye en Julia)    │   → ../data/bids/sub-*/ses-*/eeg/
 └────────────────────────────────┘
               ↓
 ┌────────────────────────────────┐
@@ -135,10 +135,9 @@ bands:            # límites de las 7 bandas EEG
 ### Requisitos
 
 - Python ≥ 3.10
-- Acceso a los datos BrainVision originales en
-  `../data/full_data/Pacientes MINDEM_IMIBIC_27 03 25/`
-- El inventario auditado `../data/full_data/inventory.csv` (generado por
-  NeuroMIND/Julia, fase A)
+- El dataset BIDS-EEG de NeuroMIND en `../data/bids/` (lo generan, desde Julia,
+  `scripts/audit_full_dataset.jl` y `scripts/build_bids_full.jl`; los originales
+  están en `../data/sourcedata/brainvision/`)
 
 ### Pasos
 
@@ -166,31 +165,23 @@ print(rec.data.shape, rec.meta.fs, rec.meta.channel_names[:5])
 
 ## 6. Cómo lanzar el pipeline
 
-### Etapa A — Construir los metadatos BIDS (una sola vez)
+### Etapa A — Dataset BIDS-EEG (lo construye NeuroMIND/Julia)
 
-Genera un JSON por grabación en `data/BIDS/raw/` leyendo los `.vhdr` originales
-con MNE. **No copia datos binarios**: solo guarda la ruta `vhdr_path`, los
-parámetros del header (`fs`, `n_channels`, `channel_names`) y la información
-clínica (`group`, `sex`, `age`) tomada de `participants.tsv`.
+`mne_brain` ya no construye su propio BIDS: lee directamente el dataset de
+NeuroMIND (`paths.bids_root: ../data/bids`). Si hay que regenerarlo (nuevas
+grabaciones o hojas clínicas), desde la raíz de NeuroMIND:
 
 ```bash
-# Todas las grabaciones válidas del inventario (~205 JSON en ~2 s)
-python scripts/build_bids_full.py
-
-# Restringido a controles, T1, ojos cerrados
-python scripts/build_bids_full.py --groups HC --sessions T1 --conditions EC
-
-# Previsualizar sin escribir
-python scripts/build_bids_full.py --limit 5 --dry-run
-
-# Forzar reescritura tras un cambio en la plantilla hardware/software
-python scripts/build_bids_full.py --overwrite
+julia --project=. scripts/audit_full_dataset.jl
+julia --project=. scripts/build_bids_full.jl
+bids-validator-deno data/bids          # debe dar 0 errores
 ```
 
-**Salidas:**
-- `data/BIDS/raw/sub-{ID}_ses-{T1|T2}_task-{eyesclosed|eyesopen}_run-01_eeg_metadata.json`
-- `data/BIDS/{participants.tsv, groups.csv, longitudinal_pairs.csv, dataset_description.json}` (copiados desde NeuroMIND)
-- `results/bids_build_log.csv` — una fila por grabación (ok / error)
+Cada grabación está en `data/bids/sub-{ID}/ses-{T1|T2}/eeg/` como tríptico
+BrainVision con nombre BIDS (`sub-{ID}_ses-{SES}_task-{eyesclosed|eyesopen}_run-01_eeg.vhdr`);
+los grupos salen de `data/bids/participants.tsv`. Los tres T1 de M04, M05 y M06
+vienen ya recortados en ojos abiertos y cerrados. Ver el README de NeuroMIND,
+§Fase 0.
 
 ### Etapa B — Pipeline EEG
 
@@ -252,7 +243,7 @@ python scripts/run_full_pipeline.py --all --limit 5 --dry-run
 | `--subject ID` | str | (single) BIDS id del sujeto (p.ej. `M07`, `MC10`) |
 | `--session T1\|T2` | str | (single) Sesión |
 | `--condition EC\|EO` | str | (single) Una condición o ambas si se omite |
-| `--all` | flag | (batch) Procesar todo `data/BIDS/raw/` |
+| `--all` | flag | (batch) Procesar todas las grabaciones de `../data/bids/` |
 | `--subjects ID ID ...` | lista | (batch) Restringir a una lista de sujetos |
 | `--groups MS HC` | lista | (batch) Restringir a uno o más grupos |
 | `--sessions T1 T2` | lista | (batch) Restringir a una o más sesiones |
@@ -330,7 +321,6 @@ results/subjects/sub-{ID}/ses-{T1|T2}/{eyesclosed|eyesopen}/
 
 | Fichero | Contenido |
 |---------|-----------|
-| `bids_build_log.csv` | Una fila por metadata JSON construido (Etapa A) |
 | `batch_pipeline_log.csv` | Una fila por grabación procesada (Etapa B) |
 | `logs/batch_*.log` | Stdout completo de cada ejecución batch |
 
@@ -342,16 +332,7 @@ results/subjects/sub-{ID}/ses-{T1|T2}/{eyesclosed|eyesopen}/
 mne_brain/
 ├── config/
 │   └── pipeline_config.yaml        ← parámetros científicos (espejo de NeuroMIND)
-├── data/
-│   └── BIDS/                       ← metadatos BIDS ligeros (no datos binarios)
-│       ├── raw/                    ← *_eeg_metadata.json por grabación
-│       ├── electrodes/             ← posiciones 10-20 (TSV)
-│       ├── participants.tsv
-│       ├── groups.csv
-│       ├── longitudinal_pairs.csv
-│       └── dataset_description.json
 ├── scripts/
-│   ├── build_bids_full.py          ← Etapa A: construye metadatos BIDS
 │   ├── run_full_pipeline.py        ← Etapa B: pipeline single + batch unificado
 │   ├── run_phase3_m05.py …         ← scripts auxiliares por fase (debug)
 │   └── run_phase8_validation.py    ← comparación con NeuroMIND/Julia
@@ -380,8 +361,7 @@ mne_brain/
 cd NeuroMIND/mne_brain
 source .venv/bin/activate
 
-# 1. (Una sola vez) Construir metadatos BIDS para los ~205 recordings
-python scripts/build_bids_full.py
+# 1. El dataset BIDS-EEG lo construye NeuroMIND/Julia (ver Etapa A)
 
 # 2. Lanzar pipeline completo en background con skip-done por seguridad
 mkdir -p results/logs
@@ -427,8 +407,7 @@ regresiones.
 - Reglas Git, convenciones y contexto científico ampliado: ver
   [`../CLAUDE.md`](../CLAUDE.md) y [`../AGENTS.md`](../AGENTS.md) en la raíz
   de NeuroMIND.
-- Documentación del informe hardware BrainVision (que alimenta la plantilla
-  de `build_bids_full.py`):
-  [`data/BIDS/BrainVision_hardware_software_metadata.md`](data/BIDS/BrainVision_hardware_software_metadata.md).
+- Informe de hardware BrainVision (origen de los sidecars del BIDS):
+  `../data/sourcedata/docs/BrainVision_hardware_software_metadata.md`.
 - Reglas de exclusión del dataset (artefactos Oddball, duplicados, etc.):
-  ver columna `excluded` en `../data/full_data/inventory.csv`.
+  columna `excluded` de `../data/tables/inventory.csv` y `../config/raw_selection.csv`.

@@ -4,19 +4,44 @@
 # =========================
 
 # --- Sensitive EEG data and generated derivatives ---
-/data/
-/results/
+# data, results y mne_brain/results son ENLACES SIMBÓLICOS a la carpeta privada
+# BRAIN/04_NeuroMIND (iCloud). Sin barra final: así se ignoran tanto el enlace
+# como un directorio real con ese nombre.
+/data
+/results
+/mne_brain/results
 # Resultados archivados (derivados EEG, GB) — no versionar.
-# Ojo: solo /deprecated/results/. El código archivado (/deprecated/code/)
+# Ojo: solo /deprecated/results. El código archivado (/deprecated/code/)
 # SÍ se versiona: son ficheros pequeños cuyo histórico interesa conservar.
-/deprecated/results/
+/deprecated/results
 /reports/
 /report/
 /exports/
+# Datos clínicos y señal EEG: nunca se versionan, estén donde estén (ficha ADQ-10).
+*.xlsx
+*.xls
+*.vhdr
+*.vmrk
+*.eeg
+*.edf
+*.bdf
+*.fif
+*.fif.gz
+*.set
+*.fdt
 
-# Keep empty directory placeholders if they are added intentionally.
-!/data/.gitkeep
-!/results/.gitkeep
+# --- Proyectos aparte que viven (o vivieron) dentro de esta carpeta ---
+# Informe LaTeX y libro Quarto: privados, en ~/Proyectos/NeuroMIND-informe.
+/Report_Pre/
+/NeuroMIND_Quarto/
+/MSARD_paper/
+/Cuaderno/
+# Cuaderno riemanniano: repositorio Git propio. No añadirlo como submódulo.
+/NeuroMIND_Riemannian_EEG/
+
+# --- PDFs: solo en docs/ y tras revisar procedencia y datos ---
+*.pdf
+!/docs/**/*.pdf
 
 # --- Local app/editor state (estado interno; los ficheros de reglas sí se trackean) ---
 # Claude Code  → .claude/ ignorado; CLAUDE.md trackeado ✓

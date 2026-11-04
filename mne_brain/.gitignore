@@ -6,7 +6,8 @@
 # desde la raíz). Aquí se ignoran los mismos paths relativos a esta carpeta.
 
 # --- Sensitive EEG data and generated derivatives ---
-# data/    : BIDS metadata + electrodes (regenerar con scripts/build_bids_full.py)
+# data/    : sin uso desde 2026-10-15; mne_brain lee ../data/bids (BIDS-EEG que
+#            genera `julia --project=. scripts/build_bids_full.jl` en NeuroMIND)
 # results/ : outputs por sujeto + logs  (regenerar con scripts/run_full_pipeline.py)
 data/
 results/

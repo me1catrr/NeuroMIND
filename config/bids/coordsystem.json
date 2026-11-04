@@ -1,0 +1,5 @@
+{
+    "EEGCoordinateSystem": "Other",
+    "EEGCoordinateUnits": "n/a",
+    "EEGCoordinateSystemDescription": "Normalised cap-template coordinates (x right, y anterior, z superior, head radius about 1). Origin and axes are not documented in the source; used only for topographic plots."
+}

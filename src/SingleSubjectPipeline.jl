@@ -19,7 +19,7 @@
 #  API pública (exportada por NeuroMIND)
 #  ─────────────────────────────────────
 #    load_ss_config(path)               → PipelineConfig
-#    detect_first_subject(bids_raw_dir) → (id, sess, task, run)
+#    detect_first_subject(bids_root)    → (id, sess, task, run)
 #    load_single_subject(…)             → EEGRecording
 #    validate_channels(rec, elec_path)
 #    run_single_subject_pipeline(path)  → ejecuta los 8 pasos
@@ -28,7 +28,6 @@
 #  ────────────────
 #    Config / ICA
 #      _ica_config_hash
-#      _parse_json_string_field
 #    Persistencia por etapa
 #      _save_segmentation_results
 #      _save_ar_results
@@ -55,7 +54,7 @@
 # ───────────────────────────────────────────────────────────────
 #  Fichero    src/SingleSubjectPipeline.jl
 #  Autor      Rafael Castro Triguero <me1catrr@uco.es>
-#  Modificado 22-07-2026
+#  Modificado 15-10-2026
 # ───────────────────────────────────────────────────────────────
 
 using CairoMakie, Serialization
@@ -271,19 +270,24 @@ end
 # ─── Detección automática de sujeto ───────────────────────────
 
 """
-    detect_first_subject(bids_raw_dir) -> (subject_id, session_id, task, run)
+    detect_first_subject(bids_root) -> (subject_id, session_id, task, run)
 
-Detecta el primer sujeto disponible en data/BIDS/raw/ por orden alfabético.
-Patrón esperado: sub-{id}_ses-{sess}_task-{task}_run-{run}_eeg_data.tsv
+Detecta la primera grabación del dataset BIDS por orden alfabético.
+Patrón: {bids_root}/sub-*/ses-*/eeg/sub-{id}_ses-{sess}_task-{task}_run-{run}_eeg.vhdr
 """
-function detect_first_subject(bids_raw_dir::String)::Tuple{String,String,String,Int}
-    isdir(bids_raw_dir) || error("Directorio BIDS/raw no encontrado: $bids_raw_dir")
-    files = filter(f -> endswith(f, "_eeg_data.tsv"), readdir(bids_raw_dir))
-    isempty(files) && error("No se encontraron archivos _eeg_data.tsv en: $bids_raw_dir")
-    sort!(files)
-    f = files[1]
-    m = match(r"^sub-([^_]+)_ses-([^_]+)_task-([^_]+)_run-(\d+)_eeg_data\.tsv$", f)
-    m === nothing && error("Nombre no reconoce patrón BIDS: $f")
+function detect_first_subject(bids_root::String)::Tuple{String,String,String,Int}
+    isdir(bids_root) || error("Directorio BIDS no encontrado: $bids_root")
+    pat = r"^sub-([^_]+)_ses-([^_]+)_task-([^_]+)_run-(\d+)_eeg\.vhdr$"
+    found = String[]
+    for sub in sort(filter(d -> startswith(d, "sub-"), readdir(bids_root)))
+        for ses in sort(filter(d -> startswith(d, "ses-"), readdir(joinpath(bids_root, sub))))
+            eeg = joinpath(bids_root, sub, ses, "eeg")
+            isdir(eeg) || continue
+            append!(found, sort(filter(f -> occursin(pat, f), readdir(eeg))))
+        end
+    end
+    isempty(found) && error("No se encontraron grabaciones *_eeg.vhdr en: $bids_root")
+    m = match(pat, first(found))
     return String(m[1]), String(m[2]), String(m[3]), parse(Int, m[4])
 end
 
@@ -292,8 +296,11 @@ end
 """
     load_single_subject(cfg, subj_id, sess_id, task, run) -> EEGRecording
 
-Carga señal EEG, metadatos y posiciones de electrodos.
-El TSV tiene orientación filas=canales, columnas=muestras.
+Carga una grabación del dataset BIDS-EEG (`data/bids/sub-*/ses-*/eeg/`):
+tríptico BrainVision nativo (.vhdr + .eeg) y posiciones de electrodos de la
+sesión. Devuelve la señal en µV (resolución del .vhdr aplicada), sin filtrar.
+Los registros cortados de un raw único (M04/M05/M06 T1) ya vienen recortados
+en el dataset: el cargador no aplica ninguna ventana temporal.
 """
 function load_single_subject(
     cfg::PipelineConfig,
@@ -303,67 +310,14 @@ function load_single_subject(
     run::Int
 )::EEGRecording
 
-    bids_dir     = bids_root_dir(cfg)
-    raw_dir      = joinpath(bids_dir, "raw")
-    elec_dir     = joinpath(bids_dir, "electrodes")
-    base_prefix  = "sub-$(subj_id)_ses-$(sess_id)_task-$(task)_run-$(lpad(run,2,'0'))"
-    data_path    = joinpath(raw_dir, "$(base_prefix)_eeg_data.tsv")
-    # metadata puede existir con o sin sufijo _eeg
-    meta_path    = let p1 = joinpath(raw_dir, "$(base_prefix)_eeg_metadata.json"),
-                            p2 = joinpath(raw_dir, "$(base_prefix)_metadata.json")
-        isfile(p1) ? p1 : p2
-    end
-    elec_path = joinpath(elec_dir, "sub-$(subj_id)_ses-$(sess_id)_electrodes.tsv")
+    bids_dir  = bids_root_dir(cfg)
+    vhdr_path = bids_vhdr_path(bids_dir, subj_id, sess_id, task, run)
+    elec_path = bids_electrodes_path(bids_dir, subj_id, sess_id)
 
-    isfile(meta_path) || error("Metadata no encontrado: $meta_path")
-
-    # ── Metadata JSON ──────────────────────────────────────────
-    meta_raw = _parse_bids_json(meta_path)
-
-    # ── Formato BrainVision: carga desde binario nativo ───────
-    # Cuando build_bids_full.jl genera el BIDS ligero (sin TSV),
-    # pone data_format="brainvision" y vhdr_path en el JSON.
-    data_fmt = _parse_json_string_field(meta_path, "data_format")
-    if data_fmt == "brainvision" && !isfile(data_path)
-        vhdr_path = _parse_json_string_field(meta_path, "vhdr_path")
-        if !isempty(vhdr_path) && isfile(vhdr_path)
-            ch_pos = isfile(elec_path) ? _load_electrode_positions(elec_path) : nothing
-            return load_eeg_brainvision(vhdr_path, subj_id, sess_id, task;
-                                        run=run, ch_pos=ch_pos)
-        end
-        error("data_format=brainvision pero vhdr_path no existe o no está en metadata: $meta_path")
-    end
-
-    isfile(data_path) || error("EEG no encontrado: $data_path")
-
-    # ── Formato TSV (comportamiento original) ─────────────────
-    fs = Float64(get(meta_raw, "fs", cfg.recording["fs"]))
-
-    df       = CSV.read(data_path, DataFrame; delim='\t')
-    ch_names = string.(df[:, 1])
-    data     = Float64.(Matrix(df[:, 2:end]))   # (channels × samples)
-
-    n_ch, n_samp = size(data)
-    @info "Cargado: $(subj_id)/$(sess_id)/$(task) — $(n_ch) canales × $(n_samp) muestras @ $(fs) Hz"
+    isfile(vhdr_path) || error("Grabación BIDS no encontrada: $vhdr_path")
 
     ch_pos = isfile(elec_path) ? _load_electrode_positions(elec_path) : nothing
-
-    condition = task == "eyesclosed" ? "EC" : (task == "eyesopen" ? "EO" : task)
-    meta  = RecordingMeta(subj_id, sess_id, condition, run,
-                          fs, n_ch, ch_names, ch_pos, data_path)
-    times = collect(0.0:(1/fs):(n_samp - 1) / fs)
-
-    return EEGRecording(meta, data, times)
-end
-
-# ── Helper: extrae un campo string de un JSON sin JSON3 ───────
-
-function _parse_json_string_field(json_path::String, field::String)::String
-    isfile(json_path) || return ""
-    raw = read(json_path, String)
-    pat = Regex("\"$(field)\"\\s*:\\s*\"([^\"]+)\"")
-    m   = match(pat, raw)
-    m === nothing ? "" : String(m[1])
+    return load_eeg_brainvision(vhdr_path, subj_id, sess_id, task; run=run, ch_pos=ch_pos)
 end
 
 # ─── Validación de electrodos ─────────────────────────────────
@@ -458,7 +412,6 @@ function run_single_subject_pipeline(config_path::String)
     ])
 
     # ── 2. Detección / resolución del sujeto ──────────────────
-    raw_dir = joinpath(bids_root_dir(cfg), "raw")
     sid     = String(get(sub_cfg, "subject_id", "auto"))
     sess_id = String(get(sub_cfg, "session_id", "T2"))
     task    = String(get(sub_cfg, "task", "eyesclosed"))
@@ -466,7 +419,7 @@ function run_single_subject_pipeline(config_path::String)
 
     _sid_mode = sid == "auto" ? "auto" : "manual"
     if sid == "auto"
-        sid, sess_id, task, run_n = detect_first_subject(raw_dir)
+        sid, sess_id, task, run_n = detect_first_subject(bids_root_dir(cfg))
     end
 
     condition = task == "eyesclosed" ? "EC" : (task == "eyesopen" ? "EO" : task)
@@ -512,8 +465,7 @@ function run_single_subject_pipeline(config_path::String)
     _log(log_io, "  Duración: $(round(duration(rec), digits=2)) s")
 
     # Validación de electrodos
-    elec_path = joinpath(bids_root_dir(cfg), "electrodes",
-                         "sub-$(sid)_ses-$(sess_id)_electrodes.tsv")
+    elec_path = bids_electrodes_path(bids_root_dir(cfg), sid, sess_id)
     val = validate_channels(rec, elec_path)
     _elec_str = if !isfile(elec_path)
         "sin archivo"

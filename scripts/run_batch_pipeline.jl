@@ -20,8 +20,8 @@
 #
 #  Prerrequisito
 #  ─────────────
-#    data/full_data/inventory.csv  (audit_full_dataset.jl)
-#    data/bids/                    (build_bids_full.jl)
+#    data/tables/inventory.csv     (audit_full_dataset.jl)
+#    data/bids/                    (build_bids_full.jl, dataset BIDS-EEG)
 #
 #  Config base
 #  ───────────
@@ -62,7 +62,7 @@ using Dates, TOML, Logging
 const PROJ_ROOT  = dirname(@__DIR__)
 const BIDS_DIR   = joinpath(PROJ_ROOT, "data", "bids")
 const RESULTS    = joinpath(PROJ_ROOT, "results")
-const INVENTORY  = joinpath(PROJ_ROOT, "data", "full_data", "inventory.csv")
+const INVENTORY  = joinpath(PROJ_ROOT, "data", "tables", "inventory.csv")
 const BASE_CFG   = joinpath(PROJ_ROOT, "config", "pipeline.toml")
 const LOGS_DIR   = joinpath(RESULTS,   "logs")
 
