@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.20.24
+# v0.20.21
 
 using Markdown
 using InteractiveUtils
@@ -34,7 +34,10 @@ En este **notebook** describimos un proceso reproducible, implementado en el len
 Las señales **EEG** fueron registradas en **estado de reposo**, tanto con **ojos abiertos (OA)** como con **ojos cerrados (OC)**, en **controles sanos** y en **pacientes con Esclerosis Múltiple (EM)**.
 
 Este documento describe el **diseño del estudio**, las características de los participantes y el pipeline de análisis empleado para estimar la conectividad funcional.
+"
 
+# ╔═╡ a1914fb6-b99f-4168-9c30-73c54e6a61eb
+md"
 ---
 
 ## Características de los participantes
@@ -51,25 +54,33 @@ Este documento describe el **diseño del estudio**, las características de los 
   - **Cladribina:** 13.63%
   - **Rituximab:** 2.27%
   - **Interferón:** 0%
+"
 
+# ╔═╡ 62f5a5c9-911e-4729-8ca2-fd5ada39a37f
+md"
 ---
 
 ## Diseño del estudio
 
-El estudio combina **dos componentes complementarios**: uno **transversal (caso-control)** y otro **longitudinal**.
+El diseño del estudio implica que el pipeline de análisis debe permitir dos tipos de análisis complementarios:
 
-### Componente transversal (caso-control)
+- **Análisis transversal (entre grupos):** comparación **EM vs controles** en **T1**.
+- **Análisis longitudinal (intra-sujeto):** evaluación de **cambios entre T1 y T2** dentro del grupo de pacientes con **EM**.
+
+Por tanto, la estructura del dataset y del pipeline se ha concebido para **incorporar explícitamente la dimensión longitudinal**, permitiendo integrar ambos tipos de análisis dentro de un mismo marco reproducible.
+
+### Componente transversal (EM vs Control)
 
 En el momento **T1** se realiza una comparación entre:
 
 - **Pacientes con Esclerosis Múltiple (EM):** N = 44  
 - **Grupo control sano:** N = 40  
 
-Este análisis permite evaluar diferencias en la conectividad funcional entre pacientes y controles.
+Este análisis permite evaluar diferencias en la **conectividad funcional** entre pacientes y controles.
 
-### Componente longitudinal
+### Componente longitudinal (sujeto EM T1 vs T2)
 
-Dentro del grupo de pacientes con EM se realizó un **seguimiento longitudinal** entre dos momentos temporales:
+Dentro del grupo de pacientes con **EM** se realizó un **seguimiento longitudinal** entre dos momentos temporales:
 
 - **T1:** N = 44  
 - **Pérdida de seguimiento:** N = 14  
@@ -77,18 +88,7 @@ Dentro del grupo de pacientes con EM se realizó un **seguimiento longitudinal**
   - Brote de la enfermedad
 - **T2:** N = 30  
 
-Este componente permite analizar **cambios intra-sujeto a lo largo del tiempo** en la conectividad funcional.
-
----
-
-## Consideraciones para el análisis
-
-El diseño del estudio implica que el pipeline de análisis debe permitir dos tipos de análisis complementarios:
-
-- **Análisis entre grupos:** comparación **EM vs controles** en T1.
-- **Análisis longitudinal intra-sujeto:** evaluación de **cambios entre T1 y T2** dentro del grupo de pacientes con EM.
-
-Por tanto, la estructura del dataset y del pipeline se ha concebido para **incorporar explícitamente la dimensión longitudinal**, permitiendo integrar ambos tipos de análisis dentro de un mismo marco reproducible.
+Este componente permite analizar **cambios intra-sujeto a lo largo del tiempo** en la **conectividad funcional**.
 "
 
 # ╔═╡ 6eb4e6bc-b2c6-429b-89cd-cfe2fadfc2da
@@ -97,50 +97,75 @@ md"""
 
 La **Esclerosis Múltiple (EM)** es una enfermedad **crónica, inflamatoria y desmielinizante** del **sistema nervioso central (SNC)** que afecta a la **vaina de mielina** que recubre las fibras nerviosas. Este daño altera la transmisión normal de los impulsos nerviosos y puede provocar una amplia variedad de **síntomas neurológicos y discapacidades**.
 
-La etiología exacta de la EM aún no se conoce completamente, aunque se considera generalmente una **enfermedad autoinmune** en la que el sistema inmunitario ataca de forma errónea la mielina del SNC.
+La etiología exacta de la **EM** aún no se conoce completamente, aunque se considera generalmente una **enfermedad autoinmune** en la que el sistema inmunitario ataca de forma errónea la mielina del **SNC**.
+"""
+
+# ╔═╡ 6b985a72-5bbf-4fef-8285-d4556dfb7725
+md"
+---
 
 ## Síntomas principales
 
-Los síntomas de la EM pueden variar considerablemente entre pacientes, pero algunos de los más frecuentes incluyen:
+Los síntomas de la **EM** pueden variar considerablemente entre pacientes, pero algunos de los más frecuentes incluyen:
 
 - **Fatiga**
 - **Debilidad muscular**
-- **Problemas de visión**
+- Problemas de **visión**
 - **Deterioro cognitivo**
+"
+
+# ╔═╡ 43d6ea41-4df3-42a5-b5e1-dc3c4ce6e46e
+md"
+---
 
 ## Diagnóstico
 
-El diagnóstico de la EM se basa en una combinación de:
+El diagnóstico de la **EM** se basa en una combinación de:
 
 - **síntomas clínicos**
 - hallazgos en **resonancia magnética (RM o MRI)**
 - **pruebas de laboratorio**
 
-Estos criterios se aplican siguiendo **guías diagnósticas internacionalmente aceptadas**, que permiten confirmar la presencia de lesiones desmielinizantes en el sistema nervioso central.
+Estos criterios se aplican siguiendo **guías diagnósticas** internacionalmente aceptadas, que permiten confirmar la presencia de lesiones desmielinizantes en el **SNC**. 
+"
+
+# ╔═╡ 52ab1a80-e761-4dce-a592-cb0e27b31703
+md"
+---
 
 ## Tratamiento
 
-El tratamiento de la EM suele combinar varias estrategias terapéuticas, entre ellas:
+El tratamiento de la EM suele combinar varias **estrategias terapéuticas**, entre ellas:
 
-- **terapias modificadoras de la enfermedad**
-- **medicación sintomática**
+- **terapias** modificadoras de la enfermedad
+- **medicación** sintomática
 - **rehabilitación física**
-- **adaptaciones del estilo de vida**
+- adaptaciones del **estilo de vida**
+"
+
+# ╔═╡ 5a30572d-62e3-4fc0-a6fa-1a481918a16f
+md"
+---
 
 ## Pronóstico
 
 El curso de la enfermedad es **altamente variable entre pacientes**. En muchos casos, la EM sigue un curso **progresivo**, que puede conducir a discapacidades significativas, incluyendo dificultades para **caminar**, **hablar** o realizar **actividades de la vida diaria**.
+"
+
+# ╔═╡ fec40b3d-3e29-42e5-9832-f06791841924
+md"
+---
 
 ## Recursos y datos en España
 
-Para información y datos sobre la realidad de la EM desde la perspectiva de los pacientes en España —incluyendo epidemiología, comorbilidades y necesidades de cuidadores— la plataforma [**EMData**](https://emdata.esclerosismultiple.com) **(Esclerosis Múltiple España)** ofrece un recurso centralizado: 
-"""
+Para información y datos sobre la realidad de la **EM** desde la perspectiva de los pacientes en **España**, incluyendo epidemiología, comorbilidades y necesidades de cuidadores, la plataforma [**EMData**](https://emdata.esclerosismultiple.com) **(Esclerosis Múltiple España)** ofrece un recurso centralizado a consultar.
+"
 
 # ╔═╡ 09adac78-5a39-4215-a600-02716c7ad2cb
 md"
 # Conectividad cerebral
 
-La **conectividad cerebral** se refiere a los patrones de interacción o acoplamiento entre distintas poblaciones neuronales. 
+La **conectividad cerebral (CC)** se refiere a los patrones de interacción o acoplamiento entre distintas poblaciones neuronales. 
 
 Generalmente se clasifica en tres niveles conceptuales:
 
@@ -148,63 +173,83 @@ Generalmente se clasifica en tres niveles conceptuales:
 
 **Conectividad funcional (CF)**, cuantifica dependencias estadísticas entre señales registradas (por ejemplo, correlación, coherencia o sincronización de fase) sin asumir una dirección causal. Permite determinar si dos regiones covarían o oscilan de forma coordinada.
 
-**Conectividad efectiva (CE)**, busca inferir influencias dirigidas o causales (por ejemplo, qué región impulsa a otra), normalmente mediante enfoques basados en modelos como la causalidad de Granger o el modelado causal dinámico. Este tipo de análisis requiere más datos y supuestos que la conectividad funcional.
+**Conectividad efectiva (CE)**, busca inferir influencias dirigidas o causales (por ejemplo, qué región impulsa a otra), normalmente mediante enfoques basados en modelos como la causalidad de Granger o el modelado causal dinámico. Este tipo de análisis requiere más datos y supuestos que la **conectividad funcional**.
 
 En **EEG** y **MEG**, la conectividad se evalúa habitualmente a nivel **funcional**, estimando cuán fuerte y consistente es la relación entre señales de sensores o fuentes en el tiempo o en la frecuencia. 
 
-Los registros en **estado de reposo (*resting-state*)** son especialmente adecuados para caracterizar este acoplamiento en ausencia de estructura de tarea. La conectividad funcional se ha utilizado ampliamente para estudiar la organización de redes cerebrales tanto en condiciones saludables como patológicas.
+Los registros en **estado de reposo (*Resting-State*)** son especialmente adecuados para caracterizar este acoplamiento en ausencia de estructura de tarea. La **conectividad funcional** se ha utilizado ampliamente para estudiar la organización de redes cerebrales tanto en condiciones saludables como patológicas.
 
-En **Esclerosis Múltiple**, las alteraciones de la sustancia blanca y gris pueden modificar tanto la conectividad estructural como la funcional. Las medidas de conectividad funcional basadas en EEG pueden capturar reorganizaciones o debilitamientos en la coordinación oscilatoria de larga distancia, incluso cuando el daño estructural aún no es evidente o se encuentra distribuido.
+En **EM**, las alteraciones de la sustancia blanca y gris pueden modificar tanto la **conectividad estructural** como la **funcional**. Las medidas de **conectividad funcional** basadas en **EEG** pueden capturar reorganizaciones o debilitamientos en la coordinación oscilatoria de larga distancia, incluso cuando el daño estructural aún no es evidente o se encuentra distribuido.
 
-Debido a que el **EEG** del cuero cabelludo está afectado por la **conducción de volumen**, las métricas de conectividad sensibles a correlaciones de desfase cero o cercano a cero (por ejemplo, correlación o coherencia) pueden verse confundidas por fuentes compartidas. Por esta razón, suelen preferirse métricas basadas en fase que enfatizan relaciones de fase consistentes y reducen la contribución de interacciones de desfase cero en el espacio de sensores.
+Debido a que el **EEG** del cuero cabelludo está afectado por la **conducción de volumen**, las métricas de conectividad sensibles a correlaciones de desfase cero o cercano a cero (por ejemplo, correlación o coherencia) pueden verse confundidas por fuentes compartidas. Por esta razón, suelen preferirse **métricas basadas en fase** que enfatizan relaciones de fase consistentes y reducen la contribución de interacciones de desfase cero en el espacio de sensores.
+"
 
+# ╔═╡ 8fc185fc-c417-4658-9563-50e653e2e206
+md"
 ---
 
 ## Conectividad funcional vs. conectividad efectiva
 
-La **conectividad funcional (FC)** describe dependencias estadísticas entre eventos neurofisiológicos remotos sin inferir direccionalidad. No se basa en un modelo generativo explícito del acoplamiento y, normalmente, implica la comparación con una hipótesis nula de independencia.
+La **conectividad funcional (CF)** describe dependencias estadísticas entre eventos neurofisiológicos remotos **sin inferir direccionalidad**. No se basa en un modelo generativo explícito del acoplamiento y, normalmente, implica la comparación con una hipótesis nula de independencia.
 
-Por el contrario, la **conectividad efectiva (EC)** modela influencias causales dirigidas entre regiones cerebrales. Este enfoque evalúa hipótesis sobre la arquitectura de acoplamiento y depende de un modelo explícito de las interacciones entre regiones.
+Por el contrario, la **conectividad efectiva (CE)** modela **influencias causales dirigidas** entre **regiones cerebrales**. Este enfoque evalúa hipótesis sobre la arquitectura de acoplamiento y depende de un modelo explícito de las interacciones entre regiones.
+"
 
+# ╔═╡ 65e5d440-0e90-4454-a3db-2aff100637c2
+md"
 ---
 
 ## Estimación de conectividad funcional estática
 
-Esta sección describe cómo estimamos **conectividad funcional estática** a partir de EEG en estado de reposo. Para cada sujeto y condición se obtiene una matriz de conectividad por banda de frecuencia, que resume la intensidad del acoplamiento entre todos los pares de sensores a lo largo de la grabación.
+Esta sección describe cómo estimamos **conectividad funcional estática (CFE)** a partir de **EEG** en **estado de reposo**. Para cada sujeto y condición se obtiene una **matriz de conectividad** por **banda de frecuencia**, que resume la intensidad del acoplamiento entre todos los pares de sensores a lo largo de la grabación.
 
 El pipeline consta de **cuatro etapas**, cada una diseñada para abordar un problema metodológico específico.
+"
 
-### Justificación del orden del pipeline
+# ╔═╡ 2efdaae9-f711-42c5-89ab-7178bf6d87b2
+md"
+## Organización del proceso
 
-Los segmentos preprocesados (después de la corrección de baseline y del rechazo de artefactos) aún reflejan la **mezcla de fuentes causada por la conducción de volumen**. Cada canal EEG registra una combinación de múltiples generadores neuronales, por lo que medidas directas como la correlación o la coherencia entre canales pueden verse fuertemente influenciadas por la propagación espacial del campo eléctrico y sobreestimar las verdaderas interacciones neuronales.
+Las secciones siguientes describen cada etapa del pipeline:
+
+1. **Current Source Density (CSD)** para reducir la **conducción de volumen**.  
+2. Estimación de **conectividad** mediante **wPLI** y agregación de matrices estáticas.  
+
+En conjunto, este pipeline permite realizar una **comparación técnicamente sólida e interpretable de la conectividad funcional en estado de reposo entre grupos y condiciones experimentales**.
+
+Los segmentos preprocesados (después de la corrección de baseline y del rechazo de artefactos) aún reflejan la **mezcla de fuentes** causada por la **conducción de volumen**. Cada canal **EEG** registra una combinación de múltiples generadores neuronales, por lo que medidas directas como la **correlación** o la **coherencia** entre canales pueden verse fuertemente influenciadas por la propagación espacial del campo eléctrico y sobreestimar las verdaderas interacciones neuronales.
 
 Por esta razón, el pipeline sigue el siguiente orden:
 
-**Primero**, reducimos los efectos de la conducción de volumen transformando los potenciales en **Current Source Density (CSD)**. Esta transformación enfatiza la actividad local y produce señales independientes de la referencia.
+1. **Primero**, reducimos los efectos de la **conducción de volumen** transformando los potenciales en **CSD**. Esta transformación enfatiza la actividad local y produce señales independientes de la referencia.
 
-**Segundo**, para cada banda de frecuencia de interés se aplican filtros pasa-banda a las señales CSD. A continuación se obtiene su representación analítica mediante la **transformada de Hilbert** y se calcula el **weighted Phase Lag Index (wPLI)** entre todos los pares de canales. El wPLI se centra en relaciones de fase consistentes y reduce el peso de las contribuciones de desfase cero asociadas a conducción de volumen.
+2. **Segundo**, para cada banda de frecuencia de interés se aplican:
 
-Este procedimiento produce **una matriz de conectividad por época**. Posteriormente, estas matrices se agregan entre épocas (por ejemplo mediante la mediana) para obtener una única matriz **estática** por sujeto, condición y banda de frecuencia.
+    - filtros pasa-banda a las señales **CSD**. 
+    - A continuación se obtiene su representación analítica mediante la **transformada de Hilbert**
+    - Se calcula el **weighted Phase Lag Index (wPLI)** entre todos los pares de canales. El **wPLI** se centra en relaciones de fase consistentes y reduce el peso de las contribuciones de desfase cero asociadas a conducción de volumen.
+    - Este procedimiento produce **una matriz de conectividad por época**. 
+    - Posteriormente, estas matrices se agregan entre épocas (por ejemplo mediante la mediana) para obtener una **única matriz estática** por **sujeto**, **condición** y **banda de frecuencia**.
 
-**Tercero**, se construye una **distribución nula** generando datos sustitutos (*surrogates*) mediante aleatorización de fase y recalculando el wPLI para cada conjunto de datos generado. Esto permite asignar un **valor $p$ empírico** a cada conexión y controlar falsos positivos (por ejemplo mediante corrección FDR).
+3. **Tercero**, se construye una **distribución nula** generando datos sustitutos (*surrogates*) mediante aleatorización de fase y recalculando el **wPLI** para cada conjunto de datos generado. Esto permite asignar un **valor $p$ empírico** a cada conexión y controlar falsos positivos (por ejemplo mediante corrección FDR).
 
-**Cuarto**, las matrices se **umbralizan** y se derivan métricas de red a nivel global, como:
+4. **Cuarto**, las matrices se **umbralizan** y se derivan **métricas de red** a nivel global, como:
 
-- fuerza global de conectividad  
-- fuerza nodal  
-- densidad de conexiones significativas  
+    - fuerza global de conectividad  
+    - fuerza nodal  
+    - densidad de conexiones significativas  
 
-Finalmente, estas métricas se comparan entre grupos (por ejemplo **pacientes con Esclerosis Múltiple frente a controles**) utilizando **tests estadísticos no paramétricos**.
+Finalmente, estas métricas se comparan entre grupos (por ejemplo **pacientes con EM frente a controles**) utilizando **tests estadísticos no paramétricos**.
+"
 
-### Organización de las siguientes secciones
+# ╔═╡ d2637d79-14a6-4f1f-8fee-a7382b267363
+md"
+# Current Source Density (CSD)
+"
 
-Las subsecciones siguientes describen cada etapa del pipeline:
-
-1. **CSD** para reducir la conducción de volumen  
-2. **Estimación de conectividad mediante wPLI** y agregación de matrices estáticas  
-3. **Generación de datos surrogate** e inferencia estadística  
-
-En conjunto, este pipeline permite realizar una **comparación técnicamente sólida e interpretable de la conectividad funcional en estado de reposo entre grupos y condiciones experimentales**.
+# ╔═╡ 99f99c46-7897-4746-9b85-2d80f5b489b1
+md"
+## Algoritmo CSD
 "
 
 # ╔═╡ 931a1212-96b0-410f-b6f1-5a64e8338290
@@ -319,7 +364,7 @@ md"""
 md"
 # Conectividad Funcional EEG (fase)
 
-Las medidas de **conectividad funcional basadas en fase** cuantifican interdependencias estadísticas entre señales oscilatorias centrándose en sus **relaciones de fase instantáneas**.
+Las medidas de **conectividad funcional** basadas en **fase** cuantifican interdependencias estadísticas entre señales oscilatorias centrándose en sus **relaciones de fase instantáneas**.
 
 En **EEG**, este enfoque es especialmente relevante porque la **conducción de volumen** puede inducir correlaciones de **desfase cero** que no reflejan un acoplamiento fisiológico genuino entre regiones cerebrales.
 
@@ -330,7 +375,7 @@ Las medidas derivadas del **espectro cruzado** permiten separar las contribucion
 md"
 ## Dominio temporal y frecuencial
 
-Sean `x_k(t)` e `y_k(t)` dos señales EEG (a nivel de sensor o de fuente).  
+Sean `x_k(t)` e `y_k(t)` dos señales **EEG** (a nivel de sensor o de fuente).  
 En el dominio temporal, su **correlación cruzada** se define como
 
 
@@ -345,9 +390,9 @@ En forma muestral,
 \frac{1}{N}\sum_{k=1}^{N} x_k y_{k+\tau}
 ```
 
-Las correlaciones con retardo temporal (`\tau`) enfatizan interacciones retardadas, mientras que promediar sobre `\tau` elimina información direccional.
+Las **correlaciones** con **retardo temporal** (``\tau``) enfatizan **interacciones retardadas**, mientras que promediar sobre ``(\tau)`` elimina **información direccional**.
 
-Aplicando la **transformada de Fourier** se obtiene la representación en frecuencia:
+Aplicando la **Transformada de Fourier** se obtiene la representación en frecuencia:
 
 ```math
 X(f) = \mathcal{F}\{x(t)\}, \qquad
@@ -360,8 +405,7 @@ El **espectro cruzado** se define como
 S_{xy}(f) = X(f)Y^*(f)
 ```
 
-donde `(\cdot)^*` denota conjugación compleja.  
-Los **autoespectros** correspondientes son `S_{xx}(f)` y `S_{yy}(f)`.
+donde ``(\cdot)^*`` denota **conjugación compleja**. Los **autoespectros** correspondientes son ``S_{xx}(f)`` y ``S_{yy}(f)``.
 "
 
 # ╔═╡ d499d5a3-8783-4ee4-9912-ce8e0afa5172
@@ -370,19 +414,19 @@ md"
 
 ## Coherencia
 
-La **coherencia** cuantifica el acoplamiento lineal normalizado entre dos señales en el dominio de la frecuencia:
+La **coherencia** cuantifica el **acoplamiento lineal normalizado** entre dos señales en el dominio de la frecuencia:
 
 ```math
 \mathrm{coh}_{xy}(f) =
 \frac{|S_{xy}(f)|}{\sqrt{S_{xx}(f)S_{yy}(f)}}
 ```
 
-Esta normalización restringe la coherencia al intervalo `0 \leq coh \leq 1`, donde:
+Esta normalización restringe la coherencia al intervalo ``0 \leq coh \leq 1``, donde:
 
-- **0** indica ausencia de sincronización  
-- **1** indica sincronización perfecta  
+- **0** indica **ausencia de sincronización**  
+- **1** indica **sincronización perfecta**  
 
-Sin embargo, debido a que incluye componentes de **fase cero**, la coherencia es sensible a efectos de **conducción de volumen**.
+Sin embargo, debido a que incluye componentes de **fase cero**, la **coherencia** es sensible a efectos de **conducción de volumen**.
 
 La **fase del espectro cruzado** viene dada por
 
@@ -395,7 +439,7 @@ La **fase del espectro cruzado** viene dada por
 \right)
 ```
 
-lo que refleja la **diferencia de fase** entre las señales a la frecuencia `f`.
+lo que refleja la **diferencia de fase** entre las señales a la frecuencia ``f``.
 "
 
 # ╔═╡ 9e76ae6b-1f42-4a54-a040-c859995df9fc
@@ -404,7 +448,7 @@ md"
 
 ## Phase Locking Value (PLV)
 
-Para aislar la consistencia de fase entre ensayos o segmentos temporales se utiliza el **Phase Locking Value (PLV)**:
+Para **aislar la consistencia de fase** entre ensayos o segmentos temporales se utiliza el **Phase Locking Value (PLV)**:
 
 ```math
 PLV =
@@ -415,7 +459,7 @@ e^{i\Delta\phi_k}
 \right|
 ```
 
-donde `\Delta\phi_k` representa la **diferencia de fase instantánea** entre las señales en el ensayo `k`.
+donde ``\Delta\phi_k`` representa la **diferencia de fase instantánea** entre las señales en el ensayo ``k``.
 
 El **PLV** enfatiza relaciones de fase consistentes **independientemente de la amplitud de las señales**.
 "
@@ -426,7 +470,7 @@ md"
 
 ## Amplitude Envelope Correlation (AEC)
 
-La conectividad basada en amplitud puede estimarse mediante la **correlación entre envolventes de amplitud** de las señales analíticas:
+La **conectividad basada en amplitud** puede estimarse mediante la **correlación entre envolventes de amplitud** de las señales analíticas:
 
 ```math
 AEC = \mathrm{corr}(A_x(t), A_y(t))
@@ -437,6 +481,11 @@ donde la envolvente de amplitud se obtiene mediante la **transformada de Hilbert
 ```math
 A_x(t) = |\mathcal{H}\{x(t)\}|
 ```
+"
+
+# ╔═╡ 2ccbba07-a3df-413e-8030-bdfda32f5258
+md"
+# wPLI
 "
 
 # ╔═╡ 5a67824c-4e62-45c4-83ad-54bcdbcc3acb
@@ -552,105 +601,6 @@ md"""
        - ausencia de `NaN` o `Inf`
 """
 
-# ╔═╡ 1f5d8a1b-2e93-4f11-88a7-26c7f26cdaf4
-md"""
-## Ejecución práctica del pipeline (orden establecido)
-
-En esta sección se ejecutan las etapas en el mismo orden definido en el pipeline:
-
-1. `CSD.jl` (reducción de conducción de volumen y generación de QC/figuras).
-2. `wPLI.jl` (conectividad por bandas y generación de matrices/tablas/heatmaps).
-
-El bloque se ejecuta bajo demanda para evitar recalcular cada vez que se abre el notebook.
-"""
-
-# ╔═╡ e67326fa-6b6d-4ef0-b6dc-6439504b84d8
-@bind run_connectivity_pipeline PlutoUI.CheckBox(default=false)
-
-# ╔═╡ 3d6d2b7a-d5f1-4f18-89de-5de3494d5cda
-md"""
-`run_connectivity_pipeline` = **$(run_connectivity_pipeline ? "true" : "false")**
-
-- Cambia a `true` para lanzar `CSD.jl` y `wPLI.jl`.
-- Si ya tienes resultados generados, puedes dejarlo en `false` y revisar las salidas.
-"""
-
-# ╔═╡ d1f6d3ce-3d62-4ccf-a3d2-b79bead2c7ef
-begin
-    connectivity_run_status = "Pipeline no ejecutado en esta sesión."
-
-    if run_connectivity_pipeline
-        csd_script = joinpath(@__DIR__, "..", "..", "src", "Connectivity", "CSD.jl")
-        wpli_script = joinpath(@__DIR__, "..", "..", "src", "Connectivity", "wPLI.jl")
-
-        @assert isfile(csd_script) "No se encontró CSD.jl en $csd_script"
-        @assert isfile(wpli_script) "No se encontró wPLI.jl en $wpli_script"
-
-        # Orden obligatorio del pipeline de conectividad:
-        # 1) CSD (genera dict_csd.bin y QC) -> 2) wPLI (consume CSD y genera conectividad)
-        include(csd_script)
-        include(wpli_script)
-
-        connectivity_run_status = "Pipeline ejecutado correctamente (CSD → wPLI)."
-    end
-
-    connectivity_run_status
-end
-
-# ╔═╡ a6b1ff2b-2ef5-4f8d-b867-630850027e9e
-begin
-    dir_csd_data = stage_dir(:CSD)
-    dir_wpli_data = stage_dir(:wPLI)
-    dir_csd_fig = stage_dir(:CSD; kind = :figures)
-    dir_wpli_fig = stage_dir(:wPLI; kind = :figures)
-    dir_wpli_tables = stage_dir(:wPLI; kind = :tables)
-
-    files_csd_fig = isdir(dir_csd_fig) ? sort(readdir(dir_csd_fig)) : String[]
-    files_wpli_fig = isdir(dir_wpli_fig) ? sort(readdir(dir_wpli_fig)) : String[]
-    files_wpli_tables = isdir(dir_wpli_tables) ? sort(readdir(dir_wpli_tables)) : String[]
-
-    (
-        status = connectivity_run_status,
-        csd_data_dir = dir_csd_data,
-        wpli_data_dir = dir_wpli_data,
-        n_csd_figures = length(files_csd_fig),
-        n_wpli_figures = length(files_wpli_fig),
-        n_wpli_tables = length(files_wpli_tables),
-        csd_figures = files_csd_fig,
-        wpli_figures = files_wpli_fig,
-        wpli_tables = files_wpli_tables,
-    )
-end
-
-# ╔═╡ f2ec8a48-42d1-4c4a-8e9d-6f3fc3b1793f
-begin
-    matrix_candidates = filter(f -> occursin(r"^wPLI_.*_matrix\.csv$", f), readdir(stage_dir(:wPLI; kind = :tables)))
-    if isempty(matrix_candidates)
-        DataFrame(Info = ["No hay matrices wPLI disponibles todavía."])
-    else
-        CSV.read(joinpath(stage_dir(:wPLI; kind = :tables), first(sort(matrix_candidates))), DataFrame)
-    end
-end
-
-# ╔═╡ c970cf66-ae42-403f-aec5-82f6dbb63068
-md"""
-Notebook por fase extraido de `Pluto/Notebook.jl`, centrado en:
-- CSD,
-- wPLI,
-- y rutas de figuras/tablas para resultados finales.
-"""
-
-# ╔═╡ f64af7c4-6a3c-4efc-a30a-6cbd9120be43
-md"""
-## Salidas esperadas (Connectivity)
-
-- Datos CSD: `$(stage_dir(:CSD))`
-- Datos wPLI: `$(stage_dir(:wPLI))`
-- Figuras CSD: `$(stage_dir(:CSD; kind = :figures))`
-- Figuras wPLI: `$(stage_dir(:wPLI; kind = :figures))`
-- Tablas wPLI: `$(stage_dir(:wPLI; kind = :tables))`
-"""
-
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -683,7 +633,7 @@ StatsBase = "~0.34.10"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.12.5"
+julia_version = "1.12.3"
 manifest_format = "2.0"
 project_hash = "58c04f85bb9bb7c8ac4651905c2a38bdaaf6dbbb"
 
@@ -1349,7 +1299,7 @@ version = "1.11.0"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
-version = "2025.11.4"
+version = "2025.5.20"
 
 [[deps.NaNMath]]
 deps = ["OpenLibm_jll"]
@@ -2101,27 +2051,32 @@ version = "1.13.0+0"
 """
 
 # ╔═╡ Cell order:
-# ╠═bbd7a65f-132a-4092-bf17-5638bd4eb8ac
-# ╠═d8080b3d-5cee-4fa5-9442-f3c886e7f3ab
-# ╠═99d7f8d4-05e5-47fd-a8ff-37b42d10b5af
-# ╠═c970cf66-ae42-403f-aec5-82f6dbb63069
-# ╠═a2dc1cad-aff8-462c-937b-2b33c82b9503
-# ╠═6eb4e6bc-b2c6-429b-89cd-cfe2fadfc2da
-# ╠═09adac78-5a39-4215-a600-02716c7ad2cb
-# ╠═931a1212-96b0-410f-b6f1-5a64e8338290
-# ╠═c89eb2b5-7d90-41d5-8424-bb97da99dd7c
-# ╠═cd4447cd-0758-4413-b960-82252f295a1c
-# ╠═d499d5a3-8783-4ee4-9912-ce8e0afa5172
-# ╠═9e76ae6b-1f42-4a54-a040-c859995df9fc
-# ╠═4d6d3dcd-0292-41e5-800d-5eb52d13b8c8
+# ╟─bbd7a65f-132a-4092-bf17-5638bd4eb8ac
+# ╟─d8080b3d-5cee-4fa5-9442-f3c886e7f3ab
+# ╟─99d7f8d4-05e5-47fd-a8ff-37b42d10b5af
+# ╟─c970cf66-ae42-403f-aec5-82f6dbb63069
+# ╟─a2dc1cad-aff8-462c-937b-2b33c82b9503
+# ╟─a1914fb6-b99f-4168-9c30-73c54e6a61eb
+# ╟─62f5a5c9-911e-4729-8ca2-fd5ada39a37f
+# ╟─6eb4e6bc-b2c6-429b-89cd-cfe2fadfc2da
+# ╟─6b985a72-5bbf-4fef-8285-d4556dfb7725
+# ╟─43d6ea41-4df3-42a5-b5e1-dc3c4ce6e46e
+# ╟─52ab1a80-e761-4dce-a592-cb0e27b31703
+# ╟─5a30572d-62e3-4fc0-a6fa-1a481918a16f
+# ╟─fec40b3d-3e29-42e5-9832-f06791841924
+# ╟─09adac78-5a39-4215-a600-02716c7ad2cb
+# ╟─8fc185fc-c417-4658-9563-50e653e2e206
+# ╟─65e5d440-0e90-4454-a3db-2aff100637c2
+# ╟─2efdaae9-f711-42c5-89ab-7178bf6d87b2
+# ╠═d2637d79-14a6-4f1f-8fee-a7382b267363
+# ╟─99f99c46-7897-4746-9b85-2d80f5b489b1
+# ╟─931a1212-96b0-410f-b6f1-5a64e8338290
+# ╟─c89eb2b5-7d90-41d5-8424-bb97da99dd7c
+# ╟─cd4447cd-0758-4413-b960-82252f295a1c
+# ╟─d499d5a3-8783-4ee4-9912-ce8e0afa5172
+# ╟─9e76ae6b-1f42-4a54-a040-c859995df9fc
+# ╟─4d6d3dcd-0292-41e5-800d-5eb52d13b8c8
+# ╠═2ccbba07-a3df-413e-8030-bdfda32f5258
 # ╠═5a67824c-4e62-45c4-83ad-54bcdbcc3acb
-# ╟─1f5d8a1b-2e93-4f11-88a7-26c7f26cdaf4
-# ╠═e67326fa-6b6d-4ef0-b6dc-6439504b84d8
-# ╟─3d6d2b7a-d5f1-4f18-89de-5de3494d5cda
-# ╠═d1f6d3ce-3d62-4ccf-a3d2-b79bead2c7ef
-# ╠═a6b1ff2b-2ef5-4f8d-b867-630850027e9e
-# ╠═f2ec8a48-42d1-4c4a-8e9d-6f3fc3b1793f
-# ╟─c970cf66-ae42-403f-aec5-82f6dbb63068
-# ╟─f64af7c4-6a3c-4efc-a30a-6cbd9120be43
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
