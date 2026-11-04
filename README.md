@@ -9,6 +9,8 @@ NeuroMIND toma señales EEG de reposo en formato BrainVision, las procesa de pri
 
 > **Configuración única.** Desde el 21 Julio 2026 todo el proyecto se controla desde un solo fichero, [`config/pipeline.toml`](config/pipeline.toml).
 
+> **Cuadernos Pluto (antes NeuroSmart-EEG).** El repositorio NeuroSmart-EEG se ha integrado aquí con su historial, en [`legacy/neurosmart/`](legacy/neurosmart/LEEME_MIGRACION.md), y su web se publica en <https://me1catrr.github.io/NeuroMIND/>.
+
 ---
 
 ## Tabla de contenidos

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Portada de NeuroSmart-EEG con acceso unificado a modulos exportados desde Pluto.jl.">
+  <title>NeuroSmart-EEG | GitHub Pages</title>
+  <style>
+    :root {
+      --bg: #f3f6fb;
+      --surface: #ffffff;
+      --text: #1f2937;
+      --muted: #4b5563;
+      --primary: #1d4ed8;
+      --primary-hover: #1e40af;
+      --border: #d7e0ef;
+      --shadow: 0 10px 24px rgba(16, 24, 40, 0.08);
+      --radius: 16px;
+      --max-width: 1100px;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.6;
+    }
+    a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .container {
+      width: min(100% - 2rem, var(--max-width));
+      margin-inline: auto;
+    }
+    .top-nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+    }
+    .top-nav .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.9rem 0;
+    }
+    .brand {
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      color: #0f172a;
+    }
+    .nav-links {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .nav-links a {
+      padding: 0.35rem 0.6rem;
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .nav-links a:hover {
+      background: #eef4ff;
+      color: var(--primary-hover);
+      text-decoration: none;
+    }
+    .hero {
+      padding: 4.2rem 0 2.7rem;
+      background:
+        radial-gradient(circle at 15% 25%, rgba(29, 78, 216, 0.08), transparent 45%),
+        radial-gradient(circle at 85% 20%, rgba(14, 165, 233, 0.1), transparent 42%);
+    }
+    .hero h1 {
+      margin: 0 0 0.8rem;
+      font-size: clamp(2rem, 4vw, 3rem);
+      line-height: 1.15;
+      color: #0b1220;
+    }
+    .hero p {
+      margin: 0;
+      max-width: 780px;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+    .hero-note {
+      margin-top: 1.1rem;
+      display: inline-block;
+      background: #eff6ff;
+      border: 1px solid #cfe0ff;
+      color: #1e3a8a;
+      border-radius: 999px;
+      padding: 0.35rem 0.85rem;
+      font-size: 0.9rem;
+    }
+    section {
+      padding: 2.2rem 0;
+    }
+    .section-heading {
+      margin: 0 0 0.7rem;
+      font-size: 1.45rem;
+      color: #0f172a;
+    }
+    .section-intro {
+      margin: 0 0 1.4rem;
+      color: var(--muted);
+      max-width: 780px;
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.25rem;
+    }
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 1rem;
+    }
+    .module-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      min-height: 240px;
+      transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+    }
+    .module-card:hover {
+      transform: translateY(-4px);
+      border-color: #b8cdf6;
+      box-shadow: 0 16px 30px rgba(18, 42, 90, 0.14);
+    }
+    .module-icon {
+      font-size: 1.5rem;
+      margin-bottom: 0.45rem;
+    }
+    .module-title {
+      margin: 0 0 0.45rem;
+      font-size: 1.12rem;
+      color: #111827;
+    }
+    .module-stage {
+      margin: 0 0 0.35rem;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      color: #2563eb;
+      font-weight: 700;
+    }
+    .module-description {
+      margin: 0 0 1rem;
+      color: var(--muted);
+      flex-grow: 1;
+      font-size: 0.96rem;
+    }
+    .module-link {
+      display: inline-block;
+      align-self: flex-start;
+      background: var(--primary);
+      color: #ffffff;
+      border-radius: 10px;
+      padding: 0.52rem 0.85rem;
+      font-size: 0.92rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+      transition: background 0.2s ease;
+    }
+    .module-link:hover {
+      background: var(--primary-hover);
+      text-decoration: none;
+    }
+    .notes-list {
+      margin: 0;
+      padding-left: 1rem;
+      color: var(--muted);
+    }
+    .notes-list li {
+      margin-bottom: 0.4rem;
+    }
+    footer {
+      margin-top: 1.8rem;
+      border-top: 1px solid var(--border);
+      background: #f8fbff;
+    }
+    .footer-content {
+      padding: 1.2rem 0 1.7rem;
+      color: #64748b;
+      font-size: 0.92rem;
+    }
+    @media (max-width: 640px) {
+      .top-nav .container {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .hero {
+        padding-top: 3.6rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav class="top-nav" aria-label="Navegacion principal">
+    <div class="container">
+      <div class="brand">NeuroSmart-EEG</div>
+      <div class="nav-links">
+        <a href="#introduccion">Introduccion</a>
+        <a href="#modulos">Modulos</a>
+        <a href="#publicacion">Publicacion</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero" id="introduccion">
+    <div class="container">
+      <h1>NeuroSmart-EEG</h1>
+      <p>
+        Plataforma de analisis EEG orientada a neurociencia computacional, con
+        modulos publicados como HTML estatico desde notebooks de Pluto.jl.
+      </p>
+      <span class="hero-note">Portada unificada para acceder a los modulos exportados</span>
+    </div>
+  </header>
+
+  <main>
+    <section id="modulos">
+      <div class="container">
+        <h2 class="section-heading">Modulos disponibles</h2>
+        <p class="section-intro">
+          Cada boton abre la version HTML publicada del modulo en GitHub Pages.
+        </p>
+
+        <div class="cards-grid" role="list">
+          <article class="module-card" role="listitem">
+            <div class="module-icon" aria-hidden="true">⚙️</div>
+            <p class="module-stage">PASO 1</p>
+            <h3 class="module-title">PACKAGE SET UP</h3>
+            <p class="module-description">
+              Configuracion del proyecto y entorno reproducible en Julia/Pluto:
+              inicio y uso de Pluto.jl, estructura del repositorio, control de
+              versiones con GitHub y herramientas de apoyo al desarrollo.
+            </p>
+            <a class="module-link" href="Pluto/Setup/Project_Setup.html">Abrir modulo</a>
+          </article>
+
+          <article class="module-card" role="listitem">
+            <div class="module-icon" aria-hidden="true">🧩</div>
+            <p class="module-stage">PASO 2</p>
+            <h3 class="module-title">EEG-BIDS-RAW DATA</h3>
+            <p class="module-description">
+              Contexto EEG y adquisicion, conversion/validacion en BIDS y
+              trabajo con raw data: carga, control de calidad y analisis
+              espectral (bandas y PSD) para una base trazable del pipeline.
+            </p>
+            <a class="module-link" href="Pluto/BIDS/BIDS.html">Abrir modulo</a>
+          </article>
+
+          <article class="module-card" role="listitem">
+            <div class="module-icon" aria-hidden="true">🛠️</div>
+            <p class="module-stage">PASO 3</p>
+            <h3 class="module-title">PREPROCESSING</h3>
+            <p class="module-description">
+              Limpieza de artefactos, filtrado y preparacion de senales para
+              asegurar calidad en el analisis posterior.
+            </p>
+            <a class="module-link" href="Pluto/Preprocessing/Preprocessing.html">Abrir modulo</a>
+          </article>
+
+          <article class="module-card" role="listitem">
+            <div class="module-icon" aria-hidden="true">🧠</div>
+            <p class="module-stage">PASO 4</p>
+            <h3 class="module-title">ICA</h3>
+            <p class="module-description">
+              Separacion de componentes independientes para identificar y
+              eliminar artefactos en la senal EEG de forma controlada.
+            </p>
+            <a class="module-link" href="Pluto/ICA/ICA.html">Abrir modulo</a>
+          </article>
+
+          <article class="module-card" role="listitem">
+            <div class="module-icon" aria-hidden="true">📊</div>
+            <p class="module-stage">PASO 5</p>
+            <h3 class="module-title">PROCESSING</h3>
+            <p class="module-description">
+              Analitica de caracteristicas EEG, transformaciones de senal y
+              evaluacion de resultados para investigacion aplicada.
+            </p>
+            <a class="module-link" href="Pluto/Processing/Processing.html">Abrir modulo</a>
+          </article>
+
+          <article class="module-card" role="listitem">
+            <div class="module-icon" aria-hidden="true">🌈</div>
+            <p class="module-stage">PASO 6</p>
+            <h3 class="module-title">SPECTRAL</h3>
+            <p class="module-description">
+              Analisis en el dominio frecuencial para caracterizar bandas EEG y
+              cuantificar patrones espectrales relevantes.
+            </p>
+            <a class="module-link" href="Pluto/Spectral/Spectral.html">Abrir modulo</a>
+          </article>
+
+          <article class="module-card" role="listitem">
+            <div class="module-icon" aria-hidden="true">🔗</div>
+            <p class="module-stage">PASO 7</p>
+            <h3 class="module-title">CONNECTIVITY</h3>
+            <p class="module-description">
+              Exploracion de conectividad funcional y dinamicas entre regiones
+              cerebrales a partir de senales EEG.
+            </p>
+            <a class="module-link" href="Pluto/Connectivity/Connectivity.html">Abrir modulo</a>
+          </article>
+
+          <article class="module-card" role="listitem">
+            <div class="module-icon" aria-hidden="true">🎲</div>
+            <p class="module-stage">PASO 8</p>
+            <h3 class="module-title">SURROGATE</h3>
+            <p class="module-description">
+              Modelo surrogate por aleatorizacion de fase en Fourier, preservando
+              la potencia espectral y rompiendo dependencias de fase para
+              estimar p-valores empiricos de wPLI con multiples realizaciones.
+            </p>
+            <a class="module-link" href="Pluto/Surrogate/Surrogate.html">Abrir modulo</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="publicacion">
+      <div class="container">
+        <h2 class="section-heading">Publicacion y alcance</h2>
+        <p class="section-intro">
+          Esta web publica una portada en <code>docs/</code> y centraliza el acceso a
+          los modulos HTML ubicados en <code>docs/Pluto/</code>.
+        </p>
+        <div class="panel">
+          <ul class="notes-list">
+            <li>Los notebooks fuente viven en <code>Pluto/</code> y se mantienen como codigo cientifico.</li>
+            <li>Las exportaciones HTML de Pluto.jl se preparan fuera de <code>docs/</code> y luego se sincronizan para publicar.</li>
+            <li>Esta portada funciona como punto de acceso unificado a los modulos exportados.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-content">
+      Sitio publicado con GitHub Pages desde la carpeta <strong>docs</strong>.
+    </div>
+  </footer>
+</body>
+</html>

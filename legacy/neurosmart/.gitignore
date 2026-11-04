@@ -1,0 +1,67 @@
+# =========================
+# NeuroSmart-EEG / EEG_Julia
+# Git ignore (Julia + Cursor + privacidad)
+# =========================
+
+# --- Privacidad / datos sensibles (NO SUBIR) ---
+/data/
+/results/
+/Javier_results/
+/NeuroMIND/
+
+# Por si aparecen copias en otras rutas
+**/data/**
+**/results/**
+**/Javier_results/**
+
+# --- Julia: artefactos / caches ---
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+*.ji
+*.so
+*.dylib
+*.dll
+*.pdb
+*.o
+*.a
+
+# Entornos locales (si alguien los crea dentro del repo)
+.julia/
+
+# --- Logs y temporales ---
+*.log
+*.tmp
+*.temp
+*.swp
+*~
+.cache/
+tmp/
+temp/
+__pycache__/
+.ipynb_checkpoints/
+
+# --- Pluto / notebooks ---
+# Pluto guarda notebooks como .jl (esos SÍ se versionan).
+# Ignoramos backups/exports si aparecen localmente.
+**/pluto_export/**
+**/pluto_state/**
+**/.pluto/**
+
+# --- Cursor / VSCode ---
+.cursor/
+.vscode/
+
+# --- macOS ---
+.DS_Store
+._*
+Thumbs.db
+
+# --- Secrets comunes ---
+.env
+.env.*
+**/*secret*
+**/*secrets*
+**/*token*
+**/*apikey*
+**/*api_key*
