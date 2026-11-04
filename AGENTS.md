@@ -281,7 +281,8 @@ and never copy their contents into versioned paths.
 
 **Patient identifiers — absolute rule.** Never write raw acquisition file names in code,
 comments, docs, tests, commit messages or graphify output. Raw names contain the patient's
-initials and the recording date (`Mxx_Tx[_x]_<INITIALS>_<DDMMYY>_<condition>`). Always write
+initials (upper, lower or mixed case) and the recording date
+(`Mxx_Tx[_x]_<INITIALS>_<DDMMYY>_<condition>`, controls `MCxx_<initials>_<DDMMYY>_…`). Always write
 them anonymised: `M12_T2_2_*_Ojoscerrados` (or `M12_T2_2_XXX_DDMMAA_Ojoscerrados` in a
 pattern example). If a script needs the real names, it must read them at run time from
 `data/` (ignored), never from constants in the code.
