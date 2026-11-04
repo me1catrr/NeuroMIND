@@ -107,6 +107,33 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 julia --project=. -e 'include("src/NeuroMIND.jl"); println("OK")'
 ```
 
+### Trabajar en otro equipo
+
+El repositorio solo contiene código. Los datos y los resultados son privados y **nunca** están en Git: viven en la carpeta `BRAIN/04_NeuroMIND/` de iCloud Drive, y en el clon `data`, `results` y `mne_brain/results` son **enlaces simbólicos** a ella. `.gitignore` ya los ignora. En un equipo nuevo, con iCloud Drive sincronizado:
+
+```bash
+git clone https://github.com/me1catrr/NeuroMIND.git ~/Proyectos/NeuroMIND
+cd ~/Proyectos/NeuroMIND
+
+# 1. Activar el hook de privacidad (es configuración local: hay que hacerlo en cada clon)
+git config core.hooksPath scripts/hooks
+
+# 2. Enlazar los datos privados (ajusta BRAIN si tu carpeta está en otro sitio)
+BRAIN="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Universidad/Investigación/BRAIN"
+ln -s "$BRAIN/04_NeuroMIND/data"        data
+ln -s "$BRAIN/04_NeuroMIND/results"     results
+ln -s "$BRAIN/04_NeuroMIND/mne_results" mne_brain/results
+
+# 3. Comprobar: los enlaces no aparecen en git status y la auditoría da 0
+git status --short
+scripts/hooks/pre-commit --all
+
+# 4. Dependencias de Julia (como arriba)
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+```
+
+Nunca sustituyas los enlaces por carpetas reales dentro del repositorio ni copies su contenido a rutas versionadas. Sin acceso a `BRAIN` el código se puede leer y modificar, pero el pipeline no tiene datos sobre los que ejecutarse.
+
 ---
 
 ## 4. Cadena de ejecución: los scripts activos
