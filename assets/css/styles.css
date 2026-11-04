@@ -1,40 +1,54 @@
 /* NeuroMIND · libro Quarto — estilos propios.
- * Paleta tomada de Report_Pre/styles/paleta.tex (NSBlue, NSPetrol, NSTeal, NSOrange, NSPurple, NSPlum…).
+ * Estética de Resonancia (me1catrr/resonancia, styles.css; 04-11-2026): tipografía Source Sans Pro, títulos en gris
+ * oscuro, cajas con barra lateral y fondo tenue, figuras en tarjeta, índice lateral con la sección activa marcada y
+ * portada con cabecera en degradado. Paleta de Resonancia: azul #1b6ca8 · naranja #d95f02 · verde azulado #2a9d8f ·
+ * gris #6b7280 · violeta #6f42c1 · ocre #8a5a00; el ciruela, el rojo y el verde de NeuroMIND se conservan (sin
+ * equivalente allí). Las figuras TikZ siguen con la paleta de Report_Pre/styles/paleta.tex.
  * Los tonos para TEXTO son versiones oscurecidas de la paleta (contraste >= 4.5:1 sobre el fondo);
  * los tonos originales se usan solo en bordes y fondos tenues. Ninguna caja depende solo del color:
  * todas llevan un rótulo escrito.
- * Sin fuentes ni recursos externos: se usa la pila de fuentes del sistema. */
+ * Sin recursos externos: Source Sans Pro (Adobe, SIL OFL 1.1) se sirve desde vendor/fonts/source-sans-pro/,
+ * convertida a WOFF desde los OTF de TeX Live 2025 (versión 3.006; véase assets/MANIFEST.tsv). */
+
+@font-face { font-family: "Source Sans Pro"; font-style: normal; font-weight: 300; font-display: swap; src: url("../../vendor/fonts/source-sans-pro/SourceSansPro-Light.woff") format("woff"); }
+@font-face { font-family: "Source Sans Pro"; font-style: normal; font-weight: 400; font-display: swap; src: url("../../vendor/fonts/source-sans-pro/SourceSansPro-Regular.woff") format("woff"); }
+@font-face { font-family: "Source Sans Pro"; font-style: italic; font-weight: 400; font-display: swap; src: url("../../vendor/fonts/source-sans-pro/SourceSansPro-RegularIt.woff") format("woff"); }
+@font-face { font-family: "Source Sans Pro"; font-style: normal; font-weight: 600; font-display: swap; src: url("../../vendor/fonts/source-sans-pro/SourceSansPro-Semibold.woff") format("woff"); }
+@font-face { font-family: "Source Sans Pro"; font-style: italic; font-weight: 600; font-display: swap; src: url("../../vendor/fonts/source-sans-pro/SourceSansPro-SemiboldIt.woff") format("woff"); }
+@font-face { font-family: "Source Sans Pro"; font-style: normal; font-weight: 700 900; font-display: swap; src: url("../../vendor/fonts/source-sans-pro/SourceSansPro-Bold.woff") format("woff"); }
+@font-face { font-family: "Source Sans Pro"; font-style: italic; font-weight: 700 900; font-display: swap; src: url("../../vendor/fonts/source-sans-pro/SourceSansPro-BoldIt.woff") format("woff"); }
 
 :root {
-  --nm-blue: #0d2d4b;
-  --nm-petrol: #007380;
-  --nm-teal: #149691;
-  --nm-orange: #e07922;
-  --nm-purple: #745aaa;
+  --nm-blue: #1b6ca8;
+  --nm-petrol: #1f7a6f;
+  --nm-teal: #2a9d8f;
+  --nm-orange: #d95f02;
+  --nm-purple: #6f42c1;
   --nm-plum: #963c6e;
-  --nm-gray: #696969;
+  --nm-gray: #6b7280;
 
   /* texto sobre fondo claro (>= 4.5:1) */
-  --nm-t-blue: #0d2d4b;
-  --nm-t-petrol: #00606b;
-  --nm-t-orange: #9a4d08;
-  --nm-t-purple: #5b428f;
+  --nm-t-blue: #134a73;
+  --nm-t-petrol: #14574f;
+  --nm-t-orange: #7a4204;
+  --nm-t-purple: #4a2b94;
   --nm-t-plum: #8a3463;
-  --nm-t-amber: #7a5500;
+  --nm-t-amber: #5f3d00;
   --nm-t-red: #9c2d22;
   --nm-t-green: #2f6b2c;
 
   --nm-surface: #ffffff;
-  --nm-surface-2: #f4f6f8;
-  --nm-border: #d5dbe1;
-  --nm-text: #1c2430;
-  --nm-muted: #4f5b69;
-  --nm-focus: #1a6dd8;
+  --nm-surface-2: #f8fafc;
+  --nm-border: #d5dde6;
+  --nm-text: #343a40;
+  --nm-muted: #4b5563;
+  --nm-focus: #1b6ca8;
+  --nm-tint: #eef5fb;   /* fondo azul muy claro: cabeceras de tabla, índice lateral, filas al pasar el cursor */
 }
 
-body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-h1, h2, h3, h4 { color: var(--nm-t-blue); }
-.quarto-title-block .title, h1.title { color: var(--nm-t-blue); }
+h1, h2, h3, h4 { color: var(--nm-text); }
+.quarto-title-block .title, h1.title { color: var(--nm-text); }
+.quarto-title-block .subtitle { font-weight: 300; }
 /* Ecuaciones largas: se desplazan dentro de su caja en vez de ensanchar la página (ventanas estrechas). */
 .katex-display { overflow-x: auto; overflow-y: hidden; max-width: 100%; padding: 0.15em 0; }
 .math.display { max-width: 100%; }
@@ -43,15 +57,14 @@ a, .csl-entry { overflow-wrap: anywhere; }   /* las URL de los DOI no se parten 
 :not(pre) > code { white-space: pre-wrap; overflow-wrap: anywhere; }   /* rutas largas en el texto o en pies de tabla (Bootstrap fija white-space: pre); los bloques <pre> no se tocan */
 :focus-visible { outline: 3px solid var(--nm-focus); outline-offset: 2px; }
 
-/* ───────── Pantallas grandes (medido el 30-10-2026 con Chromium a 390, 768, 1280, 1920, 2560 y 3840 px) ─────────
- * Móvil y tableta no cambian (≈ 39 y 62 caracteres por línea). Desde 1200 px la letra pasa de 17 a 18,5 px cambiando la
- * raíz rem de Bootstrap (--bs-root-font-size: todo lo que se mide en rem crece en proporción) y, con la columna de
- * _quarto.yml (grid.body-width: 760px), la línea queda en ≈ 77 caracteres en lugar de ≈ 89.
+/* ───────── Anchura de lectura (como Resonancia) ─────────
+ * Letra de 17 px en todas las pantallas y columna central de 880 px (_quarto.yml, grid); el texto corrido se limita a
+ * 78 caracteres y las tablas, figuras, código y cajas pueden usar toda la columna. Sustituye a la letra de 18,5 px desde
+ * 1200 px con columna de 760 px (medida el 30-10-2026 con la pila de fuentes del sistema).
  * Monitores QHD/4K y televisores: NO se amplía con la propiedad CSS `zoom`. Se probó en <html> y en los bloques del libro
  * y en ambos casos las ventanas emergentes de citas y referencias (tippy/popper) salen a más de 1000 px de su enlace.
- * Lo que funciona es el zoom del navegador o la escala del sistema operativo: cambian el tamaño del px CSS y la página se
- * compone como en una pantalla de 1920 px (4K al 200 %) o de 1280 px (QHD al 200 %), ambos casos medidos. */
-@media (min-width: 1200px) { :root { --bs-root-font-size: 18.5px; } }
+ * Lo que funciona es el zoom del navegador o la escala del sistema operativo. */
+main.content > p, main.content > section p, main.content li { max-width: 78ch; }
 
 /* ───────── Preliminares: ruta de lectura y letra menor del aviso legal ───────── */
 /* Ruta de lectura de un capítulo (\ruta del informe): etiqueta escrita, el color solo acompaña. */
@@ -89,15 +102,16 @@ a, .csl-entry { overflow-wrap: anywhere; }   /* las URL de los DOI no se parten 
 .d-descartada { color: var(--nm-muted); background: color-mix(in srgb, var(--nm-gray) 12%, transparent); }
 
 /* ───────── Cajas semánticas (rótulo + borde lateral) ───────── */
+/* Como las cajas de Resonancia: barra lateral de 0,35rem, fondo tenue del mismo color y rótulo en negrita. */
 .nm-box {
   --c: var(--nm-petrol); --t: var(--nm-t-petrol);
-  border: 1px solid var(--nm-border); border-left: 6px solid var(--c);
-  border-radius: 0 8px 8px 0; background: var(--nm-surface-2);
+  border-left: 0.35rem solid var(--c);
+  border-radius: 0 0.4rem 0.4rem 0; background: color-mix(in srgb, var(--c) 8%, var(--nm-surface));
   padding: 0.7rem 1rem 0.6rem; margin: 1.2rem 0;
 }
 .nm-box::before {
-  content: attr(data-rotulo); display: block; font-weight: 800; font-size: 0.82rem;
-  letter-spacing: 0.04em; text-transform: uppercase; color: var(--t); margin-bottom: 0.25rem;
+  content: attr(data-rotulo); display: block; font-weight: 700; font-size: 0.95rem;
+  color: var(--t); margin-bottom: 0.3rem;
 }
 .nm-box > :last-child { margin-bottom: 0; }
 .nm-idea { --c: var(--nm-purple); --t: var(--nm-t-purple); }
@@ -107,7 +121,7 @@ a, .csl-entry { overflow-wrap: anywhere; }   /* las URL de los DOI no se parten 
 .nm-decision { --c: var(--nm-blue); --t: var(--nm-t-blue); }
 .nm-limite { --c: #aa3428; --t: var(--nm-t-red); }
 .nm-pendiente { --c: var(--nm-orange); --t: var(--nm-t-orange); }
-.nm-historia { --c: #c48c14; --t: var(--nm-t-amber); }
+.nm-historia { --c: #8a5a00; --t: var(--nm-t-amber); }
 .nm-errores { --c: #aa3428; --t: var(--nm-t-red); }
 .nm-apertura { --c: var(--nm-blue); --t: var(--nm-t-blue); }
 .nm-duda { --c: var(--nm-plum); --t: var(--nm-t-plum); }
@@ -154,8 +168,16 @@ table { font-size: 0.93rem; }
 .nm-params { font-size: 0.85rem; }
 .nm-params table { margin: 0; }
 .nm-fuente { font-size: 0.82rem; color: var(--nm-muted); }
-figure.quarto-float img { max-width: 100%; height: auto; background: #fff; border-radius: 6px; }
-figure.quarto-float.nm-figura-svg img { background: #fff; padding: 0.4rem; border: 1px solid var(--nm-border); }
+/* Figuras en tarjeta, como en Resonancia: fondo blanco, borde gris claro, esquinas redondeadas y sombra leve; pie a la
+   izquierda en gris. */
+figure.quarto-float img {
+  max-width: 100%; height: auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 0.5rem;
+  padding: 0.7rem; box-shadow: 0 1px 4px rgba(31, 41, 55, 0.07);
+}
+figure.quarto-float { margin: 1.5rem auto; }
+figure.quarto-float > figcaption, .quarto-figure figcaption {
+  margin-top: 0.6rem; font-size: 0.9rem; line-height: 1.45; color: var(--nm-muted); text-align: left;
+}
 
 /* ───────── Simulaciones docentes ───────── */
 .nm-sim {
@@ -240,13 +262,15 @@ details.nm-ficha > .nm-ampl { margin: 0.4rem 1rem 0.9rem; padding: 0.6rem 0.9rem
    Quarto genera div.theorem con una clase de tipo (definition, example, proposition, lemma, corollary).
    El rótulo («Definición 1.2») ya es la señal textual: el color solo acompaña. */
 div.theorem {
-  margin: 1.1rem 0; padding: .7rem 1rem; border-left: 4px solid var(--nm-petrol); background: #f3f8f9; border-radius: 0 6px 6px 0;
+  margin: 1.2rem 0; padding: .7rem 1rem .6rem; border-left: .35rem solid var(--nm-petrol); background: #e9f6f3; border-radius: 0 .4rem .4rem 0;
 }
-div.theorem.definition { border-left-color: var(--nm-blue); background: #f2f5f9; }
-div.theorem.example { border-left-color: var(--nm-orange); background: #fcf6f0; }
+div.theorem.definition { border-left-color: var(--nm-blue); background: var(--nm-tint); }
+div.theorem.example { border-left-color: #b45f06; background: #fff5e8; }
 div.theorem > p:first-child { margin-top: 0; }
 div.theorem > :last-child { margin-bottom: 0; }
-div.theorem .theorem-title { font-weight: 700; }
+div.theorem .theorem-title { font-weight: 700; color: var(--nm-t-petrol); }
+div.theorem.definition .theorem-title { color: var(--nm-t-blue); }
+div.theorem.example .theorem-title { color: var(--nm-t-orange); }
 details.nm-demostracion { margin: .8rem 0 1.2rem; border: 1px solid #d5dbe3; border-radius: 6px; padding: .4rem .9rem; }
 details.nm-demostracion > summary { cursor: pointer; font-weight: 600; color: var(--nm-t-petrol); }
 details.nm-demostracion > summary:focus-visible { outline: 3px solid var(--nm-orange); outline-offset: 2px; }
@@ -451,14 +475,28 @@ section#portada > h1 { position: absolute !important; width: 1px; height: 1px; m
   #tbl-puente-retardo-eeg td:nth-child(4)::before { content: "Tipo y estado"; }
 }
 
-/* Tabla de secciones del comienzo del capítulo (scripts/metadatos_seccion.lua): compacta, sin ensanchar las columnas de tiempo */
+/* Tabla de secciones del comienzo del capítulo (scripts/metadatos_seccion.lua): compacta, sin ensanchar las columnas de tiempo.
+   Con el aspecto de los índices de unidades de Resonancia: marco redondeado, cabecera azul en versalitas y filas alternas. */
 .nm-nav { margin: 0.6rem 0 1.6rem; }
-.nm-nav table { width: auto; min-width: min(100%, 26rem); max-width: 100%; font-size: 0.86rem; }
+.nm-nav table {
+  width: auto; min-width: min(100%, 26rem); max-width: 100%; font-size: 0.9rem;
+  border-collapse: separate; border-spacing: 0; border: 1px solid var(--nm-border); border-radius: 8px; overflow: hidden;
+}
 .nm-nav caption { max-width: 40rem; line-height: 1.4; }
-.nm-nav th, .nm-nav td { padding: 0.2rem 0.8rem 0.2rem 0.3rem; }
+.nm-nav th, .nm-nav td { padding: 0.4rem 0.8rem; border-bottom: 1px solid var(--nm-border); }
+.nm-nav thead th {
+  background: var(--nm-tint); color: var(--nm-blue); font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase;
+  border-bottom: 2px solid var(--nm-blue);
+}
+.nm-nav tbody tr:nth-child(even) { background: var(--nm-surface-2); }
+.nm-nav tbody tr:hover { background: var(--nm-tint); }
+.nm-nav tbody td:first-child a { font-weight: 600; text-decoration: none; }
+.nm-nav tbody td:first-child a:hover, .nm-nav tbody td:first-child a:focus-visible { text-decoration: underline; }
+.nm-nav td:not(:first-child), .nm-nav th:not(:first-child) { font-variant-numeric: tabular-nums; }
+.nm-nav tfoot th { border-top: 2px solid var(--nm-border); border-bottom: 0; background: var(--nm-surface-2); }
 @media (max-width: 576px) {
-  .nm-nav table { display: table; width: 100%; font-size: 0.84rem; }
-  .nm-nav th:not(:first-child), .nm-nav td:not(:first-child) { padding-right: 0.3rem; }
+  .nm-nav table { display: table; width: 100%; font-size: 0.86rem; }
+  .nm-nav th, .nm-nav td { padding: 0.35rem 0.4rem; }
 }
 
 /* Cabecera de título de la portada: en pantallas estrechas, autores y afiliación en una columna */
@@ -523,3 +561,24 @@ details.nm-mapa-fase > p.nm-fuente { margin-bottom: 0.7rem; }
 @media (min-width: 992px) {
   table.nm-apilable { display: block; max-width: 100%; overflow-x: auto; }
 }
+
+/* ───────── Estética de Resonancia: barra lateral, índice de la página y portada ───────── */
+/* Barra lateral del libro separada del texto por un filete, como en Resonancia. */
+#quarto-sidebar { border-right: 1px solid #dee2e6; }
+/* Índice lateral («En esta página»): la sección que se está leyendo se destaca con texto azul oscuro en negrita, fondo
+   claro y barra naranja. El color no es la única señal: negrita y barra marcan la posición. La especificidad iguala la
+   de la regla de Quarto (con !important) para poder sustituirla. */
+.sidebar nav[role="doc-toc"] ul li a.nav-link.active,
+.sidebar nav[role="doc-toc"] ul > li > ul > li > a.nav-link.active {
+  color: var(--nm-t-blue) !important; font-weight: 600; background: var(--nm-tint);
+  border-left: 3px solid var(--nm-orange) !important; border-radius: 0 4px 4px 0;
+}
+/* Portada (index.qmd, title-block-banner): cabecera en degradado azul → verde azulado con filete naranja y texto blanco
+   (contraste ≥ 7:1); los encabezados de sección llevan un acento azul. */
+body:has(.nm-portada-fig) .quarto-title-banner {
+  background: linear-gradient(120deg, #0f3d63 0%, #134a73 45%, #14574f 100%) !important;
+  border-bottom: 5px solid var(--nm-orange); color: #fff;
+}
+body:has(.nm-portada-fig) .quarto-title-banner .title { color: #fff; letter-spacing: 0.01em; }
+body:has(.nm-portada-fig) .quarto-title-banner .subtitle { color: #e3eef8; }
+body:has(.nm-portada-fig) main h2 { border-bottom: 3px solid var(--nm-blue); padding-bottom: 0.25rem; }
