@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════
+#  NeuroMIND — hook pre-commit de privacidad
+#
+#  Bloquea el commit si lo que está en staging contiene nombres de archivo
+#  crudos de la adquisición (iniciales del paciente + fecha de registro) o
+#  archivos de datos clínicos / señal EEG.
+#
+#  Activación (una vez por clon):
+#    git config core.hooksPath scripts/hooks
+#
+#  Auditoría manual de todo el árbol versionado (sin commit):
+#    scripts/hooks/pre-commit --all
+#
+#  Nunca imprime los valores encontrados: solo la ruta y el número de
+#  coincidencias. Los nombres crudos se escriben anonimizados:
+#    M12_T2_2_*_Ojoscerrados   o, en ejemplos,   M12_T2_2_XXX_DDMMAA_Ojoscerrados
+# ═══════════════════════════════════════════════════════════════
+set -u
+
+# Patrones (Perl). P1: tres iniciales + fecha DDMMAA. P2/P3: nombre crudo
+# completo Mxx_Tx[_x]_<INICIALES>[_]<DDMMAA>.
+PATRONES='(?<![A-Za-z])[A-Z]{3}_[0-9]{6}(?![0-9])|[A-Z][0-9]{1,2}_T[0-9](_[0-9])?_[A-Z]{2,4}_[0-9]{6}|[A-Z][0-9]{1,2}_T[0-9](_[0-9])?_[A-Z]{2,8}[ -]?[0-9]{6}(?![0-9])'
+
+# Extensiones que nunca se versionan (datos clínicos y formatos EEG).
+EXT_PROHIBIDAS='\.(xlsx|xls|vhdr|vmrk|eeg|edf|bdf|fif|fif\.gz|set|fdt)$'
+
+modo="staged"
+[ "${1:-}" = "--all" ] && modo="all"
+
+cuenta() {  # lee stdin, devuelve el número de coincidencias
+  perl -ne 'BEGIN{$n=0} $n++ while /'"$PATRONES"'/g; END{print $n}'
+}
+
+fallos=0
+aviso() { echo "  ✗ $1" >&2; fallos=$((fallos + 1)); }
+
+if [ "$modo" = "staged" ]; then
+  lista=$(git diff --cached --name-only --diff-filter=ACMR -z | tr '\0' '\n')
+else
+  # Versionados + nuevos no ignorados, tal como están en disco.
+  lista=$(git ls-files --cached --others --exclude-standard)
+fi
+
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+
+  # 1. El propio nombre del archivo
+  n=$(printf '%s' "$f" | cuenta)
+  [ "$n" -gt 0 ] && aviso "$f: el NOMBRE del archivo contiene un identificador crudo"
+
+  # 2. Extensiones de datos
+  if printf '%s' "$f" | grep -Eiq "$EXT_PROHIBIDAS"; then
+    aviso "$f: formato de datos clínicos/EEG (no se versiona)"
+    continue
+  fi
+
+  # 3. PDFs solo en docs/
+  case "$f" in
+    *.pdf|*.PDF) case "$f" in docs/*) ;; *) aviso "$f: PDF fuera de docs/" ;; esac ;;
+  esac
+
+  # 4. Contenido (versión en staging; con --all, la del disco)
+  if [ "$modo" = "staged" ]; then
+    n=$(git show ":$f" 2>/dev/null | cuenta)
+  else
+    n=$( [ -f "$f" ] && cuenta < "$f" || echo 0)
+  fi
+  [ "${n:-0}" -gt 0 ] && aviso "$f: $n coincidencia(s) de identificador crudo en el contenido"
+done <<< "$lista"
+
+if [ "$fallos" -gt 0 ]; then
+  echo "" >&2
+  echo "pre-commit (privacidad): $fallos problema(s). Commit bloqueado." >&2
+  echo "Sustituye los nombres crudos por el patrón anonimizado (M12_T2_2_*_Ojoscerrados)." >&2
+  echo "Si un script necesita los nombres reales, que los lea en ejecución de data/." >&2
+  exit 1
+fi
+
+[ "$modo" = "all" ] && echo "Auditoría de identificadores: 0 coincidencias en $(printf '%s\n' "$lista" | grep -c .) archivos (versionados y nuevos no ignorados)."
+exit 0

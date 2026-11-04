@@ -272,6 +272,29 @@ git ls-files | grep -E '(^data/|^results/|\.DS_Store$|^\.claude/|^\.vscode/)'
 - `reports/`, `exports/`, `logs/`
 - `.claude/`, `.vscode/`, `.cursor/`
 - `.DS_Store`, `.env`, clinical logs, secrets
+- Clinical spreadsheets (`*.xlsx`), EEG formats (`*.vhdr`, `*.vmrk`, `*.eeg`, `*.edf`, `*.fif`, `*.set`, `*.fdt`), PDFs outside `docs/`
+- The separate projects `Report_Pre/`, `NeuroMIND_Quarto/`, `MSARD_paper/`, `Cuaderno/`, `NeuroMIND_Riemannian_EEG/` (private, they live elsewhere)
+
+**Data location:** `data`, `results` and `mne_brain/results` are **symlinks** to the private
+folder `BRAIN/04_NeuroMIND/` (iCloud). Never replace them with real folders inside the repo,
+and never copy their contents into versioned paths.
+
+**Patient identifiers — absolute rule.** Never write raw acquisition file names in code,
+comments, docs, tests, commit messages or graphify output. Raw names contain the patient's
+initials and the recording date (`Mxx_Tx[_x]_<INITIALS>_<DDMMYY>_<condition>`). Always write
+them anonymised: `M12_T2_2_*_Ojoscerrados` (or `M12_T2_2_XXX_DDMMAA_Ojoscerrados` in a
+pattern example). If a script needs the real names, it must read them at run time from
+`data/` (ignored), never from constants in the code.
+
+**Privacy pre-commit hook** (versioned in `scripts/hooks/pre-commit`). Enable it once per clone:
+
+```bash
+git config core.hooksPath scripts/hooks
+scripts/hooks/pre-commit --all   # manual audit of the whole tree → must report 0
+```
+
+It blocks the commit if the staged content contains raw identifiers, EEG/clinical formats or PDFs outside `docs/`.
+It never prints the values found. Do not bypass it with `--no-verify`.
 
 **Branch policy:** never commit directly to `main`. Use `feat/<name>` branches.
 

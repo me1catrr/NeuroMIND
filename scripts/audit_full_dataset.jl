@@ -138,7 +138,7 @@ function parse_vhdr_filename(fname::String)
     name_noext = b[1:end-5]
 
     # ── Patrón MS: M{n}_T{sess}[_{sub}]_{init}_{date}_{cond}
-    #    M37_T2_1_JLP_270722_Ojosabiertos
+    #    M37_T2_1_XXX_DDMMAA_Ojosabiertos
     m = match(r"^(M\d+)_T(\d+)(?:_(\d+))?_([^_]+)_(\d+)_(.+)$", name_noext)
     if m !== nothing
         subj_raw  = String(m[1])
@@ -239,7 +239,7 @@ const RAW_SELECTION_CSV = joinpath(dirname(@__DIR__), "config", "raw_selection.c
     _anon_stem(stem) -> String
 
 Sustituye `<iniciales>_<fecha>` por `*` en el nombre de un raw:
-`M12_T2_2_ABC_010122_Ojoscerrados` → `M12_T2_2_*_Ojoscerrados` (ejemplo ficticio).
+`M12_T2_2_XXX_DDMMAA_Ojoscerrados` → `M12_T2_2_*_Ojoscerrados` (ejemplo ficticio).
 """
 _anon_stem(stem::AbstractString) =
     replace(String(stem), r"^(MC?\d+_T\d(?:_\d)?)_[^_]+_\d{6,8}_" => s"\1_*_")
