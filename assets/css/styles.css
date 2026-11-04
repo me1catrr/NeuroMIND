@@ -1,0 +1,525 @@
+/* NeuroMIND · libro Quarto — estilos propios.
+ * Paleta tomada de Report_Pre/styles/paleta.tex (NSBlue, NSPetrol, NSTeal, NSOrange, NSPurple, NSPlum…).
+ * Los tonos para TEXTO son versiones oscurecidas de la paleta (contraste >= 4.5:1 sobre el fondo);
+ * los tonos originales se usan solo en bordes y fondos tenues. Ninguna caja depende solo del color:
+ * todas llevan un rótulo escrito.
+ * Sin fuentes ni recursos externos: se usa la pila de fuentes del sistema. */
+
+:root {
+  --nm-blue: #0d2d4b;
+  --nm-petrol: #007380;
+  --nm-teal: #149691;
+  --nm-orange: #e07922;
+  --nm-purple: #745aaa;
+  --nm-plum: #963c6e;
+  --nm-gray: #696969;
+
+  /* texto sobre fondo claro (>= 4.5:1) */
+  --nm-t-blue: #0d2d4b;
+  --nm-t-petrol: #00606b;
+  --nm-t-orange: #9a4d08;
+  --nm-t-purple: #5b428f;
+  --nm-t-plum: #8a3463;
+  --nm-t-amber: #7a5500;
+  --nm-t-red: #9c2d22;
+  --nm-t-green: #2f6b2c;
+
+  --nm-surface: #ffffff;
+  --nm-surface-2: #f4f6f8;
+  --nm-border: #d5dbe1;
+  --nm-text: #1c2430;
+  --nm-muted: #4f5b69;
+  --nm-focus: #1a6dd8;
+}
+
+body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+h1, h2, h3, h4 { color: var(--nm-t-blue); }
+.quarto-title-block .title, h1.title { color: var(--nm-t-blue); }
+/* Ecuaciones largas: se desplazan dentro de su caja en vez de ensanchar la página (ventanas estrechas). */
+.katex-display { overflow-x: auto; overflow-y: hidden; max-width: 100%; padding: 0.15em 0; }
+.math.display { max-width: 100%; }
+p, li { overflow-wrap: break-word; }
+a, .csl-entry { overflow-wrap: anywhere; }   /* las URL de los DOI no se parten solas */
+:not(pre) > code { white-space: pre-wrap; overflow-wrap: anywhere; }   /* rutas largas en el texto o en pies de tabla (Bootstrap fija white-space: pre); los bloques <pre> no se tocan */
+:focus-visible { outline: 3px solid var(--nm-focus); outline-offset: 2px; }
+
+/* ───────── Pantallas grandes (medido el 30-10-2026 con Chromium a 390, 768, 1280, 1920, 2560 y 3840 px) ─────────
+ * Móvil y tableta no cambian (≈ 39 y 62 caracteres por línea). Desde 1200 px la letra pasa de 17 a 18,5 px cambiando la
+ * raíz rem de Bootstrap (--bs-root-font-size: todo lo que se mide en rem crece en proporción) y, con la columna de
+ * _quarto.yml (grid.body-width: 760px), la línea queda en ≈ 77 caracteres en lugar de ≈ 89.
+ * Monitores QHD/4K y televisores: NO se amplía con la propiedad CSS `zoom`. Se probó en <html> y en los bloques del libro
+ * y en ambos casos las ventanas emergentes de citas y referencias (tippy/popper) salen a más de 1000 px de su enlace.
+ * Lo que funciona es el zoom del navegador o la escala del sistema operativo: cambian el tamaño del px CSS y la página se
+ * compone como en una pantalla de 1920 px (4K al 200 %) o de 1280 px (QHD al 200 %), ambos casos medidos. */
+@media (min-width: 1200px) { :root { --bs-root-font-size: 18.5px; } }
+
+/* ───────── Preliminares: ruta de lectura y letra menor del aviso legal ───────── */
+/* Ruta de lectura de un capítulo (\ruta del informe): etiqueta escrita, el color solo acompaña. */
+.nm-ruta { display: inline-block; padding: 0 .45em; border-radius: .3em; border: 1px solid currentColor; font-size: .78em;
+  font-weight: 650; letter-spacing: .04em; text-transform: uppercase; line-height: 1.5; white-space: nowrap; }
+.nm-ruta.r-nucleo { color: var(--nm-t-blue); }
+.nm-ruta.r-fundamentos { color: var(--nm-t-petrol); }
+.nm-ruta.r-referencia { color: var(--nm-t-purple); }
+.nm-letra-menor { font-size: .9em; color: var(--nm-muted); }
+
+/* ───────── Insignias: estado de la evidencia y tipo de afirmación ───────── */
+.estado, .tipo {
+  display: inline-block; font-size: 0.78em; font-weight: 700; line-height: 1.5;
+  padding: 0 0.55em; border-radius: 999px; border: 1.5px solid currentColor;
+  white-space: nowrap; vertical-align: baseline; letter-spacing: 0.01em;
+}
+.estado::before { content: "evidencia: "; font-weight: 500; }
+.e-confirmado { color: var(--nm-t-petrol); background: color-mix(in srgb, var(--nm-teal) 14%, transparent); }
+.e-provisional { color: var(--nm-t-amber); background: color-mix(in srgb, #c48c14 16%, transparent); }
+.e-pendiente { color: var(--nm-t-orange); background: color-mix(in srgb, var(--nm-orange) 14%, transparent); }
+.e-novalido { color: var(--nm-t-red); background: color-mix(in srgb, #aa3428 12%, transparent); }
+.tipo { font-weight: 700; border-style: dashed; color: var(--nm-muted); }
+.tipo::before { content: "afirmación: "; font-weight: 500; }
+
+/* ───────── Dudas del proyecto (cuaderno de dudas del informe): estado propio ───────── */
+.dudaestado {
+  display: inline-block; font-size: 0.78em; font-weight: 700; line-height: 1.5; padding: 0 0.55em;
+  border-radius: 999px; border: 1.5px solid currentColor; white-space: nowrap; vertical-align: baseline;
+}
+.dudaestado::before { content: "estado de la duda: "; font-weight: 500; }
+.d-abierta { color: var(--nm-t-orange); background: color-mix(in srgb, var(--nm-orange) 14%, transparent); }
+.d-encurso { color: var(--nm-t-amber); background: color-mix(in srgb, #c48c14 16%, transparent); }
+.d-resuelta { color: var(--nm-t-petrol); background: color-mix(in srgb, var(--nm-teal) 14%, transparent); }
+.d-trasladada { color: var(--nm-t-purple); background: color-mix(in srgb, var(--nm-purple) 14%, transparent); }
+.d-descartada { color: var(--nm-muted); background: color-mix(in srgb, var(--nm-gray) 12%, transparent); }
+
+/* ───────── Cajas semánticas (rótulo + borde lateral) ───────── */
+.nm-box {
+  --c: var(--nm-petrol); --t: var(--nm-t-petrol);
+  border: 1px solid var(--nm-border); border-left: 6px solid var(--c);
+  border-radius: 0 8px 8px 0; background: var(--nm-surface-2);
+  padding: 0.7rem 1rem 0.6rem; margin: 1.2rem 0;
+}
+.nm-box::before {
+  content: attr(data-rotulo); display: block; font-weight: 800; font-size: 0.82rem;
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--t); margin-bottom: 0.25rem;
+}
+.nm-box > :last-child { margin-bottom: 0; }
+.nm-idea { --c: var(--nm-purple); --t: var(--nm-t-purple); }
+.nm-clinicos { --c: var(--nm-plum); --t: var(--nm-t-plum); }
+.nm-ingenieros { --c: #3e7d3a; --t: var(--nm-t-green); }
+.nm-qc { --c: var(--nm-teal); --t: var(--nm-t-petrol); }
+.nm-decision { --c: var(--nm-blue); --t: var(--nm-t-blue); }
+.nm-limite { --c: #aa3428; --t: var(--nm-t-red); }
+.nm-pendiente { --c: var(--nm-orange); --t: var(--nm-t-orange); }
+.nm-historia { --c: #c48c14; --t: var(--nm-t-amber); }
+.nm-errores { --c: #aa3428; --t: var(--nm-t-red); }
+.nm-apertura { --c: var(--nm-blue); --t: var(--nm-t-blue); }
+.nm-duda { --c: var(--nm-plum); --t: var(--nm-t-plum); }
+
+/* Contenido añadido en el libro (no está en Report_Pre) */
+.nm-ampl { border: 2px dashed var(--nm-purple); border-radius: 8px; padding: 0.2rem 1rem 0.4rem; margin: 1.4rem 0; position: relative; }
+.nm-ampl::before {
+  content: "Ampliación docente — no figura en el informe original";
+  display: block; font-size: 0.76rem; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase;
+  color: var(--nm-t-purple); margin: 0.5rem 0 0.4rem;
+}
+.nm-ampl > :last-child { margin-bottom: 0; }
+
+/* ───────── Preguntas: tres tipos distintos ───────── */
+details.nm-q, .nm-q-open, .nm-q-expl, .nm-anticipa {
+  --c: var(--nm-petrol); --t: var(--nm-t-petrol);
+  border: 1px solid var(--nm-border); border-left: 6px solid var(--c);
+  border-radius: 0 8px 8px 0; background: var(--nm-surface); margin: 1rem 0; padding: 0;
+}
+details.nm-q > summary, .nm-q-open > .nm-q-title, .nm-q-expl > .nm-q-title, .nm-anticipa > .nm-q-title {
+  cursor: pointer; padding: 0.6rem 1rem; font-weight: 600; list-style-position: inside; color: var(--nm-text);
+}
+.nm-q-open > .nm-q-title, .nm-q-expl > .nm-q-title, .nm-anticipa > .nm-q-title { cursor: default; }
+details.nm-q > summary:hover { background: var(--nm-surface-2); }
+details.nm-q[open] > summary { border-bottom: 1px solid var(--nm-border); }
+details.nm-q > :not(summary) { padding-left: 1rem; padding-right: 1rem; }
+details.nm-q > :last-child, .nm-q-open > :last-child, .nm-q-expl > :last-child { margin-bottom: 0.8rem; }
+.nm-tag { display: inline-block; font-size: 0.74rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 0.5rem; color: var(--t); }
+.nm-q-comp { --c: var(--nm-petrol); --t: var(--nm-t-petrol); }
+.nm-q-expl { --c: var(--nm-orange); --t: var(--nm-t-orange); }
+.nm-q-open { --c: var(--nm-purple); --t: var(--nm-t-purple); border-style: dashed; border-left-style: solid; }
+.nm-anticipa { --c: var(--nm-blue); --t: var(--nm-t-blue); }
+.nm-q-open > :not(.nm-q-title), .nm-q-expl > :not(.nm-q-title), .nm-anticipa > :not(.nm-q-title) { padding: 0 1rem; }
+/* las listas conservan su sangría propia (el padding de arriba la anulaba y los números quedaban sobre el borde) */
+.nm-q-open > :is(ol, ul):not(.nm-q-title), .nm-q-expl > :is(ol, ul):not(.nm-q-title), .nm-anticipa > :is(ol, ul):not(.nm-q-title),
+details.nm-q > :is(ol, ul):not(summary), details.nm-detalle > :is(ol, ul):not(summary) { padding-left: 2.6rem; }
+details.nm-detalle { border: 1px solid var(--nm-border); border-radius: 8px; margin: 1rem 0; background: var(--nm-surface); }
+details.nm-detalle > summary { cursor: pointer; padding: 0.55rem 1rem; font-weight: 600; color: var(--nm-t-blue); }
+details.nm-detalle[open] > summary { border-bottom: 1px solid var(--nm-border); }
+details.nm-detalle > :not(summary) { padding: 0 1rem; }
+
+/* ───────── Tablas y parámetros ───────── */
+table { font-size: 0.93rem; }
+.nm-params { font-size: 0.85rem; }
+.nm-params table { margin: 0; }
+.nm-fuente { font-size: 0.82rem; color: var(--nm-muted); }
+figure.quarto-float img { max-width: 100%; height: auto; background: #fff; border-radius: 6px; }
+figure.quarto-float.nm-figura-svg img { background: #fff; padding: 0.4rem; border: 1px solid var(--nm-border); }
+
+/* ───────── Simulaciones docentes ───────── */
+.nm-sim {
+  --c: var(--nm-orange); --t: var(--nm-t-orange);
+  border: 2px solid var(--c); border-radius: 10px; background: var(--nm-surface); margin: 1.6rem 0; overflow: hidden;
+}
+.nm-sim-cabecera { background: color-mix(in srgb, var(--nm-orange) 14%, var(--nm-surface)); padding: 0.6rem 1rem; border-bottom: 1px solid var(--c); }
+.nm-sim-cabecera strong { color: var(--t); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.04em; display: block; }
+.nm-sim-cabecera span { font-size: 0.9rem; color: var(--nm-muted); }
+.nm-sim-cuerpo { padding: 0.8rem 1rem 1rem; }
+.nm-sim-guia { font-weight: 600; margin: 0 0 0.7rem; }
+.nm-sim-controles { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.6rem 1.2rem; margin-bottom: 0.8rem; }
+.nm-sim-controles label { display: flex; flex-direction: column; font-size: 0.85rem; font-weight: 600; gap: 0.15rem; }
+.nm-sim-controles select, .nm-sim-controles input[type=number] { font: inherit; padding: 0.25rem 0.4rem; border: 1px solid var(--nm-border); border-radius: 5px; background: var(--nm-surface); color: var(--nm-text); }
+.nm-sim-controles input[type=range] { width: 100%; accent-color: var(--nm-petrol); }
+.nm-sim-controles .nm-val { font-variant-numeric: tabular-nums; color: var(--nm-t-petrol); font-weight: 700; }
+.nm-sim-controles fieldset { border: 1px solid var(--nm-border); border-radius: 6px; padding: 0.3rem 0.6rem 0.4rem; margin: 0; }
+.nm-sim-controles legend { font-size: 0.8rem; font-weight: 700; padding: 0 0.3rem; width: auto; margin: 0; }
+.nm-sim-controles fieldset label { flex-direction: row; align-items: center; gap: 0.4rem; font-weight: 500; }
+.nm-btn { font: inherit; font-weight: 700; padding: 0.35rem 0.9rem; border-radius: 6px; border: 2px solid var(--nm-petrol); background: var(--nm-surface); color: var(--nm-t-petrol); cursor: pointer; }
+.nm-btn:hover { background: color-mix(in srgb, var(--nm-teal) 14%, var(--nm-surface)); }
+.nm-sim svg.nm-plot { width: 100%; height: auto; display: block; background: var(--nm-surface); border: 1px solid var(--nm-border); border-radius: 6px; margin-bottom: 0.5rem; }
+.nm-plot text { fill: var(--nm-text); font-family: inherit; }
+.nm-plot .eje, .nm-plot .rejilla { stroke: var(--nm-border); stroke-width: 1; }
+.nm-plot .eje { stroke: var(--nm-muted); }
+.nm-plot .guia { stroke: var(--nm-muted); stroke-dasharray: 5 4; stroke-width: 1; fill: none; }
+.nm-plot .curva-1 { stroke: var(--nm-orange); fill: none; stroke-width: 2.2; stroke-dasharray: 7 4; }
+.nm-plot .curva-2 { stroke: var(--nm-petrol); fill: none; stroke-width: 2.6; }
+.nm-plot .curva-0 { stroke: var(--nm-muted); fill: none; stroke-width: 1.4; opacity: 0.8; }
+.nm-leyenda { display: flex; flex-wrap: wrap; gap: 0.3rem 1.2rem; font-size: 0.85rem; margin: 0.2rem 0 0.6rem; }
+.nm-leyenda i { display: inline-block; width: 1.8rem; height: 0; border-top-width: 3px; border-top-style: solid; vertical-align: middle; margin-right: 0.35rem; }
+.nm-sim-lectura { background: var(--nm-surface-2); border-radius: 6px; padding: 0.55rem 0.8rem; font-size: 0.92rem; min-height: 3em; }
+.nm-sim-lectura p { margin: 0.15rem 0; }
+.nm-sim-supuestos { font-size: 0.85rem; color: var(--nm-muted); margin-top: 0.7rem; }
+.nm-sim-supuestos summary { cursor: pointer; font-weight: 700; color: var(--nm-t-blue); }
+.nm-sim noscript, .nm-sim .nm-sin-js { padding: 0.8rem 1rem; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+
+/* ───────── Ventana estrecha ───────── */
+@media (max-width: 576px) {
+  .nm-box, details.nm-q, .nm-q-open, .nm-q-expl, .nm-anticipa { margin-left: 0; margin-right: 0; }
+  .nm-sim-controles { grid-template-columns: 1fr; }
+  table { display: block; overflow-x: auto; }
+}
+@media print { details.nm-q, details.nm-detalle { break-inside: avoid; } }
+
+/* Quarto añade a cada capítulo un encabezado «Referencias» con una lista oculta (sirve para las ventanas emergentes de las
+   citas). La bibliografía visible está en el capítulo final «Referencias». */
+section#bibliography:has(> #refs[style*="display: none"]) { display: none; }
+
+/* ───────── Capítulo «Estado del arte»: fuentes de sección, nivel de lectura, notas de tabla y fichas ───────── */
+.nm-fuentes { font-size: 0.85rem; color: var(--nm-muted); border-left: 3px solid var(--nm-border); padding: 0.1rem 0 0.1rem 0.7rem; margin: 0.2rem 0 1rem; }
+.nm-fuentes p { margin: 0; }
+.nm-nivel { font-weight: 700; color: var(--nm-t-petrol); }
+.nm-nota-tabla { font-size: 0.85rem; color: var(--nm-muted); margin: -0.4rem 0 1.2rem; }
+.nm-nota-tabla p { margin: 0; }
+details.nm-ficha { border: 1px solid var(--nm-border); border-left: 4px solid var(--nm-petrol); border-radius: 8px; margin: 0.9rem 0; background: var(--nm-surface); scroll-margin-top: 4.5rem; }
+details.nm-ficha > summary { cursor: pointer; padding: 0.55rem 1rem; }
+details.nm-ficha > summary:hover { background: var(--nm-surface-2); }
+details.nm-ficha > summary > p { display: inline; margin: 0; }          /* Pandoc envuelve el contenido del summary en <p> */
+details.nm-ficha[open] > summary { border-bottom: 1px solid var(--nm-border); }
+details.nm-ficha > :not(summary) { padding: 0 1rem; }
+details.nm-ficha > p:first-of-type { margin-top: 0.6rem; color: var(--nm-muted); font-size: 0.9rem; }
+details.nm-ficha table { margin: 0.4rem 0 0.8rem; font-size: 0.92rem; }
+details.nm-ficha td:first-child { width: 22%; min-width: 7.5rem; vertical-align: top; }
+details.nm-ficha > .nm-ampl { margin: 0.4rem 1rem 0.9rem; padding: 0.6rem 0.9rem; }
+@media print { details.nm-ficha { break-inside: avoid; } }
+
+/* ── Metadatos de capítulo y sección (scripts/metadatos_seccion.lua) ── */
+.nm-meta { font-size: .82rem; color: var(--nm-gray); margin: -.2rem 0 .9rem; padding: 0; border: 0; }
+.nm-meta p { margin: 0; }
+.nm-meta-capitulo { margin-bottom: .6rem; }
+.nm-nav { margin: .4rem 0 1.4rem; overflow-x: auto; }
+.nm-nav table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.nm-nav caption { caption-side: top; text-align: left; font-size: .8rem; color: var(--nm-gray); padding-bottom: .4rem; }
+.nm-nav th, .nm-nav td { padding: .25rem .6rem; border-bottom: 1px solid #d5dbe3; text-align: left; }
+.nm-nav th:not(:first-child), .nm-nav td:not(:first-child) { white-space: nowrap; width: 1%; }
+.nm-nav tfoot th { border-top: 2px solid #d5dbe3; border-bottom: 0; }
+@media print { .nm-nav { overflow: visible; } }
+
+/* ── Entornos matemáticos numerados y demostraciones (docs/componentes.md) ──
+   Quarto genera div.theorem con una clase de tipo (definition, example, proposition, lemma, corollary).
+   El rótulo («Definición 1.2») ya es la señal textual: el color solo acompaña. */
+div.theorem {
+  margin: 1.1rem 0; padding: .7rem 1rem; border-left: 4px solid var(--nm-petrol); background: #f3f8f9; border-radius: 0 6px 6px 0;
+}
+div.theorem.definition { border-left-color: var(--nm-blue); background: #f2f5f9; }
+div.theorem.example { border-left-color: var(--nm-orange); background: #fcf6f0; }
+div.theorem > p:first-child { margin-top: 0; }
+div.theorem > :last-child { margin-bottom: 0; }
+div.theorem .theorem-title { font-weight: 700; }
+details.nm-demostracion { margin: .8rem 0 1.2rem; border: 1px solid #d5dbe3; border-radius: 6px; padding: .4rem .9rem; }
+details.nm-demostracion > summary { cursor: pointer; font-weight: 600; color: var(--nm-t-petrol); }
+details.nm-demostracion > summary:focus-visible { outline: 3px solid var(--nm-orange); outline-offset: 2px; }
+details.nm-demostracion[open] > summary { margin-bottom: .5rem; }
+details.nm-demostracion .nm-qed { text-align: right; margin: 0; }
+@media print { div.theorem, details.nm-demostracion { break-inside: avoid; } }
+
+/* Nota histórica: título y línea de verificación de la fuente */
+.nm-historia .nm-fuente { font-size: .85rem; color: var(--nm-gray); margin-top: .4rem; }
+
+/* ───────── Validación cruzada · NeuroMIND–Julia ↔ MNE-Python (scripts/validacion.lua) ─────────
+   Bloque generado desde validation/results/<id>/resumen.json. El color nunca es la única señal:
+   el estado, «cumple / no cumple» y cada serie de las figuras llevan texto, símbolo o trazo propio.
+   Textos >= 4,5:1 (variables --nm-t-*); trazos de las figuras >= 3:1. */
+.nm-validacion {
+  --c: var(--nm-gray); --t: var(--nm-muted); --f: color-mix(in srgb, var(--nm-gray) 12%, var(--nm-surface));
+  border: 1px solid var(--nm-border); border-left: 6px solid var(--c); border-radius: 0 10px 10px 0;
+  background: var(--nm-surface); margin: 1.8rem 0; padding: 0 0 .6rem; overflow: hidden; font-size: .95rem; color: var(--nm-text);
+}
+.nm-val-e-validado { --c: #3e7d3a; --t: var(--nm-t-green); --f: color-mix(in srgb, #3e7d3a 13%, var(--nm-surface)); }
+.nm-val-e-concordancia-parcial { --c: #c48c14; --t: var(--nm-t-amber); --f: color-mix(in srgb, #c48c14 16%, var(--nm-surface)); }
+.nm-val-e-discrepancia-pendiente { --c: var(--nm-orange); --t: var(--nm-t-orange); --f: color-mix(in srgb, var(--nm-orange) 14%, var(--nm-surface)); }
+.nm-val-e-no-equivalente { --c: var(--nm-purple); --t: var(--nm-t-purple); --f: color-mix(in srgb, var(--nm-purple) 13%, var(--nm-surface)); }
+.nm-val-e-no-ejecutado { --c: var(--nm-gray); --t: var(--nm-muted); --f: color-mix(in srgb, var(--nm-gray) 12%, var(--nm-surface)); }
+.nm-validacion > * { margin-left: 1rem; margin-right: 1rem; }
+.nm-validacion > .nm-val-cab { margin: 0 0 .7rem; padding: .65rem 1rem .6rem; background: var(--f); border-bottom: 1px solid var(--c); }
+.nm-val-rotulo { margin: 0 0 .15rem; font-size: .74rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--nm-t-blue); }
+.nm-val-titulo { font-size: 1.12rem; font-weight: 700; line-height: 1.3; color: var(--nm-t-blue); margin: 0 0 .4rem; }
+.nm-val-linea { margin: 0; display: flex; flex-wrap: wrap; gap: .3rem .8rem; align-items: center; }
+.nm-val-estado {
+  display: inline-block; font-size: .85rem; font-weight: 700; padding: .05rem .65rem; border-radius: 999px;
+  border: 1.5px solid currentColor; color: var(--t); background: var(--nm-surface); white-space: nowrap;
+}
+.nm-val-clase { font-size: .85rem; color: var(--nm-muted); }
+.nm-val-expl { font-weight: 600; margin-top: 0; margin-bottom: .5rem; }
+.nm-val-obj { font-size: .88rem; color: var(--nm-muted); margin-top: 0; margin-bottom: .6rem; }
+.nm-val-h { font-size: .8rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--nm-t-petrol); margin-top: 1rem; margin-bottom: .3rem; border-bottom: 1px solid var(--nm-border); padding-bottom: .1rem; }
+.nm-val-ver { list-style: none; padding: 0; margin-top: 0; margin-bottom: .2rem; display: flex; flex-wrap: wrap; gap: .25rem .5rem; }
+.nm-val-ver li { background: var(--nm-surface-2); border: 1px solid var(--nm-border); border-radius: 6px; padding: 0 .5rem; font-size: .85rem; }
+.nm-val-ver li span { color: var(--nm-muted); }
+.nm-validacion code { font-size: .85em; background: transparent; padding: 0; color: inherit; overflow-wrap: anywhere; white-space: pre-wrap; }
+.nm-val-tabla { overflow-x: auto; margin: .2rem 1rem .4rem; max-width: 100%; }
+.nm-val-tabla:focus-visible { outline: 3px solid var(--nm-focus); outline-offset: 2px; }
+.nm-validacion table { display: table; width: 100%; min-width: 34rem; margin: 0; font-size: .85rem; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.nm-validacion caption { caption-side: top; text-align: left; font-size: .8rem; color: var(--nm-muted); padding: 0 0 .3rem; }
+.nm-validacion th, .nm-validacion td { padding: .25rem .5rem; border-bottom: 1px solid var(--nm-border); text-align: left; vertical-align: top; }
+.nm-validacion thead th { background: var(--nm-surface-2); border-bottom: 2px solid var(--nm-border); white-space: nowrap; }
+.nm-validacion tbody th[scope="row"] { font-weight: 600; }
+.nm-val-par { min-width: 22rem; }
+.nm-val-det td { font-size: .82rem; color: var(--nm-muted); background: var(--nm-surface-2); }
+.nm-val-ud, .nm-val-peq { font-weight: 400; color: var(--nm-muted); font-size: .9em; }
+.nm-val-nd, .nm-val-sin { color: var(--nm-muted); font-style: italic; }
+.nm-val-si, .nm-val-si > span { color: var(--nm-t-green); font-weight: 700; }
+.nm-val-no, .nm-val-no > span { color: var(--nm-t-red); font-weight: 700; }
+.nm-val-cond { list-style: none; padding: 0; margin: 0 1rem .2rem; }
+.nm-val-cond li { padding: .1rem 0; }
+.nm-val-cond li.nm-val-si, .nm-val-cond li.nm-val-no { color: var(--nm-text); font-weight: 400; }
+.nm-val-nota { font-size: .8rem; color: var(--nm-muted); margin-top: .4rem; margin-bottom: .2rem; }
+.nm-val-fig { margin: .6rem 1rem .8rem; max-width: 36rem; }
+.nm-val-svg { display: block; width: 100%; height: auto; background: var(--nm-surface); border: 1px solid var(--nm-border); border-radius: 6px; }
+.nm-val-svg text { fill: var(--nm-text); font-family: inherit; font-size: 12px; }
+.nm-val-svg .nm-val-eje { font-size: 12.5px; font-weight: 600; }
+.nm-val-rej { stroke: var(--nm-border); stroke-width: 1; }
+.nm-val-marco { fill: none; stroke: var(--nm-muted); stroke-width: 1; }
+.nm-val-cero { stroke: var(--nm-muted); stroke-width: 1.2; stroke-dasharray: 2 3; }
+.nm-val-curva { fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.nm-val-s0 { stroke: var(--nm-t-petrol); stroke-width: 3; }
+.nm-val-s1 { stroke: var(--nm-t-orange); stroke-width: 1.8; stroke-dasharray: 7 4; }
+.nm-val-s2 { stroke: var(--nm-t-purple); stroke-width: 1.8; stroke-dasharray: 2 3; }
+.nm-val-s3 { stroke: var(--nm-t-plum); stroke-width: 1.8; stroke-dasharray: 9 3 2 3; }
+.nm-val-fig figcaption { font-size: .85rem; color: var(--nm-muted); margin-top: .3rem; }
+.nm-val-leyenda { list-style: none; padding: 0; margin: .3rem 0 0; display: flex; flex-wrap: wrap; gap: .2rem 1.1rem; font-size: .85rem; }
+.nm-val-leyenda li { display: flex; align-items: center; gap: .35rem; }
+.nm-val-muestra { width: 2.1rem; height: .6rem; flex: none; overflow: visible; }
+.nm-val-interp p { margin: .3rem 0; }
+.nm-val-codigos { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: .5rem; }
+details.nm-val-codigo { border: 1px solid var(--nm-border); border-radius: 6px; background: var(--nm-surface); min-width: 0; }
+details.nm-val-codigo > summary { cursor: pointer; padding: .35rem .7rem; font-weight: 600; color: var(--nm-t-blue); overflow-wrap: anywhere; }
+details.nm-val-codigo > summary:hover { background: var(--nm-surface-2); }
+details.nm-val-codigo[open] > summary { border-bottom: 1px solid var(--nm-border); }
+.nm-val-pre { margin: 0; padding: .5rem .7rem; font-size: .8rem; overflow-x: auto; background: var(--nm-surface-2); border-radius: 0 0 6px 6px; max-height: 24rem; }
+.nm-val-pre code { white-space: pre; overflow-wrap: normal; }
+.nm-val-enl { margin: 0 1rem .2rem; padding-left: 1.2rem; }
+.nm-validacion a { color: var(--nm-t-petrol); text-decoration: underline; }
+@media (max-width: 576px) {
+  .nm-validacion { border-left-width: 4px; font-size: .92rem; }
+  .nm-validacion > * { margin-left: .6rem; margin-right: .6rem; }
+  .nm-validacion > .nm-val-cab { padding-left: .6rem; padding-right: .6rem; margin-left: 0; margin-right: 0; }
+  .nm-val-tabla { margin-left: .6rem; margin-right: .6rem; }
+  .nm-val-fig { margin-left: .6rem; margin-right: .6rem; }
+  .nm-val-cond, .nm-val-enl { margin-left: .6rem; margin-right: .6rem; }
+  .nm-val-enl { margin-left: 0; padding-left: 1.8rem; }
+}
+@media print {
+  .nm-validacion { break-inside: auto; border-color: #000; border-left-color: #000; overflow: visible; }
+  .nm-val-fig, .nm-validacion tr, .nm-val-cab { break-inside: avoid; }
+  .nm-val-tabla { overflow: visible; }
+  .nm-validacion table { min-width: 0; }
+  .nm-val-estado { border-color: #000; color: #000; }
+  .nm-val-pre { max-height: none; overflow: visible; white-space: pre-wrap; }
+  .nm-val-pre code { white-space: pre-wrap; }
+  details.nm-val-codigo::details-content { content-visibility: visible; display: block; }
+  .nm-validacion a::after { content: " (" attr(href) ")"; font-size: .8em; overflow-wrap: anywhere; }
+}
+.nm-val-nota-var { font-weight: 400; font-size: .85em; color: var(--nm-muted); }
+.nm-val-inv { border-left: 3px solid var(--nm-border); padding-left: .7rem; margin: .3rem 0 .6rem; }
+.nm-val-inv > p { margin: .25rem 0; }
+.nm-val-inv .nm-val-tabla { margin-left: 0; margin-right: 0; }
+.nm-validacion .nm-val-invt, .nm-validacion .nm-val-ref { min-width: 28rem; }
+details.nm-val-notas { margin: .8rem 1rem .2rem; font-size: .85rem; color: var(--nm-muted); }
+details.nm-val-notas > summary { cursor: pointer; font-weight: 600; color: var(--nm-t-blue); }
+details.nm-val-notas ul { margin: .3rem 0 0; padding-left: 1.2rem; }
+@media print { details.nm-val-notas::details-content { content-visibility: visible; display: block; } }
+details.nm-val-mas { margin: .6rem 0 1rem; border: 1px solid #d5dbe3; border-radius: 6px; padding: .3rem .8rem; }
+details.nm-val-mas > summary { cursor: pointer; font-weight: 600; color: var(--nm-t-petrol); }
+details.nm-val-mas > summary:focus-visible { outline: 3px solid var(--nm-orange); outline-offset: 2px; }
+@media print { details.nm-val-mas { break-inside: auto; } }
+
+/* ───────── Portada (index.qmd) ─────────
+   El título visible lo pone el bloque de título de Quarto; el h1 «Portada» sigue en el documento (barra lateral, índice de la
+   página, lectores de pantalla) pero no se muestra. La figura tiene dos variantes del mismo TikZ (assets/figures/portada/):
+   cuadrícula 2×2 en pantallas anchas y cuatro paneles apilados en estrechas, para que los rótulos se lean. */
+section#portada > h1 { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.nm-lead { font-size: 1.16rem; line-height: 1.6; max-width: 48rem; margin: 0.4rem 0 1.4rem; color: var(--nm-text); }
+.nm-lead p { margin: 0; }
+.nm-portada-fig { margin: 0 0 1.6rem; }
+.nm-portada-fig picture, .nm-portada-fig img { display: block; width: 100%; max-width: 100%; height: auto; }
+.nm-portada-fig img { background: #fff; border: 1px solid var(--nm-border); border-radius: 10px; padding: 0.5rem; }
+.nm-portada-fig figcaption { font-size: 0.88rem; color: var(--nm-muted); margin-top: 0.45rem; }
+@media (max-width: 576px) {
+  .nm-lead { font-size: 1.05rem; }
+  .nm-portada-fig img { max-width: 21rem; margin: 0 auto; }
+}
+
+/* ───────── Capítulo 1 y componentes reutilizables del rediseño (ciclo 1) ─────────
+   Todo con selectores propios: no cambia el aspecto de los capítulos 2 y 6. */
+
+/* Lecturas esenciales: fichas en cuadrícula (prioridad | obra y motivo | tiempo, dificultad, sección, DOI); apiladas en pantallas estrechas */
+.nm-lecturas { margin: 0.8rem 0 1.6rem; border-top: 2px solid var(--nm-t-blue); }
+.nm-lectura {
+  display: grid; grid-template-columns: minmax(0, 1fr) 13.6rem; grid-template-areas: "nivel meta" "cuerpo meta";
+  gap: 0.45rem 1.6rem; padding: 0.85rem 0.2rem; border-bottom: 1px solid var(--nm-border); align-items: start;
+}
+.nm-lec-nivel { grid-area: nivel; }
+.nm-lec-cuerpo { grid-area: cuerpo; }
+.nm-lectura > ul { grid-area: meta; }
+.nm-lectura p { margin: 0 0 0.3rem; }
+.nm-lec-cuerpo > :last-child { margin-bottom: 0; }
+.nm-lec-nivel p { margin: 0; }
+.nm-prio { display: inline-block; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; padding: 0.1rem 0.65rem; border-radius: 999px; border: 1.5px solid var(--nm-t-petrol); white-space: nowrap; }
+.nm-prio-1 { background: var(--nm-t-petrol); color: #fff; }
+.nm-prio-2 { background: transparent; color: var(--nm-t-petrol); }
+.nm-prio-3 { background: transparent; color: var(--nm-muted); border-color: var(--nm-muted); border-style: dashed; }
+.nm-lectura > ul { list-style: none; margin: 0; padding: 0; font-size: 0.82rem; color: var(--nm-muted); display: grid; gap: 0.15rem; }
+.nm-lectura > ul > li { margin: 0; padding: 0; }
+.nm-lectura > ul > li > strong { display: inline-block; min-width: 5.2rem; color: var(--nm-text); font-weight: 700; }
+@media (max-width: 767.98px) {
+  .nm-lectura { grid-template-columns: 1fr; grid-template-areas: "nivel" "cuerpo" "meta"; gap: 0.35rem; padding: 0.9rem 0.1rem; }
+  .nm-lectura > ul { display: flex; flex-wrap: wrap; gap: 0.15rem 1.2rem; }
+  .nm-lectura > ul > li > strong { min-width: 0; margin-right: 0.3rem; }
+}
+
+/* Línea temporal ligera (historia en el hilo del texto): año en negrita sobre una guía vertical */
+.nm-linea ul { list-style: none; margin: 0.8rem 0 1.2rem; padding: 0 0 0 1.3rem; border-left: 3px solid var(--nm-border); }
+.nm-linea li { position: relative; margin: 0 0 0.7rem; }
+.nm-linea li::before { content: ""; position: absolute; left: -1.78rem; top: 0.55em; width: 0.7rem; height: 0.7rem; border-radius: 50%; background: var(--nm-surface); border: 3px solid var(--nm-petrol); }
+.nm-linea li:last-child { margin-bottom: 0; }
+
+/* Fichas de dudas del proyecto (Cuaderno): el color solo acompaña; el estado va siempre escrito.
+   Ámbar = en curso, naranja = abierta; verde discreto reservado a RESUELTA/TRASLADADA con respuesta documentada. */
+.nm-duda-ficha { --c: var(--nm-orange); border: 1px solid var(--nm-border); border-left: 6px solid var(--c); border-radius: 0 8px 8px 0; background: var(--nm-surface); margin: 1.2rem 0; scroll-margin-top: 4.5rem; }
+.nm-d-encurso { --c: #c48c14; }
+.nm-d-abierta { --c: var(--nm-orange); }
+.nm-d-resuelta, .nm-d-trasladada { --c: #4f7d4a; }
+.nm-d-descartada { --c: var(--nm-gray); }
+.nm-duda-cab { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.9rem; padding: 0.6rem 1rem; background: color-mix(in srgb, var(--c) 8%, var(--nm-surface)); border-bottom: 1px solid var(--nm-border); }
+.nm-duda-cab p { margin: 0; }
+.nm-duda-id { font-weight: 800; letter-spacing: 0.02em; color: var(--nm-t-blue); font-variant-numeric: tabular-nums; }
+.nm-duda-ficha .d-resuelta, .nm-duda-ficha .d-trasladada { color: var(--nm-t-green); background: color-mix(in srgb, #4f7d4a 12%, transparent); }
+.nm-duda-ficha dl { display: grid; grid-template-columns: 10.5rem minmax(0, 1fr); gap: 0.6rem 1.2rem; margin: 0; padding: 0.85rem 1rem 0.9rem; }
+.nm-duda-ficha dt { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--nm-muted); padding-top: 0.15rem; }
+.nm-duda-ficha dd { margin: 0; min-width: 0; }
+.nm-duda-ficha dd > :last-child { margin-bottom: 0; }
+.nm-duda-ficha dd ul { margin: 0.4rem 0; }
+@media (max-width: 991.98px) {
+  .nm-duda-ficha dl { grid-template-columns: 1fr; gap: 0.1rem; }
+  .nm-duda-ficha dd { margin-bottom: 0.7rem; }
+}
+@media (max-width: 767.98px) { .nm-duda-ficha { border-left-width: 4px; } }
+@media print { .nm-duda-ficha { break-inside: avoid; } }
+
+/* Tabla del puente retardo → EEG: en pantallas estrechas cada fila pasa a ficha con el nombre de la columna */
+@media (max-width: 767.98px) {
+  #tbl-puente-retardo-eeg table, #tbl-puente-retardo-eeg tbody, #tbl-puente-retardo-eeg tr, #tbl-puente-retardo-eeg td { display: block; width: 100%; }
+  #tbl-puente-retardo-eeg thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  #tbl-puente-retardo-eeg tr { border: 1px solid var(--nm-border); border-radius: 8px; margin: 0 0 0.8rem; padding: 0.3rem 0; background: var(--nm-surface); }
+  #tbl-puente-retardo-eeg td { border: 0; padding: 0.25rem 0.8rem; }
+  #tbl-puente-retardo-eeg td::before { display: block; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--nm-muted); }
+  #tbl-puente-retardo-eeg td:nth-child(1)::before { content: "Grupo"; }
+  #tbl-puente-retardo-eeg td:nth-child(2)::before { content: "Afirmación"; }
+  #tbl-puente-retardo-eeg td:nth-child(3)::before { content: "Base en el libro"; }
+  #tbl-puente-retardo-eeg td:nth-child(4)::before { content: "Tipo y estado"; }
+}
+
+/* Tabla de secciones del comienzo del capítulo (scripts/metadatos_seccion.lua): compacta, sin ensanchar las columnas de tiempo */
+.nm-nav { margin: 0.6rem 0 1.6rem; }
+.nm-nav table { width: auto; min-width: min(100%, 26rem); max-width: 100%; font-size: 0.86rem; }
+.nm-nav caption { max-width: 40rem; line-height: 1.4; }
+.nm-nav th, .nm-nav td { padding: 0.2rem 0.8rem 0.2rem 0.3rem; }
+@media (max-width: 576px) {
+  .nm-nav table { display: table; width: 100%; font-size: 0.84rem; }
+  .nm-nav th:not(:first-child), .nm-nav td:not(:first-child) { padding-right: 0.3rem; }
+}
+
+/* Cabecera de título de la portada: en pantallas estrechas, autores y afiliación en una columna */
+@media (max-width: 576px) {
+  .quarto-title-meta { grid-template-columns: 1fr; }
+}
+
+/* Figuras con rótulos pequeños (esquemas con texto incrustado): en pantallas estrechas conservan un ancho mínimo y se
+   desplazan en horizontal, en vez de encogerse hasta que los rótulos dejen de leerse. El pie queda fijo a la izquierda. */
+@media (max-width: 767.98px) {
+  .nm-fig-ancha { overflow-x: auto; padding-bottom: 0.4rem; }
+  .nm-fig-ancha::before { content: "Figura ampliada: desliza en horizontal"; display: block; position: sticky; left: 0; font-size: 0.78rem; color: var(--nm-muted); margin-bottom: 0.2rem; }
+  .nm-fig-ancha img { min-width: 46rem; max-width: none; }
+  .nm-fig-ancha figcaption { position: sticky; left: 0; width: calc(100vw - 2.4rem); max-width: 100%; }
+}
+
+/* Patrón previsto «mapa de scripts y salidas» (docs/componentes.md). PREPARADO, SIN USAR: ningún capítulo lo emplea todavía.
+   Resumen del flujo en una línea y una tarjeta plegable por fase. */
+.nm-mapa-resumen { display: flex; flex-wrap: wrap; gap: 0.3rem 0.5rem; align-items: center; margin: 0.8rem 0; padding: 0; list-style: none; font-size: 0.88rem; }
+.nm-mapa-resumen li { padding: 0.15rem 0.65rem; border: 1px solid var(--nm-border); border-radius: 999px; background: var(--nm-surface-2); }
+.nm-mapa-resumen li + li::before { content: "→"; margin-right: 0.5rem; color: var(--nm-muted); }
+details.nm-mapa-fase { border: 1px solid var(--nm-border); border-left: 5px solid var(--nm-petrol); border-radius: 0 8px 8px 0; background: var(--nm-surface); margin: 0.7rem 0; }
+details.nm-mapa-fase > summary { cursor: pointer; padding: 0.55rem 1rem; font-weight: 700; color: var(--nm-t-blue); }
+details.nm-mapa-fase[open] > summary { border-bottom: 1px solid var(--nm-border); }
+details.nm-mapa-fase > :not(summary) { padding: 0 1rem; }
+@media print { details.nm-mapa-fase::details-content { content-visibility: visible; display: block; } }
+
+/* Tablas apilables (scripts/tablas_apilables.lua): con la clase `.nm-apilable` en el pie, cada celda recibe `data-label` con el
+   nombre de su columna y, en pantallas estrechas, cada fila pasa a ser una ficha «columna: valor» en lugar de una tabla que
+   hay que desplazar. Se apilan hasta 992 px (en tabletas la columna de texto ya no cabe con 8–14 columnas); en pantallas anchas no cambia nada. */
+@media (max-width: 991.98px) {
+  table:has(td[data-label]), table:has(td[data-label]) tbody, table:has(td[data-label]) tr, table:has(td[data-label]) td { display: block; width: 100%; }
+  table:has(td[data-label]) thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  table:has(td[data-label]) { overflow: visible; }
+  table:has(td[data-label]) tr { border: 1px solid var(--nm-border); border-radius: 8px; margin: 0 0 0.8rem; padding: 0.3rem 0; background: var(--nm-surface); }
+  table:has(td[data-label]) td { border: 0; padding: 0.2rem 0.8rem; text-align: left; }
+  table:has(td[data-label]) td::before { content: attr(data-label); display: block; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--nm-muted); }
+  table:has(td[data-label]) td:empty { display: none; }
+}
+
+/* Ficha de duda sin respuesta documentada en el libro (p. ej. «resuelta» solo por su evidencia, o «trasladada» sin respuesta
+   copiada): conserva el texto del estado pero NO lleva el verde, reservado a las que tienen respuesta. */
+.nm-d-neutra { --c: var(--nm-gray); }
+.nm-duda-ficha.nm-d-neutra .d-resuelta, .nm-duda-ficha.nm-d-neutra .d-trasladada { color: var(--nm-muted); background: color-mix(in srgb, var(--nm-gray) 12%, transparent); }
+
+/* Mapa de código en árbol (capítulo 3): listas anidadas dentro de las tarjetas plegables */
+details.nm-mapa-fase > ul { padding-left: 2.2rem; margin: 0.5rem 0; }
+details.nm-mapa-fase ul ul { padding-left: 1.4rem; margin: 0.15rem 0; }
+details.nm-mapa-fase li { margin: 0.15rem 0; }
+details.nm-mapa-fase code { overflow-wrap: anywhere; }
+details.nm-mapa-fase > p.nm-fuente { margin-bottom: 0.7rem; }
+
+/* Capítulo 3: la figura del sistema 10–20 va en el margen en pantallas anchas; en estrechas pasa al flujo y se agranda para que se lean
+   sus rótulos; la tabla del orden de BrainVision Analyzer (8 columnas de nombres cortos) reduce el relleno para caber a 390 px. */
+@media (max-width: 767.98px) {
+  #fig-sistema-1020-margin img { width: 100%; max-width: 20rem; display: block; margin: 0 auto; }
+  #tbl-bva-channel-plot-order td { padding: 0.25rem 0.2rem; font-size: 0.82rem; text-align: center; }
+}
+
+/* Tablas apilables en pantallas anchas (≥ 992 px): si una tabla de muchas columnas no cabe en la columna de texto (p. ej. la de participantes
+   del capítulo 4, con 12), se desplaza dentro de su caja en vez de ensanchar la página. */
+@media (min-width: 992px) {
+  table.nm-apilable { display: block; max-width: 100%; overflow-x: auto; }
+}

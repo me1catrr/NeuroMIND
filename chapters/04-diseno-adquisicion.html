@@ -1,0 +1,2185 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.19">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>4&nbsp; Diseño experimental y organización del pipeline – NeuroMIND</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<link href="../chapters/05-raw.html" rel="next">
+<link href="../chapters/03-fundamentos.html" rel="prev">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-e0f85b23f9611b83334aa333ab076718.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No se han encontrado resultados",
+    "search-matching-documents-text": "documentos encontrados",
+    "search-copy-link-title": "Copiar el enlace en la búsqueda",
+    "search-hide-matches-text": "Ocultar resultados adicionales",
+    "search-more-match-text": "resultado adicional en este documento",
+    "search-more-matches-text": "resultados adicionales en este documento",
+    "search-clear-button-title": "Borrar",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancelar",
+    "search-submit-button-title": "Enviar",
+    "search-label": "Buscar"
+  }
+}</script>
+
+  <script defer="" src="../vendor/katex/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <link rel="stylesheet" href="../vendor/katex/katex.min.css">
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../assets/css/styles.css">
+</head>
+
+<body class="nav-sidebar floating slimcontent quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Alternar barra lateral" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../chapters/04-diseno-adquisicion.html"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Diseño experimental y organización del pipeline</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Alternar barra lateral" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Buscar" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="../">NeuroMIND</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Buscar"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Portada</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/00-introduccion.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Introducción</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/00-resumen.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Resumen ejecutivo</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/00-referencia.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Referencia rápida</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/01-esclerosis-multiple.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Esclerosis múltiple para ingenieros</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/02-estado-arte.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Estado del arte, hipótesis y objetivos</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/03-fundamentos.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Fundamentos de EEG para ingenieros</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/04-diseno-adquisicion.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Diseño experimental y organización del pipeline</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/05-raw.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Señal raw y control de calidad inicial</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/06-filtrado.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Filtrado</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/99-referencias.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Referencias</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">En esta página</h2>
+   
+  <ul>
+  <li><a href="#objetivos-de-aprendizaje" id="toc-objetivos-de-aprendizaje" class="nav-link active" data-scroll-target="#objetivos-de-aprendizaje">Objetivos de aprendizaje</a></li>
+  <li><a href="#lecturas-esenciales" id="toc-lecturas-esenciales" class="nav-link" data-scroll-target="#lecturas-esenciales">Lecturas esenciales</a></li>
+  <li><a href="#sec-diseno-experimental" id="toc-sec-diseno-experimental" class="nav-link" data-scroll-target="#sec-diseno-experimental"><span class="header-section-number">4.1</span> Objetivos y diseño del estudio</a>
+  <ul class="collapse">
+  <li><a href="#sec-diseno-ec-eo" id="toc-sec-diseno-ec-eo" class="nav-link" data-scroll-target="#sec-diseno-ec-eo"><span class="header-section-number">4.1.1</span> Contraste ojos abiertos frente a ojos cerrados</a></li>
+  </ul></li>
+  <li><a href="#sec-bids-organizacion" id="toc-sec-bids-organizacion" class="nav-link" data-scroll-target="#sec-bids-organizacion"><span class="header-section-number">4.2</span> BrainVision y organización BIDS</a>
+  <ul class="collapse">
+  <li><a href="#sec-bids-conversion" id="toc-sec-bids-conversion" class="nav-link" data-scroll-target="#sec-bids-conversion"><span class="header-section-number">4.2.1</span> Conversión BrainVision → BIDS</a></li>
+  <li><a href="#sec-estructura-dataset" id="toc-sec-estructura-dataset" class="nav-link" data-scroll-target="#sec-estructura-dataset"><span class="header-section-number">4.2.2</span> Estructura del dataset en la configuración actual</a></li>
+  </ul></li>
+  <li><a href="#sec-metadatos-dataset" id="toc-sec-metadatos-dataset" class="nav-link" data-scroll-target="#sec-metadatos-dataset"><span class="header-section-number">4.3</span> Metadatos técnicos del dataset</a>
+  <ul class="collapse">
+  <li><a href="#sec-metadatos-registro" id="toc-sec-metadatos-registro" class="nav-link" data-scroll-target="#sec-metadatos-registro"><span class="header-section-number">4.3.1</span> Metadatos por registro</a></li>
+  <li><a href="#sec-coordenadas-electrodos" id="toc-sec-coordenadas-electrodos" class="nav-link" data-scroll-target="#sec-coordenadas-electrodos"><span class="header-section-number">4.3.2</span> Coordenadas de electrodos</a></li>
+  <li><a href="#sec-comprobaciones-coherencia" id="toc-sec-comprobaciones-coherencia" class="nav-link" data-scroll-target="#sec-comprobaciones-coherencia"><span class="header-section-number">4.3.3</span> Comprobaciones de coherencia</a></li>
+  </ul></li>
+  <li><a href="#sec-pipeline-vision" id="toc-sec-pipeline-vision" class="nav-link" data-scroll-target="#sec-pipeline-vision"><span class="header-section-number">4.4</span> Visión global del pipeline NeuroMIND</a>
+  <ul class="collapse">
+  <li><a href="#sec-pipeline-fases" id="toc-sec-pipeline-fases" class="nav-link" data-scroll-target="#sec-pipeline-fases"><span class="header-section-number">4.4.1</span> Fases de procesamiento</a></li>
+  <li><a href="#sec-pipeline-persistencia" id="toc-sec-pipeline-persistencia" class="nav-link" data-scroll-target="#sec-pipeline-persistencia"><span class="header-section-number">4.4.2</span> Persistencia y reproducibilidad</a></li>
+  </ul></li>
+  <li><a href="#sec-pipeline-comparison" id="toc-sec-pipeline-comparison" class="nav-link" data-scroll-target="#sec-pipeline-comparison"><span class="header-section-number">4.5</span> Comparación de implementaciones del pipeline</a></li>
+  <li><a href="#sec-mapa-codigo-datos" id="toc-sec-mapa-codigo-datos" class="nav-link" data-scroll-target="#sec-mapa-codigo-datos">Anexo del capítulo: mapa del código</a></li>
+  <li><a href="#sec-sintesis-diseno" id="toc-sec-sintesis-diseno" class="nav-link" data-scroll-target="#sec-sintesis-diseno"><span class="header-section-number">4.6</span> Síntesis y preguntas para discutir</a>
+  <ul class="collapse">
+  <li><a href="#lo-que-hay-que-llevarse-del-capítulo" id="toc-lo-que-hay-que-llevarse-del-capítulo" class="nav-link" data-scroll-target="#lo-que-hay-que-llevarse-del-capítulo">Lo que hay que llevarse del capítulo</a></li>
+  <li><a href="#sec-q-abiertas-diseno" id="toc-sec-q-abiertas-diseno" class="nav-link" data-scroll-target="#sec-q-abiertas-diseno">Qué sigue abierto</a></li>
+  </ul></li>
+  <li><a href="#sec-dudas-diseno" id="toc-sec-dudas-diseno" class="nav-link" data-scroll-target="#sec-dudas-diseno"><span class="header-section-number">4.7</span> Dudas del proyecto</a></li>
+  <li><a href="#bibliography" id="toc-bibliography" class="nav-link" data-scroll-target="#bibliography">Referencias</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content page-columns page-full" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title"><span id="sec-diseno-adquisicion" class="quarto-section-identifier"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Diseño experimental y organización del pipeline</span></span></h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="nm-meta nm-meta-capitulo" role="note">
+<p>v0.1.2 · modificado el 28/10/2026 · lectura 44 min · estudio 55 min</p>
+</div>
+<div class="nm-nav">
+<table><caption>Secciones de este capítulo. <strong>Lectura</strong>: tiempo de leer el texto (200 palabras/min). <strong>Estudio</strong>: lectura más ecuaciones, preguntas y simulaciones (criterios en <code>metadata/criterios-tiempos.yml</code>).</caption>
+<thead><tr><th>Sección</th><th>Lectura</th><th>Estudio</th></tr></thead><tbody>
+<tr><td><a href="#sec-diseno-experimental">Objetivos y diseño del estudio</a></td><td>5 min</td><td>5 min</td></tr>
+<tr><td><a href="#sec-bids-organizacion">BrainVision y organización BIDS</a></td><td>8 min</td><td>15 min</td></tr>
+<tr><td><a href="#sec-metadatos-dataset">Metadatos técnicos del dataset</a></td><td>7 min</td><td>10 min</td></tr>
+<tr><td><a href="#sec-pipeline-vision">Visión global del pipeline NeuroMIND</a></td><td>3 min</td><td>5 min</td></tr>
+<tr><td><a href="#sec-pipeline-comparison">Comparación de implementaciones del pipeline</a></td><td>4 min</td><td>5 min</td></tr>
+<tr><td><a href="#sec-mapa-codigo-datos">Anexo del capítulo: mapa del código</a></td><td>3 min</td><td>5 min</td></tr>
+<tr><td><a href="#sec-sintesis-diseno">Síntesis y preguntas para discutir</a></td><td>3 min</td><td>10 min</td></tr>
+<tr><td><a href="#sec-dudas-diseno">Dudas del proyecto</a></td><td>11 min</td><td>15 min</td></tr>
+</tbody><tfoot><tr><th>Capítulo completo</th><th>44 min</th><th>55 min</th></tr></tfoot></table></div>
+<section id="objetivos-de-aprendizaje" class="level2 unnumbered" data-origen="ampliacion">
+<h2 class="unnumbered anchored" data-anchor-id="objetivos-de-aprendizaje">Objetivos de aprendizaje</h2>
+<p><strong>Objetivo del capítulo.</strong> Qué comparaciones hace el estudio (pacientes y controles, T1 y T2, ojos cerrados y abiertos) y qué camino sigue cada registro desde BrainVision hasta la conectividad.</p>
+<p><strong>La pregunta científica.</strong> Antes de aplicar un solo filtro: ¿qué contrastes puede responder este conjunto de registros, qué archivos lo forman y cómo se sabe que lo que entra al pipeline es exactamente lo que se grabó?</p>
+<p><strong>Al terminar este capítulo deberías ser capaz de:</strong></p>
+<ol type="1">
+<li>enunciar los tres contrastes del estudio (EM frente a control en T1, T1 frente a T2 y ojos cerrados frente a abiertos) y por qué solo los dos primeros son preguntas de investigación;</li>
+<li>distinguir el proyecto MINDEM, su muestra completa, de la submuestra NeuroMIND que se analiza, y no mezclar las cifras de una y otra;</li>
+<li>describir el tríptico BrainVision (<code>.vhdr</code>, <code>.vmrk</code>, <code>.eeg</code>), los <em>sidecars</em> de BIDS y qué hace cada paso de la conversión;</li>
+<li>distinguir el filtrado que lleva la señal desde la adquisición del que aplica NeuroMIND;</li>
+<li>leer el árbol del dataset (<code>data/bids/</code>) y los metadatos que hereda cada registro;</li>
+<li>situar cada fase del pipeline y saber en qué se diferencian BrainVision Analyzer, NeuroMIND y MNE-Python.</li>
+</ol>
+<p><strong>Conocimientos previos.</strong> El <a href="../chapters/03-fundamentos.html">capítulo 3</a> (montaje, referencia FCz y tierra Gnd) y la idea de frecuencia de muestreo. Es un capítulo del núcleo del informe: de la pregunta del estudio al archivo que entra al pipeline.</p>
+</section>
+<section id="lecturas-esenciales" class="level2 unnumbered page-columns page-full">
+<h2 class="unnumbered anchored" data-anchor-id="lecturas-esenciales">Lecturas esenciales</h2>
+<p>Seis lecturas, en dos grupos (el diseño del estudio, y BIDS y reproducibilidad), cada uno de mayor a menor prioridad. La dificultad para ingeniería (de uno a tres, de menor a mayor) y los tiempos son los que da el informe original y son orientativos.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p>Pasa el cursor (o toca) sobre la cita para ver la referencia completa. Los tres niveles son los del informe: <strong>imprescindible</strong>, <strong>para profundizar</strong> y <strong>consulta</strong>.</p>
+</div></div><p><strong>El diseño del estudio</strong></p>
+<div class="nm-lecturas">
+<div class="nm-lectura">
+<div class="nm-lec-nivel">
+<p><span class="nm-prio nm-prio-1">Imprescindible</span></p>
+</div>
+<div class="nm-lec-cuerpo">
+<p><strong><span class="citation" data-cites="Keil2014Guidelines">Keil et&nbsp;al. (<a href="99-referencias.html#ref-Keil2014Guidelines" role="doc-biblioref">2014</a>)</span></strong> · «Committee report: Publication guidelines and recommendations for studies using electroencephalography and magnetoencephalography» (artículo, <em>Psychophysiology</em>).</p>
+<p>Recomendaciones de la comunidad sobre cómo diseñar y documentar un estudio EEG/MEG; funciona como lista de control del protocolo.</p>
+<p><em>Leer:</em> apartados sobre registro y sobre la información que debe publicarse.</p>
+</div>
+<ul>
+<li><strong>Tiempo</strong> ≈ 2 h</li>
+<li><strong>Dificultad</strong> 1</li>
+<li><strong>Sección</strong> <a href="#sec-diseno-experimental" class="quarto-xref"><span>Sección 4.1</span></a></li>
+<li><strong>DOI</strong> <a href="https://doi.org/10.1111/psyp.12147">10.1111/psyp.12147</a></li>
+</ul>
+</div>
+<div class="nm-lectura">
+<div class="nm-lec-nivel">
+<p><span class="nm-prio nm-prio-2">Para profundizar</span></p>
+</div>
+<div class="nm-lec-cuerpo">
+<p><strong><span class="citation" data-cites="Barry2007ECEO">Barry et&nbsp;al. (<a href="99-referencias.html#ref-Barry2007ECEO" role="doc-biblioref">2007</a>)</span></strong> · «EEG differences between eyes-closed and eyes-open resting conditions» (artículo, <em>Clinical Neurophysiology</em>).</p>
+<p>Diferencias de potencia y topografía entre reposo con ojos cerrados y abiertos; justifica tratar EC y EO como condiciones separadas.</p>
+</div>
+<ul>
+<li><strong>Tiempo</strong> ≈ 1 h</li>
+<li><strong>Dificultad</strong> 2</li>
+<li><strong>Sección</strong> <a href="#sec-diseno-experimental" class="quarto-xref"><span>Sección 4.1</span></a></li>
+<li><strong>DOI</strong> <a href="https://doi.org/10.1016/j.clinph.2007.07.028">10.1016/j.clinph.2007.07.028</a></li>
+</ul>
+</div>
+<div class="nm-lectura">
+<div class="nm-lec-nivel">
+<p><span class="nm-prio nm-prio-3">Consulta</span></p>
+</div>
+<div class="nm-lec-cuerpo">
+<p><strong><span class="citation" data-cites="Yamada2018">Yamada y Meng (<a href="99-referencias.html#ref-Yamada2018" role="doc-biblioref">2018</a>)</span></strong> · <em>Practical guide for clinical neurophysiologic testing: EEG</em> (libro, Wolters Kluwer).</p>
+<p>Detalles técnicos de colocación de electrodos, impedancias y registro.</p>
+</div>
+<ul>
+<li><strong>Tiempo</strong> a demanda</li>
+<li><strong>Dificultad</strong> 1</li>
+<li><strong>Sección</strong> <a href="03-fundamentos.html#sec-montaje-eeg" class="quarto-xref"><span>Sección 3.7.1</span></a></li>
+<li><strong>DOI</strong> sin DOI (libro; ISBN 9781496383020)</li>
+</ul>
+</div>
+</div>
+<p><strong>BIDS y reproducibilidad</strong></p>
+<div class="nm-lecturas">
+<div class="nm-lectura">
+<div class="nm-lec-nivel">
+<p><span class="nm-prio nm-prio-1">Imprescindible</span></p>
+</div>
+<div class="nm-lec-cuerpo">
+<p><strong><span class="citation" data-cites="Gorgolewski2016BIDS">Gorgolewski et&nbsp;al. (<a href="99-referencias.html#ref-Gorgolewski2016BIDS" role="doc-biblioref">2016</a>)</span></strong> · «The brain imaging data structure, a format for organizing and describing outputs of neuroimaging experiments» (artículo, <em>Scientific Data</em>).</p>
+<p>Artículo fundacional de BIDS: por qué estandarizar nombres de archivo y metadatos, y cómo hacerlo.</p>
+</div>
+<ul>
+<li><strong>Tiempo</strong> ≈ 1 h</li>
+<li><strong>Dificultad</strong> 1</li>
+<li><strong>Sección</strong> <a href="#sec-bids-organizacion" class="quarto-xref"><span>Sección 4.2</span></a></li>
+<li><strong>DOI</strong> <a href="https://doi.org/10.1038/sdata.2016.44">10.1038/sdata.2016.44</a></li>
+</ul>
+</div>
+<div class="nm-lectura">
+<div class="nm-lec-nivel">
+<p><span class="nm-prio nm-prio-2">Para profundizar</span></p>
+</div>
+<div class="nm-lec-cuerpo">
+<p><strong><span class="citation" data-cites="Pernet2019EEGBIDS"><span class="nocase">Pernet et&nbsp;al.</span> (<a href="99-referencias.html#ref-Pernet2019EEGBIDS" role="doc-biblioref">2019</a>)</span></strong> · «EEG-BIDS, an extension to the brain imaging data structure for electroencephalography» (artículo, <em>Scientific Data</em>).</p>
+<p>Extensión específica para EEG: canales, eventos, electrodos y metadatos del registro.</p>
+</div>
+<ul>
+<li><strong>Tiempo</strong> ≈ 1 h</li>
+<li><strong>Dificultad</strong> 1</li>
+<li><strong>Sección</strong> <a href="#sec-bids-organizacion" class="quarto-xref"><span>Sección 4.2</span></a></li>
+<li><strong>DOI</strong> <a href="https://doi.org/10.1038/s41597-019-0104-8">10.1038/s41597-019-0104-8</a></li>
+</ul>
+</div>
+<div class="nm-lectura">
+<div class="nm-lec-nivel">
+<p><span class="nm-prio nm-prio-3">Consulta</span></p>
+</div>
+<div class="nm-lec-cuerpo">
+<p><strong><span class="citation" data-cites="Pernet2020COBIDAS"><span class="nocase">Pernet et&nbsp;al.</span> (<a href="99-referencias.html#ref-Pernet2020COBIDAS" role="doc-biblioref">2020</a>)</span></strong> · «Issues and recommendations from the OHBM COBIDAS MEEG committee for reproducible EEG and MEG research» (artículo, <em>Nature Neuroscience</em>).</p>
+<p>Buenas prácticas de reproducibilidad en EEG/MEG: qué documentar de cada decisión del pipeline.</p>
+</div>
+<ul>
+<li><strong>Tiempo</strong> a demanda</li>
+<li><strong>Dificultad</strong> 2</li>
+<li><strong>Sección</strong> <a href="#sec-pipeline-vision" class="quarto-xref"><span>Sección 4.4</span></a></li>
+<li><strong>DOI</strong> <a href="https://doi.org/10.1038/s41593-020-00709-0">10.1038/s41593-020-00709-0</a></li>
+</ul>
+</div>
+</div>
+</section>
+<section id="sec-diseno-experimental" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="sec-diseno-experimental"><span class="header-section-number">4.1</span> Objetivos y diseño del estudio</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 5 min · estudio 5 min</p>
+</div>
+<p>El estudio evalúa el EEG de reposo en pacientes con esclerosis múltiple (EM) mediante tres contrastes: dos formulados como preguntas de investigación y uno de carácter fisiológico, que se resuelve dentro de cada sesión.</p>
+<ul>
+<li><strong>Transversal (caso–control):</strong> compara a los pacientes con EM en la primera visita (T1) con el grupo control. Se define únicamente sobre T1.</li>
+<li><strong>Longitudinal (T1–T2):</strong> sigue a los pacientes entre la evaluación basal (T1) y una segunda evaluación de seguimiento (T2), para estudiar si las medidas EEG se mantienen estables o cambian con el tiempo. Los controles no forman parte del seguimiento, de modo que este contraste se restringe al grupo clínico; además, no todos los pacientes de T1 completan T2 (por abandono o por brote de la enfermedad).</li>
+<li><strong>Fisiológico (EC frente a EO):</strong> modulación entre reposo con ojos cerrados (EC) y con ojos abiertos (EO), que se desarrolla en la subsección siguiente.</li>
+</ul>
+<p>Este diseño corresponde al proyecto <strong>MINDEM</strong>, cuya muestra completa de grupos, sesiones y pérdidas de seguimiento se resume en la <a href="#fig-diseno-experimento" class="quarto-xref">figura&nbsp;<span>4.1</span></a>. El presente trabajo, <strong>NeuroMIND</strong>, analiza una <strong>submuestra</strong> de MINDEM: los participantes incorporados al dataset BIDS, descritos en la <a href="#tbl-participants-summary" class="quarto-xref">tabla&nbsp;<span>4.1</span></a> a partir de <code>participants.tsv</code> y de la selección de grabaciones. Las cifras de la figura y las del cuadro no son, por tanto, intercambiables: la figura describe el reclutamiento original y el cuadro, los datos realmente analizados en los apartados siguientes.</p>
+<div id="fig-diseno-experimento" class="nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Esquema titulado «Diseño del experimento». Bloque 1, evaluación transversal (caso–control): reclutamiento, pacientes con EM en T1 (N = 44) frente a un grupo control (N = 40). Bloque 2, seguimiento longitudinal: pacientes con EM en T1 (N = 44) y en T2 (N = 30), con una pérdida en el seguimiento de N = 14 por abandono o brote de la enfermedad. Una franja inferior resume: EM T1, 44; controles, 40; EM T2, 30; pérdidas, 14.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-diseno-experimento-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap04/diseno_experimento.png" class="nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Esquema titulado «Diseño del experimento». Bloque 1, evaluación transversal (caso–control): reclutamiento, pacientes con EM en T1 (N = 44) frente a un grupo control (N = 40). Bloque 2, seguimiento longitudinal: pacientes con EM en T1 (N = 44) y en T2 (N = 30), con una pérdida en el seguimiento de N = 14 por abandono o brote de la enfermedad. Una franja inferior resume: EM T1, 44; controles, 40; EM T2, 30; pérdidas, 14.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-diseno-experimento-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;4.1: Diseño experimental del estudio MINDEM: grupos de participantes, sesiones T1 y T2, y condiciones de registro en reposo (EO/EC).
+</figcaption>
+</figure>
+</div>
+<details class="nm-detalle">
+<summary>
+Procedencia de esta imagen
+</summary>
+<p>El informe no documenta cómo se generó esta figura (no hay ficha de procedencia ni entrada en su anexo de figuras) ni su licencia: <span class="estado e-pendiente">pendiente</span>. Sus cifras (44, 40, 30 y 14) son las de la muestra completa de MINDEM, que no coinciden con las de la submuestra NeuroMIND de la <a href="#tbl-participants-summary" class="quarto-xref">tabla&nbsp;<span>4.1</span></a> (41 pacientes y 36 controles con EEG, y 28 pares T1–T2); véase también la duda <a href="#duda-coh-06"><code>COH-06</code></a>.</p>
+</details>
+<div id="tbl-participants-summary" class="nm-apilable quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-participants-summary-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabla&nbsp;4.1: Resumen de participantes NeuroMIND a 15/10/2026. <em>Edad</em>: media <span class="math inline">\pm</span> DE (rango) en años en T1. <em>F / M</em>: mujeres / hombres. <em>Educ.</em>: nivel educativo ordinal 1/2/3 (el significado de cada categoría no está documentado en las fuentes). <em>EDSS L/G</em>: leve (<span class="math inline">{\leq}\,3</span>) / grave (<span class="math inline">{\geq}\,3.5</span>) y <em>D-FIS A/B</em>: alta (<span class="math inline">\geq 19</span>, mediana de los 41 pacientes con T1) / baja; ambas son las del equipo clínico y solo se definen en pacientes. <em>Clín. T2</em>: pacientes con EDSS o D-FIS en T2. Las tres últimas columnas cuentan sujetos con EEG utilizable, en orden EC / EO, tras aplicar las indicaciones de selección de grabaciones del equipo clínico: el EEG de T2 de M31 se descarta (su valoración clínica de T2 sí consta), un paciente (M07) tiene su EO de T1 en el archivo sin sufijo de ojos, confirmado por el equipo clínico, y M04, M05 y M06 tienen un único registro T1 recortado por segundos en EO y EC. <em>T1+T2</em>: pacientes con EEG utilizable en ambas sesiones para la misma condición. Fuente: <code>participants.tsv</code> y <code>datos_clinicos_unificados.csv</code>.
+</figcaption>
+<div aria-describedby="tbl-participants-summary-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="nm-apilable caption-top table">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 6%">
+<col style="width: 8%">
+<col style="width: 8%">
+<col style="width: 8%">
+<col style="width: 8%">
+<col style="width: 8%">
+<col style="width: 8%">
+<col style="width: 8%">
+<col style="width: 8%">
+<col style="width: 8%">
+<col style="width: 8%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Grupo</th>
+<th style="text-align: right;">N</th>
+<th style="text-align: center;">Demografía: edad</th>
+<th style="text-align: center;">Demografía: F / M</th>
+<th style="text-align: center;">Demografía: educ.</th>
+<th style="text-align: center;">Clínica: EMRR / EMPP</th>
+<th style="text-align: center;">Clínica: EDSS L/G</th>
+<th style="text-align: center;">Clínica: D-FIS A/B</th>
+<th style="text-align: center;">Clínica: clín. T2</th>
+<th style="text-align: center;">EEG utilizable T1 (EC / EO)</th>
+<th style="text-align: center;">EEG utilizable T2 (EC / EO)</th>
+<th style="text-align: center;">EEG utilizable T1+T2 (EC / EO)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;" data-label="Grupo">EM / MS</td>
+<td style="text-align: right;" data-label="N">41</td>
+<td style="text-align: center;" data-label="Demografía: edad">40.9 ± 10.3 (20–65)</td>
+<td style="text-align: center;" data-label="Demografía: F / M">30 / 11</td>
+<td style="text-align: center;" data-label="Demografía: educ.">6 / 18 / 17</td>
+<td style="text-align: center;" data-label="Clínica: EMRR / EMPP">39 / 2</td>
+<td style="text-align: center;" data-label="Clínica: EDSS L/G">23 / 18</td>
+<td style="text-align: center;" data-label="Clínica: D-FIS A/B">21 / 20</td>
+<td style="text-align: center;" data-label="Clínica: clín. T2">29</td>
+<td style="text-align: center;" data-label="EEG utilizable T1 (EC / EO)">41 / 41</td>
+<td style="text-align: center;" data-label="EEG utilizable T2 (EC / EO)">28 / 28</td>
+<td style="text-align: center;" data-label="EEG utilizable T1+T2 (EC / EO)">28 / 28</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Grupo">Control / HC</td>
+<td style="text-align: right;" data-label="N">36</td>
+<td style="text-align: center;" data-label="Demografía: edad">37.1 ± 14.5 (19–67)</td>
+<td style="text-align: center;" data-label="Demografía: F / M">24 / 12</td>
+<td style="text-align: center;" data-label="Demografía: educ.">2 / 5 / 29</td>
+<td style="text-align: center;" data-label="Clínica: EMRR / EMPP">—</td>
+<td style="text-align: center;" data-label="Clínica: EDSS L/G">—</td>
+<td style="text-align: center;" data-label="Clínica: D-FIS A/B">—</td>
+<td style="text-align: center;" data-label="Clínica: clín. T2">—</td>
+<td style="text-align: center;" data-label="EEG utilizable T1 (EC / EO)">36 / 36</td>
+<td style="text-align: center;" data-label="EEG utilizable T2 (EC / EO)">0 / 0</td>
+<td style="text-align: center;" data-label="EEG utilizable T1+T2 (EC / EO)">—</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Grupo">Total</td>
+<td style="text-align: right;" data-label="N">77</td>
+<td style="text-align: center;" data-label="Demografía: edad">39.1 ± 12.5 (19–67)</td>
+<td style="text-align: center;" data-label="Demografía: F / M">54 / 23</td>
+<td style="text-align: center;" data-label="Demografía: educ.">8 / 23 / 46</td>
+<td style="text-align: center;" data-label="Clínica: EMRR / EMPP">—</td>
+<td style="text-align: center;" data-label="Clínica: EDSS L/G">—</td>
+<td style="text-align: center;" data-label="Clínica: D-FIS A/B">—</td>
+<td style="text-align: center;" data-label="Clínica: clín. T2">29</td>
+<td style="text-align: center;" data-label="EEG utilizable T1 (EC / EO)">77 / 77</td>
+<td style="text-align: center;" data-label="EEG utilizable T2 (EC / EO)">28 / 28</td>
+<td style="text-align: center;" data-label="EEG utilizable T1+T2 (EC / EO)">28 / 28</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<div id="tbl-participants-clinical" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-participants-clinical-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabla&nbsp;4.2: Variables clínicas por grupo, como mediana [rango intercuartílico] (n). Fuente: <code>participants.tsv</code>, que fusiona la base clínica MIND-EM (28/09/2026) con las categorías del equipo clínico. En EM, 39 EMRR y 2 EMPP. La valoración de T2 incluye 29 pacientes, de los cuales 28 tienen EEG válido en T2.
+</figcaption>
+<div aria-describedby="tbl-participants-clinical-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Variable</th>
+<th style="text-align: right;">EM, T1</th>
+<th style="text-align: right;">EM, T2</th>
+<th style="text-align: right;">Control, T1</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">EDSS</td>
+<td style="text-align: right;">3 [2–4.5] (41)</td>
+<td style="text-align: right;">2.5 [1.5–5] (29)</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D-FIS</td>
+<td style="text-align: right;">19 [12–23] (41)</td>
+<td style="text-align: right;">13 [8–21] (29)</td>
+<td style="text-align: right;">2 [0–7] (36)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">BDI-II</td>
+<td style="text-align: right;">17 [10–25] (41)</td>
+<td style="text-align: right;">11 [5–19] (29)</td>
+<td style="text-align: right;">6 [2–10] (36)</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p>La categoría D-FIS de la <a href="#tbl-participants-summary" class="quarto-xref">tabla&nbsp;<span>4.1</span></a> usa la mediana de todos los pacientes con T1 y es la que corresponde al contraste transversal. Para el longitudinal, el equipo clínico recalcula la mediana solo con los pacientes que tienen T1 y T2, de modo que un mismo paciente puede cambiar de categoría (por ejemplo, uno de los pacientes); ambas clasificaciones, junto con la respuesta de fatiga entre T1 y T2 (mayor o menor), están en <code>participants.tsv</code> y no deben mezclarse en una misma tabla de resultados. Las variables continuas de la <a href="#tbl-participants-clinical" class="quarto-xref">tabla&nbsp;<span>4.2</span></a> permiten además correlacionar la conectividad con la fatiga y la discapacidad (<a href="../chapters/01-esclerosis-multiple.html#duda-coh-01"><code>COH-01</code></a>).</p>
+<div data-origen="ampliacion">
+<div class="nm-box nm-limite" data-rotulo="Una omisión deliberada: un identificador">
+<p>El informe ilustra el cambio de categoría D-FIS entre las dos clasificaciones con el identificador de un paciente concreto. Un identificador unido a una clasificación clínica individual es un dato clínico individual, así que el libro no lo reproduce: se ha sustituido por «uno de los pacientes» (lo que consta en <code>participants.tsv</code> no se ha tocado). Pendiente de que el autor confirme si debe figurar. <span class="estado e-pendiente">pendiente</span></p>
+</div>
+<div class="nm-box nm-qc" data-rotulo="Comprobado frente al dataset real">
+<p>Los recuentos y estadísticos de grupo de las dos tablas anteriores se recalcularon desde <code>data/bids/participants.tsv</code> el 2026-10-28 (solo agregados, ninguna fila individual): 77 participantes (41 EM y 36 controles); sexo, edad (media, desviación y rango), nivel educativo, diagnóstico (39 EMRR y 2 EMPP), categorías EDSS y D-FIS, y las medianas y rangos intercuartílicos de EDSS, D-FIS y BDI-II en T1 y T2 <strong>coinciden</strong> con las tablas. <code>node tests/dataset_cap04.mjs</code> repite el cálculo (si el dataset no está en el directorio padre, informa «NO PROBADO»). <span class="estado e-confirmado">confirmado</span></p>
+</div>
+</div>
+<section id="sec-diseno-ec-eo" class="level3" data-number="4.1.1">
+<h3 data-number="4.1.1" class="anchored" data-anchor-id="sec-diseno-ec-eo"><span class="header-section-number">4.1.1</span> Contraste ojos abiertos frente a ojos cerrados</h3>
+<p>Las dos condiciones de reposo, EC (<em>eyes closed</em>) y EO (<em>eyes open</em>), producen diferencias espectrales bien documentadas en la literatura <span class="citation" data-cites="Cohen2014 Yamada2018">(<a href="99-referencias.html#ref-Cohen2014" role="doc-biblioref">Cohen 2014</a>; <a href="99-referencias.html#ref-Yamada2018" role="doc-biblioref">Yamada y Meng 2018</a>)</span>:</p>
+<ul>
+<li><strong>EC</strong>: sin entrada visual, la corteza occipital permanece en reposo relativo. Las redes talamocorticales sincronizan un ritmo alfa posterior (8–12 Hz) de alta amplitud, con máximo en electrodos como O1, O2 y Oz.</li>
+<li><strong>EO</strong>: la estimulación visual activa la vía occipital y el ritmo alfa posterior disminuye o se suprime (<em>bloqueo alfa</em>); la actividad de reposo cede a oscilaciones de menor amplitud y mayor contenido de frecuencias más altas.</li>
+</ul>
+<div id="fig-contraste-ec-eo" class="nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Dos paneles unidos por una flecha de transición. A la izquierda, ojos cerrados (EC): un ojo cerrado, una cabeza de perfil con la región occipital resaltada en azul y una onda sinusoidal regular de gran amplitud con el texto «Banda alfa (8–12 Hz), alta amplitud». A la derecha, ojos abiertos (EO): un ojo abierto, la cabeza sin resaltado y una traza de menor amplitud y mayor frecuencia, con el texto «Baja amplitud, mayor frecuencia (bloqueo alfa)».">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-contraste-ec-eo-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap04/actividad_neuronal.png" class="nm-fig-ancha img-fluid figure-img" style="width:72.0%" alt="Dos paneles unidos por una flecha de transición. A la izquierda, ojos cerrados (EC): un ojo cerrado, una cabeza de perfil con la región occipital resaltada en azul y una onda sinusoidal regular de gran amplitud con el texto «Banda alfa (8–12 Hz), alta amplitud». A la derecha, ojos abiertos (EO): un ojo abierto, la cabeza sin resaltado y una traza de menor amplitud y mayor frecuencia, con el texto «Baja amplitud, mayor frecuencia (bloqueo alfa)».">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-contraste-ec-eo-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;4.2: Contraste ojos cerrados (EC) frente a ojos abiertos (EO) en reposo: dominancia alfa posterior (8–12 Hz) en EC y su disminución (<em>bloqueo alfa</em>) en EO.
+</figcaption>
+</figure>
+</div>
+<details class="nm-detalle">
+<summary>
+Procedencia de esta imagen
+</summary>
+<p>El informe no documenta cómo se generó esta ilustración (no hay ficha de procedencia ni entrada en su anexo de figuras) ni su licencia: <span class="estado e-pendiente">pendiente</span>. Es un esquema, sin datos.</p>
+</details>
+<p>La comparación EO/EC es uno de los contrastes más robustos y replicables en EEG de reposo. En el contexto de esclerosis múltiple, una alteración de la modulación EO/EC podría reflejar cambios en los procesos de inhibición y desinhibición visual.</p>
+</section>
+</section>
+<section id="sec-bids-organizacion" class="level2 page-columns page-full" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="sec-bids-organizacion"><span class="header-section-number">4.2</span> BrainVision y organización BIDS</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.2 · modificado el 28/10/2026 · lectura 8 min · estudio 15 min</p>
+</div>
+<p>Los datos raw se cargan y se estandarizan en estructuras por sujeto y condición con metadatos validados. Esta fase fija etiquetas de canal, dimensiones y consistencia sujeto/condición antes de cualquier transformación de señal. Las señales originales se exportan desde el software comercial <strong>BrainVision Analyzer</strong>, y el procesamiento posterior se realiza en el lenguaje de programación Julia.</p>
+<p>Sobre ese formato nativo se aplica el estándar abierto <strong>BIDS</strong>, <strong>Brain Imaging Data Structure</strong>, que se describe a continuación. BIDS como capa complementaria: no sustituye BrainVision ni altera la señal binaria, sino que conserva el tríptico de archivos <code>.vhdr/.vmrk/.eeg</code> y añade nombres uniformes y metadatos estandarizados <span class="citation" data-cites="Gorgolewski2016BIDS">(<a href="99-referencias.html#ref-Gorgolewski2016BIDS" role="doc-biblioref">Gorgolewski et&nbsp;al. 2016</a>)</span>, con trazabilidad e interoperabilidad. NeuroMIND construye un dataset BIDS-EEG completo en <code>data/bids/</code>, que el BIDS Validator da por válido sin errores (<a href="#sec-metadatos-dataset" class="quarto-xref"><span>Sección 4.3</span></a>); los originales se conservan intactos en <code>data/sourcedata/</code>.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p><strong>BIDS</strong> (<em>Brain Imaging Data Structure</em>): estándar abierto para organizar y documentar datos de neuroimagen con una jerarquía de carpetas fija, nombres de archivo predecibles y metadatos en JSON/TSV legibles por máquina. Fue propuesto por Gorgolewski <em>et al.</em> (2016) para unificar la forma en que los laboratorios guardan y describen sus registros. Su adopción facilita compartir datos, validarlos automáticamente y reutilizarlos con distintas herramientas sin reinterpretar manualmente cada dataset.</p>
+</div></div><p>Cada registro BrainVision se compone del mencionado tríptico de ficheros coordinados (<a href="#fig-bids-triplet" class="quarto-xref">figura&nbsp;<span>4.3</span></a>).</p>
+<div id="fig-bids-triplet" class="nm-figura-svg nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Esquema titulado «Formato BrainVision: tres archivos coordinados». Tres cajas naranjas, .vhdr, .vmrk y .eeg, cada una con su descripción: cabecera (frecuencia de muestreo, canales, resolución y archivos asociados); marcadores (instantes temporales, estímulos, respuestas y tipos de evento); señal cruda (datos binarios continuos, por ejemplo IEEE_FLOAT_32, normalmente multiplexados). Una flecha baja desde el archivo .eeg a una caja verde azulada: «BIDS conserva la señal cruda .eeg sin modificar y añade metadatos estructurados en .json y .tsv».">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-bids-triplet-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap04/bids_triplet.svg" class="nm-figura-svg nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Esquema titulado «Formato BrainVision: tres archivos coordinados». Tres cajas naranjas, .vhdr, .vmrk y .eeg, cada una con su descripción: cabecera (frecuencia de muestreo, canales, resolución y archivos asociados); marcadores (instantes temporales, estímulos, respuestas y tipos de evento); señal cruda (datos binarios continuos, por ejemplo IEEE_FLOAT_32, normalmente multiplexados). Una flecha baja desde el archivo .eeg a una caja verde azulada: «BIDS conserva la señal cruda .eeg sin modificar y añade metadatos estructurados en .json y .tsv».">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-bids-triplet-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;4.3: Tríptico BrainVision: roles de cada archivo y metadatos BIDS añadidos sin modificar la señal cruda. Figura TikZ propia del informe original.
+</figcaption>
+</figure>
+</div>
+<p>En la especificación BIDS-EEG el tríptico se mantiene y se añaden <em>sidecars</em>, es decir, ficheros auxiliares con el mismo nombre base y extensión <code>.json</code> o <code>.tsv</code>, sin modificar la señal principal. Por ejemplo, <code>sub-01_task-eyesclosed_eeg.json</code> acompaña a <code>sub-01_task-eyesclosed_eeg.eeg</code> y recoge, de forma legible por máquina, <code>SamplingFrequency</code>, <code>PowerLineFrequency</code>, referencia, tierra, número de canales y tipo de registro —campos que en el estudio proceden de la cabecera <code>.vhdr</code>. Como son idénticos en todos los registros de una tarea, NeuroMIND los escribe una sola vez por tarea en la raíz del dataset (<code>task-eyesclosed_eeg.json</code> y <code>task-eyesopen_eeg.json</code>) y cada registro los hereda por el principio de herencia de BIDS (<a href="#sec-metadatos-dataset" class="quarto-xref"><span>Sección 4.3</span></a>).</p>
+<p>La revisión de las 212 cabeceras <code>.vhdr</code> originales reveló la misma plantilla de metadatos en todos los registros analizados. Tras aplicar las decisiones de selección de la hoja del equipo clínico y excluir los paradigmas que no son reposo, quedan 210 grabaciones válidas de 77 participantes: los tres raws únicos de M04, M05 y M06 en T1 se parten en dos (ojos abiertos y cerrados), por lo que 212 cabeceras, 3 particiones y 5 exclusiones dan 210 registros.</p>
+<p>La cabecera declara codificación <code>Codepage = UTF-8</code>. La señal se almacena en <code>BINARY</code>, con muestras numéricas en coma flotante de 32 bits (<code>IEEE_FLOAT_32</code>) y orientación <code>MULTIPLEXED</code>: los valores de todos los canales de una misma muestra aparecen consecutivos antes de pasar al siguiente instante. La frecuencia de muestreo queda fijada por <code>SamplingInterval = 2000 us</code> (equivalente a <code>SamplingFrequency = 500 Hz</code>). El montaje comprende 31 canales EEG en sistema 10–20, con unidad µV y resolución interna BrainVision de <span class="math inline">0.0488281\,\mu\text{V}</span>.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p><strong>UTF-8.</strong> Manera de guardar texto que admite acentos, eñes y signos de muchos idiomas. La cabecera avisa de que sus textos están escritos así.</p>
+</div><div class="">
+<p><strong>IEEE_FLOAT_32.</strong> Cada muestra se guarda como un número con decimales, no como un entero. 32 bits es el tamaño habitual de ese número en un ordenador.</p>
+</div><div class="">
+<p><strong>MULTIPLEXED.</strong> El fichero no va canal por canal. En cada instante anota el valor de todos los electrodos, uno detrás de otro, y luego pasa al instante siguiente.</p>
+</div><div class="">
+<p><strong>Resolución de canal.</strong> Cada muestra del fichero <code>.eeg</code> guarda un valor digital <span class="math inline">d_c[n]</span> (unidades ADC del conversor), no la amplitud en µV. El factor <span class="math inline">r_c</span> del <code>.vhdr</code> convierte a amplitud física: <span class="math inline">V_c[n]=r_c\,d_c[n]</span>, con <span class="math inline">V_c[n]</span> en µV. Aunque el binario use coma flotante de 32 bits, BrainVision no almacena directamente microvoltios: el escalado con <span class="math inline">r_c</span> sigue siendo obligatorio. Con <span class="math inline">r_c=0.0488281\,\mu\text{V}</span>, <span class="math inline">d_c[n]=100</span> equivale a <span class="math inline">4.88281\,\mu\text{V}</span>.</p>
+</div></div>
+
+
+<p>El registro se realizó con BrainVision Recorder Professional V. 1.21.0303 sobre un amplificador Brain Products actiCHamp Base Unit (5001) con módulo actiCHamp 32 CH Module (5010). La referencia queda en el canal <code>REF</code> (canal físico 2). Durante la adquisición, las impedancias guía fueron <span class="math inline">10\,\mathrm{k}\Omega</span> para nivel bueno y <span class="math inline">50\,\mathrm{k}\Omega</span> para nivel malo.</p>
+<p>La cabecera <code>.vhdr</code> documenta dos cadenas de filtrado independientes. La <a href="#tbl-brainvision-filter-levels" class="quarto-xref">tabla&nbsp;<span>4.3</span></a> separa esas etapas del preprocesado posterior de NeuroMIND.</p>
+<div id="tbl-brainvision-filter-levels" class="nm-apilable quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-brainvision-filter-levels-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabla&nbsp;4.3: Cadenas de filtrado que afectan a la señal en momentos distintos. Las dos primeras proceden de la cabecera BrainVision; la tercera corresponde al pipeline NeuroMIND.
+</figcaption>
+<div aria-describedby="tbl-brainvision-filter-levels-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="nm-apilable caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Nivel</th>
+<th style="text-align: left;">Paso alto</th>
+<th style="text-align: left;">Paso bajo</th>
+<th style="text-align: left;">Rechazo estrecho</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;" data-label="Nivel">Amplificador actiCHamp</td>
+<td style="text-align: left;" data-label="Paso alto">DC, sin corte explícito</td>
+<td style="text-align: left;" data-label="Paso bajo">140 Hz</td>
+<td style="text-align: left;" data-label="Rechazo estrecho">Notch desactivado</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Nivel">BrainVision Recorder</td>
+<td style="text-align: left;" data-label="Paso alto"><span class="math inline">\tau=1.59155\,\mathrm{s}</span> (<span class="math inline">\approx0.1\,\mathrm{Hz}</span>)</td>
+<td style="text-align: left;" data-label="Paso bajo">70 Hz</td>
+<td style="text-align: left;" data-label="Rechazo estrecho">Notch 50 Hz</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Nivel">NeuroMIND</td>
+<td style="text-align: left;" data-label="Paso alto">0.5 Hz</td>
+<td style="text-align: left;" data-label="Paso bajo">150 Hz</td>
+<td style="text-align: left;" data-label="Rechazo estrecho">Notch 50 Hz + bandreject 100 Hz</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p>Esta separación debe conservarse al trasladar la cabecera a los campos <code>HardwareFilters</code> y <code>SoftwareFilters</code> del sidecar BIDS, sin fusionarlos en un bloque genérico de «filtros aplicados».</p>
+<div class="nm-box nm-qc" data-rotulo="Control de calidad">
+<p><strong>No confundir adquisición y preprocesado.</strong> El fichero <code>.eeg</code> ya incorpora el filtrado de BrainVision Recorder; atribuirlo después a NeuroMIND falsearía la procedencia de la señal <em>raw</em>. Los umbrales de impedancia 10/50 kΩ describen la política visual de QC de esa sesión, no una propiedad física permanente del amplificador.</p>
+</div>
+<p>El orden común de los 31 canales EEG activos en las cabeceras BrainVision y en los ficheros <code>electrodes.tsv</code> revisados es:</p>
+<p><span class="math display">
+\begin{gathered}
+\mathrm{Fz},\mathrm{F3},\mathrm{F7},\mathrm{FT9},\mathrm{FC5},\mathrm{FC1},
+\mathrm{C3},\mathrm{T7},\mathrm{TP9},\mathrm{CP5},\mathrm{CP1},\\
+\mathrm{Pz},\mathrm{P3},\mathrm{P7},\mathrm{O1},\mathrm{Oz},\mathrm{O2},
+\mathrm{P4},\mathrm{P8},\mathrm{TP10},\mathrm{CP6},\mathrm{CP2},\\
+\mathrm{Cz},\mathrm{C4},\mathrm{T8},\mathrm{FT10},\mathrm{FC6},\mathrm{FC2},
+\mathrm{F4},\mathrm{F8},\mathrm{Fp2}.
+\end{gathered}
+</span></p>
+<section id="sec-bids-conversion" class="level3 page-columns page-full" data-number="4.2.1">
+<h3 data-number="4.2.1" class="anchored" data-anchor-id="sec-bids-conversion"><span class="header-section-number">4.2.1</span> Conversión BrainVision → BIDS</h3>
+<p>El flujo estándar de conversión BrainVision → BIDS consta de seis pasos (<a href="#fig-bids-conversion-steps" class="quarto-xref">figura&nbsp;<span>4.4</span></a>): revisar archivos BrainVision y eventos; definir entidades BIDS (<code>sub</code>, <code>ses</code>, <code>task</code>, <code>run</code>); crear carpetas; renombrar según BIDS; añadir metadatos JSON/TSV; validar con BIDS Validator. Herramientas como MNE-BIDS, PyBIDS y BIDS Validator ayudan en partes del proceso.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p><strong>BIDS Validator.</strong> Comprueba nombres, carpetas y sidecars JSON/TSV frente a la especificación BIDS. NeuroMIND usa la versión 3.0.2 de línea de órdenes (<code>bids-validator-deno data/bids</code>), una herramienta externa que no figura en las dependencias de Julia. Documentación: <code>bids-standard.github.io/bids-validator</code>.</p>
+</div></div><div id="fig-bids-conversion-steps" class="nm-figura-svg nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Seis círculos numerados unidos por flechas, de izquierda a derecha: 1, revisar archivos BV y eventos; 2, definir entidades BIDS; 3, crear estructura de carpetas; 4, renombrar archivos; 5, añadir metadatos JSON/TSV; 6, validar con BIDS Validator. Debajo: «Herramientas: MNE-BIDS, PyBIDS, BIDS Validator».">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-bids-conversion-steps-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap04/bids_conversion_steps.svg" class="nm-figura-svg nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Seis círculos numerados unidos por flechas, de izquierda a derecha: 1, revisar archivos BV y eventos; 2, definir entidades BIDS; 3, crear estructura de carpetas; 4, renombrar archivos; 5, añadir metadatos JSON/TSV; 6, validar con BIDS Validator. Debajo: «Herramientas: MNE-BIDS, PyBIDS, BIDS Validator».">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-bids-conversion-steps-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;4.4: Flujo estándar de conversión BrainVision → BIDS en 6 pasos. El orden es secuencial: los pasos anteriores son prerequisito de los siguientes. Figura TikZ propia del informe original.
+</figcaption>
+</figure>
+</div>
+<p>NeuroMIND recorre esos pasos con scripts propios (<a href="#sec-mapa-codigo-datos">anexo del capítulo</a>):</p>
+<ol type="1">
+<li><strong>Revisar.</strong> <code>scripts/audit_full_dataset.jl</code> escanea los <code>.vhdr</code> originales, normaliza las más de quince variantes ortográficas de la condición, aplica las decisiones de selección de <code>config/raw_selection.csv</code> y las reúne en <strong><code>inventory.csv</code></strong>.</li>
+<li><strong>Entidades.</strong> Del inventario salen <code>sub</code> (con ceros iniciales: <code>M5</code> → <code>M05</code>), <code>ses</code> (<code>T1</code> o <code>T2</code>), <code>task</code> (<code>eyesclosed</code> o <code>eyesopen</code>, a partir de EC y EO) y <code>run-01</code>.</li>
+<li><strong>Carpetas.</strong> La jerarquía estándar <code>sub-/ses-/eeg/</code> dentro de <code>data/bids/</code> (<a href="#sec-estructura-dataset" class="quarto-xref"><span>Sección 4.2.2</span></a>).</li>
+<li><strong>Renombrar.</strong> El tríptico se copia con nombre BIDS y se reescriben sus enlaces internos; los originales de <code>data/sourcedata/brainvision/</code> no se tocan. Los raws únicos de M04, M05 y M06 en T1 se parten antes de cualquier filtro en dos grabaciones independientes.</li>
+<li><strong>Metadatos.</strong> <code>scripts/build_bids_full.jl</code> escribe los sidecars comunes de cada tarea y, por sesión, <code>electrodes.tsv</code> y <code>coordsystem.json</code>; <code>participants.tsv</code> sale de la auditoría.</li>
+<li><strong>Validar.</strong> Con BIDS Validator (versión 3.0.2) sobre <code>data/bids/</code>: ningún error y cuatro avisos, justificados en el <code>README.md</code> del dataset (<a href="#sec-metadatos-dataset" class="quarto-xref"><span>Sección 4.3</span></a>).</li>
+</ol>
+<p>Renombrar el tríptico exige editar también los enlaces internos: dentro de <code>.vhdr</code> y <code>.vmrk</code> BrainVision guarda el nombre del compañero al que debe enlazar (<code>DataFile=</code> y <code>MarkerFile=</code> en el <code>.vhdr</code>; <code>DataFile=</code> en el <code>.vmrk</code>). Si solo se cambia el nombre en disco, la cabecera seguirá apuntando al nombre antiguo y el lector no encontrará la señal ni los marcadores. El estándar exige además que los tres ficheros compartan nombre base y residan en <code>eeg/</code>. El constructor reescribe esas claves y se ha comprobado, con MNE-Python, que la señal de los 210 registros es idéntica muestra a muestra a la original (incluidos los seis recortes). En los <code>.vmrk</code> originales, además, <code>DataFile=</code> guardaba un nombre con las iniciales del participante, distinto del del <code>.vhdr</code>; con el renombrado esa información desaparece de los nombres de fichero.</p>
+<p>Por ejemplo, el registro original <code>M5_T2_&lt;iniciales&gt;_&lt;fecha&gt;_OJOS CERRADOS.vhdr</code> pasa a ser <code>sub-M05_ses-T2_task-eyesclosed_run-01_eeg.vhdr</code>.</p>
+<div data-origen="ampliacion">
+<div class="nm-box nm-limite" data-rotulo="Lo que no se ha podido volver a comprobar aquí">
+<p>Que el BIDS Validator 3.0.2 dé «ningún error y cuatro avisos», y que la señal de los 210 registros sea idéntica a la original (comprobada en el informe con MNE-Python), son comprobaciones del informe que este libro <strong>no ha repetido</strong>: en este equipo solo está instalado <code>bids-validator</code> 1.15.0, una versión distinta cuyo resultado no sería equivalente. Lo que sí se ha recalculado es la estructura del dataset (<a href="#sec-estructura-dataset" class="quarto-xref"><span>Sección 4.2.2</span></a>). <span class="estado e-pendiente">pendiente</span></p>
+</div>
+</div>
+</section>
+<section id="sec-estructura-dataset" class="level3" data-number="4.2.2">
+<h3 data-number="4.2.2" class="anchored" data-anchor-id="sec-estructura-dataset"><span class="header-section-number">4.2.2</span> Estructura del dataset en la configuración actual</h3>
+<p>La especificación BIDS-EEG exige un directorio raíz con <code>dataset_description.json</code>, <code>participants.tsv</code> y una jerarquía por sujeto, sesión y modalidad EEG; <code>electrodes.tsv</code> y <code>coordsystem.json</code> son opcionales, pero recomendables cuando se dispone de coordenadas. NeuroMIND incluye todos ellos en <code>data/bids/</code> (<a href="#fig-bids-folder-tree" class="quarto-xref">figura&nbsp;<span>4.5</span></a>): 77 sujetos (41 pacientes y 36 controles), 105 sesiones (T1 de los 77 participantes y T2 de 28 pacientes) y 210 grabaciones, 105 en ojos cerrados y 105 en ojos abiertos.</p>
+<div id="fig-bids-folder-tree" class="nm-figura-svg nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Árbol de carpetas de data/bids/. En la raíz: README.md, dataset_description.json, participants.tsv (24 columnas), participants.json, task-TAREA_eeg.json (sidecar común de la tarea) y task-TAREA_channels.tsv. Debajo, sub-ID/ (77 sujetos), con ses-SESIÓN/ (T1: 77, T2: 28 pacientes) y eeg/, que contiene sub-ID_ses-SESIÓN_electrodes.tsv, sub-ID_ses-SESIÓN_coordsystem.json, sub-ID_ses-SESIÓN_task-TAREA_run-01_eeg con extensiones vhdr, vmrk y eeg y, en gris, sub-ID_ses-T1_task-TAREA_run-01_eeg.json (solo los 6 registros recortados).">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-bids-folder-tree-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap04/bids_folder_tree.svg" class="nm-figura-svg nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Árbol de carpetas de data/bids/. En la raíz: README.md, dataset_description.json, participants.tsv (24 columnas), participants.json, task-TAREA_eeg.json (sidecar común de la tarea) y task-TAREA_channels.tsv. Debajo, sub-ID/ (77 sujetos), con ses-SESIÓN/ (T1: 77, T2: 28 pacientes) y eeg/, que contiene sub-ID_ses-SESIÓN_electrodes.tsv, sub-ID_ses-SESIÓN_coordsystem.json, sub-ID_ses-SESIÓN_task-TAREA_run-01_eeg con extensiones vhdr, vmrk y eeg y, en gris, sub-ID_ses-T1_task-TAREA_run-01_eeg.json (solo los 6 registros recortados).">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-bids-folder-tree-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;4.5: Estructura de <code>data/bids/</code> en la configuración actual del proyecto. <code>&lt;id&gt;</code> es el código con ceros iniciales (<code>M05</code>, <code>MC09</code>), <code>&lt;s&gt;</code> la sesión (<code>T1</code> o <code>T2</code>) y <code>&lt;t&gt;</code> la tarea (<code>eyesclosed</code> o <code>eyesopen</code>); cada sesión contiene una grabación por tarea. En gris, el sidecar propio que solo tienen los seis registros recortados de M04, M05 y M06 en T1. Figura TikZ propia del informe original.
+</figcaption>
+</figure>
+</div>
+<p>El dataset no se edita a mano: <code>scripts/audit_full_dataset.jl</code> escribe <code>participants.tsv</code> y <code>scripts/build_bids_full.jl</code> el resto, ambos a partir de <code>data/sourcedata/</code> y de las decisiones de <code>config/raw_selection.csv</code>. Su contenido es:</p>
+<ul>
+<li>la raíz, con <strong><code>dataset_description.json</code></strong>, <strong><code>README.md</code></strong>, <strong><code>participants.tsv</code></strong> (con las variables clínicas) y <strong><code>participants.json</code></strong>, más los sidecars comunes de cada tarea (<code>task-*_eeg.json</code> y <code>task-*_channels.tsv</code>);</li>
+<li><strong><code>sub-&lt;id&gt;/ses-&lt;sesión&gt;/eeg/</code></strong>: el tríptico renombrado de cada registro, el <code>electrodes.tsv</code> y el <code>coordsystem.json</code> de la sesión y, solo en los seis registros recortados, un sidecar propio con la ventana de corte.</li>
+</ul>
+<p>La señal original permanece intacta en <code>data/sourcedata/brainvision/</code>; el inventario <code>data/tables/inventory.csv</code> enlaza cada registro con su archivo de origen y con el motivo de cada exclusión, y el resto de las tablas propias del proyecto se recogen en la <a href="#tbl-tablas-auxiliares" class="quarto-xref">tabla&nbsp;<span>4.5</span></a>. Como <code>participants.tsv</code> contiene datos personales de salud (fechas de nacimiento e inclusión, escalas clínicas), el dataset no debe compartirse ni publicarse sin retirar esas columnas. Los ficheros de coordenadas se tratan en el <a href="#sec-coordenadas-electrodos" class="quarto-xref"><span>Sección 4.3.2</span></a>. La <a href="#fig-bids-brainvision" class="quarto-xref">figura&nbsp;<span>4.6</span></a> resume cómo se construye el dataset a partir de la señal original.</p>
+<div id="fig-bids-brainvision" class="nm-figura-svg nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Diagrama de flujo de izquierda a derecha. Tres cajas de entrada naranjas: los 212 archivos .vhdr/.vmrk/.eeg originales, raw_selection.csv (decisiones del equipo clínico) y la base clínica MIND-EM (EDSS, D-FIS, BDI-II). Las dos últimas y los originales alimentan audit_full_dataset.jl (inventario y participantes), que produce inventory.csv hacia build_bids_full.jl (recorte de 6 raws, renombrado y enlaces, sidecars) y participants.tsv hacia data/bids/ (77 sujetos, 210 grabaciones). Los originales llegan también a build_bids_full.jl como señal original sin modificar. El resultado pasa a BIDS Validator: 0 errores, 4 avisos.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-bids-brainvision-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap04/bids_brainvision.svg" class="nm-figura-svg nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Diagrama de flujo de izquierda a derecha. Tres cajas de entrada naranjas: los 212 archivos .vhdr/.vmrk/.eeg originales, raw_selection.csv (decisiones del equipo clínico) y la base clínica MIND-EM (EDSS, D-FIS, BDI-II). Las dos últimas y los originales alimentan audit_full_dataset.jl (inventario y participantes), que produce inventory.csv hacia build_bids_full.jl (recorte de 6 raws, renombrado y enlaces, sidecars) y participants.tsv hacia data/bids/ (77 sujetos, 210 grabaciones). Los originales llegan también a build_bids_full.jl como señal original sin modificar. El resultado pasa a BIDS Validator: 0 errores, 4 avisos.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-bids-brainvision-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;4.6: Construcción de <code>data/bids/</code> desde la señal BrainVision original. La auditoría reúne los registros, las decisiones de selección y la base clínica en <code>inventory.csv</code> y <code>participants.tsv</code>; el constructor recorta los seis raws únicos de T1, renombra el tríptico, reescribe sus enlaces internos (<code>DataFile</code> y <code>MarkerFile</code>, <a href="#sec-estructura-dataset" class="quarto-xref"><span>Sección 4.2.2</span></a>) y escribe los sidecars; el resultado se valida con BIDS Validator. Figura TikZ propia del informe original.
+</figcaption>
+</figure>
+</div>
+<div class="nm-box nm-qc" data-rotulo="Nomenclatura BIDS">
+<p>Usa ceros iniciales (<code>M5</code> → <code>sub-M05</code>) y la jerarquía <code>sub-&lt;id&gt;/ses-&lt;label&gt;/eeg/</code>. Las entidades <code>sub-</code>, <code>ses-</code>, <code>task-</code> y <code>run-</code> van en minúsculas; los nombres, en ASCII y sin espacios. En este estudio: <code>task-eyesclosed</code> y <code>task-eyesopen</code>.</p>
+</div>
+<div data-origen="ampliacion">
+<div class="nm-box nm-qc" data-rotulo="Comprobado frente al dataset real">
+<p>La estructura descrita se recontó en <code>data/bids/</code> el 2026-10-28 (solo recuentos de archivos y carpetas): 77 sujetos (41 MS y 36 HC), 105 sesiones (77 T1 y 28 T2), 210 registros <code>.vhdr</code>, <code>.vmrk</code> y <code>.eeg</code> (105 de ojos cerrados y 105 de ojos abiertos), 105 <code>electrodes.tsv</code> y 105 <code>coordsystem.json</code>, seis sidecars propios de registro (los recortados), los ocho archivos de la raíz que describe el capítulo y 24 columnas en <code>participants.tsv</code>. <code>inventory.csv</code> tiene 215 filas, de ellas 5 excluidas; <code>raw_selection.csv</code>, 15 decisiones. Todo <strong>coincide</strong> con el texto. <span class="estado e-confirmado">confirmado</span></p>
+</div>
+</div>
+</section>
+</section>
+<section id="sec-metadatos-dataset" class="level2 page-columns page-full" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="sec-metadatos-dataset"><span class="header-section-number">4.3</span> Metadatos técnicos del dataset</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 7 min · estudio 10 min</p>
+</div>
+<p>Junto a la señal, el dataset incluye ficheros de metadatos en dos formatos de texto plano: <strong><code>.json</code></strong> (<em>JavaScript Object Notation</em>), que guarda pares clave–valor legibles por máquina, y <strong><code>.tsv</code></strong> (<em>tab-separated values</em>), una tabla con una fila por entidad y las columnas separadas por tabuladores. La <a href="#tbl-ficheros-dataset" class="quarto-xref">tabla&nbsp;<span>4.4</span></a> reúne los de señal y metadatos, indica el nivel del dataset al que pertenece cada uno y distingue los que define el estándar BIDS-EEG de los que NeuroMIND genera, que incluyen todos los obligatorios; no se generan <code>events.tsv</code> ni <code>scans.tsv</code>. La <a href="#tbl-tablas-auxiliares" class="quarto-xref">tabla&nbsp;<span>4.5</span></a> recoge aparte las tablas propias del proyecto, que no forman parte del estándar. La validación con BIDS Validator (versión 3.0.2) no da ningún error; los cuatro avisos que quedan (un solo autor, claves recomendadas ausentes como <code>HEDVersion</code> o <code>Instructions</code>, y la falta de <code>events.tsv</code> en una tarea de reposo) están justificados en el <code>README.md</code> del propio dataset.</p>
+<div id="tbl-ficheros-dataset" class="nm-apilable quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-ficheros-dataset-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabla&nbsp;4.4: Tipos de fichero del dataset NeuroMIND (BrainVision organizado en BIDS), con su extensión, nivel y contenido. La última columna indica si NeuroMIND lo genera. El símbolo <code>*</code> sustituye al nombre base del registro (<code>sub-&lt;id&gt;_ses-&lt;sesión&gt;_task-&lt;tarea&gt;_run-01</code>).
+</figcaption>
+<div aria-describedby="tbl-ficheros-dataset-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="nm-apilable caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Fichero</th>
+<th style="text-align: left;">Nivel</th>
+<th style="text-align: left;">Contenido</th>
+<th style="text-align: left;">En NeuroMIND</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;" data-label="Fichero"><strong>Señal BrainVision</strong> (tríptico de la <a href="#fig-bids-triplet" class="quarto-xref">figura&nbsp;<span>4.3</span></a>)</td>
+<td style="text-align: left;" data-label="Nivel"></td>
+<td style="text-align: left;" data-label="Contenido"></td>
+<td style="text-align: left;" data-label="En NeuroMIND"></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Fichero"><strong><code>*.eeg</code></strong></td>
+<td style="text-align: left;" data-label="Nivel">registro</td>
+<td style="text-align: left;" data-label="Contenido">Señal en binario (<code>IEEE_FLOAT_32</code>, <code>MULTIPLEXED</code>).</td>
+<td style="text-align: left;" data-label="En NeuroMIND">Sí. Copia con nombre BIDS; en los seis registros recortados, solo las muestras de la ventana.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Fichero"><strong><code>*.vhdr</code></strong></td>
+<td style="text-align: left;" data-label="Nivel">registro</td>
+<td style="text-align: left;" data-label="Contenido">Cabecera de texto: frecuencia de muestreo, canales, resolución, filtros y enlaces a <code>.eeg</code> y <code>.vmrk</code>.</td>
+<td style="text-align: left;" data-label="En NeuroMIND">Sí. Copia con <code>DataFile</code> y <code>MarkerFile</code> reescritos; el cargador nativo lee <code>.vhdr</code> y <code>.eeg</code>.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Fichero"><strong><code>*.vmrk</code></strong></td>
+<td style="text-align: left;" data-label="Nivel">registro</td>
+<td style="text-align: left;" data-label="Contenido">Marcadores de eventos, en texto.</td>
+<td style="text-align: left;" data-label="En NeuroMIND">Sí. Copia con <code>DataFile</code> reescrito; el cargador no lo lee.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Fichero"><strong>Metadatos del dataset</strong></td>
+<td style="text-align: left;" data-label="Nivel"></td>
+<td style="text-align: left;" data-label="Contenido"></td>
+<td style="text-align: left;" data-label="En NeuroMIND"></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Fichero"><strong><code>dataset_description.json</code></strong></td>
+<td style="text-align: left;" data-label="Nivel">raíz</td>
+<td style="text-align: left;" data-label="Contenido">Nombre, versión de BIDS, licencia, autoría y descripción del dataset.</td>
+<td style="text-align: left;" data-label="En NeuroMIND">Sí, junto con un <code>README.md</code>.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Fichero"><strong><code>participants.tsv</code></strong> y <strong><code>participants.json</code></strong></td>
+<td style="text-align: left;" data-label="Nivel">raíz</td>
+<td style="text-align: left;" data-label="Contenido">Una fila por participante con 24 columnas: identificación, grupo, sexo, edad, fecha de nacimiento, nivel educativo, disponibilidad de T1 y T2, fechas de inclusión, diagnóstico, tratamiento, EDSS, D-FIS, BDI-II y las categorías clínicas. El JSON describe cada columna.</td>
+<td style="text-align: left;" data-label="En NeuroMIND">Sí. La auditoría los fusiona desde la base clínica y la hoja del equipo clínico.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Fichero"><strong>Metadatos por registro, sujeto y sesión</strong></td>
+<td style="text-align: left;" data-label="Nivel"></td>
+<td style="text-align: left;" data-label="Contenido"></td>
+<td style="text-align: left;" data-label="En NeuroMIND"></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Fichero"><strong><code>*_eeg.json</code></strong></td>
+<td style="text-align: left;" data-label="Nivel">tarea (raíz) y registro</td>
+<td style="text-align: left;" data-label="Contenido"><em>Sidecar</em>: frecuencia de muestreo, frecuencia de red, referencia (FCz), tierra (electrodo Gnd), equipo, filtros de hardware y de software y número de canales.</td>
+<td style="text-align: left;" data-label="En NeuroMIND">Sí. Uno por tarea en la raíz, heredado por todos los registros, y uno propio en los seis recortados, con la ventana de corte (<code>SourceWindow</code>).</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Fichero"><strong><code>*_electrodes.tsv</code></strong></td>
+<td style="text-align: left;" data-label="Nivel">sujeto y sesión</td>
+<td style="text-align: left;" data-label="Contenido">Nombre y coordenadas <code>x</code>, <code>y</code>, <code>z</code> de cada electrodo.</td>
+<td style="text-align: left;" data-label="En NeuroMIND">Sí, en el <code>eeg/</code> de cada sesión.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Fichero"><strong><code>*_channels.tsv</code></strong></td>
+<td style="text-align: left;" data-label="Nivel">tarea (raíz)</td>
+<td style="text-align: left;" data-label="Contenido">Nombre, tipo, unidad, frecuencia de muestreo y referencia de cada canal.</td>
+<td style="text-align: left;" data-label="En NeuroMIND">Sí. Uno por tarea en la raíz, heredado.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Fichero"><strong><code>*_coordsystem.json</code></strong></td>
+<td style="text-align: left;" data-label="Nivel">sujeto y sesión</td>
+<td style="text-align: left;" data-label="Contenido">Sistema de coordenadas y unidades de <code>electrodes.tsv</code>.</td>
+<td style="text-align: left;" data-label="En NeuroMIND">Sí; el sistema se declara como <code>Other</code> (<a href="#sec-coordenadas-electrodos" class="quarto-xref"><span>Sección 4.3.2</span></a>).</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Fichero"><strong><code>*_events.tsv</code></strong>, <strong><code>*_scans.tsv</code></strong></td>
+<td style="text-align: left;" data-label="Nivel">registro y sesión</td>
+<td style="text-align: left;" data-label="Contenido">Eventos de la tarea y lista de registros de la sesión, con su fecha.</td>
+<td style="text-align: left;" data-label="En NeuroMIND">No.&nbsp;El reposo no tiene eventos y el validador lo avisa sin considerarlo un error.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<div id="tbl-tablas-auxiliares" class="nm-apilable quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-tablas-auxiliares-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabla&nbsp;4.5: Tablas auxiliares de NeuroMIND, ajenas al estándar BIDS. Las rutas son relativas a la raíz del repositorio y ninguna de ellas se versiona salvo las de <code>config/</code>.
+</figcaption>
+<div aria-describedby="tbl-tablas-auxiliares-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="nm-apilable caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Fichero</th>
+<th style="text-align: left;">Ubicación</th>
+<th style="text-align: left;">Contenido</th>
+<th style="text-align: left;">Origen y uso</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;" data-label="Fichero"><strong><code>inventory.csv</code></strong></td>
+<td style="text-align: left;" data-label="Ubicación"><code>data/tables/</code></td>
+<td style="text-align: left;" data-label="Contenido">Una fila por grabación (215 filas: 210 utilizables y 5 excluidas): identificadores, sesión, condición (EC, EO u <em>oddball</em>), ruta relativa al fichero de origen, ventana temporal (<code>tmin_s</code>, <code>tmax_s</code>), si está excluida y el motivo.</td>
+<td style="text-align: left;" data-label="Origen y uso">Lo genera la auditoría. Es el registro único del que los análisis de grupo calculan cohorte y pares T1–T2.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Fichero"><strong><code>raw_selection.csv</code></strong></td>
+<td style="text-align: left;" data-label="Ubicación"><code>config/</code></td>
+<td style="text-align: left;" data-label="Contenido">Decisiones sobre qué archivo raw entra (usar, descartar, excluir) o cómo se recorta (<code>segment</code>, con <code>tmin</code> y <code>tmax</code>), con su motivo y su fuente: 15 filas sobre 12 archivos (M04, M05, M06, M07, M16, M31 y M37).</td>
+<td style="text-align: left;" data-label="Origen y uso">Versionado, sin iniciales ni fechas de grabación. Lo lee la auditoría.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Fichero"><strong><code>datos_clinicos_unificados.xlsx</code> y <code>.csv</code></strong></td>
+<td style="text-align: left;" data-label="Ubicación"><code>data/sourcedata/clinical/</code></td>
+<td style="text-align: left;" data-label="Contenido">Una fila por participante con los valores numéricos de EDSS, D-FIS y BDI-II en T1 y T2, las categorías del equipo clínico y el EEG utilizable por sesión y condición, con los tramos recortados. El libro añade las hojas de grabaciones, control de calidad y diccionario; no incluye la fecha de nacimiento.</td>
+<td style="text-align: left;" data-label="Origen y uso">Lo genera <code>scripts/build_clinical_master.jl</code>. Es el documento que se comparte con el equipo clínico para revisar los datos.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Fichero"><strong>Plantillas BIDS</strong></td>
+<td style="text-align: left;" data-label="Ubicación"><code>config/bids/</code></td>
+<td style="text-align: left;" data-label="Contenido">Plantillas de <code>dataset_description.json</code>, <code>participants.json</code>, sidecar de tarea y <code>coordsystem.json</code>, más el montaje de 31 canales del gorro ECI.</td>
+<td style="text-align: left;" data-label="Origen y uso">Versionadas. Las usa <code>scripts/build_bids_full.jl</code> para escribir los metadatos.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<section id="sec-metadatos-registro" class="level3" data-number="4.3.1">
+<h3 data-number="4.3.1" class="anchored" data-anchor-id="sec-metadatos-registro"><span class="header-section-number">4.3.1</span> Metadatos por registro</h3>
+<p>Los metadatos comunes (equipo, referencia, tierra, filtros y frecuencia de muestreo) están en dos ficheros de la raíz, uno por tarea, y cada registro los hereda; así no hay 210 copias de la misma información. Solo los seis registros recortados de M04, M05 y M06 en T1 tienen un <code>*_eeg.json</code> propio, con la ventana <code>SourceWindow</code> (segundos y muestras de corte sobre el raw original). El corte se hace antes de cualquier filtro, con intervalos semiabiertos <span class="math inline">[t_\mathrm{min}, t_\mathrm{max})</span> para que la muestra de la transición pertenezca a un único segmento (<a href="#duda-adq-06"><code>ADQ-06</code></a>, <a href="#duda-pre-03"><code>PRE-03</code></a>); el cargador no aplica ninguna ventana, porque lee el registro ya recortado. En ningún fichero se guardan rutas absolutas, por lo que el dataset es portable entre equipos. La carga se describe en la <a href="#sec-pipeline-vision" class="quarto-xref"><span>Sección 4.4</span></a>.</p>
+</section>
+<section id="sec-coordenadas-electrodos" class="level3 page-columns page-full" data-number="4.3.2">
+<h3 data-number="4.3.2" class="anchored" data-anchor-id="sec-coordenadas-electrodos"><span class="header-section-number">4.3.2</span> Coordenadas de electrodos</h3>
+<p>Cada sujeto y sesión tiene un <strong><code>*_electrodes.tsv</code></strong> con las columnas <code>name</code>, <code>x</code>, <code>y</code> y <code>z</code>. Las coordenadas expresan la posición del electrodo en un sistema de cabeza normalizado; el montaje de referencia completo figura en la tabla de coordenadas de electrodos del anexo del informe (no incorporada aún al libro).</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p><strong><code>_load_electrode_positions</code>.</strong> Construye el diccionario de posiciones, compartido por <code>load_single_subject</code> y el resto de rutas de carga. El TSV solo contiene los 31 electrodos registrados: la referencia (FCz) y la tierra (electrodo <code>Gnd</code> frontal del gorro ECI, no una posición 10–20) se declaran en el sidecar, y la fila <code>Fpz</code> de tierra que traía la plantilla anterior se ha retirado por incorrecta (<a href="03-fundamentos.html#sec-referencia-fcz-gnd" class="quarto-xref"><span>Sección 3.7.2</span></a>).</p>
+</div></div><p>El sistema 10–20 da la correspondencia nominal entre etiqueta y región del cuero cabelludo (<a href="03-fundamentos.html#tbl-sistema1020-letras" class="quarto-xref">tabla&nbsp;<span>3.3</span></a>), pero no las coordenadas: estas no deben inferirse de la infografía, sino leerse de los <code>*_electrodes.tsv</code> o de ese cuadro. El origen de las coordenadas no está documentado en los ficheros de partida, por lo que el <code>*_coordsystem.json</code> declara el sistema como <code>Other</code>, con unidades <code>n/a</code>. Si se confirma el sistema de coordenadas exacto, deberá actualizarse ahí junto con sus unidades y origen.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p><strong>Sistemas de coordenadas EEG.</strong> <em>Nativo del fabricante</em>: marco de referencia del propio software o montaje (p.&nbsp;ej. Brain Products). <em>Plantilla normalizada</em>: cabeza estándar (p.&nbsp;ej. Colin27 o <em>fsaverage</em>) a la que se proyectan electrodos para comparar posiciones entre sujetos. <em>Espacio MNI</em>: coordenadas en milímetros respecto a un origen anatómico común (línea comisura anterior–posterior), habitual al integrar EEG con MRI o atlas cerebrales.</p>
+</div></div></section>
+<section id="sec-comprobaciones-coherencia" class="level3" data-number="4.3.3">
+<h3 data-number="4.3.3" class="anchored" data-anchor-id="sec-comprobaciones-coherencia"><span class="header-section-number">4.3.3</span> Comprobaciones de coherencia</h3>
+<p>Estos ficheros se revisan en las primeras fases del pipeline. La comprobación verifica la coherencia entre:</p>
+<ul>
+<li><strong>Nombres de canal</strong>: deben coincidir exactamente entre el <code>.vhdr</code>, el <code>channels.tsv</code> y la columna <code>name</code> del <code>electrodes.tsv</code>. El constructor del dataset comprueba que las 210 cabeceras tienen los mismos 31 canales en el mismo orden (el último es Fp2) y se detiene si alguna difiere (la validación de la localización está en la <a href="03-fundamentos.html#sec-montaje-eeg" class="quarto-xref"><span>Sección 3.7.1</span></a>).</li>
+<li><strong>Montaje</strong>: el <code>electrodes.tsv</code> frente al montaje documentado (<a href="03-fundamentos.html#tbl-sistema1020-letras" class="quarto-xref">tabla&nbsp;<span>3.3</span></a> y la tabla de coordenadas del anexo del informe).</li>
+<li><strong>Parámetros de registro</strong>: frecuencia de muestreo y número de canales del sidecar frente a la cabecera <code>.vhdr</code>.</li>
+<li><strong>Participantes</strong>: identificadores y variables demográficas de <code>participants.tsv</code>, frente a los registros disponibles.</li>
+</ul>
+<p>Con la información disponible, el estado documentado es un dataset BIDS-EEG validado, preparado para la carga de datos en el pipeline de análisis y para la comprobación de coherencia entre señal, metadatos y electrodos. La <code>participants.tsv</code> regenerada incluye 77 participantes (41 EM y 36 controles); la auditoría señala además tres discrepancias de edad entre fuentes (M13, M29 y M35) que quedan por confirmar con el equipo clínico.</p>
+</section>
+</section>
+<section id="sec-pipeline-vision" class="level2" data-number="4.4">
+<h2 data-number="4.4" class="anchored" data-anchor-id="sec-pipeline-vision"><span class="header-section-number">4.4</span> Visión global del pipeline NeuroMIND</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 3 min · estudio 5 min</p>
+</div>
+<section id="sec-pipeline-fases" class="level3" data-number="4.4.1">
+<h3 data-number="4.4.1" class="anchored" data-anchor-id="sec-pipeline-fases"><span class="header-section-number">4.4.1</span> Fases de procesamiento</h3>
+<p>El preprocesado EEG del proyecto NeuroMIND se organiza como una cadena secuencial en la que cada etapa prepara un supuesto concreto requerido por la siguiente. El orden de trabajo es el siguiente: ingestión de datos y controles de calidad, filtrado determinista, descomposición y limpieza por ICA, normalización por segmentos, rechazo de artefactos y, por último, caracterización espectral de la señal ya depurada.</p>
+<p>La ruta operativa puede leerse en tres bloques contiguos (<a href="#tbl-pipeline-overview" class="quarto-xref">tabla&nbsp;<span>4.6</span></a>):</p>
+<div id="tbl-pipeline-overview" class="nm-apilable quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-pipeline-overview-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabla&nbsp;4.6: Agrupación operativa y configuración actual del pipeline NeuroMIND.
+</figcaption>
+<div aria-describedby="tbl-pipeline-overview-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="nm-apilable caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Fase</th>
+<th style="text-align: left;">Configuración actual</th>
+<th style="text-align: left;">Salida o control</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;" data-label="Fase"><strong>Bloque 1 — Armonización y limpieza</strong></td>
+<td style="text-align: left;" data-label="Configuración actual"></td>
+<td style="text-align: left;" data-label="Salida o control"></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Fase"><strong>Carga BIDS</strong></td>
+<td style="text-align: left;" data-label="Configuración actual">BrainVision <code>.vhdr/.eeg</code>; <span class="math inline">f_s=500\,\mathrm{Hz}</span>; 31 canales 10–20.</td>
+<td style="text-align: left;" data-label="Salida o control">Objeto <code>EEGRecording</code>; señal canales<span class="math inline">\times</span>muestras; metadatos.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Fase"><strong>QC raw</strong></td>
+<td style="text-align: left;" data-label="Configuración actual">Desviación estándar por canal; z-score de amplitud; alerta si <span class="math inline">\bar\sigma&gt;20\,\mu\text{V}</span>.</td>
+<td style="text-align: left;" data-label="Salida o control"><code>qc_summary.csv</code>; <code>channel_statistics.csv</code>.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Fase"><strong>Filtrado</strong></td>
+<td style="text-align: left;" data-label="Configuración actual">Notch 50 Hz; bandreject 100 Hz; high-pass 0.5 Hz; low-pass 150 Hz.</td>
+<td style="text-align: left;" data-label="Salida o control">Señal filtrada; PSD/respuesta de filtro para auditoría.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Fase"><strong>ICA</strong></td>
+<td style="text-align: left;" data-label="Configuración actual">FastICA simétrico sobre señal continua filtrada.</td>
+<td style="text-align: left;" data-label="Salida o control"><code>ica_summary.json</code>; features por componente; EEG reconstruido limpio.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Fase"><strong>Bloque 2 — Señal por segmentos</strong></td>
+<td style="text-align: left;" data-label="Configuración actual"></td>
+<td style="text-align: left;" data-label="Salida o control"></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Fase"><strong>Segmentación</strong></td>
+<td style="text-align: left;" data-label="Configuración actual">épocas de x s; solapamiento 0; baseline 0–0.1 s; rechazo <span class="math inline">\pm70\,\mu\text{V}</span>.</td>
+<td style="text-align: left;" data-label="Salida o control">Tensor de épocas válidas; <code>segments_table.csv</code>; resumen de rechazo.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Fase"><strong>Bloque 3 — Caracterización espectral</strong></td>
+<td style="text-align: left;" data-label="Configuración actual"></td>
+<td style="text-align: left;" data-label="Salida o control"></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Fase"><strong>PSD</strong></td>
+<td style="text-align: left;" data-label="Configuración actual">Ventana Hamming; FFT de 1024 puntos; integración por bandas.</td>
+<td style="text-align: left;" data-label="Salida o control"><code>band_power_summary.csv</code>; figuras espectrales/topográficas.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<div data-origen="ampliacion">
+<div class="nm-box nm-limite" data-rotulo="Una discrepancia detectada: parámetros del pipeline">
+<p>Contrastadas con <code>config/pipeline.toml</code> (commit <code>765f725</code> del repositorio de NeuroMIND), las dos tablas de este capítulo que describen el pipeline no coinciden entre sí ni, en parte, con la configuración activa:</p>
+<ul>
+<li><strong>Longitud de época.</strong> La <a href="#tbl-pipeline-overview" class="quarto-xref">tabla&nbsp;<span>4.6</span></a> deja «épocas de x s» sin completar. La configuración fija 1,0 s sin solapamiento (<code>segment_length_seconds = 1.0</code>, <code>overlap_seconds = 0.0</code>).</li>
+<li><strong>FFT.</strong> La <a href="#tbl-pipeline-overview" class="quarto-xref">tabla&nbsp;<span>4.6</span></a> dice 1024 puntos y la <a href="#tbl-pipeline-comparison" class="quarto-xref">tabla&nbsp;<span>4.7</span></a>, para NeuroMIND, «NFFT = 512» con Δf ≈ 0,977 Hz. <code>[spectral] nfft = 1024</code>, y el propio archivo indica que se aplica <code>max(nfft, n_samp)</code>, es decir, 1024 puntos con relleno de ceros y 0,488 Hz por bin. Las dos tablas son, pues, incompatibles; rige la configuración.</li>
+<li><strong>Baseline.</strong> La <a href="#tbl-pipeline-overview" class="quarto-xref">tabla&nbsp;<span>4.6</span></a> dice «baseline 0–0.1 s» y la <a href="#tbl-pipeline-comparison" class="quarto-xref">tabla&nbsp;<span>4.7</span></a>, para NeuroMIND, «media del segmento completo (equivalente funcional)» con una sola corrección previa al rechazo. <code>[baseline]</code> tiene <code>method = "first_window_mean"</code> (media de los primeros 0,10 s) y <code>n_passes = 2</code> (antes y después del rechazo), lo que se parece más a la columna de BVA. El propio archivo añade que el lote MINDEM-IMIBIC ya procesado (205 resultados) se ejecutó con <code>method = "mean"</code> (media de toda la época), de modo que <strong>cambiar el valor activo no reproduciría esos resultados</strong>. Qué configuración produjo cada resultado concreto debe leerse en su <code>config_snapshot.toml</code>.</li>
+</ul>
+<p>No se corrige ninguna tabla del informe: la discrepancia se documenta. <span class="estado e-confirmado">confirmado</span></p>
+</div>
+</div>
+</section>
+<section id="sec-pipeline-persistencia" class="level3" data-number="4.4.2">
+<h3 data-number="4.4.2" class="anchored" data-anchor-id="sec-pipeline-persistencia"><span class="header-section-number">4.4.2</span> Persistencia y reproducibilidad</h3>
+<p>Desde el punto de vista de la implementación en Julia, el flujo se ejecuta como fases modulares con persistencia explícita entre pasos. Los resultados intermedios se serializan para que cualquier fase pueda relanzarse sin recomputar toda la cadena, algo esencial para depuración y análisis de sensibilidad. Si un control de calidad falla, el relanzamiento debe empezar desde la fase local correspondiente.</p>
+</section>
+</section>
+<section id="sec-pipeline-comparison" class="level2" data-number="4.5">
+<h2 data-number="4.5" class="anchored" data-anchor-id="sec-pipeline-comparison"><span class="header-section-number">4.5</span> Comparación de implementaciones del pipeline</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 4 min · estudio 5 min</p>
+</div>
+<p>Los mismos registros se procesan con tres implementaciones independientes que se contrastan entre sí. <strong>BrainVision Analyzer</strong> (BVA, versión 2.3.0) es el flujo de referencia: Javier Espuny lo aplica de forma interactiva, con selección visual de componentes. <strong>NeuroMIND</strong>, escrito en Julia, automatiza una cadena equivalente, con diferencias deliberadas en la ICA, y deja cada paso trazado por sujeto y sesión; es el pipeline que describe este informe. <strong>MNE-Python</strong>, en el subproyecto <code>mne_brain</code>, lo replica fase a fase en el ecosistema Python como validación cruzada, aunque sus parámetros etapa por etapa todavía no se han volcado a la comparación y su columna figura como «Pendiente». La <a href="#tbl-pipeline-comparison" class="quarto-xref">tabla&nbsp;<span>4.7</span></a> resume los parámetros de cada etapa, con el fin de documentar tanto las equivalencias como las divergencias deliberadas entre las rutas y de poder reproducir o auditar cualquier paso desde su fuente.</p>
+<p>Antes de contrastar los pipelines conviene fijar la <em>banda efectiva</em> que llega al fichero <code>.eeg</code>. El amplificador actiCHamp limita el espectro a 0–140 Hz y BrainVision Recorder aplica, <em>antes</em> de escribir la señal, un paso alto a 0,1 Hz, un notch a 50 Hz y un paso bajo a 70 Hz (véase la caja de trazabilidad anterior). La <a href="#fig-filter-brainvision-neuromind" class="quarto-xref">figura&nbsp;<span>4.7</span></a> resume esa cadena y la contrasta con los filtros previstos en NeuroMIND: solo el paso alto a 0,5 Hz aporta algo nuevo respecto a lo ya aplicado en la adquisición, mientras que el notch, el bandreject a 100 Hz y el paso bajo a 150 Hz son redundantes o inoperantes sobre una señal ya acotada a 70 Hz. BVA parte de esos mismos ficheros y vuelve a aplicar su propia cascada analítica, que la tabla siguiente detalla junto con las de NeuroMIND y MNE-Python.</p>
+<div id="fig-filter-brainvision-neuromind" class="nm-figura-svg nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Tres bloques horizontales. Hardware (amplificador actiCHamp): paso alto DC y paso bajo 140 Hz, con una barra de banda efectiva de 0 a 140 Hz. Software (BrainVision Recorder): paso alto 0,1 Hz, notch 50 Hz y paso bajo 70 Hz, con una barra de 0,1 a 70 Hz y trazos discontinuos hasta 140 Hz. Análisis NeuroMIND: paso alto 0,5 Hz marcado como aporte útil; notch 50 Hz marcado como redundante; bandreject 100 Hz, «corte 70 Hz»; paso bajo 150 Hz, «filtro previo 70 Hz». Una última barra va de 0 a 70 Hz con marcas en 0,1, 0,5 y 50 Hz.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-filter-brainvision-neuromind-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap04/filter_brainvision_neuromind.svg" class="nm-figura-svg nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Tres bloques horizontales. Hardware (amplificador actiCHamp): paso alto DC y paso bajo 140 Hz, con una barra de banda efectiva de 0 a 140 Hz. Software (BrainVision Recorder): paso alto 0,1 Hz, notch 50 Hz y paso bajo 70 Hz, con una barra de 0,1 a 70 Hz y trazos discontinuos hasta 140 Hz. Análisis NeuroMIND: paso alto 0,5 Hz marcado como aporte útil; notch 50 Hz marcado como redundante; bandreject 100 Hz, «corte 70 Hz»; paso bajo 150 Hz, «filtro previo 70 Hz». Una última barra va de 0 a 70 Hz con marcas en 0,1, 0,5 y 50 Hz.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-filter-brainvision-neuromind-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;4.7: Cadena de filtrado en tres niveles: hardware (actiCHamp), software de registro (BrainVision Recorder) y filtros previstos en el análisis NeuroMIND. Los trazos discontinuos marcan contenido ya atenuado en etapas previas; la banda útil almacenada queda acotada entre 0,1 Hz y 70 Hz. Figura TikZ propia del informe original.
+</figcaption>
+</figure>
+</div>
+<div class="nm-box nm-decision" data-rotulo="Decisión">
+<p><strong>BVA frente a NeuroMIND.</strong> BVA usa Extended Infomax con esferización probabilística y selección visual de componentes; NeuroMIND, FastICA simétrico con esferización clásica y puntuación automática. Filtrado, segmentación de 1 s y FFT (Hamming 10 %, varianza corregida, NFFT 512) son equivalentes.</p>
+</div>
+<div id="tbl-pipeline-comparison" class="nm-apilable quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-pipeline-comparison-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabla&nbsp;4.7: Comparación etapa por etapa de los tres pipelines sobre el mismo dataset RS-MIND.
+</figcaption>
+<div aria-describedby="tbl-pipeline-comparison-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="nm-apilable caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Etapa</th>
+<th style="text-align: left;">BVA — Javier Espuny</th>
+<th style="text-align: left;">NeuroMIND — Julia</th>
+<th style="text-align: left;">MNE Python</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;" data-label="Etapa"><strong>Raw Data</strong></td>
+<td style="text-align: left;" data-label="BVA — Javier Espuny">31 canales, <span class="math inline">F_s=500</span> Hz, 100,36 s, 50 180 pts. Referencia FCz, tierra Gnd frontal (ECI).</td>
+<td style="text-align: left;" data-label="NeuroMIND — Julia">Ídem (mismos ficheros BrainVision cargados vía <code>BrainCore.jl</code>).</td>
+<td style="text-align: left;" data-label="MNE Python">Pendiente.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Etapa"><strong>Notch</strong></td>
+<td style="text-align: left;" data-label="BVA — Javier Espuny">IIR Butterworth, zero phase shift, 50 Hz.</td>
+<td style="text-align: left;" data-label="NeuroMIND — Julia">IIR Butterworth, causal (<code>filt</code>), orden 4, 50 Hz.</td>
+<td style="text-align: left;" data-label="MNE Python">Pendiente.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Etapa"><strong>Band-reject</strong></td>
+<td style="text-align: left;" data-label="BVA — Javier Espuny">100 Hz, ancho 1 Hz, orden 4, IIR.</td>
+<td style="text-align: left;" data-label="NeuroMIND — Julia">100 Hz, ancho 1 Hz, orden 4, IIR, causal.</td>
+<td style="text-align: left;" data-label="MNE Python">Pendiente.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Etapa"><strong>High-pass</strong></td>
+<td style="text-align: left;" data-label="BVA — Javier Espuny">IIR Butterworth, zero phase shift, orden 8, 0.5 Hz.</td>
+<td style="text-align: left;" data-label="NeuroMIND — Julia">IIR Butterworth, <code>filtfilt</code> (fase cero), orden diseño 4 (efectivo 8), 0.5 Hz.</td>
+<td style="text-align: left;" data-label="MNE Python">Pendiente.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Etapa"><strong>Low-pass</strong></td>
+<td style="text-align: left;" data-label="BVA — Javier Espuny">IIR Butterworth, zero phase shift, orden 8, 150 Hz.</td>
+<td style="text-align: left;" data-label="NeuroMIND — Julia">IIR Butterworth, <code>filtfilt</code> (fase cero), orden diseño 4 (efectivo 8), 150 Hz.</td>
+<td style="text-align: left;" data-label="MNE Python">Pendiente.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Etapa"><strong>ICA</strong></td>
+<td style="text-align: left;" data-label="BVA — Javier Espuny"><em>Probabilistic</em> sphering. Extended Infomax (gradient), 512 pasos, convergencia <span class="math inline">&lt;10^{-7}</span>. 31 componentes; 8 rechazados manualmente (F00, F01, F03, F06, F12, F19, F24, F27); convergido en 453 pasos (4 reinicios), última mod. <span class="math inline">8.87\times10^{-8}</span>.</td>
+<td style="text-align: left;" data-label="NeuroMIND — Julia"><em>Classic</em> sphering (<span class="math inline">\mathbf{S}_\mathrm{sph}=\mathbf{D}^{-1/2}\mathbf{V}^\top</span>). FastICA simétrico, semilla fija, tol=<span class="math inline">10^{-7}</span>, máx. 512 iter. 31 componentes; rechazo automático (<code>artifact_score</code>$&gt;$1.5).</td>
+<td style="text-align: left;" data-label="MNE Python">Pendiente.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Etapa"><strong>Segmentación</strong></td>
+<td style="text-align: left;" data-label="BVA — Javier Espuny">1 s, sin solapamiento, sin omitir malos.</td>
+<td style="text-align: left;" data-label="NeuroMIND — Julia">1 s, sin solapamiento.</td>
+<td style="text-align: left;" data-label="MNE Python">Pendiente.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Etapa"><strong>Baseline 1</strong></td>
+<td style="text-align: left;" data-label="BVA — Javier Espuny">Corrección 0–100 ms (antes del rechazo).</td>
+<td style="text-align: left;" data-label="NeuroMIND — Julia">Substracción de la media del segmento completo (equivalente funcional).</td>
+<td style="text-align: left;" data-label="MNE Python">Pendiente.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Etapa"><strong>Rechazo artefactos</strong></td>
+<td style="text-align: left;" data-label="BVA — Javier Espuny">Amplitud <span class="math inline">\pm 70\,\mu\text{V}</span>, 30 canales, semiautomático. 100 segmentos retenidos / 0 eliminados.</td>
+<td style="text-align: left;" data-label="NeuroMIND — Julia">Amplitud <span class="math inline">\pm 70\,\mu\text{V}</span> + z-score entre épocas; clasificación automática por canal.</td>
+<td style="text-align: left;" data-label="MNE Python">Pendiente.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Etapa"><strong>Baseline 2</strong></td>
+<td style="text-align: left;" data-label="BVA — Javier Espuny">Segunda corrección 0–100 ms (post-rechazo).</td>
+<td style="text-align: left;" data-label="NeuroMIND — Julia">— (única corrección, previa al rechazo).</td>
+<td style="text-align: left;" data-label="MNE Python">Pendiente.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Etapa"><strong>FFT</strong></td>
+<td style="text-align: left;" data-label="BVA — Javier Espuny">Hamming 10 %, varianza corregida, Periodic. Power [<span class="math inline">\mu\text{V}^2</span>], Full Spectrum, Non-Complex. <span class="math inline">\Delta f=0.976</span> Hz; zero-padding a 512 pts (de 500).</td>
+<td style="text-align: left;" data-label="NeuroMIND — Julia">Hamming 10 %, varianza corregida. Power [<span class="math inline">\mu\text{V}^2</span>], Full Spectrum. <span class="math inline">\Delta f\approx0.977</span> Hz, NFFT = 512 pts.</td>
+<td style="text-align: left;" data-label="MNE Python">Pendiente.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Etapa"><strong>Promediado espectral</strong></td>
+<td style="text-align: left;" data-label="BVA — Javier Espuny">Media aritmética sobre 100 segmentos por canal. Subnodo SD + SNR (<code>Avg/SD</code>). Tabla [Canal, Segs, SNR].</td>
+<td style="text-align: left;" data-label="NeuroMIND — Julia">Media aritmética de la PSD por canal sobre todas las épocas válidas. SD y SNR en <code>ica_summary.json</code>.</td>
+<td style="text-align: left;" data-label="MNE Python">Pendiente.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<div data-origen="ampliacion">
+<div class="nm-box nm-limite" data-rotulo="De qué registro salen las cifras de BVA">
+<p>Las cifras de la columna de BVA (100,36 s, 50 180 puntos, 100 segmentos retenidos, 8 componentes rechazados, 453 pasos de convergencia) corresponden a <strong>una</strong> ejecución con un registro que el informe no identifica; el capítulo tampoco dice qué sesión ni qué condición era. Se transcriben tal cual. Sí se puede comprobar su coherencia interna: 50 180 puntos a 500 Hz son 100,36 s, y 500/512 = 0,9766 Hz, que BVA da como 0.976 y la columna de NeuroMIND como 0.977 (solo difiere el redondeo). No son resultados de cohorte y no deben leerse como tales. <span class="estado e-pendiente">pendiente</span></p>
+</div>
+</div>
+</section>
+<section id="sec-mapa-codigo-datos" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="sec-mapa-codigo-datos">Anexo del capítulo: mapa del código</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 3 min · estudio 5 min</p>
+</div>
+<p>Antes del pipeline hay cuatro scripts: uno inventaría los registros y fusiona los datos clínicos, otro construye el dataset BIDS, el tercero reúne los datos clínicos y la selección de grabaciones en el documento que se comparte con el equipo clínico, y el cuarto lanza el pipeline sobre todos los registros.</p>
+<div data-origen="ampliacion">
+<p><strong>De los datos originales al lote, en una línea.</strong></p>
+<ol class="nm-mapa-resumen" aria-label="Flujo de la preparación de datos">
+<li>
+<code>data/sourcedata/</code> (originales)
+</li>
+<li>
+<code>audit_full_dataset.jl</code> → <code>inventory.csv</code>
+</li>
+<li>
+<code>build_bids_full.jl</code> → <code>data/bids/</code>
+</li>
+<li>
+<code>run_batch_pipeline.jl</code> → <code>results/</code>
+</li>
+</ol>
+<p>La rama A es el árbol de llamadas de cada script (qué función llama a cuál); la B, los archivos que dejan en <code>data/</code> y <code>results/</code>. Los nombres de scripts y funciones de la rama A se han comprobado contra el repositorio de NeuroMIND (<code>tests/mapa_codigo.mjs</code>, commit <code>765f725</code>); la rama B es la que describe el informe (verificada allí el 2026-10-15) y este libro no incluye ningún archivo de <code>data/</code> ni de <code>results/</code>. Ningún script se ejecuta al construir el libro.</p>
+<details class="nm-mapa-fase" id="mapa-datos-llamadas" open="">
+<summary>
+A · Llamadas de los cuatro scripts
+</summary>
+<ul>
+<li>
+<code>scripts/</code>
+<ul>
+<li>
+<code>audit_full_dataset.jl</code>
+<ul>
+<li>
+<code>main</code>
+<ul>
+<li>
+<code>parse_vhdr_filename</code> → <code>normalize_condition</code> — EC, EO, ODDBALL
+</li>
+<li>
+<code>load_raw_selection</code> — <code>raw_selection.csv</code>: use, segment, discard, exclude
+</li>
+<li>
+<code>is_excluded</code> · <code>load_demographics</code> · <code>_bids_subject_id</code>
+</li>
+<li>
+<code>write_participants</code> — fusiona clínica, categorías y demografía
+<ul>
+<li>
+<code>load_clinical</code> · <code>load_javier</code>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<code>build_bids_full.jl</code>
+<ul>
+<li>
+<code>main</code>
+<ul>
+<li>
+<code>load_inventory</code> · <code>read_vhdr</code> — mismos 31 canales en todas las cabeceras
+</li>
+<li>
+<code>write_dataset_files</code> — raíz: descripción, README y sidecars de tarea
+</li>
+<li>
+<code>write_recording</code> — copia o recorte, renombrado y enlaces
+<ul>
+<li>
+<code>parse_markers</code> · <code>marker_line</code> · <code>shift_bv_date</code> — <code>.vmrk</code> del recorte
+</li>
+</ul>
+</li>
+<li>
+<code>write_crop_sidecar</code> — <code>SourceWindow</code>
+</li>
+<li>
+<code>write_session_files</code> — <code>electrodes.tsv</code> y <code>coordsystem.json</code>
+</li>
+<li>
+<code>sweep_stale!</code> — lo obsoleto, a <code>data/_archive</code>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<code>build_clinical_master.jl</code>
+<ul>
+<li>
+<code>main</code>
+<ul>
+<li>
+<code>build_rows</code>
+<ul>
+<li>
+<code>read_participants</code> · <code>read_inventory</code> · <code>read_javier_notes</code>
+</li>
+<li>
+<code>quality_checks</code> — categorías frente a valores
+</li>
+</ul>
+</li>
+<li>
+<code>recording_rows</code> · <code>readme_rows</code>
+</li>
+<li>
+<code>write_csv</code> · <code>write_xlsx</code>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<code>run_batch_pipeline.jl</code>
+<ul>
+<li>
+<code>run_batch</code>
+<ul>
+<li>
+<code>load_jobs</code> · <code>already_done</code> — filtros <code>–subject</code>, <code>–skip-done</code>…
+</li>
+<li>
+<code>write_temp_config</code> — un TOML temporal por trabajo
+</li>
+<li>
+<code>_run_pipeline_quiet</code>
+<ul>
+<li>
+<code>run_single_subject_pipeline</code> — pasos 1–8 (caps. 5–14 del informe original)
+</li>
+</ul>
+</li>
+<li>
+<code>print_batch_dashboard</code> — progreso y ETA
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</details>
+<details class="nm-mapa-fase">
+<summary>
+B · Salidas
+</summary>
+<ul>
+<li>
+<code>data/</code>
+<ul>
+<li>
+<code>tables/inventory.csv</code> — audit: un <code>.vhdr</code> por fila, con <code>tmin_s</code> y <code>tmax_s</code>
+</li>
+<li>
+<code>bids/</code>
+<ul>
+<li>
+<code>participants.tsv</code> — audit
+</li>
+<li>
+<code>dataset_description.json</code> · <code>README.md</code> · <code>participants.json</code> — build, desde las plantillas de <code>config/bids/</code>
+</li>
+<li>
+<code>task-*_eeg.json</code> · <code>task-*_channels.tsv</code> — build
+</li>
+<li>
+<code>sub-<em>/ses-</em>/eeg/</code>
+<ul>
+<li>
+<code>*_task-*_run-01_eeg.{vhdr,vmrk,eeg}</code> — build: <code>write_recording</code>
+</li>
+<li>
+<code>*_task-*_run-01_eeg.json</code> — build: solo los 6 recortados
+</li>
+<li>
+<code>*_electrodes.tsv</code> · <code>*_coordsystem.json</code> — build: <code>write_session_files</code>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<code>sourcedata/clinical/datos_clinicos_unificados.{xlsx,csv}</code> — master
+</li>
+<li>
+<code>_archive/bids_descartados/</code> — build: <code>sweep_stale!</code>
+</li>
+</ul>
+</li>
+<li>
+<code>results/</code>
+<ul>
+<li>
+<code>logs/batch_run_{fecha}.csv</code> — run_batch: OK, SKIP o ERR por trabajo
+</li>
+<li>
+<code>subjects/…</code> — lo que escribe cada registro (caps. 5–14 del informe original)
+</li>
+</ul>
+</li>
+</ul>
+</details>
+</div>
+<p><strong>Ruta de lectura.</strong></p>
+<ol type="1">
+<li><code>scripts/audit_full_dataset.jl</code>, función <code>main</code>: cómo se interpreta el nombre de cada <code>.vhdr</code> (<code>parse_vhdr_filename</code>, <code>normalize_condition</code>), qué decisiones de <code>config/raw_selection.csv</code> se aplican (<code>load_raw_selection</code>) y cómo se fusionan los datos clínicos en <code>participants.tsv</code> (<code>write_participants</code>).</li>
+<li><code>scripts/build_bids_full.jl</code>, función <code>main</code>: cómo se comprueba que todas las cabeceras comparten canales (<code>read_vhdr</code>), cómo se copia o se recorta cada registro (<code>write_recording</code>) y qué sidecars se escriben (<code>write_dataset_files</code>, <code>write_crop_sidecar</code>, <code>write_session_files</code>).</li>
+<li><code>scripts/build_clinical_master.jl</code>, función <code>main</code>: fusión de participantes, inventario y observaciones del equipo clínico (<code>build_rows</code>), comprobaciones de coherencia (<code>quality_checks</code>) y escritura del libro y del CSV.</li>
+<li><code>scripts/run_batch_pipeline.jl</code>, función <code>run_batch</code>: filtros de la línea de comandos, <code>--skip-done</code> (<code>already_done</code>) y un TOML temporal por trabajo (<code>write_temp_config</code>).</li>
+<li><code>results/logs/batch_run_{fecha}.csv</code>: estado OK, SKIP o ERR de cada registro en cada lanzamiento.</li>
+</ol>
+<p><strong>Para ejecutarlo.</strong> <code>julia --project=. scripts/run_batch_pipeline.jl --dry-run</code> muestra el plan sin ejecutarlo; <code>--skip-done</code> reanuda un lote interrumpido.</p>
+</section>
+<section id="sec-sintesis-diseno" class="level2" data-origen="ampliacion" data-number="4.6">
+<h2 data-number="4.6" class="anchored" data-anchor-id="sec-sintesis-diseno"><span class="header-section-number">4.6</span> Síntesis y preguntas para discutir</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 3 min · estudio 10 min</p>
+</div>
+<section id="lo-que-hay-que-llevarse-del-capítulo" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="lo-que-hay-que-llevarse-del-capítulo">Lo que hay que llevarse del capítulo</h3>
+<ol type="1">
+<li>El estudio hace <strong>tres contrastes</strong>: EM frente a control en T1 (transversal), T1 frente a T2 en pacientes (longitudinal) y ojos cerrados frente a abiertos (fisiológico, dentro de cada sesión).</li>
+<li><strong>MINDEM</strong> es la muestra completa; <strong>NeuroMIND</strong> analiza una submuestra: 77 participantes (41 EM y 36 controles), 105 sesiones y 210 grabaciones. Las cifras de una no son las de la otra.</li>
+<li>BIDS <strong>no altera la señal</strong>: conserva el tríptico BrainVision y añade nombres y metadatos. Los originales no se tocan, y los seis registros recortados se cortan antes de cualquier filtro.</li>
+<li>El <code>.eeg</code> <strong>ya está filtrado</strong> por BrainVision Recorder (0,1–70 Hz): de los filtros de NeuroMIND, solo el paso alto de 0,5 Hz aporta algo nuevo.</li>
+<li>Las tablas del capítulo que describen el pipeline <strong>no coinciden del todo con <code>config/pipeline.toml</code></strong> (época, FFT, baseline); manda la configuración y cada resultado lleva su <code>config_snapshot.toml</code>.</li>
+</ol>
+<details class="nm-q nm-q-comp">
+<summary>
+<span class="nm-tag">Pregunta de comprensión</span> ¿Por qué no se pueden mezclar en una misma tabla las cifras de la <a href="#fig-diseno-experimento" class="quarto-xref">figura&nbsp;<span>4.1</span></a> y las de la <a href="#tbl-participants-summary" class="quarto-xref">tabla&nbsp;<span>4.1</span></a>?
+</summary>
+<p>Porque describen muestras distintas. La figura resume el reclutamiento de MINDEM (44 pacientes y 40 controles en T1, 30 pacientes en T2), mientras que la tabla cuenta a quienes tienen registros en el dataset BIDS de NeuroMIND (41 pacientes y 36 controles, y 28 pares T1–T2 con EEG utilizable). La diferencia viene de la selección de grabaciones y de que no todos los participantes tienen EEG válido. <span class="tipo t-int">interpretación</span></p>
+</details>
+<details class="nm-q nm-q-comp">
+<summary>
+<span class="nm-tag">Pregunta de comprensión</span> Si el notch de 50 Hz y el paso bajo de 150 Hz de NeuroMIND se aplican, ¿por qué el capítulo los llama «redundantes o inoperantes»?
+</summary>
+<p>Porque la señal que llega al pipeline ya pasó por el filtrado de BrainVision Recorder, que limita la banda almacenada entre 0,1 y 70 Hz y aplica un notch a 50 Hz. Un paso bajo a 150 Hz no puede quitar nada por encima de 70 Hz, que ya no está, y el notch repite lo que ya se hizo. Aun así se aplican: lo que cuenta es que el <code>.eeg</code> ya incorpora el filtrado de la adquisición, y atribuirlo a NeuroMIND falsearía la procedencia de la señal. <span class="tipo t-int">interpretación</span></p>
+</details>
+</section>
+<section id="sec-q-abiertas-diseno" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="sec-q-abiertas-diseno">Qué sigue abierto</h3>
+<p>Las preguntas siguientes <strong>no tienen una respuesta establecida</strong> en el informe ni en este libro. Para cada una se indica qué evidencia haría falta; no se ofrece una respuesta.</p>
+<div class="nm-q-open">
+<div class="nm-q-title">
+<span class="nm-tag">Pregunta abierta · 1</span> ¿Qué baseline, qué FFT y qué longitud de época produjeron cada uno de los resultados ya generados?
+</div>
+<p>El capítulo da dos descripciones incompatibles de NeuroMIND y la configuración activa difiere de la que, según su propio archivo, ejecutó el lote ya procesado. <span class="estado e-pendiente">pendiente</span></p>
+<p><strong>Qué evidencia haría falta:</strong> el <code>config_snapshot.toml</code> de cada registro (el pipeline lo guarda) y una tabla que lo resuma por lote.</p>
+</div>
+<div class="nm-q-open">
+<div class="nm-q-title">
+<span class="nm-tag">Pregunta abierta · 2</span> ¿Cuántos pares T1–T2 componen la cohorte longitudinal: 30 (base clínica) o 28 (con EEG válido)?
+</div>
+<p>Es la duda <a href="#duda-coh-06"><code>COH-06</code></a>, aún abierta: la figura del diseño habla de 30 pacientes en T2 y el dataset tiene 28 con EEG utilizable en las dos sesiones. <span class="estado e-pendiente">pendiente</span></p>
+<p><strong>Qué evidencia haría falta:</strong> una decisión del equipo sobre la intersección base clínica ∩ documento maestro de EEG válido, y que el texto del capítulo se ajuste a ella.</p>
+</div>
+</section>
+</section>
+<section id="sec-dudas-diseno" class="level2" data-number="4.7">
+<h2 data-number="4.7" class="anchored" data-anchor-id="sec-dudas-diseno"><span class="header-section-number">4.7</span> Dudas del proyecto</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 11 min · estudio 15 min</p>
+</div>
+<p>Las siete fichas del Cuaderno de dudas que este capítulo copia completas en el informe (MONT-07, ADQ-02, ADQ-03, ADQ-05, ADQ-06, ADQ-10 y PRE-03) y las cuatro que solo menciona (ADQ-04, ADQ-09, COH-06 e INF-01), con el estado que tienen hoy. El verde se reserva a las fichas resueltas o trasladadas con una respuesta o un cierre documentados y fechados.</p>
+<div data-origen="ampliacion">
+<p><strong>Datos omitidos a propósito.</strong> En ADQ-03 se ha sustituido por <code>&lt;iniciales&gt;</code> y <code>&lt;fecha&gt;</code> el nombre de un archivo original, que llevaba las iniciales del participante y la fecha de la grabación; en ADQ-02 no se reproduce la desviación típica de un canal de un registro concreto, que el informe da como evidencia. Son datos individuales (véanse las notas de <code>docs/auditoria.md</code>).</p>
+</div>
+<div id="duda-mont-07" class="nm-duda-ficha nm-d-trasladada">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">MONT-07</span> <span class="dudaestado d-trasladada">trasladada</span></p>
+<p><strong>¿Es Fp2 realmente el canal 31 en los 75 sujetos?</strong></p>
+</div>
+<dl>
+<dt>Contexto</dt>
+<dd>
+La configuración asume que Fp2 ocupa la última posición del fichero, y así se verificó en los <code>.vhdr</code> inspeccionados. El propio <code>config/pipeline.toml</code> marca la comprobación sobre todo el dataset como auditoría pendiente.
+</dd>
+<dt>Evidencia</dt>
+<dd>
+Verificado sobre los ficheros leídos hasta ahora, no sobre los 212 del dataset. Si en algún sujeto el orden de canales difiere, la exclusión por posición —en vez de por nombre— afectaría al canal equivocado.
+</dd>
+<dt>Implicación</dt>
+<dd>
+Es un error silencioso: no falla nada, simplemente se analiza otro canal. Y contamina justo las fichas que dependen del recuento de canales (MONT-04, <a href="../chapters/03-fundamentos.html#duda-mont-06">MONT-06</a>).
+</dd>
+<dt>Respuesta</dt>
+<dd>
+Sin respuesta registrada en la ficha; consta su cierre.
+</dd>
+<dt>Acción</dt>
+<dd>
+Auditoría barata: recorrer los 212 <code>.vhdr</code> y comprobar que <code>Ch31</code> es Fp2 en todos. Es un script de veinte líneas sobre el lector de cabeceras que ya existe.
+</dd>
+<dt>Cierre · 2026-10-15</dt>
+<dd>
+Comprobado el 15-10-2026 sobre los 210 registros del BIDS: los mismos 31 canales, en el mismo orden y con Fp2 en último lugar. <code>build_bids_full.jl</code> lo exige para construir el dataset y se detiene si una cabecera difiere.
+</dd>
+</dl>
+</div>
+<div id="duda-adq-02" class="nm-duda-ficha nm-d-trasladada">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">ADQ-02</span> <span class="dudaestado d-trasladada">trasladada</span></p>
+<p><strong>El repositorio afirma cuatro referencias incompatibles</strong></p>
+</div>
+<dl>
+<dt>Contexto</dt>
+<dd>
+El repo declara la referencia cuatro veces y de cuatro formas distintas, todas escritas como si fueran un dato medido. Ahora que <a href="../chapters/03-fundamentos.html#duda-adq-01">ADQ-01</a> está cerrada se sabe cuál de las cuatro era correcta —y no es la que yo daba por buena—.
+</dd>
+<dt>Evidencia</dt>
+<dd>
+<code>scripts/build_bids_full.jl:131</code> escribe <code>"EEGReference": "Cz"</code>; <code>scripts/build_bids_full.jl:178</code> escribe <code>FCz→REF</code> y <code>Fpz→GND</code> en <code>electrodes.tsv</code>; <code>mne_brain/scripts/build_bids_full.py:84</code> dice <code>"REF physical channel 2"</code> (fiel) y <code>"EEGGround": "Fpz"</code> (inventado); <code>config/pipeline.toml:125</code> declara <code>reference = "average"</code>, marcado como informativo y sin re-referenciar. <strong>Cz no puede ser la referencia</strong>: está grabado como canal (entrada física 24), tiene impedancia propia y varianza normal (<em>valor de un registro concreto omitido</em>), y un canal de referencia online es idénticamente cero. Ese valor está en los <strong>205 JSON</strong> de metadatos; la pareja FCz/Fpz, en <strong>103 <code>electrodes.tsv</code></strong>, todos copiados de la misma plantilla. En la misma línea, <code>ManufacturersModelName</code> dice <code>BrainAmp</code> cuando el hardware es actiCHamp (la versión Python sí acierta el modelo).
+</dd>
+<dt>Implicación</dt>
+<dd>
+Con la respuesta de Alejandro el balance queda así: la fila <code>FCz→REF</code> de <code>electrodes.tsv</code> <strong>era correcta</strong> —mi suposición de partida acertaba en la referencia—; <code>Fpz</code> <strong>como ground es falso</strong>; y <code>"EEGReference": "Cz"</code>, que es lo que está en los 205 JSON, <strong>es falso y además contradice a la fila anterior del mismo generador</strong>. Un metadato falso es peor que uno ausente: nadie lo vuelve a cuestionar.
+</dd>
+<dt>Respuesta</dt>
+<dd>
+Sin respuesta propia en la ficha: la implicación remite a la respuesta de Alejandro (2026-09-28) de <a href="../chapters/03-fundamentos.html#duda-adq-01">ADQ-01</a>.
+</dd>
+<dt>Acción</dt>
+<dd>
+Ya no hay que marcar nada como desconocido: hay que escribir los valores correctos. <code>"EEGReference": "FCz"</code>, <code>"EEGGround": "Gnd (electrodo dedicado del sistema ECI, frontal; no es una posición 10–20)"</code>, <code>"ManufacturersModelName": "actiCHamp"</code>, y en <code>electrodes.tsv</code> conservar la fila <code>FCz→REF</code> y quitar la de <code>Fpz</code>. Regenerar los 205 JSON y los 103 TSV, y anotar en <code>AGENTS.md</code> el origen del dato (esquema del montaje, correo de Alejandro del 28/09/2026) para que no se vuelva a discutir.
+</dd>
+<dt>Cierre · 2026-10-15</dt>
+<dd>
+Metadatos corregidos en el BIDS del 15-10-2026: <code>EEGReference</code> = FCz, tierra = electrodo <code>Gnd</code> del gorro ECI y equipo actiCHamp, en los sidecars de tarea de la raíz. Los <code>electrodes.tsv</code> solo recogen los 31 electrodos registrados: la referencia y la tierra se declaran en el sidecar y la fila de Fpz ha desaparecido.
+</dd>
+</dl>
+</div>
+<div id="duda-adq-03" class="nm-duda-ficha nm-d-trasladada">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">ADQ-03</span> <span class="dudaestado d-trasladada">trasladada</span></p>
+<p><strong>M7: ¿el archivo sin sufijo de ojos es el EO de T1 o un oddball?</strong></p>
+</div>
+<dl>
+<dt>Contexto</dt>
+<dd>
+El documento maestro de Javier da los segundos de corte de los T1 que tienen las dos condiciones concatenadas, pero no cubre este archivo.
+</dd>
+<dt>Evidencia</dt>
+<dd>
+<code>M7_T1_&lt;iniciales&gt;_&lt;fecha&gt;_Cog-10-1.vhdr</code> está clasificado hoy como <code>ODDBALL</code> por <code>scripts/audit_full_dataset.jl:111</code>, que etiqueta así cualquier archivo sin sufijo de ojos. M7 tiene su T1 de ojos cerrados como archivo aparte, pero no tiene T1 de ojos abiertos, y la hoja no le asigna segundos de corte.
+</dd>
+<dt>Implicación</dt>
+<dd>
+O ese archivo es el EO de M7 —y entonces hay que trocearlo— o es un oddball real y M7 se queda EC-only, como ya está.
+</dd>
+<dt>Pregunta (a Javier)</dt>
+<dd>
+¿<code>Cog-10-1.vhdr</code> es la grabación de ojos abiertos de M7 o un oddball de verdad?
+</dd>
+<dt>Respuesta</dt>
+<dd>
+<strong>Alejandro · 2026-09-28.</strong> En M7 te confirmo que <code>Cog-10-1.vhdr</code> corresponde a ojos abiertos.
+</dd>
+<dt>Acción</dt>
+<dd>
+Registrarlo en el documento maestro como EO de M7, sin segundos de corte: al ser un archivo por condición, no hay nada que trocear. M7 recupera su T1 de ojos abiertos y con él el par longitudinal completo (<a href="#duda-adq-05">ADQ-05</a>).
+</dd>
+<dt>Cierre · 2026-10-15</dt>
+<dd>
+Aplicado el 15-10-2026: <code>raw_selection.csv</code> declara el archivo sin sufijo de M7 como EO de T1 (acción <code>use</code>) y la auditoría lo reetiqueta en lugar de marcarlo <em>oddball</em>. M07 recupera su ojos abiertos de T1, con la señal idéntica al original, y con él el par longitudinal EO; el dataset pasa a 210 grabaciones.
+</dd>
+</dl>
+</div>
+<div id="duda-adq-05" class="nm-duda-ficha nm-d-trasladada">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">ADQ-05</span> <span class="dudaestado d-trasladada">trasladada</span></p>
+<p><strong>M4, M5 y M6 están descartados como «oddball» y no lo son</strong></p>
+</div>
+<dl>
+<dt>Contexto</dt>
+<dd>
+Tres sujetos quedaron fuera del análisis por una regla de nombres, no por una decisión clínica.
+</dd>
+<dt>Evidencia</dt>
+<dd>
+<code>scripts/audit_full_dataset.jl:111</code> etiqueta <code>ODDBALL</code> todo archivo sin sufijo de ojos y <code>:209</code> lo excluye. Consecuencia real: <code>sub-M04</code> y <code>sub-M06</code> no existen en <code>results/subjects/</code>, y <code>sub-M05</code> solo tiene <code>ses-T2</code>. Javier confirma que son resting-state con las dos condiciones concatenadas y da los segundos de corte. Recuperarlos suma 3 sujetos <span class="math inline">\times</span> 2 condiciones al transversal y un par al longitudinal (M5).
+</dd>
+<dt>Implicación</dt>
+<dd>
+La nota de <code>AGENTS.md</code> —«M4/M6 are ODDBALL recordings, correctly excluded»— es incorrecta y hay que retirarla (<a href="#duda-inf-01">INF-01</a>). Con esto y con M31 fuera, la cohorte longitudinal real son 28 pacientes, no 27: <span class="math inline">27 - \text{M31} + \text{M5} + \text{M7} = 28</span>, que coincide con las filas de la hoja que tienen columna E rellena.
+</dd>
+<dt>Respuesta</dt>
+<dd>
+Sin respuesta propia en la ficha: Javier confirma en la evidencia que son resting-state; consta su cierre.
+</dd>
+<dt>Acción</dt>
+<dd>
+Versionar el documento maestro como <code>data/BIDS/master_subjects.csv</code> y hacerlo fuente de verdad: que <code>audit_full_dataset.jl</code> deje de adivinar <code>ODDBALL</code> y de preferir <code>T2_1</code>. Requiere antes el recorte temporal del raw (<a href="#duda-pre-03">PRE-03</a>).
+</dd>
+<dt>Cierre · 2026-10-15</dt>
+<dd>
+Aplicado: M4, M5 y M6 entran como reposo; <code>raw_selection.csv</code> los recorta por segundos y el BIDS los guarda como seis registros independientes. Con ellos y con M7, y sin M31, la cohorte longitudinal son 28 pares.
+</dd>
+</dl>
+</div>
+<div id="duda-adq-06" class="nm-duda-ficha nm-d-trasladada">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">ADQ-06</span> <span class="dudaestado d-trasladada">trasladada</span></p>
+<p><strong>Segundos de corte de M4 y M5: la transición entra en los dos segmentos</strong></p>
+</div>
+<dl>
+<dt>Contexto</dt>
+<dd>
+Al trocear los T1 concatenados hay que decidir qué pasa con el instante en que el sujeto abre o cierra los ojos.
+</dd>
+<dt>Evidencia</dt>
+<dd>
+En M6, Javier deja un hueco de 4,94 s entre condiciones (124,40 → 129,34). En M4 y M5 los segmentos son contiguos (43,20/43,20 y 44,00/44,00), así que el instante de transición queda dentro de los dos segmentos.
+</dd>
+<dt>Implicación</dt>
+<dd>
+Esos primeros segundos son justo donde aparece el artefacto ocular de la transición, y en EC contaminan precisamente la banda alfa, que es nuestra hipótesis principal.
+</dd>
+<dt>Pregunta (a Javier)</dt>
+<dd>
+¿Descartamos también un par de segundos en la transición de M4 y M5, como en M6? Cambiaría tus números, por eso lo pregunto en vez de decidirlo por mi cuenta.
+</dd>
+<dt>Respuesta</dt>
+<dd>
+<strong>Alejandro · 2026-09-28.</strong> Mantendría exactamente los cortes definidos en la tabla original: M4 (OA 1,82–43,20 s; OC 43,20–80,52 s), M5 (OA 1,44–44,00 s; OC 44,00–102,46 s) y M6 (OA 0,00–124,40 s; OC 129,34–238,64 s). En M4 y M5 no añadiría ningún margen artificial entre condiciones; simplemente habría que evitar que el instante exacto de transición se contabilice en ambos segmentos.
+</dd>
+<dt>Acción</dt>
+<dd>
+Implementar los intervalos como semiabiertos <span class="math inline">[t_0, t_1)</span>: con eso el instante de transición cae en un único segmento y no hace falta ningún margen. Los segundos van en el documento maestro, uno por sujeto y condición, nunca cableados (<a href="#duda-pre-03">PRE-03</a>).
+</dd>
+<dt>Cierre · 2026-10-15</dt>
+<dd>
+Implementado el 15-10-2026: intervalos semiabiertos <span class="math inline">[t_\mathrm{min}, t_\mathrm{max})</span> en <code>build_bids_full.jl</code>, con los segundos en <code>raw_selection.csv</code> y en el sidecar <code>SourceWindow</code> de cada registro. La duración de cada <code>.eeg</code> coincide con <span class="math inline">t_\mathrm{max}-t_\mathrm{min}</span>.
+</dd>
+</dl>
+</div>
+<div id="duda-adq-10" class="nm-duda-ficha nm-d-trasladada">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">ADQ-10</span> <span class="dudaestado d-trasladada">trasladada</span></p>
+<p><strong>La base clínica llegó a la raíz del repositorio, fuera de <code>.gitignore</code></strong></p>
+</div>
+<dl>
+<dt>Contexto</dt>
+<dd>
+El archivo con los valores continuos (<a href="../chapters/01-esclerosis-multiple.html#duda-coh-01">COH-01</a>) se copió a la carpeta del proyecto para poder revisarlo. Cayó en la raíz.
+</dd>
+<dt>Evidencia</dt>
+<dd>
+<code>.gitignore</code> excluye <code>/data/</code> y <code>/results/</code>, pero no la raíz: <code>git check-ignore</code> confirmaba que el archivo <em>no</em> estaba ignorado y <code>git status</code> lo mostraba como sin seguimiento, listo para entrar en cualquier <code>git add -A</code>. El repositorio (<code>github.com/me1catrr/NeuroMIND</code>) es <strong>público</strong>, y el archivo contiene fecha de nacimiento, sexo, edad, diagnóstico, tratamiento, EDSS, D-FIS y BDI-II por sujeto.
+</dd>
+<dt>Implicación</dt>
+<dd>
+Un <code>git add -A</code> seguido de <code>push</code> habría publicado datos personales de salud de 84 personas en un repositorio abierto, y el historial de git no se limpia con un <code>rm</code> posterior. La regla de <code>AGENTS.md</code> §8 —nunca subir <code>data/</code>— solo protege lo que está dentro de <code>data/</code>.
+</dd>
+<dt>Respuesta</dt>
+<dd>
+Sin respuesta propia en la ficha: la acción describe lo hecho; consta su cierre.
+</dd>
+<dt>Acción</dt>
+<dd>
+Hecho: el archivo se movió a <code>data/clinical/</code>, que sí queda cubierto por la regla <code>/data/</code>, y se verificó que nunca llegó a estar en el historial (<code>git log</code> sobre el nombre no devuelve nada). Queda por endurecer la regla: en <code>.gitignore</code>, añadir patrones por extensión (<code>*.xlsx</code>, <code>*.vhdr</code>, <code>*.eeg</code>) que no dependan de en qué carpeta caiga el archivo, porque el caso que falla siempre es el de alguien dejando algo en la raíz «un momento».
+</dd>
+<dt>Cierre · 2026-10-15</dt>
+<dd>
+Hecho el 15-10-2026: <code>.gitignore</code> excluye ahora <code>*.xlsx</code>, <code>*.vhdr</code>, <code>*.vmrk</code> y <code>*.eeg</code> en cualquier carpeta, además de <code>/data/</code>; ninguno de esos tipos estaba versionado. Las hojas clínicas están en <code>data/sourcedata/clinical/</code>.
+</dd>
+</dl>
+</div>
+<div id="duda-pre-03" class="nm-duda-ficha nm-d-trasladada">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">PRE-03</span> <span class="dudaestado d-trasladada">trasladada</span></p>
+<p><strong>No existe recorte temporal del raw, y hay que construirlo</strong></p>
+</div>
+<dl>
+<dt>Contexto</dt>
+<dd>
+Recuperar M4, M5 y M6 (<a href="#duda-adq-05">ADQ-05</a>) exige trocear un <code>.vhdr</code> en dos grabaciones por los segundos que indica el documento maestro. El pipeline no sabe hacerlo.
+</dd>
+<dt>Evidencia</dt>
+<dd>
+No hay ninguna clave temporal en <code>config/pipeline.toml</code> (838 líneas, 19 secciones) ni nada en <code>src/SingleSubjectPipeline.jl</code>. El paso tendría que ir entre <code>[1/8] Load</code> y <code>[3/8] Filter</code>.
+</dd>
+<dt>Implicación</dt>
+<dd>
+Hay una decisión de diseño que no es evidente: BIDS tiene que poder representar dos <em>recordings</em> derivados del mismo <code>.vhdr</code>, y el corte tiene que quedar registrado por sujeto en el log y en <code>config_snapshot.toml</code>, o el resultado deja de ser reproducible.
+</dd>
+<dt>Pregunta (decisión propia)</dt>
+<dd>
+¿Los dos segmentos se materializan como dos grabaciones BIDS independientes (más limpio, duplica datos en disco) o como un recorte en memoria declarado en el snapshot de configuración (no duplica, pero el BIDS ya no describe lo que se analizó)?
+</dd>
+<dt>Respuesta</dt>
+<dd>
+<strong>Rafa · 2026-10-15.</strong> Se materializan como dos grabaciones BIDS independientes (la primera opción): <code>build_bids_full.jl</code> corta el raw antes de cualquier filtro y cada registro lleva su ventana <code>SourceWindow</code> en el sidecar. Así el BIDS describe exactamente lo que se analiza y el pipeline no necesita ninguna clave temporal.
+</dd>
+<dt>Acción</dt>
+<dd>
+Decidirlo antes de escribir una línea: condiciona <a href="#duda-adq-05">ADQ-05</a>, <a href="#duda-adq-06">ADQ-06</a> y la regeneración del BIDS entero.
+</dd>
+<dt>Cierre · 2026-10-15</dt>
+<dd>
+Construido el 15-10-2026 en <code>build_bids_full.jl</code>: seis registros recortados antes de cualquier filtro, con intervalos semiabiertos y sidecar <code>SourceWindow</code>; el cargador no aplica ninguna ventana.
+</dd>
+</dl>
+</div>
+<div id="duda-adq-04" class="nm-duda-ficha nm-d-neutra">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">ADQ-04</span> <span class="dudaestado d-trasladada">trasladada</span></p>
+</div>
+<dl>
+<dt>Cuestión</dt>
+<dd>
+M37 ses-T2 está calculado sobre <code>T2_1</code>, y el documento maestro indica <code>T2_2</code>.
+</dd>
+<dt>Consecuencia para este capítulo</dt>
+<dd>
+Como en <a href="#duda-adq-03">ADQ-03</a> y <a href="#duda-adq-05">ADQ-05</a>, la regla debe salir del documento maestro y no de una heurística del código; se aplica en el mismo cambio.
+</dd>
+<dt>Ficha completa</dt>
+<dd>
+En el Cuaderno de dudas del proyecto (aún no está en el libro). Aquí no hay respuesta ni cierre copiados, así que no lleva el verde.
+</dd>
+</dl>
+</div>
+<div id="duda-adq-09" class="nm-duda-ficha nm-d-neutra">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">ADQ-09</span> <span class="dudaestado d-trasladada">trasladada</span></p>
+</div>
+<dl>
+<dt>Cuestión</dt>
+<dd>
+M16 T1 EC tiene dos ficheros sin curar, y el T2 de M31 no es válido.
+</dd>
+<dt>Consecuencia para este capítulo</dt>
+<dd>
+Son dos decisiones de selección más que pasan al documento maestro: de M31 solo se analiza T1, y el T1 EC de M16 sale del fichero que indica Javier.
+</dd>
+<dt>Ficha completa</dt>
+<dd>
+En el Cuaderno de dudas del proyecto (aún no está en el libro). Aquí no hay respuesta ni cierre copiados, así que no lleva el verde.
+</dd>
+</dl>
+</div>
+<div id="duda-coh-06" class="nm-duda-ficha nm-d-abierta">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">COH-06</span> <span class="dudaestado d-abierta">abierta</span></p>
+</div>
+<dl>
+<dt>Cuestión</dt>
+<dd>
+La cohorte longitudinal es la intersección entre la base clínica y el documento maestro de EEG válido.
+</dd>
+<dt>Consecuencia para este capítulo</dt>
+<dd>
+El recuadro de decisión de la <a href="#sec-diseno-experimental" class="quarto-xref"><span>Sección 4.1</span></a> habla de 30 pacientes con T1 y T2, que es el recuento de la base clínica. Con EEG válido, la intersección son 28 (sin M3, que no tiene EEG, ni M31).
+</dd>
+<dt>Ficha completa</dt>
+<dd>
+En el Cuaderno de dudas del proyecto (aún no está en el libro).
+</dd>
+</dl>
+</div>
+<div id="duda-inf-01" class="nm-duda-ficha nm-d-neutra">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">INF-01</span> <span class="dudaestado d-trasladada">trasladada</span></p>
+</div>
+<dl>
+<dt>Cuestión</dt>
+<dd>
+<code>AGENTS.md</code> sigue diciendo que M4 y M6 son registros <em>oddball</em> correctamente excluidos.
+</dd>
+<dt>Consecuencia para este capítulo</dt>
+<dd>
+Es la nota que da por buena la exclusión que corrige <a href="#duda-adq-05">ADQ-05</a>; se retira en la misma pasada.
+</dd>
+<dt>Ficha completa</dt>
+<dd>
+En el Cuaderno de dudas del proyecto (aún no está en el libro). Aquí no hay respuesta ni cierre copiados, así que no lleva el verde.
+</dd>
+</dl>
+</div>
+
+
+</section>
+<section id="bibliography" class="level1 unnumbered">
+<h1 class="unnumbered">Referencias</h1>
+<div id="refs" class="references csl-bib-body hanging-indent" role="list" style="display: none">
+<div id="ref-Barry2007ECEO" class="csl-entry" role="listitem">
+Barry, Robert J., Adam R. Clarke, Stuart J. Johnstone, Christopher A. Magee, y Jacqueline A. Rushby. 2007. <span>«<span>EEG</span> differences between eyes-closed and eyes-open resting conditions»</span>. <em>Clinical Neurophysiology</em> 118 (12): 2765-73. <a href="https://doi.org/10.1016/j.clinph.2007.07.028">https://doi.org/10.1016/j.clinph.2007.07.028</a>.
+</div>
+<div id="ref-Cohen2014" class="csl-entry" role="listitem">
+Cohen, Mike X.. 2014. <em>Analyzing neural time series data : theory and practice</em>. The MIT Press.
+</div>
+<div id="ref-Gorgolewski2016BIDS" class="csl-entry" role="listitem">
+Gorgolewski, Krzysztof J., Tibor Auer, Vince D. Calhoun, et&nbsp;al. 2016. <span>«The brain imaging data structure, a format for organizing and describing outputs of neuroimaging experiments»</span>. <em>Scientific Data</em> 3: 160044. <a href="https://doi.org/10.1038/sdata.2016.44">https://doi.org/10.1038/sdata.2016.44</a>.
+</div>
+<div id="ref-Keil2014Guidelines" class="csl-entry" role="listitem">
+Keil, Andreas, Stefan Debener, Gabriele Gratton, et&nbsp;al. 2014. <span>«Committee report: Publication guidelines and recommendations for studies using electroencephalography and magnetoencephalography»</span>. <em>Psychophysiology</em> 51 (1): 1-21. <a href="https://doi.org/10.1111/psyp.12147">https://doi.org/10.1111/psyp.12147</a>.
+</div>
+<div id="ref-Pernet2019EEGBIDS" class="csl-entry" role="listitem">
+<span class="nocase">Pernet, Cyril R., Stefan Appelhoff, Krzysztof J. Gorgolewski, et&nbsp;al.</span> 2019. <span>«<span>EEG-BIDS</span>, an extension to the brain imaging data structure for electroencephalography»</span>. <em>Scientific Data</em> 6 (1): 103. <a href="https://doi.org/10.1038/s41597-019-0104-8">https://doi.org/10.1038/s41597-019-0104-8</a>.
+</div>
+<div id="ref-Pernet2020COBIDAS" class="csl-entry" role="listitem">
+<span class="nocase">Pernet, Cyril, Marta I. Garrido, Alexandre Gramfort, et&nbsp;al.</span> 2020. <span>«Issues and recommendations from the <span>OHBM</span> <span>COBIDAS</span> <span>MEEG</span> committee for reproducible <span>EEG</span> and <span>MEG</span> research»</span>. <em>Nature Neuroscience</em> 23 (12): 1473-83. <a href="https://doi.org/10.1038/s41593-020-00709-0">https://doi.org/10.1038/s41593-020-00709-0</a>.
+</div>
+<div id="ref-Yamada2018" class="csl-entry" role="listitem">
+Yamada, Tōru., y Elizabeth. Meng. 2018. <em>Practical guide for clinical neurophysiologic testing. EEG</em>. Wolters Kluwer.
+</div>
+</div>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="../chapters/03-fundamentos.html" class="pagination-link" aria-label="Fundamentos de EEG para ingenieros">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Fundamentos de EEG para ingenieros</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="../chapters/05-raw.html" class="pagination-link" aria-label="Señal raw y control de calidad inicial">
+        <span class="nav-page-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Señal raw y control de calidad inicial</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

@@ -1,0 +1,1833 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.19">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>3&nbsp; Fundamentos de EEG para ingenieros – NeuroMIND</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<link href="../chapters/04-diseno-adquisicion.html" rel="next">
+<link href="../chapters/02-estado-arte.html" rel="prev">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-e0f85b23f9611b83334aa333ab076718.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No se han encontrado resultados",
+    "search-matching-documents-text": "documentos encontrados",
+    "search-copy-link-title": "Copiar el enlace en la búsqueda",
+    "search-hide-matches-text": "Ocultar resultados adicionales",
+    "search-more-match-text": "resultado adicional en este documento",
+    "search-more-matches-text": "resultados adicionales en este documento",
+    "search-clear-button-title": "Borrar",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancelar",
+    "search-submit-button-title": "Enviar",
+    "search-label": "Buscar"
+  }
+}</script>
+
+  <script defer="" src="../vendor/katex/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <link rel="stylesheet" href="../vendor/katex/katex.min.css">
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../assets/css/styles.css">
+</head>
+
+<body class="nav-sidebar floating slimcontent quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Alternar barra lateral" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../chapters/03-fundamentos.html"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Fundamentos de EEG para ingenieros</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Alternar barra lateral" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Buscar" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="../">NeuroMIND</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Buscar"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Portada</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/00-introduccion.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Introducción</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/00-resumen.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Resumen ejecutivo</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/00-referencia.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Referencia rápida</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/01-esclerosis-multiple.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Esclerosis múltiple para ingenieros</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/02-estado-arte.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Estado del arte, hipótesis y objetivos</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/03-fundamentos.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Fundamentos de EEG para ingenieros</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/04-diseno-adquisicion.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Diseño experimental y organización del pipeline</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/05-raw.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Señal raw y control de calidad inicial</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/06-filtrado.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Filtrado</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/99-referencias.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Referencias</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">En esta página</h2>
+   
+  <ul>
+  <li><a href="#objetivos-de-aprendizaje" id="toc-objetivos-de-aprendizaje" class="nav-link active" data-scroll-target="#objetivos-de-aprendizaje">Objetivos de aprendizaje</a></li>
+  <li><a href="#lecturas-esenciales" id="toc-lecturas-esenciales" class="nav-link" data-scroll-target="#lecturas-esenciales">Lecturas esenciales</a></li>
+  <li><a href="#sec-fundamentos-que-mide" id="toc-sec-fundamentos-que-mide" class="nav-link" data-scroll-target="#sec-fundamentos-que-mide"><span class="header-section-number">3.1</span> ¿Qué mide realmente un EEG?</a></li>
+  <li><a href="#sec-fundamentos-origen" id="toc-sec-fundamentos-origen" class="nav-link" data-scroll-target="#sec-fundamentos-origen"><span class="header-section-number">3.2</span> Origen fisiológico de la señal EEG</a></li>
+  <li><a href="#sec-fundamentos-oscilaciones" id="toc-sec-fundamentos-oscilaciones" class="nav-link" data-scroll-target="#sec-fundamentos-oscilaciones"><span class="header-section-number">3.3</span> Oscilaciones y bandas de frecuencia</a>
+  <ul class="collapse">
+  <li><a href="#sec-fundamentos-tipos-oscilacion" id="toc-sec-fundamentos-tipos-oscilacion" class="nav-link" data-scroll-target="#sec-fundamentos-tipos-oscilacion"><span class="header-section-number">3.3.1</span> Tipos de oscilación y modelo sinusoidal</a></li>
+  <li><a href="#sec-fundamentos-bandas" id="toc-sec-fundamentos-bandas" class="nav-link" data-scroll-target="#sec-fundamentos-bandas"><span class="header-section-number">3.3.2</span> Bandas de frecuencia y significado funcional</a></li>
+  <li><a href="#sec-fundamentos-ec-eo" id="toc-sec-fundamentos-ec-eo" class="nav-link" data-scroll-target="#sec-fundamentos-ec-eo"><span class="header-section-number">3.3.3</span> Reactividad en reposo: ojos cerrados y abiertos</a></li>
+  </ul></li>
+  <li><a href="#sec-fundamentos-cadena" id="toc-sec-fundamentos-cadena" class="nav-link" data-scroll-target="#sec-fundamentos-cadena"><span class="header-section-number">3.4</span> Cadena de adquisición y digitalización</a></li>
+  <li><a href="#sec-sistema-10-20" id="toc-sec-sistema-10-20" class="nav-link" data-scroll-target="#sec-sistema-10-20"><span class="header-section-number">3.5</span> Sistema internacional 10–20</a></li>
+  <li><a href="#sec-referencia-tierra-montajes" id="toc-sec-referencia-tierra-montajes" class="nav-link" data-scroll-target="#sec-referencia-tierra-montajes"><span class="header-section-number">3.6</span> Referencia, tierra y montajes EEG</a></li>
+  <li><a href="#sec-montaje-neuromind" id="toc-sec-montaje-neuromind" class="nav-link" data-scroll-target="#sec-montaje-neuromind"><span class="header-section-number">3.7</span> Montaje del proyecto NeuroMIND</a>
+  <ul class="collapse">
+  <li><a href="#sec-montaje-eeg" id="toc-sec-montaje-eeg" class="nav-link" data-scroll-target="#sec-montaje-eeg"><span class="header-section-number">3.7.1</span> Posiciones y canales activos</a></li>
+  <li><a href="#sec-referencia-fcz-gnd" id="toc-sec-referencia-fcz-gnd" class="nav-link" data-scroll-target="#sec-referencia-fcz-gnd"><span class="header-section-number">3.7.2</span> Referencia FCz y tierra Gnd</a></li>
+  </ul></li>
+  <li><a href="#sec-fundamentos-artefactos" id="toc-sec-fundamentos-artefactos" class="nav-link" data-scroll-target="#sec-fundamentos-artefactos"><span class="header-section-number">3.8</span> Artefactos habituales en EEG</a></li>
+  <li><a href="#sec-fundamentos-fortalezas" id="toc-sec-fundamentos-fortalezas" class="nav-link" data-scroll-target="#sec-fundamentos-fortalezas"><span class="header-section-number">3.9</span> Fortalezas y limitaciones de la técnica</a></li>
+  <li><a href="#sec-fundamentos-pipeline" id="toc-sec-fundamentos-pipeline" class="nav-link" data-scroll-target="#sec-fundamentos-pipeline"><span class="header-section-number">3.10</span> Del fundamento teórico al pipeline</a></li>
+  <li><a href="#sec-mapa-codigo-global" id="toc-sec-mapa-codigo-global" class="nav-link" data-scroll-target="#sec-mapa-codigo-global">Anexo del capítulo: mapa global del código</a></li>
+  <li><a href="#sec-sintesis-fundamentos" id="toc-sec-sintesis-fundamentos" class="nav-link" data-scroll-target="#sec-sintesis-fundamentos"><span class="header-section-number">3.11</span> Síntesis y preguntas para discutir</a>
+  <ul class="collapse">
+  <li><a href="#lo-que-hay-que-llevarse-del-capítulo" id="toc-lo-que-hay-que-llevarse-del-capítulo" class="nav-link" data-scroll-target="#lo-que-hay-que-llevarse-del-capítulo">Lo que hay que llevarse del capítulo</a></li>
+  <li><a href="#sec-q-abiertas-fundamentos" id="toc-sec-q-abiertas-fundamentos" class="nav-link" data-scroll-target="#sec-q-abiertas-fundamentos">Qué sigue abierto</a></li>
+  </ul></li>
+  <li><a href="#sec-dudas-fundamentos" id="toc-sec-dudas-fundamentos" class="nav-link" data-scroll-target="#sec-dudas-fundamentos"><span class="header-section-number">3.12</span> Dudas del proyecto</a></li>
+  <li><a href="#bibliography" id="toc-bibliography" class="nav-link" data-scroll-target="#bibliography">Referencias</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content page-columns page-full" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title"><span id="sec-fundamentos" class="quarto-section-identifier"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Fundamentos de EEG para ingenieros</span></span></h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="nm-meta nm-meta-capitulo" role="note">
+<p>v0.1.1 · modificado el 28/10/2026 · lectura 32 min · estudio 50 min</p>
+</div>
+<div class="nm-nav">
+<table><caption>Secciones de este capítulo. <strong>Lectura</strong>: tiempo de leer el texto (200 palabras/min). <strong>Estudio</strong>: lectura más ecuaciones, preguntas y simulaciones (criterios en <code>metadata/criterios-tiempos.yml</code>).</caption>
+<thead><tr><th>Sección</th><th>Lectura</th><th>Estudio</th></tr></thead><tbody>
+<tr><td><a href="#sec-fundamentos-que-mide">¿Qué mide realmente un EEG?</a></td><td>1 min</td><td>5 min</td></tr>
+<tr><td><a href="#sec-fundamentos-origen">Origen fisiológico de la señal EEG</a></td><td>3 min</td><td>10 min</td></tr>
+<tr><td><a href="#sec-fundamentos-oscilaciones">Oscilaciones y bandas de frecuencia</a></td><td>4 min</td><td>5 min</td></tr>
+<tr><td><a href="#sec-fundamentos-cadena">Cadena de adquisición y digitalización</a></td><td>3 min</td><td>5 min</td></tr>
+<tr><td><a href="#sec-sistema-10-20">Sistema internacional 10–20</a></td><td>2 min</td><td>5 min</td></tr>
+<tr><td><a href="#sec-referencia-tierra-montajes">Referencia, tierra y montajes EEG</a></td><td>4 min</td><td>15 min</td></tr>
+<tr><td><a href="#sec-montaje-neuromind">Montaje del proyecto NeuroMIND</a></td><td>3 min</td><td>5 min</td></tr>
+<tr><td><a href="#sec-fundamentos-artefactos">Artefactos habituales en EEG</a></td><td>2 min</td><td>5 min</td></tr>
+<tr><td><a href="#sec-fundamentos-fortalezas">Fortalezas y limitaciones de la técnica</a></td><td>2 min</td><td>5 min</td></tr>
+<tr><td><a href="#sec-fundamentos-pipeline">Del fundamento teórico al pipeline</a></td><td>1 min</td><td>5 min</td></tr>
+<tr><td><a href="#sec-mapa-codigo-global">Anexo del capítulo: mapa global del código</a></td><td>3 min</td><td>5 min</td></tr>
+<tr><td><a href="#sec-sintesis-fundamentos">Síntesis y preguntas para discutir</a></td><td>3 min</td><td>10 min</td></tr>
+<tr><td><a href="#sec-dudas-fundamentos">Dudas del proyecto</a></td><td>6 min</td><td>10 min</td></tr>
+</tbody><tfoot><tr><th>Capítulo completo</th><th>32 min</th><th>50 min</th></tr></tfoot></table></div>
+<section id="objetivos-de-aprendizaje" class="level2 unnumbered" data-origen="ampliacion">
+<h2 class="unnumbered anchored" data-anchor-id="objetivos-de-aprendizaje">Objetivos de aprendizaje</h2>
+<p><strong>Objetivo del capítulo.</strong> Qué mide un electrodo, cómo se forma cada canal frente a la referencia y qué puede y qué no puede decir el EEG sobre el cerebro.</p>
+<p><strong>La pregunta científica.</strong> Antes de calcular nada sobre la señal de un paciente con EM, ¿qué es exactamente lo que llega al pipeline: qué fuente la genera, qué le hace el camino hasta el electrodo y con qué referencia queda expresada?</p>
+<p><strong>Al terminar este capítulo deberías ser capaz de:</strong></p>
+<ol type="1">
+<li>explicar por qué el EEG refleja la suma de corrientes postsinápticas de poblaciones sincronizadas y no potenciales de acción individuales;</li>
+<li>describir la cadena que va del campo cortical a la matriz canales×muestras y qué conviene vigilar en cada etapa;</li>
+<li>leer el nombre de un electrodo del sistema 10–20 (letra, número o «z») y situarlo en el cuero cabelludo;</li>
+<li>distinguir <strong>tierra</strong> de <strong>referencia</strong>, escribir un canal como diferencia de potencial y explicar qué cambia, y qué no, al re-referenciar;</li>
+<li>enumerar el montaje de NeuroMIND (31 electrodos activos, referencia FCz, tierra Gnd, sin Fp1) y por qué el pipeline no re-referencia;</li>
+<li>nombrar los artefactos más frecuentes y los límites de la técnica.</li>
+</ol>
+<p><strong>Conocimientos previos.</strong> El <a href="../chapters/01-esclerosis-multiple.html">capítulo 1</a> y la idea de frecuencia y fase de una oscilación. No hace falta saber de neurofisiología: lo necesario se explica en las notas laterales. Es el capítulo de <em>fundamentos</em> del informe: un puente de señal de la neurona al archivo digital y de ahí al montaje con el que se registró la cohorte.</p>
+</section>
+<section id="lecturas-esenciales" class="level2 unnumbered page-columns page-full">
+<h2 class="unnumbered anchored" data-anchor-id="lecturas-esenciales">Lecturas esenciales</h2>
+<p>Tres lecturas, de mayor a menor prioridad. La dificultad para ingeniería (de uno a tres, de menor a mayor) y los tiempos son los que da el informe original y son orientativos.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p>Pasa el cursor (o toca) sobre la cita para ver la referencia completa. Los tres niveles son los del informe: <strong>imprescindible</strong>, <strong>para profundizar</strong> y <strong>consulta</strong>.</p>
+</div></div><div class="nm-lecturas">
+<div class="nm-lectura">
+<div class="nm-lec-nivel">
+<p><span class="nm-prio nm-prio-1">Imprescindible</span></p>
+</div>
+<div class="nm-lec-cuerpo">
+<p><strong><span class="citation" data-cites="Cohen2014">Cohen (<a href="99-referencias.html#ref-Cohen2014" role="doc-biblioref">2014</a>)</span></strong> · <em>Analyzing neural time series data: theory and practice</em> (libro, MIT Press).</p>
+<p>El mejor puente para un ingeniero: qué es la señal electrofisiológica y cómo se analiza, con código.</p>
+<p><em>Leer:</em> parte I, capítulos 1–2 (propósito del libro, ventajas y límites del EEG).</p>
+</div>
+<ul>
+<li><strong>Tiempo</strong> ≈ 2 h</li>
+<li><strong>Dificultad</strong> 1</li>
+<li><strong>Sección</strong> <a href="#sec-fundamentos-que-mide" class="quarto-xref"><span>Sección 3.1</span></a></li>
+<li><strong>DOI</strong> sin DOI (libro; ISBN 9780262019873)</li>
+</ul>
+</div>
+<div class="nm-lectura">
+<div class="nm-lec-nivel">
+<p><span class="nm-prio nm-prio-2">Para profundizar</span></p>
+</div>
+<div class="nm-lec-cuerpo">
+<p><strong><span class="citation" data-cites="IriarteFranco2013">Iriarte Franco y Artieda González-Granda (<a href="99-referencias.html#ref-IriarteFranco2013" role="doc-biblioref">2013</a>)</span></strong> · <em>Manual de neurofisiología clínica</em> (libro, Editorial Médica Panamericana).</p>
+<p>Manual de neurofisiología clínica en castellano: origen de la señal, montajes y lectura clínica del EEG.</p>
+<p><em>Leer:</em> capítulos de fundamentos del EEG.</p>
+</div>
+<ul>
+<li><strong>Tiempo</strong> ≈ 3 h</li>
+<li><strong>Dificultad</strong> 2</li>
+<li><strong>Sección</strong> <a href="#sec-fundamentos-origen" class="quarto-xref"><span>Sección 3.2</span></a></li>
+<li><strong>DOI</strong> sin DOI (libro; ISBN 9788491104810)</li>
+</ul>
+</div>
+<div class="nm-lectura">
+<div class="nm-lec-nivel">
+<p><span class="nm-prio nm-prio-3">Consulta</span></p>
+</div>
+<div class="nm-lec-cuerpo">
+<p><strong><span class="citation" data-cites="Yamada2018">Yamada y Meng (<a href="99-referencias.html#ref-Yamada2018" role="doc-biblioref">2018</a>)</span></strong> · <em>Practical guide for clinical neurophysiologic testing: EEG</em> (libro, Wolters Kluwer).</p>
+<p>Guía práctica del registro clínico: sistema 10–20, montajes, ritmos normales y artefactos.</p>
+</div>
+<ul>
+<li><strong>Tiempo</strong> a demanda</li>
+<li><strong>Dificultad</strong> 1</li>
+<li><strong>Sección</strong> <a href="#sec-sistema-10-20" class="quarto-xref"><span>Sección 3.5</span></a></li>
+<li><strong>DOI</strong> sin DOI (libro; ISBN 9781496383020)</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="sec-fundamentos-que-mide" class="level2 page-columns page-full" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="sec-fundamentos-que-mide"><span class="header-section-number">3.1</span> ¿Qué mide realmente un EEG?</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 1 min · estudio 5 min</p>
+</div>
+<p>El <strong>electroencefalograma (EEG)</strong> es una técnica no invasiva que registra la actividad eléctrica del cerebro mediante electrodos colocados sobre el cuero cabelludo. La señal registrada corresponde a fluctuaciones de voltaje generadas por la actividad eléctrica síncrona de poblaciones neuronales, principalmente de la corteza cerebral.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p><strong>Sinapsis:</strong> unión funcional entre dos neuronas, o entre una neurona y otra célula, que permite la transmisión de información mediante neurotransmisores o señales eléctricas.</p>
+</div></div><p>La principal fortaleza del EEG es su excelente resolución temporal, que permite estudiar procesos neuronales dinámicos en el tiempo. A ello se suman la buena cobertura espacial, el carácter portátil y relativamente económico del registro, y la sensibilidad a distintas condiciones o estados mentales.</p>
+</section>
+<section id="sec-fundamentos-origen" class="level2 page-columns page-full" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="sec-fundamentos-origen"><span class="header-section-number">3.2</span> Origen fisiológico de la señal EEG</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 3 min · estudio 10 min</p>
+</div>
+<p>El registro EEG parte de la actividad neuronal. Las corrientes postsinápticas en neuronas piramidales se propagan a través del volumen conductor formado por encéfalo, cráneo, cuero cabelludo y piel. Los electrodos situados sobre el cuero cabelludo detectan diferencias de potencial, que posteriormente se amplifican, se filtran y se convierten a formato digital.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p><strong>Referencia histórica:</strong> El primer electroencefalograma humano fue registrado en 1924 por Hans Berger, quien documentó por primera vez las oscilaciones eléctricas espontáneas del cerebro sobre el cuero cabelludo <span class="citation" data-cites="IriarteFranco2013">(<a href="99-referencias.html#ref-IriarteFranco2013" role="doc-biblioref">Iriarte Franco y Artieda González-Granda 2013</a>)</span>. Desde entonces, el EEG se ha consolidado como herramienta de diagnóstico, pronóstico y orientación terapéutica en neurofisiología clínica.</p>
+</div></div><div id="fig-neurona-estructura" class="nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Esquema de una neurona de izquierda a derecha, con rótulos en castellano: dendritas, que reciben señales de otras neuronas; soma, que integra la información, con el núcleo en su interior; axón con segmentos amarillos de vaina de mielina separados por nodos de Ranvier, y terminales sinápticas que transmiten la señal a la siguiente célula. Una flecha bajo el dibujo indica la dirección de la señal nerviosa. Debajo, un recuadro de comunicación neuronal muestra una neurona presináptica que libera neurotransmisores en el espacio sináptico hacia una neurona postsináptica. Lleva la nota «Esquema ilustrativo, no son datos».">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-neurona-estructura-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap03/Neurona.png" class="nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Esquema de una neurona de izquierda a derecha, con rótulos en castellano: dendritas, que reciben señales de otras neuronas; soma, que integra la información, con el núcleo en su interior; axón con segmentos amarillos de vaina de mielina separados por nodos de Ranvier, y terminales sinápticas que transmiten la señal a la siguiente célula. Una flecha bajo el dibujo indica la dirección de la señal nerviosa. Debajo, un recuadro de comunicación neuronal muestra una neurona presináptica que libera neurotransmisores en el espacio sináptico hacia una neurona postsináptica. Lleva la nota «Esquema ilustrativo, no son datos».">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-neurona-estructura-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;3.1: Estructura de la neurona y comunicación sináptica. El EEG registra el efecto sumado de miles de eventos de este tipo —corrientes postsinápticas en dendritas y soma— no potenciales de acción individuales viajando por el axón. <em>Ilustración conceptual generada con FigureLabs (IA), sin datos del estudio.</em>
+</figcaption>
+</figure>
+</div>
+<details class="nm-detalle">
+<summary>
+Procedencia y limitaciones de esta imagen
+</summary>
+<p><strong>Procedencia.</strong> Ilustración conceptual generada con FigureLabs (IA generativa) el 13 de octubre de 2026, sin datos del estudio. Sustituye a una figura anterior que repetía el rótulo «Núcleo» y cuyas líneas de «Axón» y «Vaina de mielina» no terminaban en la estructura correspondiente; se revisó a mano el resultado. Fuente: ficha de procedencia del informe original.</p>
+<p><strong>Limitaciones documentadas.</strong> Es un esquema, no está a escala; la mielina se dibuja como segmentos separados y el axón como un filamento continuo; la sinapsis inferior es química y simplificada (no distingue el neurotransmisor).</p>
+<p><strong>Licencia.</strong> Los términos de uso y los derechos de distribución de la imagen no están documentados en el informe: <span class="estado e-pendiente">pendiente</span></p>
+</details>
+<div class="nm-box nm-ingenieros" data-rotulo="Para ingenieros · potencial postsináptico frente a potencial de acción">
+<p>Una neurona produce dos tipos de señal eléctrica. El <strong>potencial de acción</strong> (60–80 mV) es el disparo que viaja por el axón; el <strong>potencial postsináptico</strong> es la respuesta, más lenta y pequeña, de las dendritas y el soma a ese disparo. El EEG no ve disparos sueltos: ve la suma de corrientes postsinápticas de del orden de <span class="math inline">10^8</span> neuronas piramidales que actúan a la vez. Por eso mide actividad sincronizada de grandes poblaciones, no neuronas individuales.</p>
+</div>
+<p>A nivel celular, la secuencia generativa es la siguiente: la despolarización postsináptica libera iones Na<span class="math inline">^+</span> hacia el interior de la célula, lo que crea una <strong>negatividad extracelular local</strong>. Cuando un número suficiente de neuronas piramidales actúa de forma sincronizada —estimado en del orden de <span class="math inline">10^8</span> células— el potencial de campo resultante es detectable desde el cuero cabelludo. Una oscilación con amplitud suficiente para producir una punta visible en el EEG requiere una superficie cortical activa de aproximadamente <span class="math inline">6\,\text{cm}^2</span> <span class="citation" data-cites="IriarteFranco2013">(<a href="99-referencias.html#ref-IriarteFranco2013" role="doc-biblioref">Iriarte Franco y Artieda González-Granda 2013</a>)</span>. Por tanto, el EEG refleja potenciales de acción (<span class="math inline">\approx 60</span>–<span class="math inline">80\,\text{mV}</span>) solo de forma indirecta; lo que registra directamente son los potenciales postsinápticos sumados.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p><strong>Potencial de acción:</strong> en reposo <span class="math inline">V_m \approx -70\,\mathrm{mV}</span>. Durante la despolarización, el potencial de Nernst del sodio <span class="math display">
+E_{\mathrm{Na}} = \frac{RT}{F}\ln\frac{[\mathrm{Na}^+]_{\mathrm{out}}}{[\mathrm{Na}^+]_{\mathrm{in}}} \approx +60\,\mathrm{mV}
+</span> fija el orden de magnitud del empuje iónico. El salto transmembrana del pulso unitario se sitúa, por tanto, en torno a <span class="math inline">60</span>–<span class="math inline">80\,\mathrm{mV}</span> <span class="citation" data-cites="IriarteFranco2013">(<a href="99-referencias.html#ref-IriarteFranco2013" role="doc-biblioref">Iriarte Franco y Artieda González-Granda 2013</a>)</span>, muy por encima de la escala de µV registrada en EEG.</p>
+</div><div class="">
+<p>El EEG no es estable ni estacionario en sentido estricto: el contenido frecuencial varía a lo largo de la sesión. Esta es la razón por la que el análisis espectral se aplica sobre épocas cortas y cuasiestacionarias.</p>
+</div><div class="">
+<p>En EEG no se interpreta un electrodo aislado como una fuente directa. La señal observada depende de la actividad neuronal, del volumen conductor, del montaje de electrodos, de la referencia y del procesamiento aplicado.</p>
+</div></div>
+
+</section>
+<section id="sec-fundamentos-oscilaciones" class="level2 page-columns page-full" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="sec-fundamentos-oscilaciones"><span class="header-section-number">3.3</span> Oscilaciones y bandas de frecuencia</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 4 min · estudio 5 min</p>
+</div>
+<p>Con el origen de la señal ya fijado, esta sección describe cómo se organiza en el tiempo: primero qué es una oscilación y de qué tipos las hay; después, cómo se agrupan en bandas de frecuencia con significado funcional; y por último, cómo cambia el ritmo dominante entre ojos cerrados y abiertos, que es la condición experimental del estudio.</p>
+<section id="sec-fundamentos-tipos-oscilacion" class="level3 page-columns page-full" data-number="3.3.1">
+<h3 data-number="3.3.1" class="anchored" data-anchor-id="sec-fundamentos-tipos-oscilacion"><span class="header-section-number">3.3.1</span> Tipos de oscilación y modelo sinusoidal</h3>
+<p>Las oscilaciones del EEG emergen del interjuego de muchos ensamblados neuronales a través de sinapsis excitadoras e inhibidoras <span class="citation" data-cites="Sanei2022 Cohen2014">(<a href="99-referencias.html#ref-Sanei2022" role="doc-biblioref">Sanei y Chambers 2022</a>; <a href="99-referencias.html#ref-Cohen2014" role="doc-biblioref">Cohen 2014</a>)</span>. Desde el punto de vista del análisis espectral conviene distinguir tres tipos de oscilaciones según su relación con los eventos externos:</p>
+<ul>
+<li><strong>Espontáneas:</strong> presentes de forma continua sin que dependa de un estímulo externo, como el ritmo alfa en reposo con ojos cerrados.</li>
+<li><strong>Evocadas:</strong> ligadas con precisión temporal a un estímulo; son capturadas típicamente mediante potenciales evocados y promediado.</li>
+<li><strong>Inducidas:</strong> desencadenadas por un evento pero sin un anclaje temporal fijo, como la sincronización gamma ante atención sostenida.</li>
+</ul>
+<div id="fig-oscillation-model" class="nm-figura-svg nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Dos sinusoides frente al tiempo. La continua, en azul oscuro, es x(t)=A sin(ωt+φ) con φ=1,0472≈π/3 y adelanta a la discontinua, en verde azulado, que es A sin(ωt) sin desfase. Flechas naranjas marcan la amplitud A, el desfase φ/ω (de −φ/ω a 0 en el eje del tiempo) y el valor inicial x(0)=A sin(π/3). Una flecha gris marca el periodo T=2π/ω.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-oscillation-model-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap03/oscillation_model.svg" class="nm-figura-svg nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Dos sinusoides frente al tiempo. La continua, en azul oscuro, es x(t)=A sin(ωt+φ) con φ=1,0472≈π/3 y adelanta a la discontinua, en verde azulado, que es A sin(ωt) sin desfase. Flechas naranjas marcan la amplitud A, el desfase φ/ω (de −φ/ω a 0 en el eje del tiempo) y el valor inicial x(0)=A sin(π/3). Una flecha gris marca el periodo T=2π/ω.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-oscillation-model-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;3.2: Modelo oscilatorio <span class="math inline">x(t)=A\sin(\omega t+\varphi)</span> (azul) frente a la referencia sin desfase <span class="math inline">A\sin(\omega t)</span> (teal, discontinua): amplitud <span class="math inline">A</span>, periodo <span class="math inline">T=2\pi/\omega</span>, desfase <span class="math inline">\varphi/\omega</span> y valor inicial <span class="math inline">x(0)</span>. Figura TikZ propia del informe original.
+</figcaption>
+</figure>
+</div>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p><strong>Oscilación:</strong> variación periódica en el tiempo. Una onda sinusoidal se escribe <span class="math inline">x(t)=A\sin(\omega t+\phi)</span>: <span class="math inline">A</span> es la <em>amplitud</em>, <span class="math inline">\omega=2\pi f</span> la frecuencia angular (periodo <span class="math inline">T=2\pi/\omega</span>) y <span class="math inline">\phi</span> la <em>fase</em> inicial.</p>
+</div></div><p>Las oscilaciones pueden ser además <strong>rítmicas</strong> (repetitivas en el tiempo, identificables como picos en la PSD) o <strong>transitorias</strong> (cortas ráfagas cuya energía se distribuye en un intervalo temporal acotado, y que requieren análisis tiempo-frecuencia para ser caracterizadas). En registros de reposo se asume predominio de actividad rítmica y cuasi-estacionaria, lo que justifica el uso de FFT como herramienta principal.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p><strong>EEG – EC:</strong> el EEG de reposo con ojos cerrados suele mostrar una firma alfa (8–12 Hz) prominente sobre regiones occipitales y parietales. Este ritmo se suprime parcialmente al abrir los ojos (<em>alpha desynchronization</em>).</p>
+</div></div></section>
+<section id="sec-fundamentos-bandas" class="level3 page-columns page-full" data-number="3.3.2">
+<h3 data-number="3.3.2" class="anchored" data-anchor-id="sec-fundamentos-bandas"><span class="header-section-number">3.3.2</span> Bandas de frecuencia y significado funcional</h3>
+<p>El EEG suele resumirse en bandas de frecuencia. Se presentan las bandas delta (<span class="math inline">\delta</span>), theta (<span class="math inline">\theta</span>), alpha (<span class="math inline">\alpha</span>), beta (<span class="math inline">\beta</span>) y gamma (<span class="math inline">\gamma</span>), junto con subdivisiones habituales (sub-delta, low-gamma y high-gamma), con los rangos y asociaciones resumidos en la <a href="#tbl-eeg-bandas-frecuencia" class="quarto-xref">tabla&nbsp;<span>3.1</span></a>. Estas asociaciones deben interpretarse siempre dentro del contexto clínico o experimental.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p>Las bandas EEG son convenciones operativas, no compartimentos fisiológicos rígidos. Sus límites varían ligeramente entre estudios y laboratorios. Algunos autores subdividen gamma en <em>low-gamma</em> (30–80 Hz) y <em>high-gamma</em> ($&gt;$80 Hz), e incluyen <em>sub-delta</em> (0–1 Hz). Este informe adopta la convención de la <a href="#tbl-eeg-bandas-frecuencia" class="quarto-xref">tabla&nbsp;<span>3.1</span></a> como definición operativa del pipeline.</p>
+</div></div><div id="tbl-eeg-bandas-frecuencia" class="nm-apilable quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-eeg-bandas-frecuencia-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabla&nbsp;3.1: Bandas de frecuencia EEG.
+</figcaption>
+<div aria-describedby="tbl-eeg-bandas-frecuencia-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="nm-apilable caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Banda</th>
+<th style="text-align: left;">Rango (Hz)</th>
+<th style="text-align: left;">Características</th>
+<th style="text-align: left;">Estados o funciones asociadas</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;" data-label="Banda">Sub-delta</td>
+<td style="text-align: left;" data-label="Rango (Hz)">0–1</td>
+<td style="text-align: left;" data-label="Características">Actividad muy lenta, en el límite infrabajo del EEG</td>
+<td style="text-align: left;" data-label="Estados o funciones asociadas">Oscilaciones lentas y deriva; sensible a duración de época y filtrado.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Banda">Delta (<span class="math inline">\delta</span>)</td>
+<td style="text-align: left;" data-label="Rango (Hz)">0.5–4</td>
+<td style="text-align: left;" data-label="Características">Alta amplitud, baja frecuencia</td>
+<td style="text-align: left;" data-label="Estados o funciones asociadas">Sueño profundo, recuperación.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Banda">Theta (<span class="math inline">\theta</span>)</td>
+<td style="text-align: left;" data-label="Rango (Hz)">4–8</td>
+<td style="text-align: left;" data-label="Características">Ritmos medios</td>
+<td style="text-align: left;" data-label="Estados o funciones asociadas">Relajación, memoria, procesos internos.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Banda">Alpha (<span class="math inline">\alpha</span>)</td>
+<td style="text-align: left;" data-label="Rango (Hz)">8–12</td>
+<td style="text-align: left;" data-label="Características">Ritmo posterior dominante</td>
+<td style="text-align: left;" data-label="Estados o funciones asociadas">Relajación, ojos cerrados, inhibición cortical.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Banda">Beta (<span class="math inline">\beta</span>)</td>
+<td style="text-align: left;" data-label="Rango (Hz)">12–30</td>
+<td style="text-align: left;" data-label="Características">Baja amplitud, rápida</td>
+<td style="text-align: left;" data-label="Estados o funciones asociadas">Atención, concentración, actividad cortical.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Banda">Low-gamma (<span class="math inline">\gamma</span>)</td>
+<td style="text-align: left;" data-label="Rango (Hz)">30–80</td>
+<td style="text-align: left;" data-label="Características">Ritmo rápido, amplitud moderada</td>
+<td style="text-align: left;" data-label="Estados o funciones asociadas">Procesamiento sensorial, atención, sincronización cognitiva.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Banda">High-gamma (<span class="math inline">\gamma</span>)</td>
+<td style="text-align: left;" data-label="Rango (Hz)">$&gt;$80</td>
+<td style="text-align: left;" data-label="Características">Muy rápida, baja amplitud; sensible a EMG</td>
+<td style="text-align: left;" data-label="Estados o funciones asociadas">Funciones cognitivas altas, actividad local; interpretación cautelosa.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<div data-origen="ampliacion">
+<div class="nm-box nm-limite" data-rotulo="Una discrepancia detectada: las bandas de la tabla y las del pipeline">
+<p>El texto presenta la <a href="#tbl-eeg-bandas-frecuencia" class="quarto-xref">tabla&nbsp;<span>3.1</span></a> como «definición operativa del pipeline», pero los límites que usa el código son otros. En la sección <code>[bands]</code> de <code>config/pipeline.toml</code> figuran siete bandas: delta 0,5–4 Hz, theta 4–8, <strong>alfa 7,8–11,7</strong>, beta baja 12–15, beta media 15–18, beta alta 18–30 y gamma 30–50. Con esos límites theta y alfa se solapan entre 7,8 y 8,0 Hz y entre alfa y beta baja queda un hueco de 11,7 a 12,0 Hz (lo advierte el propio archivo). La tabla no coincide en alfa (8–12 Hz) ni en la división de beta, y las bandas sub-delta, low-gamma y high-gamma no existen en la configuración. Se conserva el texto del informe; para lo que se calcula <strong>rige el archivo de configuración</strong>. <span class="estado e-confirmado">confirmado</span> frente al repositorio de NeuroMIND (commit <code>765f725</code>).</p>
+</div>
+</div>
+<div id="fig-eeg-oscillatory-components" class="nm-figura-svg nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Cinco sinusoides apiladas con su frecuencia: delta de 2 Hz, theta de 6 Hz, alpha de 10 Hz, beta de 20 Hz y gamma de 35 Hz, cada una más rápida y de menor amplitud que la anterior. Debajo, una flecha con la palabra «suma» apunta a una traza irregular, el EEG observado, durante un segundo en el eje del tiempo.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-eeg-oscillatory-components-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap03/eeg_oscillatory_components.svg" class="nm-figura-svg nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Cinco sinusoides apiladas con su frecuencia: delta de 2 Hz, theta de 6 Hz, alpha de 10 Hz, beta de 20 Hz y gamma de 35 Hz, cada una más rápida y de menor amplitud que la anterior. Debajo, una flecha con la palabra «suma» apunta a una traza irregular, el EEG observado, durante un segundo en el eje del tiempo.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-eeg-oscillatory-components-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;3.3: Modelo oscilatorio conceptual: el EEG observado puede entenderse como la superposición de componentes sinusoidales de distintas frecuencias, cada uno con su propia amplitud y fase. Figura TikZ propia del informe original.
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="sec-fundamentos-ec-eo" class="level3" data-number="3.3.3">
+<h3 data-number="3.3.3" class="anchored" data-anchor-id="sec-fundamentos-ec-eo"><span class="header-section-number">3.3.3</span> Reactividad en reposo: ojos cerrados y abiertos</h3>
+<p>En condiciones de reposo, se propone revisar por separado ojos cerrados (EC) y ojos abiertos (EO). En ojos cerrados se espera predominio del ritmo alfa posterior, especialmente en regiones occipitales, con máxima amplitud en electrodos como O1, O2 y Oz. En ojos abiertos, el alfa suele bloquearse o disminuir, y puede observarse mayor actividad de baja amplitud y frecuencia más alta.</p>
+<p>La revisión de resting state debe considerar:</p>
+<div id="tbl-resting-state-revision" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-resting-state-revision-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabla&nbsp;3.2: Aspectos a revisar en el registro eyes open / eyes closed.
+</figcaption>
+<div aria-describedby="tbl-resting-state-revision-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Aspecto</th>
+<th style="text-align: left;">Qué revisar</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Distribución topográfica</td>
+<td style="text-align: left;">Predominio posterior en alfa durante ojos cerrados y comparación entre hemisferios.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Reactividad</td>
+<td style="text-align: left;">Disminución rápida del alfa al abrir los ojos y reaparición al cerrarlos.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Otros ritmos fisiológicos</td>
+<td style="text-align: left;">Theta, beta y delta, interpretados en contexto.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Asimetrías o anomalías</td>
+<td style="text-align: left;">Asimetría marcada, ausencia persistente de alfa posterior o actividad focal; deben reportarse para revisión.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</section>
+</section>
+<section id="sec-fundamentos-cadena" class="level2 page-columns page-full" data-number="3.4">
+<h2 data-number="3.4" class="anchored" data-anchor-id="sec-fundamentos-cadena"><span class="header-section-number">3.4</span> Cadena de adquisición y digitalización</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 3 min · estudio 5 min</p>
+</div>
+<p>De forma operativa, la cadena de registro puede leerse como una transformación progresiva desde una fuente biológica distribuida hasta una matriz digital analizable. A continuación se recorre cada etapa: qué ocurre, qué señal queda disponible y qué conviene vigilar antes del preprocesado.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p><strong>Electrolito:</strong> medio que contiene iones móviles y conduce corriente eléctrica. En EEG, el gel aplicado entre electrodo y piel actúa como electrolito y mejora el contacto iónico con el cuero cabelludo.</p>
+</div><div class="">
+<p><strong>Impedancia:</strong> oposición de un circuito al paso de corriente alterna, medida en ohmios (<span class="math inline">\Omega</span>). Una impedancia electrodo–piel elevada aumenta el ruido y la sensibilidad a artefactos de movimiento.</p>
+</div><div class="">
+<p><strong>Multiplexar:</strong> intercalar varias señales en una única secuencia temporal. En EEG, los valores de todos los canales de un mismo instante se encadenan antes de transmitir o almacenar la trama digital.</p>
+</div></div>
+
+<div id="fig-eeg-acquisition-chain" class="nm-figura-svg nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Seis cajas unidas por flechas de izquierda a derecha: actividad neuronal (corrientes postsinápticas sincronizadas), volumen conductor (atenuación y suavizado espacial), electrodo más gel (impedancia de 300 a 5000 ohmios), amplificador diferencial (señal útil del orden de microvoltios), conversor A/D (muestreo con frecuencia Fs y cuantificación) y multiplexor (canales intercalados por instante). Una flecha baja desde el multiplexor hasta una última caja: matriz digital, canales por muestras.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-eeg-acquisition-chain-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap03/eeg_acquisition_chain_signal_model.svg" class="nm-figura-svg nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Seis cajas unidas por flechas de izquierda a derecha: actividad neuronal (corrientes postsinápticas sincronizadas), volumen conductor (atenuación y suavizado espacial), electrodo más gel (impedancia de 300 a 5000 ohmios), amplificador diferencial (señal útil del orden de microvoltios), conversor A/D (muestreo con frecuencia Fs y cuantificación) y multiplexor (canales intercalados por instante). Una flecha baja desde el multiplexor hasta una última caja: matriz digital, canales por muestras.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-eeg-acquisition-chain-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;3.4: Cadena de adquisición y digitalización de EEG: desde la actividad neuronal sincronizada hasta la matriz digital canales<span class="math inline">\times</span>muestras. Se muestran las etapas físicas e instrumentales principales previas al preprocesado. Figura TikZ propia del informe original.
+</figcaption>
+</figure>
+</div>
+<p><strong>Actividad neuronal.</strong> En el origen, corrientes postsinápticas sincronizadas en poblaciones de neuronas piramidales generan campos eléctricos corticales débiles, distribuidos y variables en el tiempo. El EEG no observa esa fuente de forma directa: el registro refleja actividad agregada de muchas células a la vez.</p>
+<p><strong>Volumen conductor.</strong> Al abandonar la corteza, las corrientes atraviesan encéfalo, líquido cefalorraquídeo, cráneo, cuero cabelludo y piel. Al llegar al cuero cabelludo, los potenciales aparecen atenuados y espacialmente suavizados. La conducción de volumen reduce la resolución espacial y mezcla contribuciones de fuentes distintas; este efecto condiciona la interpretación topográfica posterior.</p>
+<div id="fig-volumen-conductor" class="nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Corte esquemático de la cabeza con capas de abajo arriba: corteza cerebral con una neurona piramidal cortical, líquido cefalorraquídeo, hueso craneal y, sobre el cuero cabelludo, gel electrolítico, un electrodo de superficie y un cable conductor. Una flecha naranja parte del potencial postsináptico de la neurona, atraviesa las capas hacia el electrodo y sigue por el cable.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-volumen-conductor-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap03/volumen_conductor.png" class="nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Corte esquemático de la cabeza con capas de abajo arriba: corteza cerebral con una neurona piramidal cortical, líquido cefalorraquídeo, hueso craneal y, sobre el cuero cabelludo, gel electrolítico, un electrodo de superficie y un cable conductor. Una flecha naranja parte del potencial postsináptico de la neurona, atraviesa las capas hacia el electrodo y sigue por el cable.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-volumen-conductor-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;3.5: Ilustración conceptual de la conducción de volumen en EEG: la señal cortical se atenúa y se suaviza espacialmente al atravesar encéfalo, cráneo y cuero cabelludo antes de alcanzar los electrodos.
+</figcaption>
+</figure>
+</div>
+<div data-origen="ampliacion">
+<div class="nm-box nm-limite" data-rotulo="Sobre esta ilustración">
+<p>El anexo de procedencia de figuras del informe original <strong>no</strong> incluye <code>volumen_conductor</code> (sí incluye la neurona de la <a href="#fig-neurona-estructura" class="quarto-xref">figura&nbsp;<span>3.1</span></a>). El informe conserva además versiones <code>.svg</code> y <code>.pdf</code> que son vectorizaciones del mismo PNG; aquí se usa el PNG. Es una ilustración esquemática, no un dato, y su origen y licencia quedan como <strong>pendientes</strong> de que el autor los confirme. <span class="estado e-pendiente">pendiente</span></p>
+</div>
+</div>
+<p><strong>Electrodos.</strong> El montaje mide diferencias de potencial entre cada canal y su referencia. El gel conductor actúa como electrolito y reduce la impedancia electrodo–piel: el rango objetivo es <span class="math inline">300</span>–<span class="math inline">5\,000\,\Omega</span>, y por encima de <span class="math inline">5\,\text{k}\Omega</span> la señal degrada y aumenta la sensibilidad a artefactos de movimiento. La salida en esta fase son señales analógicas por canal, dependientes del contacto, de la referencia y de la posición del electrodo. Conviene controlar impedancias fuera de rango, mal contacto y desplazamientos del montaje.</p>
+<p><strong>Amplificación y digitalización.</strong> Un amplificador diferencial eleva la señal (amplitud útil del orden de <span class="math inline">50\,\mu\text{V}</span>) y un conversor A/D la muestrea. Para capturar el rango EEG habitual hasta $$70 Hz se requiere <span class="math inline">F_s\ge 256\,\text{Hz}</span>; se recomienda <span class="math inline">F_s=512\,\text{Hz}</span> para un registro fiable <span class="citation" data-cites="Yamada2018">(<a href="99-referencias.html#ref-Yamada2018" role="doc-biblioref">Yamada y Meng 2018</a>)</span>. Los valores de todos los canales en cada instante se multiplexan y se transmiten como una única trama digital, de modo que el resultado es una matriz canales<span class="math inline">\times</span>muestras lista para BIDS y preprocesado. En esta etapa hay que vigilar ruido de línea, saturación, filtros de hardware o software no documentados y una frecuencia de muestreo mal especificada.</p>
+<p><strong>Buenas prácticas del registro.</strong> En la adquisición deben cuidarse tanto el montaje como las condiciones del registro: preparación de la piel y los electrodos, ambiente tranquilo y con iluminación tenue, comprobación de impedancias, posicionamiento cómodo del paciente, revisión de la señal durante el registro y documentación de medicación, hora, estado de alerta, eventos y condiciones del estudio. Como criterio de calidad, se recomienda una impedancia baja inferior a <span class="math inline">5\,\mathrm{k}\Omega</span>.</p>
+</section>
+<section id="sec-sistema-10-20" class="level2 page-columns page-full" data-number="3.5">
+<h2 data-number="3.5" class="anchored" data-anchor-id="sec-sistema-10-20"><span class="header-section-number">3.5</span> Sistema internacional 10–20</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 2 min · estudio 5 min</p>
+</div>
+<p>Los registros del estudio emplean el sistema internacional <strong>10–20</strong>, definido por la Federación Internacional de Sociedades de Electroencefalografía (FISE), que divide el cuero cabelludo en posiciones mediante porcentajes fijos de distancias craneales. Esta convención garantiza reproducibilidad entre laboratorios y sujetos <span class="citation" data-cites="Yamada2018 IriarteFranco2013">(<a href="99-referencias.html#ref-Yamada2018" role="doc-biblioref">Yamada y Meng 2018</a>; <a href="99-referencias.html#ref-IriarteFranco2013" role="doc-biblioref">Iriarte Franco y Artieda González-Granda 2013</a>)</span>.</p>
+
+<div class="no-row-height column-margin column-container"><div id="fig-sistema-1020-margin" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Vista cenital de la cabeza, con la nariz arriba, y electrodos en las filas de Fz, F3 y F4; T7, Cz y T8; y Pz, P3 y P4, más O1 y O2 abajo. El nasion (Nz) está arriba, en la frente, y el inion (Iz) abajo, en la nuca. Un texto indica una separación del 10 % y el 20 % entre referencias craneales.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-sistema-1020-margin-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap03/sistema_1020_margin.svg" class="img-fluid figure-img" alt="Vista cenital de la cabeza, con la nariz arriba, y electrodos en las filas de Fz, F3 y F4; T7, Cz y T8; y Pz, P3 y P4, más O1 y O2 abajo. El nasion (Nz) está arriba, en la frente, y el inion (Iz) abajo, en la nuca. Un texto indica una separación del 10 % y el 20 % entre referencias craneales.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-sistema-1020-margin-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;3.6: Esquema ilustrativo del sistema internacional 10–20 con referencias anatómicas y nomenclatura de canales. Figura TikZ propia del informe original.
+</figcaption>
+</figure>
+</div></div><p>El sistema 10–20 usa como referencias anatómicas el nasion (Nz, frente), el inion (Iz, nuca), los puntos preauriculares y el vertex (Cz). Las separaciones entre electrodos adyacentes equivalen al 10 % o 20 % de la distancia total entre esos puntos. La denominación de cada electrodo sigue dos criterios:</p>
+<ol type="1">
+<li><strong>Letra del canal</strong> — indica la región cortical (<a href="#tbl-sistema1020-letras" class="quarto-xref">tabla&nbsp;<span>3.3</span></a>; <a href="#fig-sistema-1020-margin" class="quarto-xref">figura&nbsp;<span>3.6</span></a>).</li>
+<li><strong>Número o z</strong> — indica la posición lateral: números <em>impares</em> para el hemisferio izquierdo, números <em>pares</em> para el derecho, y la letra <strong>z</strong> para la línea media central. El número aumenta con la distancia a la línea media.</li>
+</ol>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p><strong>Región cortical.</strong> En sentido amplio, un sector de la corteza de un órgano: su capa externa, distinta de la porción interna. El nombre procede del latín <em>cortex</em>, «cáscara», y designa esa capa en el riñón, la glándula suprarrenal o el hueso.</p>
+<p>En el cerebro, la corteza cerebral es la lámina de sustancia gris que recubre los hemisferios. Una región cortical es un sector de esa lámina, nombrado por su posición: frontal, parietal, temporal u occipital. La letra del canal indica qué sector queda bajo el electrodo.</p>
+</div></div><div id="tbl-sistema1020-letras" class="nm-apilable quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-sistema1020-letras-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabla&nbsp;3.3: Electrodos del montaje del estudio <span class="citation" data-cites="Yamada2018">(<a href="99-referencias.html#ref-Yamada2018" role="doc-biblioref">Yamada y Meng 2018</a>)</span>. Los impares son izquierdos, los pares derechos y <code>z</code> la línea media. T7/T8 y P7/P8 son los nombres actuales de T3/T4 y T5/T6. No hay Fp1. Véase el esquema en la <a href="#fig-sistema-1020-margin" class="quarto-xref">figura&nbsp;<span>3.6</span></a> y la vista del montaje en la <a href="#fig-montaje-eeg-10-20" class="quarto-xref">figura&nbsp;<span>3.8</span></a>.
+</figcaption>
+<div aria-describedby="tbl-sistema1020-letras-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="nm-apilable caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Canal</th>
+<th style="text-align: left;">Región</th>
+<th style="text-align: left;">Electrodos</th>
+<th style="text-align: left;">Nombre</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;" data-label="Canal"><strong>Fp</strong></td>
+<td style="text-align: left;" data-label="Región">Frontopolar</td>
+<td style="text-align: left;" data-label="Electrodos">Fp2</td>
+<td style="text-align: left;" data-label="Nombre">EEG</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Canal"><strong>F</strong></td>
+<td style="text-align: left;" data-label="Región">Frontal</td>
+<td style="text-align: left;" data-label="Electrodos">Fz</td>
+<td style="text-align: left;" data-label="Nombre">EEG</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Canal"><strong>F</strong></td>
+<td style="text-align: left;" data-label="Región">Frontal lateral</td>
+<td style="text-align: left;" data-label="Electrodos">F3, F4</td>
+<td style="text-align: left;" data-label="Nombre">EEG</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Canal"><strong>F</strong></td>
+<td style="text-align: left;" data-label="Región">Frontal inferior</td>
+<td style="text-align: left;" data-label="Electrodos">F7, F8</td>
+<td style="text-align: left;" data-label="Nombre">EEG</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Canal"><strong>FT</strong></td>
+<td style="text-align: left;" data-label="Región">Frontotemporal</td>
+<td style="text-align: left;" data-label="Electrodos">FT9, FT10</td>
+<td style="text-align: left;" data-label="Nombre">EEG</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Canal"><strong>FC</strong></td>
+<td style="text-align: left;" data-label="Región">Frontocentral</td>
+<td style="text-align: left;" data-label="Electrodos">FC5, FC1, FC2, FC6</td>
+<td style="text-align: left;" data-label="Nombre">EEG</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Canal"><strong>C</strong></td>
+<td style="text-align: left;" data-label="Región">Central</td>
+<td style="text-align: left;" data-label="Electrodos">C3, Cz, C4</td>
+<td style="text-align: left;" data-label="Nombre">EEG</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Canal"><strong>T</strong></td>
+<td style="text-align: left;" data-label="Región">Temporal</td>
+<td style="text-align: left;" data-label="Electrodos">T7, T8</td>
+<td style="text-align: left;" data-label="Nombre">EEG</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Canal"><strong>TP</strong></td>
+<td style="text-align: left;" data-label="Región">Temporoparietal</td>
+<td style="text-align: left;" data-label="Electrodos">TP9, TP10</td>
+<td style="text-align: left;" data-label="Nombre">EEG</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Canal"><strong>CP</strong></td>
+<td style="text-align: left;" data-label="Región">Centroparietal</td>
+<td style="text-align: left;" data-label="Electrodos">CP5, CP1, CP2, CP6</td>
+<td style="text-align: left;" data-label="Nombre">EEG</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Canal"><strong>P</strong></td>
+<td style="text-align: left;" data-label="Región">Parietal</td>
+<td style="text-align: left;" data-label="Electrodos">P3, Pz, P4</td>
+<td style="text-align: left;" data-label="Nombre">EEG</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Canal"><strong>P</strong></td>
+<td style="text-align: left;" data-label="Región">Parietal inferior</td>
+<td style="text-align: left;" data-label="Electrodos">P7, P8</td>
+<td style="text-align: left;" data-label="Nombre">EEG</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Canal"><strong>O</strong></td>
+<td style="text-align: left;" data-label="Región">Occipital</td>
+<td style="text-align: left;" data-label="Electrodos">O1, Oz, O2</td>
+<td style="text-align: left;" data-label="Nombre">EEG</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Canal"><strong>FC</strong></td>
+<td style="text-align: left;" data-label="Región">Frontocentral</td>
+<td style="text-align: left;" data-label="Electrodos">FCz</td>
+<td style="text-align: left;" data-label="Nombre">Referencia</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Canal"><strong>Gnd</strong></td>
+<td style="text-align: left;" data-label="Región">Frontal (ECI)</td>
+<td style="text-align: left;" data-label="Electrodos">Gnd</td>
+<td style="text-align: left;" data-label="Nombre">Tierra</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</section>
+<section id="sec-referencia-tierra-montajes" class="level2 page-columns page-full" data-number="3.6">
+<h2 data-number="3.6" class="anchored" data-anchor-id="sec-referencia-tierra-montajes"><span class="header-section-number">3.6</span> Referencia, tierra y montajes EEG</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 4 min · estudio 15 min</p>
+</div>
+<p>La señal EEG siempre se mide como una <strong>diferencia de potencial</strong> (<span class="math inline">\Delta V</span>). Un <strong>canal</strong> no representa el voltaje absoluto de un electrodo, sino la diferencia entre el potencial registrado en una posición del cuero cabelludo y el potencial de una referencia. En términos operativos, el amplificador diferencial aumenta esa diferencia y la convierte en una señal analizable.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p>La referencia fija el «cero» eléctrico del registro. Cambiarla no crea una fuente nueva, pero sí modifica la forma y amplitud con que se expresan los canales.</p>
+</div></div><p>Por ello, la elección del montaje influye en la interpretación de la señal. Por este motivo, la <strong>tierra</strong> (<em>ground</em>) y la <strong>referencia</strong> (<em>reference</em>) no cumplen el mismo papel y deben documentarse por separado:</p>
+<ul>
+<li><strong>Tierra (GND):</strong> conectado al circuito de tierra del amplificador para estabilizar el sistema y reducir ruido común; no define el valor de los canales EEG. En este estudio es el electrodo <strong>Gnd</strong> propio del gorro ECI, en la línea media frontal; no ocupa ninguna posición 10–20.</li>
+<li><strong>Referencia (REF):</strong> electrodo o promedio respecto al cual se mide la diferencia de potencial. Afecta a amplitud y distribución aparente de señales. La referencia <em>online</em> es <strong>FCz</strong>.</li>
+<li><strong>Electrodos EEG:</strong> cada <strong>canal</strong> se define como <span class="math display">
+V_{\mathrm{canal}}(t) = V_{\mathrm{activo}}(t) - V_{\mathrm{ref}}(t).
+</span></li>
+</ul>
+<p>Se distinguen tres esquemas habituales según cómo se elige la referencia:</p>
+<ul>
+<li><strong>Monopolar (referenciado):</strong> todos los canales comparten una referencia única (mastoides, promedio, etc.). Ejemplo: canal 1 <span class="math inline">=</span> Fp1<span class="math inline">-</span>A1, canal 2 <span class="math inline">=</span> Fp2<span class="math inline">-</span>A2. Produce buenos mapas de voltaje, pero un electrodo de referencia único puede atenuar señales de los electrodos cercanos.</li>
+<li><strong>Bipolar:</strong> cada canal es la diferencia entre dos electrodos adyacentes, organizados de izquierda a derecha y de anterior a posterior. Muy sensible a anomalías focales; mal para cartografía global.</li>
+<li><strong>Referencia promedio:</strong> la referencia es la media de todos los electrodos activos. Por convención se suelen excluir Fp1 y Fp2 de la media por su alta contaminación ocular <span class="citation" data-cites="Yamada2018">(<a href="99-referencias.html#ref-Yamada2018" role="doc-biblioref">Yamada y Meng 2018</a>)</span>.</li>
+</ul>
+<div id="fig-eeg-ground-reference" class="nm-figura-svg nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="A la izquierda, una cabeza vista desde arriba con electrodos. Un electrodo activo (azul) y la referencia (ámbar, FCz) se conectan con flechas a un recuadro central, «Amplificador diferencial», que calcula cada canal como V activo menos V ref; una línea punteada marca la diferencia ΔV entre ambos. El electrodo Gnd frontal (verde) se conecta al amplificador con la leyenda «GND estabiliza el circuito pero no define el canal». Una flecha baja del amplificador a «Canales digitales EEG_i(t)». Una leyenda distingue activo (canal EEG), REF (FCz) y GND (Gnd frontal).">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-eeg-ground-reference-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap03/eeg_ground_reference.svg" class="nm-figura-svg nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="A la izquierda, una cabeza vista desde arriba con electrodos. Un electrodo activo (azul) y la referencia (ámbar, FCz) se conectan con flechas a un recuadro central, «Amplificador diferencial», que calcula cada canal como V activo menos V ref; una línea punteada marca la diferencia ΔV entre ambos. El electrodo Gnd frontal (verde) se conecta al amplificador con la leyenda «GND estabiliza el circuito pero no define el canal». Una flecha baja del amplificador a «Canales digitales EEG_i(t)». Una leyenda distingue activo (canal EEG), REF (FCz) y GND (Gnd frontal).">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-eeg-ground-reference-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;3.7: Papel conceptual de tierra y referencia en un montaje EEG referencial. El amplificador expresa cada <strong>canal</strong> como <span class="math inline">\Delta V</span> entre un electrodo activo (azul) y la referencia (ámbar); la tierra, el electrodo <strong>Gnd</strong> frontal (verde), estabiliza el circuito sin definir el canal EEG. Figura TikZ propia del informe original.
+</figcaption>
+</figure>
+</div>
+<p>La referencia ideal debería recoger la menor cantidad posible de señal neural de interés, compartir en lo posible el ruido común de los canales del cuero cabelludo y evitar sesgos hemisféricos. En la práctica, se usan distintos esquemas según el sistema de adquisición y el análisis posterior: referencias online como FCz, referencias en mastoides o lóbulos de las orejas, y referencias promedio calculadas a partir de todos los electrodos válidos.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p>En otros sistemas se usan referencias comunes como CMS/DRL. En el dataset de este informe, la referencia y la tierra se codifican en <code>electrodes.tsv</code> como canales REF y GND y quedan excluidas de la matriz de canales EEG activos.</p>
+</div><div class="">
+<p>Una referencia lateralizada puede introducir asimetrías aparentes. Por eso, cuando el estudio compara hemisferios, conviene documentar con detalle la referencia online y cualquier re-referenciación posterior.</p>
+</div></div>
+<p>La <strong>re-referenciación</strong> permite recalcular offline los canales respecto a un nuevo punto de referencia. Si <span class="math inline">V_i(t)</span> es el potencial registrado en el electrodo <span class="math inline">i</span> y <span class="math inline">V_{\mathrm{ref}}(t)</span> el potencial de la referencia, el canal almacenado puede escribirse conceptualmente como:</p>
+<p><span class="math display">
+EEG_i(t) = V_i(t) - V_{\mathrm{ref}}(t).
+</span></p>
+<p>Al cambiar la referencia, las formas de onda pueden variar porque los valores se expresan respecto a un nuevo nivel de cero voltaje. Sin embargo, la <strong>topografía</strong> —distribución espacial de la actividad en el cuero cabelludo, representada como mapa interpolado entre electrodos— mantiene las diferencias relativas entre canales; lo que cambia es la referencia común frente a la que esas diferencias se representan.</p>
+<div data-origen="ampliacion">
+<div id="exm-rereferencia" class="theorem example">
+<p><span class="theorem-title"><strong>Ejemplo 3.1 (Cambiar la referencia no cambia las diferencias entre canales)</strong></span> Con <strong>valores inventados</strong>, solo para ver la aritmética (no es un registro): sean tres electrodos con potenciales <span class="math inline">V_{O1}=14\,\mu\text{V}</span>, <span class="math inline">V_{Cz}=9\,\mu\text{V}</span> y <span class="math inline">V_{FCz}=4\,\mu\text{V}</span> medidos respecto a un mismo punto arbitrario. Con referencia FCz los canales son <span class="math inline">O1=14-4=10</span>, <span class="math inline">Cz=9-4=5</span> y <span class="math inline">FCz=0\,\mu\text{V}</span>. Si se re-referencia a Cz restando a cada canal el valor de Cz (5 µV), quedan <span class="math inline">O1=5</span>, <span class="math inline">Cz=0</span> y <span class="math inline">FCz=-5\,\mu\text{V}</span>. Los valores cambian, pero la diferencia entre O1 y Cz es de 5 µV en los dos casos: se conservan las diferencias entre canales, y lo que cambia es el «cero» común.</p>
+</div>
+</div>
+</section>
+<section id="sec-montaje-neuromind" class="level2 page-columns page-full" data-number="3.7">
+<h2 data-number="3.7" class="anchored" data-anchor-id="sec-montaje-neuromind"><span class="header-section-number">3.7</span> Montaje del proyecto NeuroMIND</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 3 min · estudio 5 min</p>
+</div>
+<p>Una vez fijados el sistema 10–20 y el papel de la referencia, esta sección concreta qué montaje se registró en la cohorte y con qué referencia llega la señal al pipeline.</p>
+<section id="sec-montaje-eeg" class="level3 page-columns page-full" data-number="3.7.1">
+<h3 data-number="3.7.1" class="anchored" data-anchor-id="sec-montaje-eeg"><span class="header-section-number">3.7.1</span> Posiciones y canales activos</h3>
+<p>En la configuración del proyecto NeuroMIND, la <a href="#tbl-sistema1020-letras" class="quarto-xref">tabla&nbsp;<span>3.3</span></a> es el montaje con el que se registró la cohorte.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p><strong>BrainVision:</strong> formato de exportación del ecosistema Brain Products (Recorder para adquisición, Analyzer para revisión y exportación). Cada registro se guarda como tríptico <code>.vhdr</code> (cabecera), <code>.vmrk</code> (marcadores) y <code>.eeg</code> (señal binaria).</p>
+</div></div><p>El cuadro reúne <strong>33 posiciones</strong>: 31 electrodos EEG activos sobre el cuero cabelludo, la referencia en <strong>FCz</strong> y la tierra en el electrodo <code>Gnd</code> frontal del gorro ECI. Los canales REF y GND no entran en la matriz de señal <span class="math inline">\mathbf{X}</span> usada en el preprocesado, pero deben declararse en <code>electrodes.tsv</code> (véase el capítulo 4 del informe original). Las posiciones adicionales respecto al montaje clásico de 19 electrodos siguen la extensión <strong>10–10</strong> de la misma convención FISE, que interpola sitios intermedios entre los estándar 10–20 para registros de mayor densidad <span class="citation" data-cites="Yamada2018">(<a href="99-referencias.html#ref-Yamada2018" role="doc-biblioref">Yamada y Meng 2018</a>)</span>.</p>
+<div id="fig-montaje-eeg-10-20" class="nm-figura-svg nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Vista cenital de la cabeza, con la nariz arriba y las orejas a los lados, y los 31 electrodos activos coloreados por región: frontal, central, temporal, parietal y occipital. FCz (referencia) y Gnd (tierra) aparecen como círculos huecos en la línea media frontal, con Gnd delante de Fz y a la izquierda de Fp2. No hay ningún electrodo Fp1. Un recuadro indica: «Montaje 10–20, 31 canales EEG activos, REF: FCz, GND: Gnd (ECI)».">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-montaje-eeg-10-20-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap04/montaje_eeg_10_20.svg" class="nm-figura-svg nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Vista cenital de la cabeza, con la nariz arriba y las orejas a los lados, y los 31 electrodos activos coloreados por región: frontal, central, temporal, parietal y occipital. FCz (referencia) y Gnd (tierra) aparecen como círculos huecos en la línea media frontal, con Gnd delante de Fz y a la izquierda de Fp2. No hay ningún electrodo Fp1. Un recuadro indica: «Montaje 10–20, 31 canales EEG activos, REF: FCz, GND: Gnd (ECI)».">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-montaje-eeg-10-20-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;3.8: Montaje EEG 10–20 usado como referencia visual del pipeline. El código de color agrupa regiones para facilitar la revisión de coordenadas. Los electrodos están listados en la <a href="#tbl-sistema1020-letras" class="quarto-xref">tabla&nbsp;<span>3.3</span></a>. Figura TikZ propia del informe original (capítulo 4).
+</figcaption>
+</figure>
+</div>
+<p>La <a href="#fig-montaje-eeg-10-20" class="quarto-xref">figura&nbsp;<span>3.8</span></a> sitúa los electrodos del cuadro. Las coordenadas cartesianas (<span class="math inline">x</span>, <span class="math inline">y</span>, <span class="math inline">z</span>) del sistema de cabeza normalizado se declaran en <code>electrodes.tsv</code> y se recogen en el anexo del informe (tabla de coordenadas de los electrodos, no incorporada aún al libro).</p>
+</section>
+<section id="sec-referencia-fcz-gnd" class="level3" data-number="3.7.2">
+<h3 data-number="3.7.2" class="anchored" data-anchor-id="sec-referencia-fcz-gnd"><span class="header-section-number">3.7.2</span> Referencia FCz y tierra Gnd</h3>
+<p>La referencia de adquisición es <strong>FCz</strong>, y la tierra, el electrodo <strong>Gnd</strong> dedicado del gorro ECI, situado en la línea media frontal y sin correspondencia con Fpz ni con ninguna otra posición 10–20. Ninguno de los dos se incluye en la matriz de 31 canales EEG activos que alimenta el preprocesado, y el pipeline <strong>no re-referencia</strong>: la señal que llega al wPLI conserva la referencia FCz del amplificador.</p>
+<div data-origen="ampliacion">
+<div class="nm-box nm-limite" data-rotulo="Lo que dice la configuración sobre la referencia">
+<p>En <code>config/pipeline.toml</code>, la clave <code>reference = "average"</code> de la sección <code>[recording]</code> está marcada por el propio archivo como <strong>informativa</strong>: «no re-referencia la señal», y solo alimenta metadatos. La conectividad lleva <code>use_csd = false</code>, «false en todos los resultados». Esto es coherente con el párrafo anterior. Qué efecto tendría re-referenciar o aplicar CSD sobre el wPLI es la duda abierta <a href="../chapters/02-estado-arte.html#duda-conn-02"><code>CONN-02</code></a>. <span class="estado e-confirmado">confirmado</span> frente al repositorio de NeuroMIND (commit <code>765f725</code>).</p>
+</div>
+</div>
+<p>El montaje <strong>no incluye Fp1</strong>: su portaelectrodos no está ocupado en el esquema, así que la fila fronto-polar solo tiene Fp2 y no existe ningún índice de asimetría fronto-polar calculable. El motivo de la ausencia sigue sin confirmar (ficha <a href="#duda-mont-01"><code>MONT-01</code></a>).</p>
+<p>Al inspeccionar trazas en BrainVision Analyzer, los canales se apilan en un orden de visualización distinto del de almacenamiento (<a href="#tbl-bva-channel-plot-order" class="quarto-xref">tabla&nbsp;<span>3.4</span></a>). Ese orden sigue una disposición aproximadamente topográfica, de anterior a posterior, y facilita la revisión visual del registro; no altera el índice de cada canal en la cabecera ni en los ficheros BIDS.</p>
+<div id="tbl-bva-channel-plot-order" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-bva-channel-plot-order-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabla&nbsp;3.4: Orden en que BrainVision Analyzer apila los 31 canales EEG activos. Se lee de izquierda a derecha y de arriba abajo, de anterior a posterior.
+</figcaption>
+<div aria-describedby="tbl-bva-channel-plot-order-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+</colgroup>
+<tbody>
+<tr class="odd">
+<td>Fp2</td>
+<td>F7</td>
+<td>F3</td>
+<td>Fz</td>
+<td>F4</td>
+<td>F8</td>
+<td>FT9</td>
+<td>FC5</td>
+</tr>
+<tr class="even">
+<td>FC1</td>
+<td>FC2</td>
+<td>FC6</td>
+<td>FT10</td>
+<td>T7</td>
+<td>C3</td>
+<td>Cz</td>
+<td>C4</td>
+</tr>
+<tr class="odd">
+<td>T8</td>
+<td>TP9</td>
+<td>CP5</td>
+<td>CP1</td>
+<td>CP2</td>
+<td>CP6</td>
+<td>TP10</td>
+<td>P7</td>
+</tr>
+<tr class="even">
+<td>P3</td>
+<td>Pz</td>
+<td>P4</td>
+<td>P8</td>
+<td>O1</td>
+<td>Oz</td>
+<td>O2</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</section>
+</section>
+<section id="sec-fundamentos-artefactos" class="level2" data-number="3.8">
+<h2 data-number="3.8" class="anchored" data-anchor-id="sec-fundamentos-artefactos"><span class="header-section-number">3.8</span> Artefactos habituales en EEG</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 2 min · estudio 5 min</p>
+</div>
+<p>La <strong>señal raw</strong> —voltajes digitales tal como salen del amplificador, sin filtrado, corrección de artefactos ni remontaje— contiene actividad cerebral y también fuentes no neuronales que deben identificarse antes de interpretar resultados. Los más frecuentes son el parpadeo y las oscilaciones frontales lentas, el movimiento ocular, la actividad muscular de alta frecuencia, la interferencia de red y los movimientos del participante o el desplazamiento de electrodos; se conectan con los controles de calidad de la señal raw (capítulo 5 del informe original) y con la limpieza por ICA (capítulo 8 del informe original).</p>
+<div id="tbl-eeg-artefactos-habituales" class="nm-apilable quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-eeg-artefactos-habituales-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabla&nbsp;3.5: Artefactos habituales en EEG y estrategias de mitigación.
+</figcaption>
+<div aria-describedby="tbl-eeg-artefactos-habituales-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="nm-apilable caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Artefacto</th>
+<th style="text-align: left;">Manifestación</th>
+<th style="text-align: left;">Estrategia de mitigación</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;" data-label="Artefacto">Parpadeo (EOG)</td>
+<td style="text-align: left;" data-label="Manifestación">Potenciales generados por el movimiento de los párpados; predominan en electrodos frontales.</td>
+<td style="text-align: left;" data-label="Estrategia de mitigación">Instrucciones al participante; filtros; ICA o regresión ocular.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Artefacto">Movimientos oculares (EOG)</td>
+<td style="text-align: left;" data-label="Manifestación">Desplazamiento del globo ocular; afecta a regiones frontotemporales.</td>
+<td style="text-align: left;" data-label="Estrategia de mitigación">Misma estrategia que el parpadeo; control del protocolo visual.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Artefacto">Actividad muscular (EMG)</td>
+<td style="text-align: left;" data-label="Manifestación">Contracción de músculos faciales, mandibulares o cervicales; contenido broadband de alta frecuencia.</td>
+<td style="text-align: left;" data-label="Estrategia de mitigación">Instrucciones al participante; filtros de paso alto/bajo; ICA.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Artefacto">Interferencia de línea</td>
+<td style="text-align: left;" data-label="Manifestación">Acoplamiento de la red eléctrica (50/60 Hz) y armónicos.</td>
+<td style="text-align: left;" data-label="Estrategia de mitigación">Filtro notch; blindaje del cableado; buena impedancia de contacto.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Artefacto">Movimiento del paciente</td>
+<td style="text-align: left;" data-label="Manifestación">Cambios bruscos de potencial por desplazamiento corporal o cabeza.</td>
+<td style="text-align: left;" data-label="Estrategia de mitigación">Instrucciones; rechazo de épocas; revisión visual del registro.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Artefacto">Desplazamiento de electrodos</td>
+<td style="text-align: left;" data-label="Manifestación">Variación de impedancia o pérdida de contacto en un electrodo.</td>
+<td style="text-align: left;" data-label="Estrategia de mitigación">Montaje estable; impedancia baja antes del registro; revisión continua.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</section>
+<section id="sec-fundamentos-fortalezas" class="level2" data-number="3.9">
+<h2 data-number="3.9" class="anchored" data-anchor-id="sec-fundamentos-fortalezas"><span class="header-section-number">3.9</span> Fortalezas y limitaciones de la técnica</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 2 min · estudio 5 min</p>
+</div>
+<p>El EEG ocupa un lugar intermedio entre técnicas de neuroimagen: registra la dinámica eléctrica con una resolución temporal muy fina, pero solo de forma indirecta y con limitada precisión espacial. En estudios de reposo y conectividad funcional —como el que motiva este informe— esa combinación suele ser aceptable cuando el objetivo es caracterizar oscilaciones y acoplamientos entre regiones, no reconstruir con exactitud la anatomía de una fuente concreta. La <a href="#tbl-eeg-fortalezas-limitaciones" class="quarto-xref">tabla&nbsp;<span>3.6</span></a> recoge el balance habitual de la técnica; las filas no son excluyentes, sino criterios que conviene tener presentes al diseñar el protocolo, revisar la calidad del registro e interpretar los resultados.</p>
+<div id="tbl-eeg-fortalezas-limitaciones" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-eeg-fortalezas-limitaciones-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabla&nbsp;3.6: Fortalezas y limitaciones del EEG.
+</figcaption>
+<div aria-describedby="tbl-eeg-fortalezas-limitaciones-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Ventajas</th>
+<th style="text-align: left;">Limitaciones</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Excelente resolución temporal (del orden de milisegundos).</td>
+<td style="text-align: left;">Resolución espacial limitada; difícil localizar fuentes profundas.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Técnica no invasiva y segura para el participante.</td>
+<td style="text-align: left;">Alta sensibilidad a artefactos fisiológicos y ambientales.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Equipamiento portátil y adaptable a distintos entornos.</td>
+<td style="text-align: left;">Profundidad limitada a actividad cortical superficial.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Coste relativo moderado frente a otras neuroimágenes.</td>
+<td style="text-align: left;">Interpretación indirecta de las fuentes neuronales generadoras.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Adecuado para estudiar dinámica cerebral y conectividad funcional.</td>
+<td style="text-align: left;">Necesidad de experiencia en adquisición, preprocesado e interpretación.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p>En la práctica, muchas limitaciones no invalidan el análisis, pero sí condicionan su alcance. Una resolución espacial modesta obliga a formular hipótesis en términos de redes y bandas de frecuencia, no de estructuras profundas aisladas. La sensibilidad a artefactos explica por qué gran parte del esfuerzo metodológico recae en adquisición cuidadosa y en el preprocesado documentado en los capítulos siguientes: sin ese control, la fortaleza temporal del EEG puede convertirse en una falsa precisión aparente. La experiencia del equipo sigue siendo parte del método, porque la técnica rara vez ofrece respuestas unívocas a partir de la señal bruta.</p>
+</section>
+<section id="sec-fundamentos-pipeline" class="level2" data-number="3.10">
+<h2 data-number="3.10" class="anchored" data-anchor-id="sec-fundamentos-pipeline"><span class="header-section-number">3.10</span> Del fundamento teórico al pipeline</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 1 min · estudio 5 min</p>
+</div>
+<p>Los capítulos siguientes recorren, en orden, cada fase aplicada a los registros EEG de este informe: desde la conversión a BIDS y el control de calidad inicial hasta la conectividad de fase y su validación mediante datos <em>surrogate</em>. La <a href="#fig-pipeline-overview" class="quarto-xref">figura&nbsp;<span>3.9</span></a> resume ese recorrido.</p>
+<div id="fig-pipeline-overview" class="nm-figura-svg nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Seis cajas apiladas, unidas por flechas hacia abajo: BIDS, señal raw y control de calidad inicial; filtrado (paso alto, notch, band-reject, paso bajo); ICA, separación y limpieza de artefactos; segmentación, baseline y rechazo; análisis espectral (PSD y potencia por banda); conectividad de fase (wPLI) y pruebas surrogate.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-pipeline-overview-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap03/pipeline_overview.svg" class="nm-figura-svg nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Seis cajas apiladas, unidas por flechas hacia abajo: BIDS, señal raw y control de calidad inicial; filtrado (paso alto, notch, band-reject, paso bajo); ICA, separación y limpieza de artefactos; segmentación, baseline y rechazo; análisis espectral (PSD y potencia por banda); conectividad de fase (wPLI) y pruebas surrogate.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pipeline-overview-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;3.9: Resumen visual de las fases cubiertas en este informe, desde el control de calidad inicial hasta la conectividad de fase (wPLI) y las pruebas de significación <em>surrogate</em>. Figura TikZ propia del informe original.
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="sec-mapa-codigo-global" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="sec-mapa-codigo-global">Anexo del capítulo: mapa global del código</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 3 min · estudio 5 min</p>
+</div>
+<p>Este mapa es la puerta de entrada al código. Cada capítulo del pipeline termina con su propio mapa, que baja al detalle de su fase; aquí se ve el conjunto.</p>
+<div data-origen="ampliacion">
+<p><strong>Del código a los resultados, en una línea.</strong></p>
+<ol class="nm-mapa-resumen" aria-label="Flujo del código a los resultados">
+<li>
+<code>config/pipeline.toml</code>
+</li>
+<li>
+<code>scripts/*.jl</code>
+</li>
+<li>
+<code>src/</code> (módulos)
+</li>
+<li>
+<code>results/</code>
+</li>
+</ol>
+<p>Cada rama del mapa se despliega. Las rutas de la rama A son del repositorio de NeuroMIND y se han comprobado contra los archivos existentes (<code>tests/mapa_codigo.mjs</code>, repositorio en el commit <code>765f725</code>); el árbol B es el que describe el informe. Este libro no ejecuta ningún script. La descripción de cada elemento y el capítulo del informe donde se trata proceden del mapa del informe original (verificado allí el 2026-10-07).</p>
+<details class="nm-mapa-fase" open="">
+<summary>
+A · Código: de los scripts a los módulos
+</summary>
+<ul>
+<li>
+<code>scripts/</code>
+<ul>
+<li>
+<code>audit_full_dataset.jl</code> — inventario del dataset (cap. 4 del informe original)
+</li>
+<li>
+<code>build_bids_full.jl</code> — metadatos BIDS (cap. 4)
+</li>
+<li>
+<code>run_single_subject.jl</code> — un registro, pasos 1–8
+</li>
+<li>
+<code>run_batch_pipeline.jl</code> — todos los registros (cap. 4)
+</li>
+<li>
+<code>run_transversal_analysis.jl</code> — EM frente a control (cap. 15)
+</li>
+<li>
+<code>run_longitudinal_analysis.jl</code> — T1 frente a T2 (cap. 16)
+</li>
+</ul>
+</li>
+<li>
+<code>src/</code>
+<ul>
+<li>
+<code>SingleSubjectPipeline.jl</code> — orquestador de los pasos 1–8
+</li>
+<li>
+<code>types.jl</code> y <code>io/</code> — tipos, configuración, cargadores (caps. 4–5)
+</li>
+<li>
+<code>qc/QualityControl.jl</code> — paso 2 (cap. 5)
+</li>
+<li>
+<code>preprocessing/Filtering.jl</code> — paso 3 (<a href="06-filtrado.html">filtrado, cap. 6</a>)
+</li>
+<li>
+<code>ica/</code> — paso 4 (cap. 8)
+</li>
+<li>
+<code>segmentation/Epochs.jl</code> — paso 5 (caps. 9–11)
+</li>
+<li>
+<code>spectral/PowerSpectrum.jl</code> — paso 6 (cap. 12)
+</li>
+<li>
+<code>connectivity/</code> — paso 7 (cap. 13)
+</li>
+<li>
+<code>statistics/</code> — surrogates y FDR (cap. 14)
+</li>
+<li>
+<code>visualization/</code> — figuras por sujeto
+</li>
+<li>
+<code>transversal/</code> y <code>longitudinal/</code> — análisis de grupo (caps. 15–16)
+</li>
+<li>
+<code>interactive/</code> — visores web locales
+</li>
+</ul>
+</li>
+<li>
+<code>config/pipeline.toml</code> — configuración única
+</li>
+</ul>
+</details>
+<details class="nm-mapa-fase">
+<summary>
+B · Resultados
+</summary>
+<ul>
+<li>
+<code>results/</code>
+<ul>
+<li>
+<code>subjects/sub-{id}/ses-{ses}/{task}/</code> — pasos 1–8
+<ul>
+<li>
+<code>tables/</code> — CSV; subcarpetas <code>ica/</code>, <code>connectivity/</code>, <code>surrogate/</code>
+</li>
+<li>
+<code>figures/</code> — PNG; subcarpetas <code>ica/</code>, <code>connectivity/</code>, <code>surrogate/</code>
+</li>
+<li>
+<code>json/</code> — resúmenes por paso
+</li>
+<li>
+<code>cache/</code> — ICA y distribuciones nulas (<code>.jls</code>)
+</li>
+<li>
+<code>pipeline_log.txt</code> — log del registro
+</li>
+<li>
+<code>config_snapshot.toml</code> — copia de la configuración usada
+</li>
+</ul>
+</li>
+<li>
+<code>qc/qc_decision_table.csv</code>
+</li>
+<li>
+<code>subjects_index.csv</code>
+</li>
+<li>
+<code>logs/batch_run_*.csv</code> — <code>run_batch_pipeline.jl</code>
+</li>
+<li>
+<code>transversal/</code> y <code>longitudinal/</code> (caps. 15–16)
+</li>
+<li>
+<code>summary/</code> — figura de síntesis de ambos análisis
+</li>
+</ul>
+</li>
+</ul>
+<p class="nm-fuente">
+Árbol de salida descrito por el informe original. Este libro no incluye ningún archivo de <code>results/</code>: los resultados reales de cada fase se mostrarán, capítulo a capítulo, solo cuando provengan de ejecuciones trazables de los scripts originales.
+</p>
+</details>
+<div class="nm-box nm-limite" data-rotulo="Lo que el mapa del informe no recoge">
+<p>El repositorio actual tiene dos scripts en <code>scripts/</code> que el mapa del informe no menciona: <code>build_clinical_master.jl</code> y <code>launch_dashboard.jl</code> (este último, del panel interactivo, fuera del alcance de este libro), y el directorio <code>src/webapp/</code>. El mapa se verificó en el informe el 2026-10-07; la discrepancia se registra aquí sin modificar el original. <span class="tipo t-obs">observado</span></p>
+</div>
+</div>
+<p><strong>Ruta de lectura.</strong></p>
+<ol type="1">
+<li><code>config/pipeline.toml</code>: cada sección corresponde a una fase (<code>[qc]</code>, <code>[filtering]</code>, <code>[ica]</code>…) y es la única configuración del proyecto.</li>
+<li><code>src/NeuroMIND.jl</code>: el orden de los <code>include</code> es el mapa de dependencias entre módulos.</li>
+<li><code>src/types.jl</code>: los tipos que viajan de una fase a otra (<code>EEGRecording</code>, <code>EpochSet</code>, <code>ICAResult</code>, <code>SpectralResult</code>, <code>ConnectivityMatrix</code>).</li>
+<li><code>run_single_subject_pipeline</code> en <code>src/SingleSubjectPipeline.jl</code>: buscando los marcadores <code>[1/8]</code> a <code>[8/8]</code> se recorre el pipeline entero.</li>
+<li>El anexo de cada capítulo baja al módulo de su fase.</li>
+</ol>
+<p><strong>Para ejecutarlo.</strong> <code>julia --project=. scripts/run_single_subject.jl</code> procesa un registro; el resultado queda en <code>results/subjects/sub-{id}/ses-{ses}/{task}/</code>.</p>
+</section>
+<section id="sec-sintesis-fundamentos" class="level2" data-origen="ampliacion" data-number="3.11">
+<h2 data-number="3.11" class="anchored" data-anchor-id="sec-sintesis-fundamentos"><span class="header-section-number">3.11</span> Síntesis y preguntas para discutir</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 3 min · estudio 10 min</p>
+</div>
+<section id="lo-que-hay-que-llevarse-del-capítulo" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="lo-que-hay-que-llevarse-del-capítulo">Lo que hay que llevarse del capítulo</h3>
+<ol type="1">
+<li>El EEG registra la <strong>suma de corrientes postsinápticas</strong> de poblaciones de neuronas piramidales que actúan a la vez; el potencial de acción solo se ve de forma indirecta.</li>
+<li>Entre la fuente y el electrodo hay <strong>volumen conductor</strong>: la señal llega atenuada y espacialmente suavizada, y mezcla fuentes distintas.</li>
+<li>Un canal es siempre una <strong>diferencia de potencial</strong> con una referencia. Cambiar la referencia cambia los valores, no las diferencias entre canales.</li>
+<li><strong>Tierra</strong> y <strong>referencia</strong> no son lo mismo. En NeuroMIND la referencia de adquisición es FCz, la tierra es el electrodo Gnd del gorro ECI, hay 31 electrodos activos (sin Fp1) y el pipeline no re-referencia.</li>
+<li>Las bandas son convenciones; las que cuentan para lo que se calcula son las de <code>config/pipeline.toml</code>, que difieren de la tabla del capítulo.</li>
+</ol>
+<details class="nm-q nm-q-comp">
+<summary>
+<span class="nm-tag">Pregunta de comprensión</span> ¿Por qué se dice que el EEG «no ve» los potenciales de acción si estos son de decenas de milivoltios?
+</summary>
+<p>Porque, según el capítulo, lo que el electrodo registra directamente son los <strong>potenciales postsinápticos sumados</strong> de una población grande de neuronas piramidales que actúan a la vez (del orden de <span class="math inline">10^8</span> neuronas y unos <span class="math inline">6\,\text{cm}^2</span> de corteza activa). Los potenciales de acción (≈ 60–80 mV en la neurona) solo se reflejan de forma indirecta, y lo que llega al cuero cabelludo, tras atravesar el volumen conductor, es del orden de µV. <span class="tipo t-int">interpretación</span></p>
+</details>
+<details class="nm-q nm-q-comp">
+<summary>
+<span class="nm-tag">Pregunta de comprensión</span> Si un canal depende de la referencia, ¿por qué se puede comparar la actividad de dos canales sin conocer el potencial «absoluto» de cada electrodo?
+</summary>
+<p>Porque la diferencia entre dos canales referidos a la misma referencia no depende de ella: <span class="math inline">(V_a-V_{ref})-(V_b-V_{ref})=V_a-V_b</span> (véase el <a href="#exm-rereferencia" class="quarto-xref">Ejemplo&nbsp;<span>3.1</span></a>). Lo que sí puede cambiar con la referencia es la forma y la amplitud de cada canal por separado y, por tanto, cualquier medida que dependa de cada canal en solitario. Qué ocurre con una medida de fase entre canales como el wPLI es la duda <a href="../chapters/02-estado-arte.html#duda-conn-02"><code>CONN-02</code></a>, aún en curso. <span class="tipo t-int">interpretación</span></p>
+</details>
+</section>
+<section id="sec-q-abiertas-fundamentos" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="sec-q-abiertas-fundamentos">Qué sigue abierto</h3>
+<p>Las preguntas siguientes <strong>no tienen una respuesta establecida</strong> en el informe ni en este libro. Para cada una se indica qué evidencia haría falta; no se ofrece una respuesta.</p>
+<div class="nm-q-open">
+<div class="nm-q-title">
+<span class="nm-tag">Pregunta abierta · 1</span> ¿Por qué falta Fp1 en el montaje?
+</div>
+<p>Es la duda <a href="#duda-mont-01"><code>MONT-01</code></a>. Se descartó la hipótesis de que REF ocupara su portaelectrodos, pero el motivo de la ausencia sigue sin respuesta. <span class="estado e-pendiente">pendiente</span></p>
+<p><strong>Qué evidencia haría falta:</strong> la respuesta del equipo de adquisición: si se perdió durante el registro, se reasignó o es una limitación estructural del gorro.</p>
+</div>
+<div class="nm-q-open">
+<div class="nm-q-title">
+<span class="nm-tag">Pregunta abierta · 2</span> ¿Cuánto cambia el wPLI si se re-referencia o se aplica CSD, frente a la referencia FCz de adquisición?
+</div>
+<p>Es la duda <a href="../chapters/02-estado-arte.html#duda-conn-02"><code>CONN-02</code></a>. El capítulo afirma que el pipeline no re-referencia y que el wPLI conserva la referencia FCz; no hay una medida de cuánto afecta a las matrices de wPLI. <span class="estado e-pendiente">pendiente</span></p>
+<p><strong>Qué evidencia haría falta:</strong> recalcular el wPLI sobre los mismos registros con y sin CSD (y con otras referencias) y comparar, como propone la acción de la ficha.</p>
+</div>
+</section>
+</section>
+<section id="sec-dudas-fundamentos" class="level2" data-number="3.12">
+<h2 data-number="3.12" class="anchored" data-anchor-id="sec-dudas-fundamentos"><span class="header-section-number">3.12</span> Dudas del proyecto</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.1 · modificado el 28/10/2026 · lectura 6 min · estudio 10 min</p>
+</div>
+<p>Las tres fichas del Cuaderno de dudas que este capítulo copia completas en el informe (MONT-01, MONT-02 y ADQ-01) y las tres que solo menciona (ADQ-02, CONN-02 y MONT-06), con el estado que tienen hoy. El verde se reserva a las fichas resueltas o trasladadas con una respuesta documentada.</p>
+<div id="duda-mont-01" class="nm-duda-ficha nm-d-encurso">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">MONT-01</span> <span class="dudaestado d-encurso">en curso</span></p>
+<p><strong>Fp2 sin Fp1: asimetría fronto-polar</strong></p>
+</div>
+<dl>
+<dt>Contexto</dt>
+<dd>
+El montaje incluye Fp2 pero no Fp1, lo que rompe la simetría hemisférica en la fila fronto-polar. Fp2 ocupa además la última posición del fichero (<code>Ch31</code>).
+</dd>
+<dt>Evidencia</dt>
+<dd>
+Ningún sujeto tiene Fp1 en la señal: no existe ninguna arista Fp1–X en las matrices wPLI, y Fp2 no tiene par homólogo contralateral. El esquema del montaje (<a href="#fig-montaje-eeg-10-20" class="quarto-xref">figura&nbsp;<span>3.8</span></a>) lo confirma: no hay Fp1, y el portaelectrodos de la línea media frontal —donde iría Fpz— lo ocupa el Gnd.
+</dd>
+<dt>Implicación</dt>
+<dd>
+Impide calcular cualquier índice de asimetría interhemisférica que involucre la región fronto-polar. Y sostiene el argumento de MONT-06: sin Fp1, quitar Fp2 devuelve la simetría entre hemisferios.
+</dd>
+<dt>Pregunta (al equipo de adquisición)</dt>
+<dd>
+¿Fp1 se perdió durante el registro, se reasignó como canal EOG, o su portaelectrodos se usó para la referencia? La respuesta cambia si el canal es recuperable en registros futuros o si es una limitación estructural del dataset.
+</dd>
+<dt>Respuesta</dt>
+<dd>
+<strong>Alejandro · 2026-09-28.</strong> El esquema del montaje resuelve la parte de la referencia (ADQ-01): FCz era la referencia de adquisición y el ground era el electrodo específico Gnd del sistema ECI, en la zona frontal. Ninguno de los dos ocupa el lugar de Fp1.
+<strong>Rafa · 2026-09-29.</strong> Con eso se cae la hipótesis que yo había anotado aquí. Había deducido de las cabeceras que REF ocupaba el portaelectrodos de Fp1, porque en el layout de fábrica del actiCAP de 32 canales las posiciones 1 y 2 son Fp1 y Fz mientras que aquí la 1 es Fz y la 2 es <code>REF</code>. Pero ese razonamiento asumía un gorro actiCAP, y el gorro es ECI: el actiCHamp es solo el amplificador. La correspondencia entre la entrada física 2 y la posición en el escalpo no se puede inferir del orden del fichero. <strong>Por qué falta Fp1 sigue sin respuesta.</strong>
+</dd>
+<dt>Acción</dt>
+<dd>
+Preguntarlo por separado de <a href="#duda-adq-01">ADQ-01</a>, que ya está cerrada: son dos cosas distintas, al contrario de lo que yo suponía. Basta con una línea en el próximo correo.
+</dd>
+</dl>
+</div>
+<div id="duda-mont-02" class="nm-duda-ficha nm-d-neutra">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">MONT-02</span> <span class="dudaestado d-resuelta">resuelta</span></p>
+<p><strong>Nomenclatura antigua de los electrodos temporales</strong></p>
+</div>
+<dl>
+<dt>Contexto</dt>
+<dd>
+Parte de la literatura de esclerosis múltiple que vamos a citar usa la nomenclatura 10–20 antigua, anterior al sistema 10–10.
+</dd>
+<dt>Evidencia</dt>
+<dd>
+Equivalencias: T7 = T3, T8 = T4, P7 = T5, P8 = T6.
+</dd>
+<dt>Implicación</dt>
+<dd>
+Al comparar nuestros resultados con un artículo que hable de «T3» o «T5» hay que traducir primero; si no, una coincidencia o una discrepancia regional puede leerse al revés.
+</dd>
+<dt>Respuesta</dt>
+<dd>
+Sin respuesta registrada en la ficha: se da por resuelta con las equivalencias de «Evidencia». Por eso no lleva el verde, reservado a las fichas con respuesta documentada.
+</dd>
+<dt>Acción</dt>
+<dd>
+Llevar la tabla de equivalencias al anexo de referencia rápida del informe para no tener que recordarla cada vez.
+</dd>
+</dl>
+</div>
+<div id="duda-adq-01" class="nm-duda-ficha nm-d-trasladada">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">ADQ-01</span> <span class="dudaestado d-trasladada">trasladada</span></p>
+<p><strong>¿Qué posición ocupaban REF y Gnd en el gorro?</strong></p>
+</div>
+<dl>
+<dt>Contexto</dt>
+<dd>
+Yo había asumido FCz como referencia y Fpz como tierra; los compañeros dicen que no es así. Los datos crudos registran mucho sobre la referencia, pero no lo único que resolvería la duda.
+</dd>
+<dt>Evidencia</dt>
+<dd>
+Comprobado sobre los 212 <code>.vhdr</code>: <code>Reference Channel Name</code> = <code>REF</code> en 210, con impedancia propia medida (2.ª de la lista, 4 kΩ en el ejemplo) y <code>Gnd</code> también con impedancia propia. Es decir, la referencia es un electrodo físico único —ni promedio ni virtual— y el ground es otro electrodo distinto. Pero <strong>ninguna etiqueta de escalpo</strong>: buscando <code>FCz</code>, <code>Fpz</code>, <code>AFz</code> y <code>CPz</code> en los 212 ficheros salen <strong>0 apariciones</strong>. Los 31 canales con nombre ocupan las entradas físicas 1 y 3–32; la entrada 2 es REF. Amplificador: actiCHamp Base Unit (5001) + módulo de 32 canales.
+</dd>
+<dt>Implicación</dt>
+<dd>
+Estrictamente, la suposición no se puede ni confirmar ni refutar con estos ficheros; tampoco la contraria, salvo que exista una fuente externa. FCz/Fpz no es arbitrario —es la configuración de fábrica del actiCAP de 32 canales con actiCHamp, que es exactamente este hardware—, así que lo interesante no es solo qué era, sino cómo lo saben.
+</dd>
+<dt>Pregunta (a Javier y Alejandro)</dt>
+<dd>
+¿Qué posición ocupaban REF y Gnd en el gorro, y de dónde sale ese dato? ¿Se conserva el <code>.rwksp</code> del BrainVision Recorder, que sí guarda el layout? Y ya que estamos: ¿cómo gestiona BrainVision Analyzer la referencia y dónde se comprueba la real de un registro?
+</dd>
+<dt>Respuesta</dt>
+<dd>
+<strong>Alejandro · 2026-09-28.</strong> Esto ya lo podemos dejar cerrado a partir del esquema original del montaje (<a href="#fig-montaje-eeg-10-20" class="quarto-xref">figura&nbsp;<span>3.8</span></a>). <strong>FCz fue el electrodo de referencia de adquisición</strong> y se mantuvo como referencia durante el pipeline, sin aplicar average reference posteriormente. <strong>El ground era el electrodo específico Gnd del sistema ECI</strong>, situado en la zona frontal, y no corresponde a Fpz ni a otro electrodo 10–20.
+</dd>
+<dt>Acción</dt>
+<dd>
+Ninguna aquí: la corrección de los metadatos es ADQ-02. Anotar en el informe que la referencia es FCz y que no se re-referencia, que es justo lo que un revisor preguntará (<a href="../chapters/02-estado-arte.html#duda-conn-02">CONN-02</a>).
+</dd>
+<dt>Cierre · 2026-10-15</dt>
+<dd>
+Referencia FCz y tierra Gnd quedan documentadas en los sidecars de tarea del BIDS, en el <code>README.md</code> del dataset y en el informe; no se re-referencia. La corrección de los metadatos fue ADQ-02.
+</dd>
+</dl>
+</div>
+<div id="duda-adq-02" class="nm-duda-ficha nm-d-neutra">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">ADQ-02</span> <span class="dudaestado d-trasladada">trasladada</span></p>
+</div>
+<dl>
+<dt>Cuestión</dt>
+<dd>
+Los JSON de BIDS declaran la referencia en Cz y los <code>electrodes.tsv</code>, la tierra en Fpz; ninguno de los dos valores es el real.
+</dd>
+<dt>Consecuencia para este capítulo</dt>
+<dd>
+El recuadro de limitación de la <a href="#sec-referencia-fcz-gnd" class="quarto-xref"><span>Sección 3.7.2</span></a> sigue vigente hasta que se regeneren los 205 JSON y los 103 TSV con FCz, Gnd y actiCHamp.
+</dd>
+<dt>Ficha completa</dt>
+<dd>
+<a href="../chapters/04-diseno-adquisicion.html#duda-adq-02">ADQ-02 en el capítulo 4</a>, con su cierre del 2026-10-15. Aquí solo está la remisión del informe, sin respuesta copiada, y por eso no lleva el verde.
+</dd>
+</dl>
+</div>
+<div id="duda-conn-02" class="nm-duda-ficha nm-d-encurso">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">CONN-02</span> <span class="dudaestado d-encurso">en curso</span></p>
+</div>
+<dl>
+<dt>Cuestión</dt>
+<dd>
+¿Basta con declarar la referencia FCz y argumentar la robustez del wPLI, o hay que re-referenciar (promedio común o CSD)?
+</dd>
+<dt>Consecuencia para este capítulo</dt>
+<dd>
+La <a href="#sec-referencia-fcz-gnd" class="quarto-xref"><span>Sección 3.7.2</span></a> afirma que el pipeline no re-referencia y que el wPLI conserva la referencia FCz del amplificador. Si se decide re-referenciar, esa descripción cambia.
+</dd>
+<dt>Ficha completa</dt>
+<dd>
+<a href="../chapters/02-estado-arte.html#duda-conn-02">CONN-02 en el capítulo 2</a>.
+</dd>
+</dl>
+</div>
+<div id="duda-mont-06" class="nm-duda-ficha nm-d-encurso">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">MONT-06</span> <span class="dudaestado d-encurso">en curso</span></p>
+</div>
+<dl>
+<dt>Cuestión</dt>
+<dd>
+¿Se excluye Fp2 de forma fija (<code>exclude_fp2 = true</code>, 30 canales) en la configuración definitiva?
+</dd>
+<dt>Consecuencia para este capítulo</dt>
+<dd>
+De los 31 canales activos de la <a href="#sec-montaje-eeg" class="quarto-xref"><span>Sección 3.7.1</span></a>, el análisis usaría 30. Sin Fp1 ni Fp2, el montaje analizado queda simétrico entre hemisferios.
+</dd>
+<dt>Ficha completa</dt>
+<dd>
+En el Cuaderno de dudas del proyecto (aún no está en el libro).
+</dd>
+</dl>
+</div>
+
+
+</section>
+<section id="bibliography" class="level1 unnumbered">
+<h1 class="unnumbered">Referencias</h1>
+<div id="refs" class="references csl-bib-body hanging-indent" role="list" style="display: none">
+<div id="ref-Cohen2014" class="csl-entry" role="listitem">
+Cohen, Mike X.. 2014. <em>Analyzing neural time series data : theory and practice</em>. The MIT Press.
+</div>
+<div id="ref-IriarteFranco2013" class="csl-entry" role="listitem">
+Iriarte Franco, Jorge, y Julio Artieda González-Granda. 2013. <em>Manual de Neurofisiolog<span>í</span>a Cl<span>í</span>nica</em>. Editorial M<span>é</span>dica Panamericana.
+</div>
+<div id="ref-Sanei2022" class="csl-entry" role="listitem">
+Sanei, Saeid, y Jonathon A. Chambers. 2022. <em>EEG signal processing and machine learning</em>. Wiley.
+</div>
+<div id="ref-Yamada2018" class="csl-entry" role="listitem">
+Yamada, Tōru., y Elizabeth. Meng. 2018. <em>Practical guide for clinical neurophysiologic testing. EEG</em>. Wolters Kluwer.
+</div>
+</div>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="../chapters/02-estado-arte.html" class="pagination-link" aria-label="Estado del arte, hipótesis y objetivos">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Estado del arte, hipótesis y objetivos</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="../chapters/04-diseno-adquisicion.html" class="pagination-link" aria-label="Diseño experimental y organización del pipeline">
+        <span class="nav-page-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Diseño experimental y organización del pipeline</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

@@ -1,0 +1,1665 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.19">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>5&nbsp; Señal raw y control de calidad inicial – NeuroMIND</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<link href="../chapters/06-filtrado.html" rel="next">
+<link href="../chapters/04-diseno-adquisicion.html" rel="prev">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-e0f85b23f9611b83334aa333ab076718.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No se han encontrado resultados",
+    "search-matching-documents-text": "documentos encontrados",
+    "search-copy-link-title": "Copiar el enlace en la búsqueda",
+    "search-hide-matches-text": "Ocultar resultados adicionales",
+    "search-more-match-text": "resultado adicional en este documento",
+    "search-more-matches-text": "resultados adicionales en este documento",
+    "search-clear-button-title": "Borrar",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancelar",
+    "search-submit-button-title": "Enviar",
+    "search-label": "Buscar"
+  }
+}</script>
+
+  <script defer="" src="../vendor/katex/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <link rel="stylesheet" href="../vendor/katex/katex.min.css">
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../assets/css/styles.css">
+</head>
+
+<body class="nav-sidebar floating slimcontent quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Alternar barra lateral" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../chapters/05-raw.html"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Señal raw y control de calidad inicial</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Alternar barra lateral" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Buscar" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="../">NeuroMIND</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Buscar"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Portada</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/00-introduccion.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Introducción</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/00-resumen.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Resumen ejecutivo</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/00-referencia.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Referencia rápida</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/01-esclerosis-multiple.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Esclerosis múltiple para ingenieros</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/02-estado-arte.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Estado del arte, hipótesis y objetivos</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/03-fundamentos.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Fundamentos de EEG para ingenieros</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/04-diseno-adquisicion.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Diseño experimental y organización del pipeline</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/05-raw.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Señal raw y control de calidad inicial</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/06-filtrado.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Filtrado</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/99-referencias.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Referencias</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">En esta página</h2>
+   
+  <ul>
+  <li><a href="#objetivos-de-aprendizaje" id="toc-objetivos-de-aprendizaje" class="nav-link active" data-scroll-target="#objetivos-de-aprendizaje">Objetivos de aprendizaje</a></li>
+  <li><a href="#lecturas-esenciales" id="toc-lecturas-esenciales" class="nav-link" data-scroll-target="#lecturas-esenciales">Lecturas esenciales</a></li>
+  <li><a href="#sec-raw-punto-partida" id="toc-sec-raw-punto-partida" class="nav-link" data-scroll-target="#sec-raw-punto-partida"><span class="header-section-number">5.1</span> La señal EEG raw como punto de partida</a></li>
+  <li><a href="#sec-raw-objetivos-qc" id="toc-sec-raw-objetivos-qc" class="nav-link" data-scroll-target="#sec-raw-objetivos-qc"><span class="header-section-number">5.2</span> Objetivos del control de calidad</a></li>
+  <li><a href="#sec-raw-bva-crossval" id="toc-sec-raw-bva-crossval" class="nav-link" data-scroll-target="#sec-raw-bva-crossval"><span class="header-section-number">5.3</span> Comparación de configuración: datos raw en BrainVision Analyzer</a></li>
+  <li><a href="#sec-raw-visual" id="toc-sec-raw-visual" class="nav-link" data-scroll-target="#sec-raw-visual"><span class="header-section-number">5.4</span> Inspección visual inicial</a></li>
+  <li><a href="#sec-raw-psd" id="toc-sec-raw-psd" class="nav-link" data-scroll-target="#sec-raw-psd"><span class="header-section-number">5.5</span> Espectro de la señal sin filtrar</a></li>
+  <li><a href="#sec-raw-estadisticas" id="toc-sec-raw-estadisticas" class="nav-link" data-scroll-target="#sec-raw-estadisticas"><span class="header-section-number">5.6</span> Estadísticas básicas por canal</a>
+  <ul class="collapse">
+  <li><a href="#sec-raw-media" id="toc-sec-raw-media" class="nav-link" data-scroll-target="#sec-raw-media"><span class="header-section-number">5.6.1</span> Media</a></li>
+  <li><a href="#sec-raw-desviacion" id="toc-sec-raw-desviacion" class="nav-link" data-scroll-target="#sec-raw-desviacion"><span class="header-section-number">5.6.2</span> Desviación típica</a></li>
+  <li><a href="#sec-raw-extremos" id="toc-sec-raw-extremos" class="nav-link" data-scroll-target="#sec-raw-extremos"><span class="header-section-number">5.6.3</span> Valores extremos</a></li>
+  <li><a href="#sec-raw-rms" id="toc-sec-raw-rms" class="nav-link" data-scroll-target="#sec-raw-rms"><span class="header-section-number">5.6.4</span> RMS</a></li>
+  <li><a href="#sec-rms-zscore" id="toc-sec-rms-zscore" class="nav-link" data-scroll-target="#sec-rms-zscore"><span class="header-section-number">5.6.5</span> Detección de canales atípicos: <span class="math inline">z</span>-score del RMS</a></li>
+  <li><a href="#sec-raw-asimetria" id="toc-sec-raw-asimetria" class="nav-link" data-scroll-target="#sec-raw-asimetria"><span class="header-section-number">5.6.6</span> Asimetría</a></li>
+  <li><a href="#sec-raw-curtosis" id="toc-sec-raw-curtosis" class="nav-link" data-scroll-target="#sec-raw-curtosis"><span class="header-section-number">5.6.7</span> Curtosis</a></li>
+  <li><a href="#sec-raw-hfnoise" id="toc-sec-raw-hfnoise" class="nav-link" data-scroll-target="#sec-raw-hfnoise"><span class="header-section-number">5.6.8</span> Índice de ruido de alta frecuencia (HFNoise)</a></li>
+  <li><a href="#sec-raw-snr" id="toc-sec-raw-snr" class="nav-link" data-scroll-target="#sec-raw-snr"><span class="header-section-number">5.6.9</span> Relación señal–ruido (SNR)</a></li>
+  <li><a href="#sec-raw-correlacion" id="toc-sec-raw-correlacion" class="nav-link" data-scroll-target="#sec-raw-correlacion"><span class="header-section-number">5.6.10</span> Correlación intercanal</a></li>
+  <li><a href="#sec-raw-qc-visual-outputs" id="toc-sec-raw-qc-visual-outputs" class="nav-link" data-scroll-target="#sec-raw-qc-visual-outputs"><span class="header-section-number">5.6.11</span> Salidas visuales complementarias</a></li>
+  </ul></li>
+  <li><a href="#sec-anexo-raw" id="toc-sec-anexo-raw" class="nav-link" data-scroll-target="#sec-anexo-raw">Anexo del capítulo: código y salidas</a>
+  <ul class="collapse">
+  <li><a href="#código" id="toc-código" class="nav-link" data-scroll-target="#código">Código</a></li>
+  <li><a href="#salidas-generadas" id="toc-salidas-generadas" class="nav-link" data-scroll-target="#salidas-generadas">Salidas generadas</a></li>
+  <li><a href="#sec-mapa-codigo-raw" id="toc-sec-mapa-codigo-raw" class="nav-link" data-scroll-target="#sec-mapa-codigo-raw">Mapa: del código a las salidas</a></li>
+  </ul></li>
+  <li><a href="#sec-sintesis-raw" id="toc-sec-sintesis-raw" class="nav-link" data-scroll-target="#sec-sintesis-raw"><span class="header-section-number">5.7</span> Síntesis y preguntas para discutir</a>
+  <ul class="collapse">
+  <li><a href="#lo-que-hay-que-llevarse-del-capítulo" id="toc-lo-que-hay-que-llevarse-del-capítulo" class="nav-link" data-scroll-target="#lo-que-hay-que-llevarse-del-capítulo">Lo que hay que llevarse del capítulo</a></li>
+  <li><a href="#sec-q-abiertas-raw" id="toc-sec-q-abiertas-raw" class="nav-link" data-scroll-target="#sec-q-abiertas-raw">Qué sigue abierto</a></li>
+  </ul></li>
+  <li><a href="#sec-dudas-raw" id="toc-sec-dudas-raw" class="nav-link" data-scroll-target="#sec-dudas-raw"><span class="header-section-number">5.8</span> Dudas del proyecto</a></li>
+  <li><a href="#bibliography" id="toc-bibliography" class="nav-link" data-scroll-target="#bibliography">Referencias</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content page-columns page-full" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title"><span id="sec-raw-qc" class="quarto-section-identifier"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Señal raw y control de calidad inicial</span></span></h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="nm-meta nm-meta-capitulo" role="note">
+<p>v0.1.1 · modificado el 30/10/2026 · lectura 31 min · estudio 1 h 35 min</p>
+</div>
+<div class="nm-nav">
+<table><caption>Secciones de este capítulo. <strong>Lectura</strong>: tiempo de leer el texto (200 palabras/min). <strong>Estudio</strong>: lectura más ecuaciones, preguntas y simulaciones (criterios en <code>metadata/criterios-tiempos.yml</code>).</caption>
+<thead><tr><th>Sección</th><th>Lectura</th><th>Estudio</th></tr></thead><tbody>
+<tr><td><a href="#sec-raw-punto-partida">La señal EEG raw como punto de partida</a></td><td>1 min</td><td>5 min</td></tr>
+<tr><td><a href="#sec-raw-objetivos-qc">Objetivos del control de calidad</a></td><td>1 min</td><td>5 min</td></tr>
+<tr><td><a href="#sec-raw-bva-crossval">Comparación de configuración: datos raw en BrainVision Analyzer</a></td><td>3 min</td><td>5 min</td></tr>
+<tr><td><a href="#sec-raw-visual">Inspección visual inicial</a></td><td>3 min</td><td>10 min</td></tr>
+<tr><td><a href="#sec-raw-psd">Espectro de la señal sin filtrar</a></td><td>2 min</td><td>5 min</td></tr>
+<tr><td><a href="#sec-raw-estadisticas">Estadísticas básicas por canal</a></td><td>12 min</td><td>1 h 5 min</td></tr>
+<tr><td><a href="#sec-anexo-raw">Anexo del capítulo: código y salidas</a></td><td>3 min</td><td>5 min</td></tr>
+<tr><td><a href="#sec-sintesis-raw">Síntesis y preguntas para discutir</a></td><td>3 min</td><td>10 min</td></tr>
+<tr><td><a href="#sec-dudas-raw">Dudas del proyecto</a></td><td>5 min</td><td>5 min</td></tr>
+</tbody><tfoot><tr><th>Capítulo completo</th><th>31 min</th><th>1 h 35 min</th></tr></tfoot></table></div>
+<section id="objetivos-de-aprendizaje" class="level2 unnumbered" data-origen="ampliacion">
+<h2 class="unnumbered anchored" data-anchor-id="objetivos-de-aprendizaje">Objetivos de aprendizaje</h2>
+<p><strong>Objetivo del capítulo.</strong> Antes de filtrar se documenta el estado del registro sin modificarlo; en sub-M05 solo Fp2 supera el umbral automático del <span class="math inline">z</span>-score del RMS.</p>
+<p><strong>La pregunta científica.</strong> Antes de tocar la señal, ¿cómo se sabe que un registro es utilizable y qué canal merece desconfianza, sin cambiar nada de lo grabado?</p>
+<p><strong>Al terminar este capítulo deberías ser capaz de:</strong></p>
+<ol type="1">
+<li>escribir un registro continuo como la matriz canales×muestras <span class="math inline">\mathbf{X}_{s,k}</span> y decir qué es una fila y qué es una columna;</li>
+<li>calcular e interpretar las métricas de calidad de un canal: media, desviación típica, extremos, RMS, asimetría, curtosis, HFNoise, SNR y correlación intercanal;</li>
+<li>explicar el <span class="math inline">z</span>-score del RMS, por qué es un criterio <em>relativo al sujeto</em> y por qué su resultado es una alerta y no una exclusión automática;</li>
+<li>distinguir la PSD de la señal sin filtrar (diagnóstico) de la PSD de las épocas ya preprocesadas;</li>
+<li>localizar en el código y en los archivos de salida dónde se calcula cada métrica;</li>
+<li>reconocer qué parte de este capítulo se apoya en datos individuales y por qué el libro no los reproduce todavía.</li>
+</ol>
+<p><strong>Conocimientos previos.</strong> El <a href="../chapters/03-fundamentos.html">capítulo 3</a> (referencia FCz y montaje de 31 canales) y el <a href="../chapters/04-diseno-adquisicion.html">capítulo 4</a> (BIDS y el archivo que entra al pipeline). Es un capítulo de <em>referencia</em> del informe: define lo que se mide antes de filtrar, y el capítulo siguiente del informe (filtrado) parte de ello.</p>
+</section>
+<section id="lecturas-esenciales" class="level2 unnumbered page-columns page-full">
+<h2 class="unnumbered anchored" data-anchor-id="lecturas-esenciales">Lecturas esenciales</h2>
+<p>Tres lecturas, de mayor a menor prioridad. La dificultad para ingeniería (de uno a tres, de menor a mayor) y los tiempos son los que da el informe original y son orientativos.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p>Pasa el cursor (o toca) sobre la cita para ver la referencia completa. Los tres niveles son los del informe: <strong>imprescindible</strong>, <strong>para profundizar</strong> y <strong>consulta</strong>.</p>
+</div></div><div class="nm-lecturas">
+<div class="nm-lectura">
+<div class="nm-lec-nivel">
+<p><span class="nm-prio nm-prio-1">Imprescindible</span></p>
+</div>
+<div class="nm-lec-cuerpo">
+<p><strong><span class="citation" data-cites="BigdelyShamlo2015PREP">Bigdely-Shamlo et&nbsp;al. (<a href="99-referencias.html#ref-BigdelyShamlo2015PREP" role="doc-biblioref">2015</a>)</span></strong> · «The PREP pipeline: standardized preprocessing for large-scale EEG analysis» (artículo, <em>Frontiers in Neuroinformatics</em>).</p>
+<p>Preprocesado estandarizado a gran escala: detección de canales defectuosos con criterios robustos, referencia y ruido de línea. Referencia natural del QC por z-score.</p>
+</div>
+<ul>
+<li><strong>Tiempo</strong> ≈ 2 h</li>
+<li><strong>Dificultad</strong> 2</li>
+<li><strong>Sección</strong> <a href="#sec-rms-zscore" class="quarto-xref"><span>Sección 5.6.5</span></a></li>
+<li><strong>DOI</strong> <a href="https://doi.org/10.3389/fninf.2015.00016">10.3389/fninf.2015.00016</a></li>
+</ul>
+</div>
+<div class="nm-lectura">
+<div class="nm-lec-nivel">
+<p><span class="nm-prio nm-prio-2">Para profundizar</span></p>
+</div>
+<div class="nm-lec-cuerpo">
+<p><strong><span class="citation" data-cites="Yamada2018">Yamada y Meng (<a href="99-referencias.html#ref-Yamada2018" role="doc-biblioref">2018</a>)</span></strong> · <em>Practical guide for clinical neurophysiologic testing: EEG</em> (libro, Wolters Kluwer).</p>
+<p>Atlas práctico para reconocer, en la señal raw, patrones normales y artefactos.</p>
+</div>
+<ul>
+<li><strong>Tiempo</strong> a demanda</li>
+<li><strong>Dificultad</strong> 1</li>
+<li><strong>Sección</strong> <a href="#sec-raw-visual" class="quarto-xref"><span>Sección 5.4</span></a></li>
+<li><strong>DOI</strong> sin DOI (libro; ISBN 9781496383020)</li>
+</ul>
+</div>
+<div class="nm-lectura">
+<div class="nm-lec-nivel">
+<p><span class="nm-prio nm-prio-3">Consulta</span></p>
+</div>
+<div class="nm-lec-cuerpo">
+<p><strong><span class="citation" data-cites="Keil2014Guidelines">Keil et&nbsp;al. (<a href="99-referencias.html#ref-Keil2014Guidelines" role="doc-biblioref">2014</a>)</span></strong> · «Committee report: Publication guidelines and recommendations for studies using electroencephalography and magnetoencephalography» (artículo, <em>Psychophysiology</em>).</p>
+<p>Qué información sobre calidad de los datos se espera documentar en un estudio EEG.</p>
+</div>
+<ul>
+<li><strong>Tiempo</strong> a demanda</li>
+<li><strong>Dificultad</strong> 1</li>
+<li><strong>DOI</strong> <a href="https://doi.org/10.1111/psyp.12147">10.1111/psyp.12147</a></li>
+</ul>
+</div>
+</div>
+</section>
+<section id="sec-raw-punto-partida" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="sec-raw-punto-partida"><span class="header-section-number">5.1</span> La señal EEG raw como punto de partida</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 1 min · estudio 5 min</p>
+</div>
+<p>La señal <strong>EEG raw</strong>, o señal en crudo, es el punto de entrada del preprocesado: conserva la actividad cerebral registrada junto con ruido instrumental, artefactos fisiológicos, posibles desplazamientos de electrodos y variaciones de referencia.</p>
+<p>En esta fase inicial, no se corrige todavía la señal, sino que se documenta su estado inicial para decidir si el registro puede avanzar hacia el filtrado y para dejar trazabilidad de cualquier canal o run problemático.</p>
+<div id="fig-raw-data-overview" class="nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Dos paneles. Arriba, «Datos EEG en bruto»: tres archivos (.vhdr cabecera, .vmrk marcadores y .eeg señal de datos) unidos por flechas hasta una traza de ejemplo en microvoltios, de 0 a 100 s, entre −100 y 100 µV. Abajo, «Registro EEG continuo»: un icono BrainVision con duración de 100 s, frecuencia de muestreo de 500 Hz y 50 000 muestras por canal, y las trazas apiladas de unos treinta canales (de Fp2 a O2) en 100 s, con barras de escala de 100 µV y 1 s.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-raw-data-overview-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap05/raw_data.png" class="nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Dos paneles. Arriba, «Datos EEG en bruto»: tres archivos (.vhdr cabecera, .vmrk marcadores y .eeg señal de datos) unidos por flechas hasta una traza de ejemplo en microvoltios, de 0 a 100 s, entre −100 y 100 µV. Abajo, «Registro EEG continuo»: un icono BrainVision con duración de 100 s, frecuencia de muestreo de 500 Hz y 50 000 muestras por canal, y las trazas apiladas de unos treinta canales (de Fp2 a O2) en 100 s, con barras de escala de 100 µV y 1 s.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-raw-data-overview-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;5.1: Ejemplo de señal EEG en crudo (<em>raw</em>) antes de cualquier corrección o filtrado, utilizada como referencia visual del estado inicial del registro.
+</figcaption>
+</figure>
+</div>
+<details class="nm-detalle">
+<summary>
+Procedencia de esta imagen
+</summary>
+<p>Es una ilustración etiquetada «ejemplo»: <strong>no son datos del estudio</strong>. Lo muestra, por ejemplo, que rotule un canal «TP8», que no está en el montaje de 31 canales (<a href="../chapters/03-fundamentos.html#sec-montaje-eeg">capítulo 3</a>), y que dé 50 000 muestras por canal frente a las 50 180 de un registro real. El informe no documenta cómo se generó ni su licencia: <span class="estado e-pendiente">pendiente</span></p>
+</details>
+</section>
+<section id="sec-raw-objetivos-qc" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="sec-raw-objetivos-qc"><span class="header-section-number">5.2</span> Objetivos del control de calidad</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 1 min · estudio 5 min</p>
+</div>
+<p>Una vez cargados y validados los metadatos BIDS (<a href="../chapters/04-diseno-adquisicion.html#sec-bids-organizacion">capítulo 4</a>), se generan estadísticas iniciales de calidad junto con gráficos exploratorios que sirven como línea base antes del filtrado: trazas raw, PSD promedio por canal, resúmenes de potencia por banda, gráficos de estadísticas por canal y alertas de canales sospechosos.</p>
+</section>
+<section id="sec-raw-bva-crossval" class="level2" data-number="5.3">
+<h2 data-number="5.3" class="anchored" data-anchor-id="sec-raw-bva-crossval"><span class="header-section-number">5.3</span> Comparación de configuración: datos raw en BrainVision Analyzer</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 3 min · estudio 5 min</p>
+</div>
+<p>Además de las comparaciones espectrales del capítulo 12 del informe original, Javier Espuny (colaborador del proyecto) está replicando de forma independiente, fase a fase, el mismo pipeline con <strong>BrainVision Analyzer (BVA) 2.3.0</strong> sobre <code>sub-M05/ses-T2/eyesclosed</code>. Esta sección abre esa serie con la fase más temprana —la carga del registro raw— y fija el formato que se repetirá en los capítulos siguientes conforme Javier aporte la captura y la justificación técnica de cada fase: una caja de comparación de parámetros seguida de un análisis en prosa de las coincidencias y discrepancias.</p>
+<div id="tbl-raw-bva-carga" class="nm-apilable quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-raw-bva-carga-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabla&nbsp;5.1: Etapa de carga — datos raw: parámetros de BrainVision Analyzer frente a NeuroMIND sobre el mismo archivo.
+</figcaption>
+<div aria-describedby="tbl-raw-bva-carga-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="nm-apilable caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Parámetro</th>
+<th style="text-align: left;">BVA</th>
+<th style="text-align: left;">NeuroMIND</th>
+<th style="text-align: center;">¿Coincide?</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;" data-label="Parámetro">Nº de canales</td>
+<td style="text-align: left;" data-label="BVA">31</td>
+<td style="text-align: left;" data-label="NeuroMIND">31</td>
+<td style="text-align: center;" data-label="¿Coincide?">Sí</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Parámetro">Frecuencia de muestreo</td>
+<td style="text-align: left;" data-label="BVA">500 Hz</td>
+<td style="text-align: left;" data-label="NeuroMIND">500 Hz</td>
+<td style="text-align: center;" data-label="¿Coincide?">Sí</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Parámetro">Duración total</td>
+<td style="text-align: left;" data-label="BVA">100,36 s</td>
+<td style="text-align: left;" data-label="NeuroMIND">100,36 s</td>
+<td style="text-align: center;" data-label="¿Coincide?">Sí</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Parámetro">Puntos por canal</td>
+<td style="text-align: left;" data-label="BVA">50 180</td>
+<td style="text-align: left;" data-label="NeuroMIND">50 180</td>
+<td style="text-align: center;" data-label="¿Coincide?">Sí</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Parámetro">Sistema de electrodos</td>
+<td style="text-align: left;" data-label="BVA">10–20</td>
+<td style="text-align: left;" data-label="NeuroMIND">10–20</td>
+<td style="text-align: center;" data-label="¿Coincide?">Sí</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Parámetro">Referencia (adquisición)</td>
+<td style="text-align: left;" data-label="BVA">FCz</td>
+<td style="text-align: left;" data-label="NeuroMIND">FCz</td>
+<td style="text-align: center;" data-label="¿Coincide?">Sí</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;" data-label="Parámetro">Segmentación prevista</td>
+<td style="text-align: left;" data-label="BVA">100 × 1 s</td>
+<td style="text-align: left;" data-label="NeuroMIND">100 épocas × 1 s</td>
+<td style="text-align: center;" data-label="¿Coincide?">Sí</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p><strong>Coincidencias.</strong> Los siete parámetros coinciden exactamente. Esto es lo esperado, no un hallazgo: BVA y NeuroMIND leen el <em>mismo</em> archivo <code>.vhdr/.eeg</code> de origen (<a href="../chapters/04-diseno-adquisicion.html#sec-bids-organizacion">capítulo 4</a>), así que esta fase valida sobre todo que ambos lectores interpretan igual el contenedor BrainVision —31 canales, <span class="math inline">F_s=500</span> Hz (intervalo de muestreo 2000 µs), 100,36 s y 50 180 puntos por canal—, no una decisión experimental de ninguno de los dos. La justificación técnica de Javier para el montaje 10–20 con 31 canales coincide con la del propio pipeline (<a href="03-fundamentos.html#sec-montaje-eeg" class="quarto-xref"><span>Sección 3.7.1</span></a>; véase la <a href="03-fundamentos.html#sec-sistema-10-20" class="quarto-xref"><span>Sección 3.5</span></a> para la descripción completa del sistema 10–20 en NeuroMIND): densidad espacial suficiente en regiones fronto-parietales para resting-state clínico y <span class="math inline">F_s=500</span> Hz por encima del rango habitual de EEG humano (<span class="math inline">&lt;150</span> Hz), respetando el criterio de Nyquist (<a href="#sec-raw-psd" class="quarto-xref"><span>Sección 5.5</span></a>, capítulo 12 del informe original). La previsión de Javier de «100 segmentos de 1 s para análisis espectral por FFT» anticipa, ya en esta fase temprana, la misma segmentación de 1,0 s que NeuroMIND aplica en la etapa de segmentación (perfil <code>eeg_julia</code>, capítulo 9 del informe original) —confirmación adicional, desde una herramienta independiente, de que 1 s es una elección de segmentación razonable para este dataset y no un artefacto de la implementación de NeuroMIND.</p>
+<p><strong>Referencia de adquisición.</strong> Javier reporta que BVA importó el registro con referencia <strong>FCz</strong>. El propio <code>.vhdr</code> de <code>sub-M05/ses-T2/eyesclosed</code> deja vacío el campo <code>&lt;Reference channel name&gt;</code> para los 31 canales (bloque <code>[Channel Infos]</code>), así que el archivo fuente, por sí solo, <em>no</em> documenta qué electrodo se usó como referencia durante la adquisición. En el resto del dataset la cabecera tampoco lo resuelve: 210 de los 212 <code>.vhdr</code> declaran <code>Reference Channel Name = REF</code> (un electrodo físico en la entrada 2), pero ninguno le asigna una posición de escalpo.</p>
+<p><strong>Resolución (28/09/2026).</strong> El esquema original del montaje, enviado por Alejandro Galvao, sitúa REF en <strong>FCz</strong>, entre FC1 y FC2, y la tierra en un electrodo <code>Gnd</code> dedicado de la zona frontal (<a href="03-fundamentos.html#sec-referencia-fcz-gnd" class="quarto-xref"><span>Sección 3.7.2</span></a>; ficha <a href="../chapters/03-fundamentos.html#duda-adq-01"><code>ADQ-01</code></a>). El valor de BVA era, por tanto, el correcto. Una versión anterior del generador BIDS escribía <code>"EEGReference": "Cz"</code> como valor fijo, sin leerlo del <code>.vhdr</code>; era un error, y además no es plausible: Cz se graba como canal activo con varianza normal, y un canal de referencia online sería idénticamente cero. Los sidecars de tarea del BIDS regenerado el 15/10/2026 declaran ya <code>"EEGReference": "FCz"</code>, de modo que la tabla anterior no tiene discrepancias.</p>
+<div class="nm-box nm-limite" data-rotulo="Referencia FCz confirmada">
+<p>La referencia de adquisición es FCz y ni BVA ni NeuroMIND re-referencian. Queda por decidir si el wPLI necesita re-referenciado explícito, sea promedio común o CSD (ficha <a href="#duda-conn-02"><code>CONN-02</code></a>, capítulo 13 del informe original).</p>
+</div>
+</section>
+<section id="sec-raw-visual" class="level2" data-number="5.4">
+<h2 data-number="5.4" class="anchored" data-anchor-id="sec-raw-visual"><span class="header-section-number">5.4</span> Inspección visual inicial</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.1 · modificado el 30/10/2026 · lectura 3 min · estudio 10 min</p>
+</div>
+<p>La inspección visual de trazas raw complementa las métricas automáticas. Se revisa por sujeto, sesión y condición (EO/EC) la morfología temporal, la presencia de artefactos de gran amplitud y la coherencia entre canales vecinos. Conviene inspeccionar ventanas cortas (2–5 s) en varios canales representativos del montaje —frontales, centrales, occipitales y temporales— antes de confiar en promedios globales como el RMS.</p>
+<p>La figura de señal cruda <strong>Fp2</strong> frente a <strong>Cz</strong> (<a href="#nota-fig-raw-walkthrough-fp2-cz">nota</a>) contrasta ambos canales sobre todo el registro continuo en el mismo eje de amplitud: Fp2 exhibe oscilaciones de mucha mayor excursión que el canal central de referencia, anticipando el flag de canal malo (<a href="#sec-rms-zscore" class="quarto-xref"><span>Sección 5.6.5</span></a>). La figura de <strong>Cz</strong> frente a <strong>F3</strong> (<a href="#nota-fig-raw-walkthrough-cz-f3">nota</a>) muestra, en la misma escala temporal, la coherencia morfológica esperada entre <strong>Cz</strong> y <strong>F3</strong>, dos electrodos del montaje sin alerta QC.</p>
+<div id="nota-fig-raw-walkthrough-fp2-cz" class="nm-box nm-pendiente" data-rotulo="Figura no reproducida · sin salida trazable">
+<p><strong>Qué mostraba:</strong> señal cruda completa: <strong>Fp2</strong> frente a <strong>Cz</strong> en el mismo eje. <strong>Origen:</strong> <code>walkthrough_M05.jl</code> (Bloque 2), <code>sub-M05/ses-T2/eyesclosed</code>, condición EC. Su publicación está autorizada (30-10-2026), pero no es una salida de la ejecución trazable del pipeline (25-07-2026), que en el paso de QC solo guarda tablas; por eso no se reproduce. Véase <code>docs/datos-individuales-pendientes.md</code>. <span class="estado e-pendiente">pendiente</span></p>
+</div>
+<div id="nota-fig-raw-walkthrough-cz-f3" class="nm-box nm-pendiente" data-rotulo="Figura no reproducida · sin salida trazable">
+<p><strong>Qué mostraba:</strong> señal cruda completa: <strong>Cz</strong> frente a <strong>F3</strong> en el mismo eje. <strong>Origen:</strong> <code>walkthrough_M05.jl</code> (Bloque 2), <code>sub-M05/ses-T2/eyesclosed</code>, condición EC. Su publicación está autorizada (30-10-2026), pero no es una salida de la ejecución trazable del pipeline (25-07-2026), que en el paso de QC solo guarda tablas; por eso no se reproduce. <span class="estado e-pendiente">pendiente</span></p>
+</div>
+<p>Formalmente, para cada <strong>sujeto</strong> <span class="math inline">s</span> y <strong>condición</strong> <span class="math inline">k\in\{\mathrm{EO},\mathrm{EC}\}</span>, el registro continuo se organiza como</p>
+<p><span class="math display">
+\mathbf{X}_{s,k}=\bigl[x^{(s,k)}_{c,n}\bigr]
+\in\mathbb{R}^{C\times N},
+\qquad N=F_s T,
+</span></p>
+<p>donde <span class="math inline">C</span> es el número de canales (31 canales EEG), <span class="math inline">F_s</span> la frecuencia de muestreo (500 Hz), <span class="math inline">T</span> la duración del registro y <span class="math inline">N</span> el número de muestras temporales por canal. Cada fila contiene la serie temporal completa de un electrodo y cada columna reúne las amplitudes de todos los canales en un mismo instante. El índice de sesión se omite aquí para aligerar la notación.</p>
+<div id="fig-raw-recording-matrix" class="nm-figura-svg nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Tres paneles unidos por flechas. 1, Electrodos: una cabeza con un casquete de electrodos, con dos marcados como canal 1 y canal C y uno en ámbar como canal c. 2, Series temporales: cuatro trazas etiquetadas canal 1, canal 2, canal c (en ámbar) y canal C frente al tiempo t, con una franja vertical en verde azulado en la muestra n y la indicación de muestreo a Fs = 500 Hz. 3, Matriz de datos: la matriz X con filas de canales y columnas de muestras, N = Fs·T muestras de ancho y C canales de alto; resalta en ámbar la fila c y en verde azulado la columna n. Dos leyendas indican fila c: serie temporal completa del electrodo c; columna n: todos los canales en un mismo instante.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-raw-recording-matrix-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap05/raw_recording_matrix.svg" class="nm-figura-svg nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Tres paneles unidos por flechas. 1, Electrodos: una cabeza con un casquete de electrodos, con dos marcados como canal 1 y canal C y uno en ámbar como canal c. 2, Series temporales: cuatro trazas etiquetadas canal 1, canal 2, canal c (en ámbar) y canal C frente al tiempo t, con una franja vertical en verde azulado en la muestra n y la indicación de muestreo a Fs = 500 Hz. 3, Matriz de datos: la matriz X con filas de canales y columnas de muestras, N = Fs·T muestras de ancho y C canales de alto; resalta en ámbar la fila c y en verde azulado la columna n. Dos leyendas indican fila c: serie temporal completa del electrodo c; columna n: todos los canales en un mismo instante.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-raw-recording-matrix-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;5.2: Del casquete a la matriz de datos. Los electrodos (1) registran series temporales continuas (2) que, muestreadas a <span class="math inline">F_s</span>, se ordenan en la matriz <span class="math inline">\mathbf{X}_{s,k}</span> (3): cada fila es la serie completa de un canal (en ámbar, el canal <span class="math inline">c</span>) y cada columna reúne los <span class="math inline">C</span> canales en una misma muestra <span class="math inline">n</span> (en verde azulado). El casquete es una ilustración conceptual: no reproduce el montaje del estudio. Figura TikZ propia del informe original, con una ilustración conceptual de FigureLabs (IA) en el panel 1.
+</figcaption>
+</figure>
+</div>
+<details class="nm-detalle">
+<summary>
+Procedencia y limitaciones de esta imagen
+</summary>
+<p>El casquete del panel 1 es una ilustración conceptual generada con FigureLabs (IA generativa) el 16 de octubre de 2026, sin enviar datos del estudio, incrustada tal cual en la figura de TikZ. Sobre ella el TikZ superpone círculos para recolorear electrodos y marcar el canal 1, el canal <span class="math inline">C</span> y el canal <span class="math inline">c</span>. Limitaciones documentadas: el montaje dibujado no corresponde al 10–20 de 31 canales ni al orden real de los electrodos del estudio; es solo un esquema. Fuente: ficha de procedencia del informe original. Licencia: <span class="estado e-pendiente">pendiente</span></p>
+</details>
+<p>La figura de trazas raw apiladas (<a href="#nota-fig-raw-butterfly-m05">nota</a>) del montaje completo (31 canales) de sub-M05/ses-T2/eyesclosed (EC), en la ventana 0–10 s del registro con una escala de amplitud común derivada de forma robusta (mediana y percentil 70 de la excursión del montaje), permite que ningún canal aislado comprima la lectura del resto. La mayoría de los canales oscilan en un rango similar; <strong>Fp2</strong> destaca por variabilidad mucho mayor, coherente con su <span class="math inline">z</span>-score del RMS. La traza raw no sustituye la decisión automática, pero hace visible el patrón que después dispara el flag de canal malo.</p>
+<div id="nota-fig-raw-butterfly-m05" class="nm-box nm-pendiente" data-rotulo="Figura no reproducida · sin salida trazable">
+<p><strong>Qué mostraba:</strong> trazas raw apiladas del montaje completo (31 canales, ventana 0–10 s), sub-M05/ses-T2/eyesclosed, condición EC, con escala de amplitud común para todo el montaje. <strong>Origen:</strong> <code>plot_raw_butterfly</code> (<code>src/visualization/qc_figures.jl</code>); salida nativa reproducible del pipeline que sustituye el renderizado TikZ <em>ad hoc</em> anterior derivado de <code>raw_signal.csv</code>. Su publicación está autorizada (30-10-2026), pero no es una salida de la ejecución trazable del pipeline (25-07-2026), que en el paso de QC solo guarda tablas; por eso no se reproduce. <span class="estado e-pendiente">pendiente</span></p>
+</div>
+<div class="nm-box nm-qc" data-rotulo="Qué revisar · inspección visual">
+<p>Buscar deriva lenta sostenida, saltos aislados, clipping, canales planos y desincronización entre electrodos vecinos. Contrastar siempre con la PSD sin filtrar (<a href="#sec-raw-psd" class="quarto-xref"><span>Sección 5.5</span></a>) y con el <span class="math inline">z</span>-score del RMS (<a href="#sec-rms-zscore" class="quarto-xref"><span>Sección 5.6.5</span></a>).</p>
+</div>
+</section>
+<section id="sec-raw-psd" class="level2" data-number="5.5">
+<h2 data-number="5.5" class="anchored" data-anchor-id="sec-raw-psd"><span class="header-section-number">5.5</span> Espectro de la señal sin filtrar</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.1 · modificado el 30/10/2026 · lectura 2 min · estudio 5 min</p>
+</div>
+<p>La <strong>densidad espectral de potencia (PSD)</strong> de la señal <em>raw</em> es una herramienta diagnóstica clave para planificar la cascada posterior: revela interferencia de red, armónicos eléctricos y exceso de potencia en frecuencias muy bajas asociado a mal acoplamiento o deriva de referencia. Esta revisión es distinta de la PSD sobre épocas ya preprocesadas (capítulo 12 del informe original) y de la comparación raw frente a filtrada tras aplicar la cascada (<a href="../chapters/06-filtrado.html">capítulo 5 del libro: filtrado</a>).</p>
+<p>Operativamente se estima una PSD de <strong>Welch</strong> sobre la señal continua por canal: segmentos de longitud fija con ventana <strong>Hann</strong>, promediado de periodogramas y normalización por la potencia de la ventana y la frecuencia de muestreo <span class="math inline">F_s</span>.</p>
+<p>La figura de la PSD media del montaje (<a href="#nota-fig-raw-psd-m05">nota</a>) muestra el espectro medio del montaje (31 canales) en escala <span class="math inline">\log_{10}</span>, con las siete bandas del proyecto sombreadas y el pie de figura con el porcentaje de potencia de cada una (relativo a la banda 1–45 Hz, el mismo «espectro audible» que usa HFNoise como referencia). Los picos de línea se anotan automáticamente solo cuando superan el suelo espectral local: en sub-M05/ses-T2/eyesclosed la grabación muestra un <strong>valle</strong>, no un pico, exactamente en 50 Hz —indicio de que el software ya aplicó un notch <em>online</em> durante la adquisición— mientras que 100 Hz (segundo armónico, no cubierto por ese notch) sí se detecta y anota como pico real. Esta distinción no debe confundirse con el filtrado <em>offline</em> de NeuroMIND (<a href="../chapters/06-filtrado.html">filtrado</a>), que todavía no se ha aplicado en este punto del pipeline.</p>
+<div id="nota-fig-raw-psd-m05" class="nm-box nm-pendiente" data-rotulo="Figura no reproducida · sin salida trazable">
+<p><strong>Qué mostraba:</strong> PSD Welch de la señal raw promediada, sub-M05/ses-T2/eyesclosed (EC), 0–150 Hz, con bandas del proyecto sombreadas y porcentaje de potencia por banda en el pie (relativo a 1–45 Hz). <strong>Origen:</strong> <code>plot_raw_psd_average</code> (<code>src/visualization/qc_figures.jl</code>), a partir de <code>qc_psd_raw_mean.csv</code> y <code>qc_band_power_raw.csv</code>; salida nativa reproducible del pipeline que sustituye el renderizado TikZ <em>ad hoc</em> anterior. Su publicación está autorizada (30-10-2026), pero no es una salida de la ejecución trazable del pipeline (25-07-2026), que en el paso de QC solo guarda tablas; por eso no se reproduce. <span class="estado e-pendiente">pendiente</span></p>
+</div>
+<div class="nm-box nm-qc" data-rotulo="Qué revisar · PSD raw">
+<ul>
+<li><strong>Baja frecuencia</strong> (<span class="math inline">&lt;0{,}5</span>–1 Hz): deriva, mal contacto, movimiento; justifica un paso alto conservador (0,5 Hz en NeuroMIND).</li>
+<li><strong>50 Hz y armónicos</strong> (100, 150…): red eléctrica; notch y bandreject localizado.</li>
+<li><strong>25–45 Hz</strong> elevado en temporales/frontales: posible EMG; combinar con inspección visual e ICA posterior.</li>
+<li><strong>Canal aislado</strong> con espectro muy distinto del resto: candidato a exclusión antes del filtrado (<code>flag_bad_channels</code>).</li>
+</ul>
+</div>
+</section>
+<section id="sec-raw-estadisticas" class="level2" data-number="5.6">
+<h2 data-number="5.6" class="anchored" data-anchor-id="sec-raw-estadisticas"><span class="header-section-number">5.6</span> Estadísticas básicas por canal</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.1 · modificado el 30/10/2026 · lectura 12 min · estudio 1 h 5 min</p>
+</div>
+<p>Partiendo de la representación matricial de la <a href="#fig-raw-recording-matrix" class="quarto-xref">figura&nbsp;<span>5.2</span></a>, la señal del canal <span class="math inline">c</span> es la fila <span class="math inline">c</span>-ésima de <span class="math inline">\mathbf{X}_{s,k}</span>:</p>
+<p><span class="math display">
+\mathbf{x}^{(s,k)}_c
+:=\mathbf{X}_{s,k}[c,:]
+=\bigl(x^{(s,k)}_{c,1},\ldots,x^{(s,k)}_{c,N}\bigr)
+\in\mathbb{R}^{N},
+\qquad c=1,\ldots,C.
+</span></p>
+<p>Cada elemento <span class="math inline">x^{(s,k)}_{c,n}</span> es la amplitud en µV del canal <span class="math inline">c</span> en la muestra temporal <span class="math inline">n</span>. Los estadísticos se calculan por separado para cada fila; por concisión, una vez fijados <span class="math inline">s</span>, <span class="math inline">k</span> y <span class="math inline">c</span>, se escribe <span class="math inline">\mathbf{x}=(x_1,\ldots,x_N)</span>. Por tanto, <span class="math inline">x_n</span>, <span class="math inline">\mu</span> y <span class="math inline">\sigma</span> designan magnitudes de un único canal, no de la matriz completa.</p>
+<p>Sobre esta secuencia finita y ordenada se evalúan la media, la desviación típica, los extremos, el RMS, la asimetría, la curtosis, el índice de ruido de alta frecuencia (HFNoise), la relación señal–ruido (SNR) y la correlación intercanal. En conjunto, estas métricas caracterizan el comportamiento basal y ayudan a detectar canales sospechosos antes del filtrado.</p>
+<div id="fig-raw-qc-flow" class="nm-figura-svg nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Seis cajas unidas por flechas de izquierda a derecha: datos raw; métricas RMS, rango; umbrales y z-score; inspección visual (resaltada en naranja); decisión de canal; listo para filtrar (en verde azulado). Debajo: «las métricas orientan, no sustituyen la revisión».">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-raw-qc-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap05/raw_qc_flow.svg" class="nm-figura-svg nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Seis cajas unidas por flechas de izquierda a derecha: datos raw; métricas RMS, rango; umbrales y z-score; inspección visual (resaltada en naranja); decisión de canal; listo para filtrar (en verde azulado). Debajo: «las métricas orientan, no sustituyen la revisión».">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-raw-qc-flow-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;5.3: Las métricas de esta sección alimentan un umbral automático (<span class="math inline">z</span>-score), pero la decisión final sobre cada canal pasa siempre por inspección visual. Figura TikZ propia del informe original.
+</figcaption>
+</figure>
+</div>
+<div id="fig-f0-qc-statistics" class="nm-figura-svg nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Seis tarjetas numeradas con un pictograma, la fórmula y una nota «Delata». 1, Media: μ = (1/N) Σ xn; delata offset DC, deriva de referencia o saturación parcial. 2, Desviación típica: σ con divisor N−1, una campana con ≈ 68 %; canal plano o desconectado (σ muy baja), artefacto sostenido o mala impedancia (σ muy alta). 3, Extremos y rango: xmin, xmax, xmax − xmin; picos aislados, techo del conversor (saturación) o saltos que σ y RMS no reflejan. 4, RMS: raíz de (1/N) Σ xn²; energía global del canal, base del z-score intercanal que marca los canales malos. 5, Asimetría γ1 con una cola derecha; artefactos unidireccionales (parpadeo, movimiento ocular, deriva lenta). 6, Curtosis γ2 con un pico agudo y colas; transitorios impulsivos, clipping o interferencia muscular (se usa la curtosis bruta, sin restar 3).">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-f0-qc-statistics-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap05/f0_qc_statistics.svg" class="nm-figura-svg nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Seis tarjetas numeradas con un pictograma, la fórmula y una nota «Delata». 1, Media: μ = (1/N) Σ xn; delata offset DC, deriva de referencia o saturación parcial. 2, Desviación típica: σ con divisor N−1, una campana con ≈ 68 %; canal plano o desconectado (σ muy baja), artefacto sostenido o mala impedancia (σ muy alta). 3, Extremos y rango: xmin, xmax, xmax − xmin; picos aislados, techo del conversor (saturación) o saltos que σ y RMS no reflejan. 4, RMS: raíz de (1/N) Σ xn²; energía global del canal, base del z-score intercanal que marca los canales malos. 5, Asimetría γ1 con una cola derecha; artefactos unidireccionales (parpadeo, movimiento ocular, deriva lenta). 6, Curtosis γ2 con un pico agudo y colas; transitorios impulsivos, clipping o interferencia muscular (se usa la curtosis bruta, sin restar 3).">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-f0-qc-statistics-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;5.4: Los seis estadísticos temporales de esta sección, con su fórmula y lo que delatan en un canal: nivel (azul: media, extremos), dispersión (verde azulado: desviación típica, RMS) y forma de la distribución (púrpura: asimetría, curtosis). Los pictogramas son esquemas, no datos. Figura TikZ propia del informe original.
+</figcaption>
+</figure>
+</div>
+<section id="sec-raw-media" class="level3" data-number="5.6.1">
+<h3 data-number="5.6.1" class="anchored" data-anchor-id="sec-raw-media"><span class="header-section-number">5.6.1</span> Media</h3>
+<p>La media resume el desplazamiento DC u offset del canal: el nivel promedio alrededor del cual oscila la señal antes de cualquier corrección de línea base.</p>
+<p><span class="math display">
+\mu=\frac{1}{N}\sum_{n=1}^{N}x_n
+</span></p>
+<div class="nm-box nm-qc" data-rotulo="Qué revisar · media">
+<p>Comparar <span class="math inline">\mu</span> entre canales del mismo registro y con registros previos del mismo sujeto. Valores muy alejados de cero o con signo opuesto entre canales vecinos pueden indicar deriva de referencia, mal contacto o saturación parcial. En NeuroMIND, <code>compute_channel_stats</code> exporta la media en µV por canal.</p>
+</div>
+</section>
+<section id="sec-raw-desviacion" class="level3" data-number="5.6.2">
+<h3 data-number="5.6.2" class="anchored" data-anchor-id="sec-raw-desviacion"><span class="header-section-number">5.6.2</span> Desviación típica</h3>
+<p>La desviación típica cuantifica la dispersión de la amplitud alrededor de la media. Es la primera métrica de varianza y complementa al RMS cuando el offset DC no es despreciable.</p>
+<p><span class="math display">
+\sigma=\sqrt{\frac{1}{N-1}\sum_{n=1}^{N}(x_n-\mu)^2}
+</span></p>
+<div class="nm-box nm-qc" data-rotulo="Qué revisar · desviación típica">
+<p>Valores anormalmente bajos sugieren canal plano o desconectado; valores muy elevados respecto al resto del montaje apuntan a artefactos sostenidos o mala impedancia. Cruzar <span class="math inline">\sigma</span> con el rango y la inspección visual de la traza antes de confiar en el canal para el filtrado.</p>
+</div>
+</section>
+<section id="sec-raw-extremos" class="level3" data-number="5.6.3">
+<h3 data-number="5.6.3" class="anchored" data-anchor-id="sec-raw-extremos"><span class="header-section-number">5.6.3</span> Valores extremos</h3>
+<p>Los extremos del registro delimitan el rango dinámico observado y ayudan a detectar picos aislados o límites del amplificador.</p>
+<p><span class="math display">
+x_{\min}=\min(x),\qquad x_{\max}=\max(x)
+</span></p>
+<p>El rango operativo usado en el pipeline es <span class="math inline">x_{\max}-x_{\min}</span>.</p>
+<div class="nm-box nm-qc" data-rotulo="Qué revisar · valores extremos">
+<p>Buscar picos que se acerquen al techo del conversor o del rango nominal del amplificador (saturación), y mínimos/máximos desproporcionados frente a canales adyacentes. Un único pico extremo puede elevar el rango sin que <span class="math inline">\sigma</span> o RMS reflejen por completo la gravedad del artefacto; conviene contrastar con histogramas o trazas raw.</p>
+</div>
+</section>
+<section id="sec-raw-rms" class="level3" data-number="5.6.4">
+<h3 data-number="5.6.4" class="anchored" data-anchor-id="sec-raw-rms"><span class="header-section-number">5.6.4</span> RMS</h3>
+<p>El RMS actúa como proxy compacto de energía cuadrática media y permite comparar la magnitud global de canales y registros antes de aplicar filtrado.</p>
+<p><span class="math display">
+\mathrm{RMS}=\sqrt{\frac{1}{N}\sum_{n=1}^{N}x_n^2}
+</span></p>
+<div class="nm-box nm-qc" data-rotulo="Qué revisar · RMS">
+<p>Es la métrica base sobre la que se calcula el <span class="math inline">z</span>-score intercanal descrito en la <a href="#sec-rms-zscore" class="quarto-xref"><span>Sección 5.6.5</span></a>. Revisar canales con RMS aislado del resto del montaje; en el caso M05 (tabla de estadísticos por canal, <a href="#nota-tbl-raw-qc-channels-m05">no reproducida</a>) solo Fp2 supera el umbral automático.</p>
+</div>
+</section>
+<section id="sec-rms-zscore" class="level3" data-number="5.6.5">
+<h3 data-number="5.6.5" class="anchored" data-anchor-id="sec-rms-zscore"><span class="header-section-number">5.6.5</span> Detección de canales atípicos: <span class="math inline">z</span>-score del RMS</h3>
+<p>En NeuroMIND, el <em>z-score</em> del RMS no estandariza muestras dentro de un canal (como en asimetría o curtosis), sino que cuantifica cuán atípica es la energía global de cada electrodo frente al resto del montaje en el <em>mismo</em> registro. Para cada canal <span class="math inline">i</span> se calcula <span class="math inline">\mathrm{RMS}_i</span> sobre toda la ventana analizada; después:</p>
+<p><span class="math display">
+z_{\mathrm{RMS},i}=\frac{\mathrm{RMS}_i-\overline{\mathrm{RMS}}}
+{\sigma_{\mathrm{RMS}}+\varepsilon},
+</span></p>
+<p><span class="math display">
+\overline{\mathrm{RMS}}=\frac{1}{C}\sum_{j=1}^{C}\mathrm{RMS}_j,
+</span></p>
+<p><span class="math display">
+\sigma_{\mathrm{RMS}}=\sqrt{\frac{1}{C-1}\sum_{j=1}^{C}(\mathrm{RMS}_j-\overline{\mathrm{RMS}})^2},
+</span></p>
+<p>con <span class="math inline">C</span> el número de canales y <span class="math inline">\varepsilon</span> un término numérico que evita división por cero. La implementación en <code>compute_channel_stats</code> (<code>src/qc/QualityControl.jl</code>) coincide con esta expresión.</p>
+<p>La función <code>flag_bad_channels</code> marca <code>is_bad</code> cuando <span class="math inline">|z_{\mathrm{RMS},i}|&gt;3{,}0</span>, umbral configurable como <code>bad_channel_zscore_threshold</code> en <code>config/single_subject.toml</code> y <code>batch_pipeline.toml</code>. Es un criterio de <em>outlier relativo al sujeto</em>, no un umbral absoluto en µV: un canal se considera sospechoso por destacar frente a los demás de esa grabación, no por cruzar un valor fisiológico fijo.</p>
+<div class="nm-box nm-qc" data-rotulo="Qué revisar · z-score del RMS">
+<p>Interpretar <span class="math inline">|z_{\mathrm{RMS}}|&gt;3</span> como alerta, no como exclusión automática. Si fallan varios canales, la media y la dispersión del RMS se inflan y pueden ocultar casos. Los transitorios también pueden elevar el rango sin alterar mucho el RMS global; contrastar con trazas y PSD raw.</p>
+</div>
+<div data-origen="ampliacion">
+<div class="nm-box nm-idea" data-rotulo="Ejemplo con valores inventados">
+<p>Supón un montaje de solo cinco canales con RMS de 8, 9, 10, 11 y 12 µV en un registro ficticio: su media es 10 µV y su desviación típica muestral, <span class="math inline">\sqrt{(4+1+0+1+4)/4}\approx1{,}58</span> µV, de modo que el canal de 12 µV tiene <span class="math inline">z\approx1{,}26</span> y ninguno supera el umbral de 3. Si el quinto canal fuese de 30 µV, la media subiría a 13,6 µV y la desviación a unos 9,3 µV, y su <span class="math inline">z\approx1{,}76</span> <strong>seguiría sin superar 3</strong>: un solo canal muy atípico infla la media y la dispersión que se usan para medirlo. Por eso, con pocos canales, el criterio puede no marcar un canal evidente y la inspección visual sigue siendo imprescindible. <span class="tipo t-int">interpretación</span> <em>(Ejemplo numérico ilustrativo; no es un registro.)</em></p>
+</div>
+</div>
+</section>
+<section id="sec-raw-asimetria" class="level3" data-number="5.6.6">
+<h3 data-number="5.6.6" class="anchored" data-anchor-id="sec-raw-asimetria"><span class="header-section-number">5.6.6</span> Asimetría</h3>
+<p>La asimetría describe el sesgo de la distribución de amplitudes: si la cola pesada cae hacia valores positivos o negativos respecto a la media.</p>
+<p><span class="math display">
+\gamma_1=\frac{1}{N}\sum_{n=1}^{N}\left(\frac{x_n-\mu}{\sigma}\right)^3
+</span></p>
+<div class="nm-box nm-qc" data-rotulo="Qué revisar · asimetría">
+<p>Distribuciones casi simétricas (<span class="math inline">\gamma_1\approx 0</span>) son habituales en EEG reposo; sesgos marcados pueden deberse a artefactos unidireccionales (parpadeo, movimiento ocular, deriva lenta). Útil junto con curtosis para detectar transitorios que no elevan mucho la varianza global. Exportada como <code>skewness</code> en <code>compute_channel_stats</code> (divisor <span class="math inline">N</span>, no <span class="math inline">N-1</span>); en un canal plano (<span class="math inline">\sigma\approx 0</span>) se marca como <code>NaN</code> en vez de propagar un <span class="math inline">0/0</span>.</p>
+</div>
+</section>
+<section id="sec-raw-curtosis" class="level3" data-number="5.6.7">
+<h3 data-number="5.6.7" class="anchored" data-anchor-id="sec-raw-curtosis"><span class="header-section-number">5.6.7</span> Curtosis</h3>
+<p>La curtosis mide la concentración de masa en el centro de la distribución y el peso de las colas: valores altos indican impulsividad o eventos raros de gran amplitud.</p>
+<p><span class="math display">
+\gamma_2=\frac{1}{N}\sum_{n=1}^{N}\left(\frac{x_n-\mu}{\sigma}\right)^4
+</span></p>
+<div class="nm-box nm-qc" data-rotulo="Qué revisar · curtosis">
+<p>Curtosis muy superior a la de canales vecinos sugiere picos esporádicos, clipping o interferencia electromiográfica. Combinar con extremos y traza raw; una curtosis elevada con <span class="math inline">\sigma</span> moderada es señal de artefactos puntuales. Exportada como <code>kurtosis</code> en <code>compute_channel_stats</code>: curtosis <strong>bruta</strong> (<span class="math inline">\gamma_2</span>, sin restar 3), no en exceso —distinto del valor que devuelve <code>StatsBase.kurtosis</code> directamente.</p>
+</div>
+</section>
+<section id="sec-raw-hfnoise" class="level3" data-number="5.6.8">
+<h3 data-number="5.6.8" class="anchored" data-anchor-id="sec-raw-hfnoise"><span class="header-section-number">5.6.8</span> Índice de ruido de alta frecuencia (HFNoise)</h3>
+<p>El índice HFNoise resume la fracción de potencia espectral en banda rápida frente al espectro audible del registro; valores altos apuntan a ruido muscular o eléctrico de alta frecuencia antes del filtrado agresivo.</p>
+<p><span class="math display">
+\frac{P_{25\text{–}45\,\mathrm{Hz}}}{P_{1\text{–}45\,\mathrm{Hz}}}
+</span></p>
+<div class="nm-box nm-qc" data-rotulo="Qué revisar · HFNoise">
+<p>Comparar entre canales periféricos (temporal, frontal) y centrales: ratios elevados en FT/T8 o Fp sugieren tensión muscular o cableado. Exportado como <code>hfnoise</code> en <code>compute_channel_spectral_qc</code> (<code>src/qc/QualityControl.jl</code>), a partir de un único Welch por canal (<code>welch_psd_raw</code>) reutilizado también para el SNR de la subsección siguiente.</p>
+</div>
+</section>
+<section id="sec-raw-snr" class="level3" data-number="5.6.9">
+<h3 data-number="5.6.9" class="anchored" data-anchor-id="sec-raw-snr"><span class="header-section-number">5.6.9</span> Relación señal–ruido (SNR)</h3>
+<p>El SNR por banda contrasta la potencia en la banda de interés frente a una banda de ruido o residual, expresada en decibelios. NeuroMIND usa por defecto <span class="math inline">P_\alpha</span> (7,8–11,7 Hz) frente a <span class="math inline">P_\gamma</span> (30–50 Hz), configurable mediante <code>snr_signal_band</code>/<code>snr_noise_band</code>; el resultado se exporta como <code>snr_db</code>.</p>
+<p><span class="math display">
+\mathrm{SNR}=10\log_{10}\frac{P_{\mathrm{banda}}}{P_{\mathrm{ruido}}}
+</span></p>
+<div class="nm-box nm-qc" data-rotulo="Qué revisar · SNR">
+<p>Un valor bajo pese a una buena apariencia visual puede indicar contacto pobre o contaminación de línea. Una asimetría marcada entre hemisferios requiere revisión manual antes del análisis de grupo.</p>
+</div>
+</section>
+<section id="sec-raw-correlacion" class="level3" data-number="5.6.10">
+<h3 data-number="5.6.10" class="anchored" data-anchor-id="sec-raw-correlacion"><span class="header-section-number">5.6.10</span> Correlación intercanal</h3>
+<p>La correlación de Pearson entre canales <span class="math inline">i</span> y <span class="math inline">j</span> resume la coherencia espacial lineal de las amplitudes en el dominio temporal, donde <span class="math inline">\mathbf{x}_i</span> y <span class="math inline">\mathbf{x}_j</span> denotan las series temporales completas de cada electrodo y <span class="math inline">\sigma_i</span>, <span class="math inline">\sigma_j</span> sus desviaciones típicas muestrales.</p>
+<p><span class="math display">
+\rho_{ij}=\frac{\mathrm{cov}(\mathbf{x}_i,\mathbf{x}_j)}{\sigma_i\sigma_j}
+</span></p>
+<div id="fig-f0-qc-spectral-spatial" class="nm-figura-svg nm-fig-ancha quarto-float quarto-figure quarto-figure-center anchored" alt="Tres tarjetas. Izquierda, «Ruido de alta frecuencia»: un espectro de potencia frente a frecuencia con la banda rápida de 25 a 45 Hz sombreada, y la razón P25–45 / P1–45; delata tensión muscular o cableado ruidoso. Centro, «Relación señal–ruido»: un espectro con un pico alfa (7,8–11,7 Hz) y la banda gamma (30–50 Hz) sombreadas, SNR = 10 log10(Pα/Pγ); un SNR bajo aísla el canal. Derecha, «Correlación intercanal»: una matriz de correlación con un electrodo aislado (T8) cuya fila y columna son claras, con |ρ| ≈ 0; los vecinos tienen |ρ| alto.">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-f0-qc-spectral-spatial-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/figures/cap05/f0_qc_spectral_spatial.svg" class="nm-figura-svg nm-fig-ancha img-fluid figure-img" style="width:100.0%" alt="Tres tarjetas. Izquierda, «Ruido de alta frecuencia»: un espectro de potencia frente a frecuencia con la banda rápida de 25 a 45 Hz sombreada, y la razón P25–45 / P1–45; delata tensión muscular o cableado ruidoso. Centro, «Relación señal–ruido»: un espectro con un pico alfa (7,8–11,7 Hz) y la banda gamma (30–50 Hz) sombreadas, SNR = 10 log10(Pα/Pγ); un SNR bajo aísla el canal. Derecha, «Correlación intercanal»: una matriz de correlación con un electrodo aislado (T8) cuya fila y columna son claras, con |ρ| ≈ 0; los vecinos tienen |ρ| alto.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-f0-qc-spectral-spatial-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figura&nbsp;5.5: Resumen conceptual de tres métricas complementarias de control de calidad: fracción de potencia de alta frecuencia, <span class="math inline">P_{25\text{–}45}/P_{1\text{–}45}</span> (izquierda); relación señal–ruido entre la banda alfa y la banda gamma (centro); y correlación intercanal con un electrodo aislado (derecha). Esquemas ilustrativos, no datos del estudio. Figura TikZ propia del informe original.
+</figcaption>
+</figure>
+</div>
+<div class="nm-box nm-qc" data-rotulo="Qué revisar · correlación">
+<p>Inspeccionar la matriz de correlación del montaje: bloques de correlación casi unitaria entre canales adyacentes pueden reflejar referencia compartida o derivación; correlaciones nulas o negativas repetidas en un canal aíslan electrodos sospechosos. La <a href="#fig-f0-qc-spectral-spatial" class="quarto-xref">figura&nbsp;<span>5.5</span></a> ilustra el patrón esperado. <code>compute_correlation_summary</code> exporta, por canal, <code>mean_abs_corr</code>/<code>max_corr</code>/<code>min_corr</code> frente al resto del montaje; la matriz <span class="math inline">C\times C</span> completa exportada como archivo aparte —<code>qc_correlation_matrix.csv</code>— queda deliberadamente para una revisión posterior del informe visual de QC.</p>
+</div>
+</section>
+<section id="sec-raw-qc-visual-outputs" class="level3" data-number="5.6.11">
+<h3 data-number="5.6.11" class="anchored" data-anchor-id="sec-raw-qc-visual-outputs"><span class="header-section-number">5.6.11</span> Salidas visuales complementarias</h3>
+<p>Junto con las trazas raw (<a href="#sec-raw-visual" class="quarto-xref"><span>Sección 5.4</span></a>) y la PSD raw (<a href="#sec-raw-psd" class="quarto-xref"><span>Sección 5.5</span></a>) —generadas por el mismo módulo—, el pipeline produce dos salidas visuales adicionales en la etapa de QC, reproducibles para cualquier sujeto vía <code>save_qc_figures</code> (<code>src/visualization/qc_figures.jl</code>): un histograma de amplitudes por canal y una topografía espacial de la varianza. Las cuatro figuras sustituyen el esquema conceptual/TikZ <em>ad hoc</em> que anticipaba estas salidas en revisiones previas del informe.</p>
+<p>Los histogramas de amplitud (<a href="#nota-fig-raw-qc-histograms-m05-p1">lámina 1</a> y <a href="#nota-fig-raw-qc-histograms-m05-p2">lámina 2</a>) muestran la distribución de amplitud de los 31 canales de sub-M05/ses-T2/eyesclosed en dos láminas independientes (canales 1–16 y 17–31). La mayoría de los canales presenta una distribución aproximadamente simétrica y centrada en cero, con colas moderadas; Fp2 (canal 31, lámina 2) es una excepción clara, con un eje de amplitud mucho más ancho que el resto y una cola visible hacia valores positivos, coherente con su asimetría y curtosis elevadas (tabla de QC extendido, <a href="#nota-tbl-raw-qc-extended-m05">no reproducida</a>).</p>
+<div id="nota-fig-raw-qc-histograms-m05-p1" class="nm-box nm-pendiente" data-rotulo="Figura no reproducida · sin salida trazable">
+<p><strong>Qué mostraba:</strong> histograma de amplitud por canal, lámina 1/2 (canales 1–16), sub-M05/ses-T2/eyesclosed, condición EC. Barras coloreadas por canal; línea roja: media; líneas naranjas discontinuas: <span class="math inline">\mu\pm\sigma</span>. <strong>Origen:</strong> <code>plot_amplitude_histogram_pages</code> (<code>src/visualization/qc_figures.jl</code>). Su publicación está autorizada (30-10-2026), pero no es una salida de la ejecución trazable del pipeline (25-07-2026), que en el paso de QC solo guarda tablas; por eso no se reproduce. <span class="estado e-pendiente">pendiente</span></p>
+</div>
+<div id="nota-fig-raw-qc-histograms-m05-p2" class="nm-box nm-pendiente" data-rotulo="Figura no reproducida · sin salida trazable">
+<p><strong>Qué mostraba:</strong> histograma de amplitud por canal, lámina 2/2 (canales 17–31), sub-M05/ses-T2/eyesclosed, condición EC. Fp2 (canal 31) destaca por rango y dispersión frente al resto del montaje. <strong>Origen:</strong> <code>plot_amplitude_histogram_pages</code> (<code>src/visualization/qc_figures.jl</code>). Su publicación está autorizada (30-10-2026), pero no es una salida de la ejecución trazable del pipeline (25-07-2026), que en el paso de QC solo guarda tablas; por eso no se reproduce. <span class="estado e-pendiente">pendiente</span></p>
+</div>
+<p>La topografía de la desviación típica (<a href="#nota-fig-raw-qc-variance-topomap-m05">nota</a>) resume la desviación típica (<code>std_uv</code>) de cada canal en el dominio espacial mediante interpolación IDW sobre las posiciones 10-20 (<code>plot_topomap</code>, <code>src/visualization/Topomaps.jl</code>, el mismo motor usado para los topomaps de componentes ICA del capítulo 8 del informe original). Fp2, en la esquina frontal derecha, aparece como un máximo local aislado y claramente diferenciado del resto del montaje, consistente con el resto de indicadores de esta sección.</p>
+<div id="nota-fig-raw-qc-variance-topomap-m05" class="nm-box nm-pendiente" data-rotulo="Figura no reproducida · sin salida trazable">
+<p><strong>Qué mostraba:</strong> topografía de la desviación típica por canal (<code>std_uv</code>), sub-M05/ses-T2/eyesclosed, condición EC. Fp2 (esquina frontal derecha) aparece como máximo local aislado. <strong>Origen:</strong> <code>plot_variance_topomap</code> (<code>src/visualization/qc_figures.jl</code>). Su publicación está autorizada (30-10-2026), pero no es una salida de la ejecución trazable del pipeline (25-07-2026), que en el paso de QC solo guarda tablas; por eso no se reproduce. <span class="estado e-pendiente">pendiente</span></p>
+</div>
+<p>Como caso de trabajo verificado, el informe muestra la salida real de <code>compute_channel_stats</code> (<code>src/qc/QualityControl.jl</code>) sobre sub-M05/ses-T2/eyesclosed, condición EC: los 31 canales del montaje completo (antes de excluir Fp2) con sus estadísticos de QC y el flag <code>is_bad</code> que produce <code>flag_bad_channels</code> con el umbral <span class="math inline">|z_{\mathrm{RMS}}|&gt;3.0</span>.<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> De los 31 canales, uno solo se marca como malo: <strong>Fp2</strong>, lo que confirma sobre un caso concreto la exclusión de Fp2 aplicada por defecto a todo el montaje (AGENTS.md §7).</p>
+<div id="nota-tbl-raw-qc-channels-m05" class="nm-box nm-pendiente" data-rotulo="Tabla no reproducida · pendiente de contraste">
+<p><strong>Qué mostraba:</strong> estadísticos de QC por canal (media, RMS, desviación típica, rango, <span class="math inline">z</span>-score del RMS y decisión) de los 31 canales de sub-M05/ses-T2/eyesclosed, condición EC; Fp2 era el único canal marcado como malo. <strong>Origen que declara el informe:</strong> <code>results/M05/T2/tables/qc_channels_EC.csv</code>, generado por <code>qc_report</code> (<code>src/qc/QualityControl.jl</code>). Su publicación está autorizada (30-10-2026). La ejecución trazable del 25-07-2026 guarda <code>channel_statistics.csv</code>, pero el informe cita otro archivo, anterior; antes de reproducir la tabla hay que contrastar sus valores con los del informe. <span class="estado e-pendiente">pendiente</span></p>
+</div>
+<p>La figura de barras (<a href="#nota-fig-raw-qc-channels-m05">nota</a>) descompone la misma tabla por columna: un panel con las cinco métricas apiladas, mismo eje de 31 canales, para comparar de un vistazo su distribución. Fp2 (rojo) se sale claramente de escala en las cuatro métricas de amplitud (RMS, desviación típica, rango y, sobre todo, el propio valor que dispara la marca de canal malo) y supera el umbral <span class="math inline">|z_{\mathrm{RMS}}|&gt;3</span> marcado con líneas discontinuas en la fila inferior.</p>
+<div id="nota-fig-raw-qc-channels-m05" class="nm-box nm-pendiente" data-rotulo="Figura no reproducida · sin salida trazable">
+<p><strong>Qué mostraba:</strong> media, RMS, desviación típica, rango y <span class="math inline">z</span>-score del RMS de los 31 canales, en un panel por métrica (mismos datos que la tabla anterior); Fp2, en rojo, era el único canal marcado como malo. <strong>Origen:</strong> mismos datos que la tabla anterior. Su publicación está autorizada (30-10-2026), pero no es una salida de la ejecución trazable del pipeline (25-07-2026), que en el paso de QC solo guarda tablas; por eso no se reproduce. <span class="estado e-pendiente">pendiente</span></p>
+</div>
+<p>El informe amplía el mismo caso de trabajo con las métricas que hasta ahora solo estaban definidas conceptualmente: asimetría <span class="math inline">\gamma_1</span>, curtosis <span class="math inline">\gamma_2</span>, HFNoise, SNR (<span class="math inline">\alpha</span> frente a <span class="math inline">\gamma</span>, en dB) y la correlación media absoluta frente al resto del montaje. La brecha que señalaban las subsecciones anteriores queda así cerrada para las cinco familias de métricas escalares; la matriz de correlación completa <span class="math inline">C\times C</span> sigue pendiente de exportación (<a href="#sec-raw-qc-visual-outputs" class="quarto-xref"><span>Sección 5.6.11</span></a>). Fp2 vuelve a destacar por una curtosis alta, y su HFNoise y su SNR no son tan extremos como su RMS, lo que confirma que estas métricas capturan información complementaria y no simplemente redundante con el <span class="math inline">z</span>-score de RMS.</p>
+<div id="nota-tbl-raw-qc-extended-m05" class="nm-box nm-pendiente" data-rotulo="Tabla no reproducida · pendiente de contraste">
+<p><strong>Qué mostraba:</strong> QC extendido por canal: asimetría <span class="math inline">\gamma_1</span>, curtosis <span class="math inline">\gamma_2</span>, HFNoise, SNR (dB) y correlación media de los 31 canales de sub-M05/ses-T2/eyesclosed. <strong>Origen que declara el informe:</strong> <code>results/subjects/sub-M05/ses-T2/eyesclosed/channel_statistics.csv</code>, generado por <code>compute_channel_stats</code>, <code>compute_channel_spectral_qc</code> y <code>compute_correlation_summary</code> (<code>src/qc/QualityControl.jl</code>). Su publicación está autorizada (30-10-2026), y este archivo existe en la ejecución trazable del 25-07-2026; antes de reproducir la tabla hay que contrastar sus valores con los del informe. <span class="estado e-pendiente">pendiente</span></p>
+</div>
+<div data-origen="ampliacion">
+<div class="nm-box nm-limite" data-rotulo="Datos individuales: qué se omite y por qué">
+<p>Este capítulo se apoya en un caso real: el registro de un participante seudonimizado (<code>sub-M05</code>, sesión T2, ojos cerrados). Las siete figuras y las dos tablas de ese caso, y el gráfico de barras que las acompaña, <strong>no se reproducen</strong>: su publicación se autorizó el 30-10-2026, pero el libro solo enlaza figuras de resultados que sean salidas de una ejecución trazable del pipeline, y estas no lo son (el paso de QC de la ejecución del 25-07-2026 no genera figuras); las tablas, pendientes de contrastar con esa ejecución. Se conservan el texto, las fórmulas, los esquemas, y el nombre del canal que el informe marca, pero <strong>no los valores numéricos</strong> por canal (el <span class="math inline">z</span>-score del RMS de Fp2, y las medias y RMS de la ficha MONT-03). La lista exacta, con checksums y el procedimiento para añadirlos, está en <code>docs/datos-individuales-pendientes.md</code>. La salida de esa ejecución está en <code>results/subjects/sub-M05/ses-T2/eyesclosed/</code>; contrastar con ella las cifras que cita el informe sigue pendiente. <span class="estado e-pendiente">pendiente</span></p>
+</div>
+<div class="nm-box nm-limite" data-rotulo="Una discrepancia detectada: exclusión de Fp2 y archivos de configuración">
+<p>Contrastado con el repositorio de NeuroMIND (commit <code>765f725</code>): (1) el texto habla de «la exclusión de Fp2 aplicada por defecto», pero <code>config/pipeline.toml</code> mantiene <code>n_channels_used = 31</code> (todos los canales, incluido Fp2), «coherente con <code>exclude_fp2 = false</code>» según su propio comentario, y la ficha <a href="#duda-mont-06"><code>MONT-06</code></a> lo recoge: el acuerdo de excluirlo no está aplicado. (2) El umbral se declara configurable en <code>config/single_subject.toml</code> y <code>batch_pipeline.toml</code>, pero en <code>config/</code> solo existe <code>pipeline.toml</code>, donde <code>[qc]</code> tiene <code>bad_channel_zscore_threshold = 3.0</code>. (3) Lo que el capítulo dice del HFNoise (25–45 Hz frente a 1–45 Hz), del SNR (alfa frente a gamma), de la ventana de Welch y del umbral de amplitud (<code>amplitude_warning_sigma_uv = 20,0</code> µV) <strong>coincide</strong> con <code>[qc]</code>. Se conserva el texto del informe. <span class="estado e-confirmado">confirmado</span></p>
+</div>
+</div>
+</section>
+</section>
+<section id="sec-anexo-raw" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="sec-anexo-raw">Anexo del capítulo: código y salidas</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 3 min · estudio 5 min</p>
+</div>
+<section id="código" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="código">Código</h3>
+<p>El listado siguiente reproduce <code>compute_channel_stats</code> y <code>flag_bad_channels</code> completas, tal como están en <code>src/qc/QualityControl.jl</code>.</p>
+<div data-origen="ampliacion">
+<p>El listado del informe es una versión <strong>anterior</strong> de esas funciones (no calcula asimetría ni curtosis). Aquí se muestra el código real, extraído sin modificar del commit <code>765f725</code> del repositorio de NeuroMIND (líneas 10–74 de <code>src/qc/QualityControl.jl</code>, con su docstring) por <code>scripts/extraer_codigo.mjs</code>; la copia está en <code>assets/code/QualityControl_stats.jl</code> con su checksum en <code>assets/MANIFEST.tsv</code>. No se ejecuta.</p>
+</div>
+<div id="lst-qc-channels-full" class="julia listing quarto-float quarto-figure quarto-figure-left anchored">
+<figure class="quarto-float quarto-float-lst figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-lst" id="lst-qc-channels-full-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Código&nbsp;5.1: Funciones completas compute_channel_stats y flag_bad_channels en src/qc/QualityControl.jl (commit 765f725 de NeuroMIND). Estadísticos por canal y detección de canales sospechosos por z-score de RMS. Copia en assets/code/QualityControl_stats.jl (no se ejecuta).
+</figcaption>
+<div aria-describedby="lst-qc-channels-full-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="sourceCode" id="cb1"><pre class="sourceCode julia"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="st">    compute_channel_stats(rec::EEGRecording) -&gt; DataFrame</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="st">Estadísticas por canal (señal raw, dominio temporal):</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="st">- `mean_uv`, `rms_uv`, `std_uv`, `range_uv`, `rms_zscore` (legacy)</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="st">- `min_uv`, `max_uv`</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="st">- `skewness` — asimetría γ₁ = (1/N) Σ ((x−μ)/σ)³  (divisor N; NaN si σ≈0)</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="st">- `kurtosis` — curtosis **bruta** γ₂ = (1/N) Σ ((x−μ)/σ)⁴  (no en exceso; NaN si σ≈0)</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="st">Coincide con Report_Pre §Asimetría / §Curtosis.</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">compute_channel_stats</span>(rec<span class="op">::</span><span class="dt">EEGRecording</span>)<span class="op">::</span><span class="dt">DataFrame</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    n_ch <span class="op">=</span> rec.meta.n_channels</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    ch   <span class="op">=</span> rec.meta.channel_names</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    μ     <span class="op">=</span> [<span class="fu">mean</span>(rec.data[c, <span class="op">:</span>]) for c <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>n_ch]</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    rms   <span class="op">=</span> [<span class="fu">sqrt</span>(<span class="fu">mean</span>(rec.data[c, <span class="op">:</span>]<span class="op">.^</span><span class="fl">2</span>)) for c <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>n_ch]</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    σ     <span class="op">=</span> [<span class="fu">std</span>(rec.data[c, <span class="op">:</span>]) for c <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>n_ch]</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    x_min <span class="op">=</span> [<span class="fu">minimum</span>(rec.data[c, <span class="op">:</span>]) for c <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>n_ch]</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    x_max <span class="op">=</span> [<span class="fu">maximum</span>(rec.data[c, <span class="op">:</span>]) for c <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>n_ch]</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    rng   <span class="op">=</span> x_max <span class="op">.-</span> x_min</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    rms_z <span class="op">=</span> (rms <span class="op">.-</span> <span class="fu">mean</span>(rms)) <span class="op">./</span> (<span class="fu">std</span>(rms) <span class="op">+</span> <span class="fu">eps</span>())</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    skew_v <span class="op">=</span> <span class="fu">Vector</span><span class="dt">{Float64}</span>(<span class="cn">undef</span>, n_ch)</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    kurt_v <span class="op">=</span> <span class="fu">Vector</span><span class="dt">{Float64}</span>(<span class="cn">undef</span>, n_ch)</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> c <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>n_ch</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> σ[c] <span class="op">&lt;</span> <span class="fl">1e-9</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>            <span class="pp">@warn</span> <span class="st">"compute_channel_stats: canal plano (σ≈0); asimetría/curtosis indefinidas"</span> channel<span class="op">=</span>ch[c]</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>            skew_v[c] <span class="op">=</span> <span class="cn">NaN</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>            kurt_v[c] <span class="op">=</span> <span class="cn">NaN</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>            sig <span class="op">=</span> rec.data[c, <span class="op">:</span>]</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>            <span class="co"># StatsBase.skewness usa divisor N (población), como el informe.</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>            skew_v[c] <span class="op">=</span> <span class="fu">skewness</span>(sig)</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>            <span class="co"># StatsBase.kurtosis es EN EXCESO (γ₂−3); el informe usa γ₂ bruta.</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>            kurt_v[c] <span class="op">=</span> <span class="fu">kurtosis</span>(sig) <span class="op">+</span> <span class="fl">3.0</span></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fu">DataFrame</span>(</span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>        channel    <span class="op">=</span> ch,</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>        mean_uv    <span class="op">=</span> <span class="fu">round</span>.(μ,      digits<span class="op">=</span><span class="fl">3</span>),</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>        rms_uv     <span class="op">=</span> <span class="fu">round</span>.(rms,    digits<span class="op">=</span><span class="fl">3</span>),</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>        std_uv     <span class="op">=</span> <span class="fu">round</span>.(σ,      digits<span class="op">=</span><span class="fl">3</span>),</span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>        range_uv   <span class="op">=</span> <span class="fu">round</span>.(rng,    digits<span class="op">=</span><span class="fl">3</span>),</span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>        rms_zscore <span class="op">=</span> <span class="fu">round</span>.(rms_z,  digits<span class="op">=</span><span class="fl">3</span>),</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>        min_uv     <span class="op">=</span> <span class="fu">round</span>.(x_min,  digits<span class="op">=</span><span class="fl">3</span>),</span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>        max_uv     <span class="op">=</span> <span class="fu">round</span>.(x_max,  digits<span class="op">=</span><span class="fl">3</span>),</span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>        skewness   <span class="op">=</span> <span class="fu">round</span>.(skew_v, digits<span class="op">=</span><span class="fl">3</span>),</span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>        kurtosis   <span class="op">=</span> <span class="fu">round</span>.(kurt_v, digits<span class="op">=</span><span class="fl">3</span>),</span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span></span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a><span class="st">    flag_bad_channels(rec::EEGRecording; z_threshold=3.0) -&gt; Vector{String}</span></span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a><span class="st">Identifica canales sospechosos por z-score de RMS fuera del umbral.</span></span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span></span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">flag_bad_channels</span>(rec<span class="op">::</span><span class="dt">EEGRecording</span>; z_threshold<span class="op">::</span><span class="dt">Real</span>=<span class="fl">3.0</span>)<span class="op">::</span><span class="dt">Vector{String}</span></span>
+<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a>    stats <span class="op">=</span> <span class="fu">compute_channel_stats</span>(rec)</span>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a>    bad   <span class="op">=</span> stats[<span class="fu">abs</span>.(stats.rms_zscore) <span class="op">.&gt;</span> z_threshold, <span class="op">:</span>channel]</span>
+<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fu">convert</span>(<span class="dt">Vector</span>{<span class="dt">String</span>}, bad)</span>
+<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div>
+</div>
+</figure>
+</div>
+</section>
+<section id="salidas-generadas" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="salidas-generadas">Salidas generadas</h3>
+<p>La <a href="#tbl-raw-salidas" class="quarto-xref">tabla&nbsp;<span>5.2</span></a> enlaza este paso (2/8) con los ficheros reales que deja en <code>results/subjects/sub-{id}/ses-{sess}/{task}/</code>.</p>
+<div id="tbl-raw-salidas" class="nm-apilable quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-raw-salidas-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Tabla&nbsp;5.2: Salidas del QC de canales.
+</figcaption>
+<div aria-describedby="tbl-raw-salidas-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="nm-apilable caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Fichero</th>
+<th style="text-align: left;">Tipo</th>
+<th style="text-align: left;">Origen / contenido</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;" data-label="Fichero"><code>qc_summary.csv</code></td>
+<td style="text-align: left;" data-label="Tipo">Tabla</td>
+<td style="text-align: left;" data-label="Origen / contenido">Copia consolidada de <code>channel_statistics.csv</code> para el resumen del sujeto.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;" data-label="Fichero"><code>channel_statistics.csv</code></td>
+<td style="text-align: left;" data-label="Tipo">Tabla</td>
+<td style="text-align: left;" data-label="Origen / contenido">Salida directa de <code>compute_channel_stats</code>: media, RMS, desviación típica, rango y z-score de RMS por canal, con la columna <code>is_bad</code>.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</section>
+<section id="sec-mapa-codigo-raw" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="sec-mapa-codigo-raw">Mapa: del código a las salidas</h3>
+<div data-origen="ampliacion">
+<p><strong>De la configuración a las salidas, en una línea.</strong></p>
+<ol class="nm-mapa-resumen" aria-label="Flujo de los pasos 1 y 2 del pipeline">
+<li>
+<code>config/pipeline.toml</code> (<code>[recording]</code>, <code>[qc]</code>)
+</li>
+<li>
+paso [1/8] <code>load_single_subject</code>
+</li>
+<li>
+paso [2/8] <code>src/qc/QualityControl.jl</code>
+</li>
+<li>
+<code>results/subjects/…/tables/</code>
+</li>
+</ol>
+<p>Del código a las salidas de los pasos de carga (1/8) y control de calidad (2/8). La rama A es el árbol de llamadas; la B, los archivos que se escriben. Los nombres de funciones de la rama A se han comprobado contra el repositorio de NeuroMIND (<code>tests/mapa_codigo.mjs</code>, commit <code>765f725</code>); la rama B es la que describe el informe (verificada allí con una ejecución sobre <code>sub-M05</code>, el 2026-10-07), y este libro no incluye ningún archivo de <code>results/</code>.</p>
+<details class="nm-mapa-fase" id="mapa-raw-llamadas" open="">
+<summary>
+A · Llamadas
+</summary>
+<ul>
+<li>
+<code>scripts/run_single_subject.jl</code> (o <code>run_batch_pipeline.jl</code>)
+<ul>
+<li>
+<code>run_single_subject_pipeline</code> — <code>src/SingleSubjectPipeline.jl</code>
+<ul>
+<li>
+<code>load_ss_config</code> — lee <code>config/pipeline.toml</code>
+</li>
+<li>
+<code>detect_first_subject</code> — solo si <code>subject_id = “auto”</code>
+</li>
+<li>
+<code>load_single_subject</code> — paso [1/8]
+<ul>
+<li>
+<code>_parse_bids_json</code> · <code>_load_electrode_positions</code> — <code>src/io/BIDSLoader.jl</code>
+</li>
+<li>
+<code>load_eeg_brainvision</code> — <code>src/io/BrainVisionLoader.jl</code>, <code>.vhdr</code> + <code>.eeg</code>
+<ul>
+<li>
+<code>read_vhdr_header</code>
+</li>
+</ul>
+</li>
+<li>
+alternativa: <code>_eeg_data.tsv</code> con <code>CSV.read</code>
+</li>
+</ul>
+</li>
+<li>
+<code>validate_channels</code> — contra <code>electrodes.tsv</code>
+</li>
+<li>
+paso [2/8]: QC — <code>src/qc/QualityControl.jl</code>
+<ul>
+<li>
+<code>compute_channel_stats</code>
+</li>
+<li>
+<code>compute_channel_spectral_qc</code> — HFNoise y SNR
+<ul>
+<li>
+<code>welch_psd_raw</code>
+</li>
+</ul>
+</li>
+<li>
+<code>compute_correlation_summary</code>
+</li>
+<li>
+<code>flag_bad_channels</code> — z &gt; 3,0 → <code>bad_ch</code>
+</li>
+</ul>
+</li>
+<li>
+<code>_save_raw_signal</code> · <code>CSV.write</code>
+</li>
+<li>
+<code>_save_all_results</code> · <code>_update_qc_decision_table</code> — paso [8/8]
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</details>
+<details class="nm-mapa-fase">
+<summary>
+B · Salidas
+</summary>
+<ul>
+<li>
+<code>results/</code>
+<ul>
+<li>
+<code>subjects/sub-{id}/ses-{ses}/{task}/</code>
+<ul>
+<li>
+<code>tables/</code>
+<ul>
+<li>
+<code>raw_signal.csv</code> — <code>_save_raw_signal</code>; registro completo
+</li>
+<li>
+<code>channel_statistics.csv</code> — <code>CSV.write</code> en el paso [2/8]
+</li>
+<li>
+<code>qc_summary.csv</code> — ídem; columna <code>is_bad</code>
+</li>
+<li>
+<code>overview.csv</code> — <code>_save_all_results</code>
+</li>
+</ul>
+</li>
+<li>
+<code>figures/aux/raw_<em>.png</em></code><em>, <code>hist_</code></em><code>.png</code> — visores <code>plot_raw*.jl</code>
+</li>
+<li>
+<code>pipeline_log.txt</code> — log de todos los pasos
+</li>
+</ul>
+</li>
+<li>
+<code>qc/qc_decision_table.csv</code> — <code>_update_qc_decision_table</code>
+</li>
+</ul>
+</li>
+</ul>
+</details>
+</div>
+<p><strong>Ruta de lectura.</strong></p>
+<ol type="1">
+<li><code>load_ss_config</code>: cómo se convierte el TOML en un <code>PipelineConfig</code>.</li>
+<li><code>load_single_subject</code>: lee el JSON de metadatos y decide entre la tabla <code>_eeg_data.tsv</code> y el binario BrainVision. La función <code>load_eeg_bids</code> existe en <code>src/io/BIDSLoader.jl</code>, pero el pipeline no la llama.</li>
+<li><code>load_eeg_brainvision</code> y <code>read_vhdr_header</code>: lectura del binario según lo que declara la cabecera.</li>
+<li><code>src/qc/QualityControl.jl</code>: <code>compute_channel_stats</code> y, sobre ellas, <code>flag_bad_channels</code> (umbral <span class="math inline">z</span>).</li>
+<li><code>_update_qc_decision_table</code>: cómo se decide <code>include</code>, <code>manual_review</code> o <code>exclude</code>.</li>
+</ol>
+<p><strong>Configuración.</strong> <code>[recording]</code> y <code>[qc]</code>: <code>bad_channel_zscore_threshold</code>, <code>amplitude_warning_sigma_uv</code>, <code>welch_nfft</code>, <code>hfnoise_band</code>, <code>snr_signal_band</code> y <code>snr_noise_band</code>.</p>
+<p><strong>Para verlo en vivo.</strong> Los visores <code>plot_raw.jl</code> (puerto 8765), <code>plot_raw_butterfly.jl</code> (8766) y <code>plot_raw_histogram.jl</code> (8768), en <code>src/interactive/aux/sub-M05_ses-T2_eyesclosed/</code>, leen <code>tables/raw_signal.csv</code>.</p>
+</section>
+</section>
+<section id="sec-sintesis-raw" class="level2" data-origen="ampliacion" data-number="5.7">
+<h2 data-number="5.7" class="anchored" data-anchor-id="sec-sintesis-raw"><span class="header-section-number">5.7</span> Síntesis y preguntas para discutir</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 3 min · estudio 10 min</p>
+</div>
+<section id="lo-que-hay-que-llevarse-del-capítulo" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="lo-que-hay-que-llevarse-del-capítulo">Lo que hay que llevarse del capítulo</h3>
+<ol type="1">
+<li>Antes de filtrar <strong>solo se documenta</strong>: el QC no cambia la señal. Cada registro es una matriz <span class="math inline">\mathbf{X}_{s,k}\in\mathbb{R}^{C\times N}</span> y cada métrica se calcula por fila (canal).</li>
+<li>Nueve métricas por canal (media, desviación típica, extremos, RMS, asimetría, curtosis, HFNoise, SNR y correlación) describen <strong>nivel, dispersión, forma, ruido rápido y coherencia espacial</strong>.</li>
+<li>El <strong><span class="math inline">z</span>-score del RMS</strong> compara cada canal con el resto <em>del mismo registro</em>: es relativo al sujeto, no un umbral absoluto, y con <span class="math inline">|z|&gt;3</span> solo da una <strong>alerta</strong>.</li>
+<li>La <strong>PSD sin filtrar</strong> orienta la cascada de filtros: deriva a baja frecuencia, línea a 50 Hz y armónicos, y EMG a 25–45 Hz.</li>
+<li>Lo que el capítulo afirma de la configuración (HFNoise, SNR, Welch, umbral de amplitud) <strong>coincide</strong> con <code>[qc]</code>; no coincide lo que dice de los archivos de configuración ni de la exclusión de Fp2 por defecto.</li>
+<li>El caso trabajado es de <strong>un único participante</strong>: no permite generalizar ninguna característica del montaje (lo dice la propia ficha MONT-03).</li>
+</ol>
+<details class="nm-q nm-q-comp">
+<summary>
+<span class="nm-tag">Pregunta de comprensión</span> ¿Por qué el <span class="math inline">z</span>-score del RMS no detecta siempre un canal malo, y qué lo evita en la práctica?
+</summary>
+<p>Porque la media y la desviación del RMS se calculan con <em>todos</em> los canales, incluido el canal atípico: cuanto más extremo es, más infla esos dos valores y más pequeño queda su propio <span class="math inline">z</span>. Con pocos canales o con varios canales malos a la vez, un canal evidente puede quedarse por debajo del umbral (véase el ejemplo con valores inventados). En la práctica se evita por el diseño del criterio —es una alerta—, por la inspección visual obligatoria y por contrastar con la PSD sin filtrar y con las demás métricas, que capturan información complementaria. <span class="tipo t-int">interpretación</span></p>
+</details>
+<details class="nm-q nm-q-comp">
+<summary>
+<span class="nm-tag">Pregunta de comprensión</span> Si la PSD sin filtrar muestra un valle exactamente en 50 Hz, ¿significa que NeuroMIND ya ha aplicado su notch?
+</summary>
+<p>No.&nbsp;Según el capítulo, un valle en 50 Hz indica que el software de adquisición (BrainVision Recorder) ya aplicó un notch <em>online</em>; el filtrado <em>offline</em> de NeuroMIND todavía no se ha aplicado en este punto del pipeline. Atribuirlo a NeuroMIND falsearía la procedencia de la señal raw (véase el <a href="../chapters/04-diseno-adquisicion.html#sec-bids-organizacion">capítulo 4</a>). <span class="tipo t-int">interpretación</span></p>
+</details>
+</section>
+<section id="sec-q-abiertas-raw" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="sec-q-abiertas-raw">Qué sigue abierto</h3>
+<p>Las preguntas siguientes <strong>no tienen una respuesta establecida</strong> en el informe ni en este libro. Para cada una se indica qué evidencia haría falta; no se ofrece una respuesta.</p>
+<div class="nm-q-open">
+<div class="nm-q-title">
+<span class="nm-tag">Pregunta abierta · 1</span> ¿Es el patrón de canales inferiores ruidosos (FT9/FT10, TP9/TP10) una característica del montaje o solo de un sujeto?
+</div>
+<p>Es la duda <a href="#duda-mont-03"><code>MONT-03</code></a>: el ranking se hizo sobre un único registro. <span class="estado e-pendiente">pendiente</span></p>
+<p><strong>Qué evidencia haría falta:</strong> repetir el ranking de amplitud media y RMS sobre toda la cohorte, y no solo sobre un participante.</p>
+</div>
+<div class="nm-q-open">
+<div class="nm-q-title">
+<span class="nm-tag">Pregunta abierta · 2</span> ¿Se excluye Fp2 de forma fija en la configuración definitiva?
+</div>
+<p>Es la duda <a href="#duda-mont-06"><code>MONT-06</code></a>: el acuerdo y la configuración no coinciden y el cambio obliga a relanzar el lote. <span class="estado e-pendiente">pendiente</span></p>
+<p><strong>Qué evidencia haría falta:</strong> la confirmación por escrito de quien la planteó (Javier) y agrupar el cambio con los demás pendientes de lote.</p>
+</div>
+</section>
+</section>
+<section id="sec-dudas-raw" class="level2" data-number="5.8">
+<h2 data-number="5.8" class="anchored" data-anchor-id="sec-dudas-raw"><span class="header-section-number">5.8</span> Dudas del proyecto</h2>
+<div class="nm-meta" role="note">
+<p>v0.1.0 · modificado el 28/10/2026 · lectura 5 min · estudio 5 min</p>
+</div>
+<p>Las dos fichas del Cuaderno de dudas que este capítulo copia completas en el informe (MONT-03 y MONT-06) y las cinco que solo menciona (MONT-04, MONT-07, ADQ-02, CONN-02 y PRE-03), con el estado que tienen hoy. El verde se reserva a las fichas resueltas o trasladadas con una respuesta o un cierre documentados y fechados.</p>
+<div data-origen="ampliacion">
+<p><strong>Datos omitidos a propósito.</strong> En MONT-03, MONT-04 y MONT-06 el informe cita valores numéricos de un registro concreto (medias y RMS de varios canales, y el <span class="math inline">z</span>-score del RMS de Fp2). Aquí se sustituyen por «<em>valor omitido</em>»; el enunciado cualitativo y la respuesta (con su fecha) se conservan.</p>
+</div>
+<div id="duda-mont-03" class="nm-duda-ficha nm-d-encurso">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">MONT-03</span> <span class="dudaestado d-encurso">en curso</span></p>
+<p><strong>Canales inferiores (FT9/FT10, TP9/TP10) como fuente de artefacto</strong></p>
+</div>
+<dl>
+<dt>Contexto</dt>
+<dd>
+FT9/FT10 y TP9/TP10 son posiciones inferiores del 10–10, próximas a mastoides y región periauricular. Son las más propensas a artefacto muscular y a contaminación por la referencia.
+</dd>
+<dt>Evidencia</dt>
+<dd>
+Comprobado sobre sub-M05/ses-T2/EC (31 canales), <code>tables/channel_statistics.csv</code> (tabla de QC por canal, no reproducida). Los cuatro canales inferiores dominan el ranking de amplitud media: FT9 encabeza <code>mean_uv</code> (<em>valor omitido</em>), TP10 es el tercero (<em>valor omitido</em>) y FT10 el cuarto (<em>valor omitido</em>), frente a valores del orden de 0,1–0,5 en el resto del montaje. En RMS, FT9 es el segundo (<em>valor omitido</em>) por detrás solo de Fp2 (<em>valor omitido</em>, canal marcado <code>is_bad</code>).
+</dd>
+<dt>Implicación</dt>
+<dd>
+Si alguna arista de conectividad implicando estos canales sale significativa, hay que comprobar antes que no sea artefacto muscular residual: el ICA no siempre lo limpia del todo en posiciones tan periféricas.
+</dd>
+<dt>Respuesta</dt>
+<dd>
+<strong>Rafa · 2026-09-22.</strong> Corrijo un dato que había anotado en la conversación de origen: dije que TP9 era el canal con mayor <code>mean_uv</code> (<em>valor omitido</em>). En este archivo TP9 vale <em>(valor omitido)</em> y el máximo es FT9 (<em>valor omitido</em>). La observación de fondo se sostiene —los cuatro canales inferiores son los más ruidosos— pero la cifra concreta no. Queda pendiente decidir si aquello venía de otro sujeto, de otra columna o de una ejecución anterior del pipeline.
+</dd>
+<dt>Acción</dt>
+<dd>
+Repetir el ranking sobre toda la cohorte, no solo sobre sub-M05, antes de darlo por una característica del montaje y no de un sujeto.
+</dd>
+</dl>
+</div>
+<div id="duda-mont-06" class="nm-duda-ficha nm-d-encurso">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">MONT-06</span> <span class="dudaestado d-encurso">en curso</span></p>
+<p><strong>Fp2: acordado excluirlo, pero la configuración lo conserva</strong></p>
+</div>
+<dl>
+<dt>Contexto</dt>
+<dd>
+En la última reunión se acordó excluir Fp2 de forma fija. El código no refleja ese acuerdo.
+</dd>
+<dt>Evidencia</dt>
+<dd>
+<code>config/pipeline.toml</code> tiene <code>exclude_fp2 = false</code> y <code>n_channels_used = 31</code>; todos los resultados en <code>results/</code> están calculados así. A favor de excluirlo hay dos argumentos independientes: en sub-M05/ses-T2/EC el QC dinámico ya lo tira por su cuenta (<span class="math inline">z</span> <em>valor omitido</em>, ver <a href="#duda-mont-04">MONT-04</a>), y sin Fp2 el montaje queda simétrico entre hemisferios al no existir Fp1 (<a href="../chapters/03-fundamentos.html#duda-mont-01">MONT-01</a>), lo que limpia cualquier contraste izquierda–derecha.
+</dd>
+<dt>Implicación</dt>
+<dd>
+Mientras el acuerdo y la configuración no coincidan, cualquier cifra que demos puede corresponder a un montaje que ya hemos descartado. Y el cambio obliga a relanzar el lote: no es solo editar el TOML.
+</dd>
+<dt>Pregunta (a Javier)</dt>
+<dd>
+¿Confirmamos que Fp2 se excluye de forma fija —<code>exclude_fp2 = true</code>, 30 canales— en la configuración definitiva, antes de que relance el lote?
+</dd>
+<dt>Respuesta</dt>
+<dd>
+<strong>Alejandro · 2026-09-28.</strong> De acuerdo en excluirlo de forma fija, sobre todo si así se mantiene la simetría del montaje.
+<strong>Pendiente:</strong> Javier, que es quien lo planteó.
+</dd>
+<dt>Acción</dt>
+<dd>
+No tocar el TOML hasta tener la confirmación por escrito: el cambio invalida todos los resultados ya calculados y conviene agruparlo con los demás cambios pendientes de lote (ADQ-05, PRE-01).
+</dd>
+</dl>
+</div>
+<div id="duda-mont-04" class="nm-duda-ficha nm-d-neutra">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">MONT-04</span> <span class="dudaestado d-encurso">en curso</span></p>
+</div>
+<dl>
+<dt>Cuestión</dt>
+<dd>
+31 canales es el máximo teórico: los canales que marca el QC dinámico (<span class="math inline">z&gt;3{,}0</span>) se excluyen siempre, con independencia de <code>exclude_fp2</code>.
+</dd>
+<dt>Consecuencia para este capítulo</dt>
+<dd>
+El <span class="math inline">z_{\mathrm{RMS}}</span> de Fp2 en la tabla de QC por canal (<em>valor omitido</em>) deja a sub-M05 con 30 canales y 435 aristas por banda en el batch del 25/07/2026.
+</dd>
+<dt>Ficha completa</dt>
+<dd>
+En el Cuaderno de dudas del proyecto (aún no está en el libro). Aquí no hay respuesta registrada, así que no lleva color de estado.
+</dd>
+</dl>
+</div>
+<div id="duda-mont-07" class="nm-duda-ficha nm-d-trasladada">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">MONT-07</span> <span class="dudaestado d-trasladada">trasladada</span></p>
+</div>
+<dl>
+<dt>Cuestión</dt>
+<dd>
+¿Es Fp2 el canal 31 en todos los <code>.vhdr</code> del dataset?
+</dd>
+<dt>Consecuencia para este capítulo</dt>
+<dd>
+Este capítulo identifica Fp2 como canal 31 en sub-M05. Si en algún sujeto el orden difiere, una exclusión por posición afectaría a otro canal.
+</dd>
+<dt>Ficha completa</dt>
+<dd>
+<a href="../chapters/04-diseno-adquisicion.html#duda-mont-07">MONT-07 en el capítulo 4</a>, con su cierre del 2026-10-15.
+</dd>
+</dl>
+</div>
+<div id="duda-adq-02" class="nm-duda-ficha nm-d-trasladada">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">ADQ-02</span> <span class="dudaestado d-trasladada">trasladada</span></p>
+</div>
+<dl>
+<dt>Cuestión</dt>
+<dd>
+Los metadatos BIDS declaraban la referencia en Cz, cuando es FCz.
+</dd>
+<dt>Consecuencia para este capítulo</dt>
+<dd>
+La comparación con BrainVision Analyzer de este capítulo ya no marca discrepancia: ambos usan FCz.
+</dd>
+<dt>Ficha completa</dt>
+<dd>
+<a href="../chapters/04-diseno-adquisicion.html#duda-adq-02">ADQ-02 en el capítulo 4</a>, con su cierre del 2026-10-15.
+</dd>
+</dl>
+</div>
+<div id="duda-conn-02" class="nm-duda-ficha nm-d-encurso">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">CONN-02</span> <span class="dudaestado d-encurso">en curso</span></p>
+</div>
+<dl>
+<dt>Cuestión</dt>
+<dd>
+¿Basta con declarar FCz como referencia, o hay que re-referenciar (promedio común o CSD)?
+</dd>
+<dt>Consecuencia para este capítulo</dt>
+<dd>
+Ni BrainVision Analyzer ni NeuroMIND re-referencian, como recoge este capítulo; esa es la situación que la ficha decide si basta.
+</dd>
+<dt>Ficha completa</dt>
+<dd>
+<a href="../chapters/02-estado-arte.html#duda-conn-02">CONN-02 en el capítulo 2</a>.
+</dd>
+</dl>
+</div>
+<div id="duda-pre-03" class="nm-duda-ficha nm-d-trasladada">
+<div class="nm-duda-cab">
+<p><span class="nm-duda-id">PRE-03</span> <span class="dudaestado d-trasladada">trasladada</span></p>
+</div>
+<dl>
+<dt>Cuestión</dt>
+<dd>
+No existe recorte temporal del raw; ¿cómo se representa en BIDS cuando se construya?
+</dd>
+<dt>Consecuencia para este capítulo</dt>
+<dd>
+El recorte iría entre la carga (<code>[1/8] Load</code>) y el filtrado, sobre la señal raw que describe este capítulo.
+</dd>
+<dt>Ficha completa</dt>
+<dd>
+<a href="../chapters/04-diseno-adquisicion.html#duda-pre-03">PRE-03 en el capítulo 4</a>, con su cierre del 2026-10-15.
+</dd>
+</dl>
+</div>
+
+
+</section>
+<section id="bibliography" class="level1 unnumbered">
+<h1 class="unnumbered">Referencias</h1>
+<div id="refs" class="references csl-bib-body hanging-indent" role="list" style="display: none">
+<div id="ref-BigdelyShamlo2015PREP" class="csl-entry" role="listitem">
+Bigdely-Shamlo, Nima, Tim Mullen, Christian Kothe, Kyung-Min Su, y Kay A. Robbins. 2015. <span>«The <span>PREP</span> pipeline: standardized preprocessing for large-scale <span>EEG</span> analysis»</span>. <em>Frontiers in Neuroinformatics</em> 9: 16. <a href="https://doi.org/10.3389/fninf.2015.00016">https://doi.org/10.3389/fninf.2015.00016</a>.
+</div>
+<div id="ref-Keil2014Guidelines" class="csl-entry" role="listitem">
+Keil, Andreas, Stefan Debener, Gabriele Gratton, et&nbsp;al. 2014. <span>«Committee report: Publication guidelines and recommendations for studies using electroencephalography and magnetoencephalography»</span>. <em>Psychophysiology</em> 51 (1): 1-21. <a href="https://doi.org/10.1111/psyp.12147">https://doi.org/10.1111/psyp.12147</a>.
+</div>
+<div id="ref-Yamada2018" class="csl-entry" role="listitem">
+Yamada, Tōru., y Elizabeth. Meng. 2018. <em>Practical guide for clinical neurophysiologic testing. EEG</em>. Wolters Kluwer.
+</div>
+</div>
+</section>
+<section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn1"><p>Umbral de la política de calidad de señal descrita en AGENTS.md §7 (no recogida todavía como sección propia en este informe).<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="../chapters/04-diseno-adquisicion.html" class="pagination-link" aria-label="Diseño experimental y organización del pipeline">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Diseño experimental y organización del pipeline</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="../chapters/06-filtrado.html" class="pagination-link" aria-label="Filtrado">
+        <span class="nav-page-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Filtrado</span></span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
