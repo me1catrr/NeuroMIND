@@ -21,12 +21,6 @@ def main() -> None:
     parser.add_argument("--subject", default="M05")
     parser.add_argument("--session", default="T2")
     parser.add_argument("--condition", default="EC")
-    parser.add_argument(
-        "--source",
-        default="brainvision",
-        choices=["auto", "brainvision", "tsv"],
-        help="Use brainvision for the strict MNE path; tsv is only a fallback/debug route.",
-    )
     args = parser.parse_args()
 
     cfg = load_config()
@@ -35,7 +29,6 @@ def main() -> None:
         args.subject,
         args.session,
         args.condition,
-        source=args.source,
     )
 
     task = "eyesclosed" if args.condition == "EC" else "eyesopen"

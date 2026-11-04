@@ -1,0 +1,36 @@
+{
+    "TaskName": "@TASK@",
+    "TaskDescription": "@DESCRIPTION@",
+    "InstitutionName": "Hospital Universitario Reina Sofía",
+    "Manufacturer": "Brain Products",
+    "ManufacturersModelName": "actiCHamp Base Unit (5001) with actiCHamp 32 CH Module (5010)",
+    "DeviceSerialNumber": "actiCHamp Base Unit 16080673; 32 CH Module 16091350",
+    "SoftwareVersions": "BrainVision Recorder Professional V. 1.21.0303",
+    "CapManufacturer": "ECI",
+    "EEGPlacementScheme": "10-20",
+    "EEGReference": "FCz",
+    "EEGGround": "Gnd (dedicated frontal electrode of the ECI cap; not a 10-20 position)",
+    "SamplingFrequency": 500,
+    "PowerLineFrequency": 50,
+    "RecordingType": "continuous",
+    "EEGChannelCount": 31,
+    "EOGChannelCount": 0,
+    "ECGChannelCount": 0,
+    "EMGChannelCount": 0,
+    "MiscChannelCount": 0,
+    "TriggerChannelCount": 0,
+    "HardwareFilters": {
+        "actiCHamp": {
+            "HighPass": "DC",
+            "LowPassCutoffHz": 140,
+            "Notch": "Off"
+        }
+    },
+    "SoftwareFilters": {
+        "BrainVision Recorder": {
+            "HighPassTimeConstantS": 1.59155,
+            "LowPassCutoffHz": 70,
+            "NotchCutoffHz": 50
+        }
+    }
+}

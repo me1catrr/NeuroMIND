@@ -18,8 +18,7 @@ study:
   design: transversal+longitudinal
 
 paths:
-  bids_root: data/BIDS
-  raw_data_root: /Users/rafa/Library/Mobile Documents/com~apple~CloudDocs/Universidad/Investigación/BRAIN/Programación/EEG_Julia/NeuroMIND/data/full_data/Pacientes MINDEM_IMIBIC_27 03 25
+  bids_root: ../data/bids   # dataset BIDS-EEG de NeuroMIND (misma carpeta que usa el pipeline Julia)
   results: results
   data_cache: data/cache
   web_public: web/public
