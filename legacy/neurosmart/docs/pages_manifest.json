@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Setup",
+    "path": "Pluto/Setup/Project_Setup.html",
+    "source": "Pluto/Setup/Project_Setup.jl",
+    "published": true
+  },
+  {
+    "name": "BIDS",
+    "path": "Pluto/BIDS/BIDS.html",
+    "source": "Pluto/BIDS/BIDS.jl",
+    "published": true
+  },
+  {
+    "name": "Preprocessing",
+    "path": "Pluto/Preprocessing/Preprocessing.html",
+    "source": "Pluto/Preprocessing/Preprocessing.jl",
+    "published": true
+  },
+  {
+    "name": "ICA",
+    "path": "Pluto/ICA/ICA.html",
+    "source": "Pluto/ICA/ICA.jl",
+    "published": true
+  },
+  {
+    "name": "Processing",
+    "path": "Pluto/Processing/Processing.html",
+    "source": "Pluto/Processing/Processing.jl",
+    "published": true
+  },
+  {
+    "name": "Spectral",
+    "path": "Pluto/Spectral/Spectral.html",
+    "source": "Pluto/Spectral/Spectral.jl",
+    "published": true
+  },
+  {
+    "name": "Connectivity",
+    "path": "Pluto/Connectivity/Connectivity.html",
+    "source": "Pluto/Connectivity/Connectivity.jl",
+    "published": true
+  },
+  {
+    "name": "Surrogate",
+    "path": "Pluto/Surrogate/Surrogate.html",
+    "source": "Pluto/Surrogate/Surrogate.jl",
+    "published": true
+  }
+]
