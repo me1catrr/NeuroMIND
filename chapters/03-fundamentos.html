@@ -55,8 +55,6 @@ div.csl-indent {
 <script src="../site_libs/quarto-search/fuse.min.js"></script>
 <script src="../site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="../">
-<link href="../chapters/04-diseno-adquisicion.html" rel="next">
-<link href="../chapters/02-estado-arte.html" rel="prev">
 <script src="../site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
 <script src="../site_libs/quarto-html/popper.min.js"></script>
@@ -184,56 +182,14 @@ window.Quarto = {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/00-introduccion.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text">Introducción</span></a>
-  </div>
-</li>
-        <li class="sidebar-item">
-  <div class="sidebar-item-container"> 
-  <a href="../chapters/00-resumen.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text">Resumen ejecutivo</span></a>
-  </div>
-</li>
-        <li class="sidebar-item">
-  <div class="sidebar-item-container"> 
-  <a href="../chapters/00-referencia.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text">Referencia rápida</span></a>
-  </div>
-</li>
-        <li class="sidebar-item">
-  <div class="sidebar-item-container"> 
   <a href="../chapters/01-esclerosis-multiple.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Esclerosis múltiple para ingenieros</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/02-estado-arte.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Estado del arte, hipótesis y objetivos</span></span></a>
-  </div>
-</li>
-        <li class="sidebar-item">
-  <div class="sidebar-item-container"> 
   <a href="../chapters/03-fundamentos.html" class="sidebar-item-text sidebar-link active">
  <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Fundamentos de EEG para ingenieros</span></span></a>
-  </div>
-</li>
-        <li class="sidebar-item">
-  <div class="sidebar-item-container"> 
-  <a href="../chapters/04-diseno-adquisicion.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Diseño experimental y organización del pipeline</span></span></a>
-  </div>
-</li>
-        <li class="sidebar-item">
-  <div class="sidebar-item-container"> 
-  <a href="../chapters/05-raw.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Señal raw y control de calidad inicial</span></span></a>
-  </div>
-</li>
-        <li class="sidebar-item">
-  <div class="sidebar-item-container"> 
-  <a href="../chapters/06-filtrado.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Filtrado</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
@@ -883,7 +839,7 @@ Figura&nbsp;3.8: Montaje EEG 10–20 usado como referencia visual del pipeline. 
 <p>La referencia de adquisición es <strong>FCz</strong>, y la tierra, el electrodo <strong>Gnd</strong> dedicado del gorro ECI, situado en la línea media frontal y sin correspondencia con Fpz ni con ninguna otra posición 10–20. Ninguno de los dos se incluye en la matriz de 31 canales EEG activos que alimenta el preprocesado, y el pipeline <strong>no re-referencia</strong>: la señal que llega al wPLI conserva la referencia FCz del amplificador.</p>
 <div data-origen="ampliacion">
 <div class="nm-box nm-limite" data-rotulo="Lo que dice la configuración sobre la referencia">
-<p>En <code>config/pipeline.toml</code>, la clave <code>reference = "average"</code> de la sección <code>[recording]</code> está marcada por el propio archivo como <strong>informativa</strong>: «no re-referencia la señal», y solo alimenta metadatos. La conectividad lleva <code>use_csd = false</code>, «false en todos los resultados». Esto es coherente con el párrafo anterior. Qué efecto tendría re-referenciar o aplicar CSD sobre el wPLI es la duda abierta <a href="../chapters/02-estado-arte.html#duda-conn-02"><code>CONN-02</code></a>. <span class="estado e-confirmado">confirmado</span> frente al repositorio de NeuroMIND (commit <code>765f725</code>).</p>
+<p>En <code>config/pipeline.toml</code>, la clave <code>reference = "average"</code> de la sección <code>[recording]</code> está marcada por el propio archivo como <strong>informativa</strong>: «no re-referencia la señal», y solo alimenta metadatos. La conectividad lleva <code>use_csd = false</code>, «false en todos los resultados». Esto es coherente con el párrafo anterior. Qué efecto tendría re-referenciar o aplicar CSD sobre el wPLI es la duda abierta <span class="nm-no-publicado" title="Aún no publicado en la edición web"><code>CONN-02</code></span>. <span class="estado e-confirmado">confirmado</span> frente al repositorio de NeuroMIND (commit <code>765f725</code>).</p>
 </div>
 </div>
 <p>El montaje <strong>no incluye Fp1</strong>: su portaelectrodos no está ocupado en el esquema, así que la fila fronto-polar solo tiene Fp2 y no existe ningún índice de asimetría fronto-polar calculable. El motivo de la ausencia sigue sin confirmar (ficha <a href="#duda-mont-01"><code>MONT-01</code></a>).</p>
@@ -1147,7 +1103,7 @@ A · Código: de los scripts a los módulos
 <code>qc/QualityControl.jl</code> — paso 2 (cap. 5)
 </li>
 <li>
-<code>preprocessing/Filtering.jl</code> — paso 3 (<a href="06-filtrado.html">filtrado, cap. 6</a>)
+<code>preprocessing/Filtering.jl</code> — paso 3 (<span class="nm-no-publicado" title="Aún no publicado en la edición web">filtrado, cap. 6</span>)
 </li>
 <li>
 <code>ica/</code> — paso 4 (cap. 8)
@@ -1271,7 +1227,7 @@ B · Resultados
 <summary>
 <span class="nm-tag">Pregunta de comprensión</span> Si un canal depende de la referencia, ¿por qué se puede comparar la actividad de dos canales sin conocer el potencial «absoluto» de cada electrodo?
 </summary>
-<p>Porque la diferencia entre dos canales referidos a la misma referencia no depende de ella: <span class="math inline">(V_a-V_{ref})-(V_b-V_{ref})=V_a-V_b</span> (véase el <a href="#exm-rereferencia" class="quarto-xref">Ejemplo&nbsp;<span>3.1</span></a>). Lo que sí puede cambiar con la referencia es la forma y la amplitud de cada canal por separado y, por tanto, cualquier medida que dependa de cada canal en solitario. Qué ocurre con una medida de fase entre canales como el wPLI es la duda <a href="../chapters/02-estado-arte.html#duda-conn-02"><code>CONN-02</code></a>, aún en curso. <span class="tipo t-int">interpretación</span></p>
+<p>Porque la diferencia entre dos canales referidos a la misma referencia no depende de ella: <span class="math inline">(V_a-V_{ref})-(V_b-V_{ref})=V_a-V_b</span> (véase el <a href="#exm-rereferencia" class="quarto-xref">Ejemplo&nbsp;<span>3.1</span></a>). Lo que sí puede cambiar con la referencia es la forma y la amplitud de cada canal por separado y, por tanto, cualquier medida que dependa de cada canal en solitario. Qué ocurre con una medida de fase entre canales como el wPLI es la duda <span class="nm-no-publicado" title="Aún no publicado en la edición web"><code>CONN-02</code></span>, aún en curso. <span class="tipo t-int">interpretación</span></p>
 </details>
 </section>
 <section id="sec-q-abiertas-fundamentos" class="level3 unnumbered">
@@ -1288,7 +1244,7 @@ B · Resultados
 <div class="nm-q-title">
 <span class="nm-tag">Pregunta abierta · 2</span> ¿Cuánto cambia el wPLI si se re-referencia o se aplica CSD, frente a la referencia FCz de adquisición?
 </div>
-<p>Es la duda <a href="../chapters/02-estado-arte.html#duda-conn-02"><code>CONN-02</code></a>. El capítulo afirma que el pipeline no re-referencia y que el wPLI conserva la referencia FCz; no hay una medida de cuánto afecta a las matrices de wPLI. <span class="estado e-pendiente">pendiente</span></p>
+<p>Es la duda <span class="nm-no-publicado" title="Aún no publicado en la edición web"><code>CONN-02</code></span>. El capítulo afirma que el pipeline no re-referencia y que el wPLI conserva la referencia FCz; no hay una medida de cuánto afecta a las matrices de wPLI. <span class="estado e-pendiente">pendiente</span></p>
 <p><strong>Qué evidencia haría falta:</strong> recalcular el wPLI sobre los mismos registros con y sin CSD (y con otras referencias) y comparar, como propone la acción de la ficha.</p>
 </div>
 </section>
@@ -1388,7 +1344,7 @@ Estrictamente, la suposición no se puede ni confirmar ni refutar con estos fich
 </dd>
 <dt>Acción</dt>
 <dd>
-Ninguna aquí: la corrección de los metadatos es ADQ-02. Anotar en el informe que la referencia es FCz y que no se re-referencia, que es justo lo que un revisor preguntará (<a href="../chapters/02-estado-arte.html#duda-conn-02">CONN-02</a>).
+Ninguna aquí: la corrección de los metadatos es ADQ-02. Anotar en el informe que la referencia es FCz y que no se re-referencia, que es justo lo que un revisor preguntará (<span class="nm-no-publicado" title="Aún no publicado en la edición web">CONN-02</span>).
 </dd>
 <dt>Cierre · 2026-10-15</dt>
 <dd>
@@ -1411,7 +1367,7 @@ El recuadro de limitación de la <a href="#sec-referencia-fcz-gnd" class="quarto
 </dd>
 <dt>Ficha completa</dt>
 <dd>
-<a href="../chapters/04-diseno-adquisicion.html#duda-adq-02">ADQ-02 en el capítulo 4</a>, con su cierre del 2026-10-15. Aquí solo está la remisión del informe, sin respuesta copiada, y por eso no lleva el verde.
+<span class="nm-no-publicado" title="Aún no publicado en la edición web">ADQ-02 en el capítulo 4</span>, con su cierre del 2026-10-15. Aquí solo está la remisión del informe, sin respuesta copiada, y por eso no lleva el verde.
 </dd>
 </dl>
 </div>
@@ -1430,7 +1386,7 @@ La <a href="#sec-referencia-fcz-gnd" class="quarto-xref"><span>Sección 3.7.2</s
 </dd>
 <dt>Ficha completa</dt>
 <dd>
-<a href="../chapters/02-estado-arte.html#duda-conn-02">CONN-02 en el capítulo 2</a>.
+<span class="nm-no-publicado" title="Aún no publicado en la edición web">CONN-02 en el capítulo 2</span>.
 </dd>
 </dl>
 </div>
@@ -1815,13 +1771,13 @@ Yamada, Tōru., y Elizabeth. Meng. 2018. <em>Practical guide for clinical neurop
   </script>
 <nav class="page-navigation">
   <div class="nav-page nav-page-previous">
-      <a href="../chapters/02-estado-arte.html" class="pagination-link" aria-label="Estado del arte, hipótesis y objetivos">
-        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Estado del arte, hipótesis y objetivos</span></span>
-      </a>          
+      <a href="./01-esclerosis-multiple.html" class="pagination-link" aria-label="1 Esclerosis múltiple para ingenieros">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Esclerosis múltiple para ingenieros</span></span>
+      </a>
   </div>
   <div class="nav-page nav-page-next">
-      <a href="../chapters/04-diseno-adquisicion.html" class="pagination-link" aria-label="Diseño experimental y organización del pipeline">
-        <span class="nav-page-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Diseño experimental y organización del pipeline</span></span> <i class="bi bi-arrow-right-short"></i>
+      <a href="./99-referencias.html" class="pagination-link" aria-label="Referencias">
+        <span class="nav-page-text">Referencias</span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>
