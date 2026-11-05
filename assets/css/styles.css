@@ -562,6 +562,16 @@ details.nm-mapa-fase > p.nm-fuente { margin-bottom: 0.7rem; }
   table.nm-apilable { display: block; max-width: 100%; overflow-x: auto; }
 }
 
+/* Tablas de resultados por canal (scripts/figuras_resultados.lua, clase .nm-tabla-datos): cifras de ancho fijo para que las
+   columnas se alineen, filas compactas y, si no caben, desplazamiento horizontal dentro de la tabla con la columna del canal
+   fija a la izquierda (31 filas apiladas como fichas serían demasiado largas). */
+table.nm-tabla-datos { display: block; max-width: 100%; overflow-x: auto; font-variant-numeric: tabular-nums; font-size: 0.88rem;
+  /* sombra en el borde derecho mientras quedan columnas por ver: la tapa un degradado que se desplaza con el contenido */
+  background: linear-gradient(to left, var(--bs-body-bg, #fff) 40%, transparent) right / 2.5rem 100% no-repeat local,
+              radial-gradient(farthest-side at 100% 50%, rgb(0 0 0 / 0.2), transparent) right / 0.9rem 100% no-repeat scroll; }
+table.nm-tabla-datos th, table.nm-tabla-datos td { padding: 0.2rem 0.55rem; white-space: nowrap; }
+table.nm-tabla-datos th:first-child, table.nm-tabla-datos td:first-child { position: sticky; left: 0; z-index: 1; background: var(--bs-body-bg, #fff); }
+
 /* ───────── Estética de Resonancia: barra lateral, índice de la página y portada ───────── */
 /* Barra lateral del libro separada del texto por un filete, como en Resonancia. */
 #quarto-sidebar { border-right: 1px solid #dee2e6; }
