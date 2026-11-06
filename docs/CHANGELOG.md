@@ -4,6 +4,16 @@
 > no se cargue en cada sesión de los agentes. Las entradas nuevas van arriba.
 > `AGENTS.md` §13 apunta aquí (y `Report_Pre/chapters/12_espectral.tex` cita esa sección).
 
+### 2026-11-06 — Resultados nuevos en local; iCloud queda como archivo
+
+- `results` y `mne_brain/results` apuntan ahora a `~/Proyectos/NeuroMIND-results/{results,mne_results}`
+  (disco local, FileVault), creadas vacías. `data` sigue apuntando a `BRAIN/04_NeuroMIND/data`
+  (iCloud), que conserva el original de `sourcedata/`. No se ha copiado ni movido ningún dato.
+- `BRAIN/04_NeuroMIND/{results,mne_results}` (ejecución de julio sobre el BIDS ligero) pasan a ser
+  archivo de solo lectura. El próximo batch parte de cero (`--skip-done` no encuentra nada hecho).
+- Motivo: iCloud había expulsado del disco todos los archivos (lecturas muy lentas a través de
+  los enlaces) y los derivados por sujeto son regenerables. Detalle en `AGENTS.md` §8.
+
 ### 2026-10-15 — `build_clinical_master.jl --check`
 
 - Nueva opción `--check`: tras escribir el libro y el CSV cruza 22 comprobaciones (BIDS en disco ↔

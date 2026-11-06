@@ -3,7 +3,7 @@
 > **Single source of truth for AI agents.**
 > Read automatically by Claude Code, Cursor, OpenAI Codex CLI, and any other AI assistant
 > on project open. **Keep this file up to date — it is the authoritative project context.**
-> Last updated: 2026-10-15.
+> Last updated: 2026-11-06.
 >
 > **README.md is the authoritative source for the pipeline, config/pipeline.toml,
 > outputs and results structure.** This file keeps agent-specific rules (Git, dashboard)
@@ -275,9 +275,28 @@ git ls-files | grep -E '(^data/|^results/|\.DS_Store$|^\.claude/|^\.vscode/)'
 - Clinical spreadsheets (`*.xlsx`), EEG formats (`*.vhdr`, `*.vmrk`, `*.eeg`, `*.edf`, `*.fif`, `*.set`, `*.fdt`), PDFs outside `docs/`
 - The separate projects `Report_Pre/`, `NeuroMIND_Quarto/`, `MSARD_paper/`, `Cuaderno/`, `NeuroMIND_Riemannian_EEG/` (private, they live elsewhere)
 
-**Data location:** `data`, `results` and `mne_brain/results` are **symlinks** to the private
-folder `BRAIN/04_NeuroMIND/` (iCloud). Never replace them with real folders inside the repo,
-and never copy their contents into versioned paths.
+**Data location (since 2026-11-06):** `data`, `results` and `mne_brain/results` are
+**symlinks** to private folders outside the repo (FileVault-encrypted disk):
+
+| Link in repo | Target | Role |
+|---|---|---|
+| `data` | `BRAIN/04_NeuroMIND/data/` (iCloud) | Inputs: `sourcedata/` (master copy, only backup), `bids/`, `tables/` |
+| `results` | `~/Proyectos/NeuroMIND-results/results/` (local) | All new pipeline + group outputs |
+| `mne_brain/results` | `~/Proyectos/NeuroMIND-results/mne_results/` (local) | MNE-Python outputs |
+
+`BRAIN/04_NeuroMIND/{results,mne_results}` hold the **old July run (light-BIDS layout)** and
+are a read-only archive: never write there, never link the repo to them. Local results have
+no backup (no Time Machine): they must be regenerable from `data/` + code.
+
+**Nothing from `results/` or `mne_brain/results` is published by this repo** (neither in
+`main` nor by its CI). MNE outputs are never published. The only outward path is the book:
+the private repo `NeuroMIND-quarto` links `resultados/` → this repo's `results`
+(`scripts/enlazar_resultados.sh`), renders only the figures/tables declared in its
+`metadata/figuras-resultados.json` (e.g. selected sub-M05 figures, with consent), and pushes
+just the generated HTML of reviewed chapters to the `gh-pages` branch of this repo
+(`scripts/publicar.sh`). Adding a figure to the book is a decision made there, not here.
+Never replace the links with real folders inside the repo, and never copy their contents
+into versioned paths.
 
 **Patient identifiers — absolute rule.** Never write raw acquisition file names in code,
 comments, docs, tests, commit messages or graphify output. Raw names contain the patient's
