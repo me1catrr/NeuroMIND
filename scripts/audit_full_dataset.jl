@@ -10,7 +10,7 @@
 # ───────────────────────────────────────────────────────────────
 #  Fichero    scripts/audit_full_dataset.jl
 #  Autor      Rafael Castro Triguero <me1catrr@uco.es>
-#  Modificado 15-10-2026
+#  Modificado 06-11-2026
 # ───────────────────────────────────────────────────────────────
 #
 #  Invocación: julia --project=. scripts/<este-script>.jl …
@@ -40,9 +40,11 @@
 #    data/bids/participants.tsv           una fila por participante con grabación válida
 #
 #  Precedencia de fuentes en participants.tsv: Excel MIND-EM para pacientes
-#  (sexo, edad, fechas, escalas); CSV demográfico para controles y para el
-#  nivel educativo; Javier para las categorías. Las discrepancias entre
-#  fuentes se imprimen al final.
+#  (sexo, fechas, escalas; la edad se calcula con las fechas de nacimiento y de
+#  evaluación T1, que el equipo clínico da por fiables); CSV demográfico para
+#  controles y para el nivel educativo. Las categorías de Javier se conservan
+#  como *_orig; las de fatiga vigentes se recalculan por mediana (ver
+#  fatigue_categories!). Las discrepancias entre fuentes se imprimen al final.
 
 using Dates, XLSX
 
@@ -200,7 +202,10 @@ end
 
 # ─── Sujetos excluidos ────────────────────────────────────────
 
-const EXCLUDED_SUBJECTS = Set(["MC5", "MC6", "MC11"])
+# MC5, MC6, MC11 y MC12: controles excluidos porque su EEG era demasiado ruidoso
+# (Alejandro, 06-11-2026). No hay raws suyos en sourcedata/brainvision; la regla
+# queda por si reaparecieran. MC39 y MC40 son incorporaciones posteriores, no huecos.
+const EXCLUDED_SUBJECTS = Set(["MC5", "MC6", "MC11", "MC12"])
 const EXCLUDED_SUBJ_SESS = Set([
     ("M3",  "T2"),   # en carpeta EXCLUIDOS
     ("M6",  "T2"),   # no tiene T2
@@ -406,7 +411,9 @@ function load_clinical()::Dict{String,Dict{String,Any}}
                     d["age"]       = _num(r[cage])
                     d["diagnosis"] = cdx === nothing || r[cdx] === missing ? nothing : strip(string(r[cdx]))
                 elseif cint !== nothing
-                    d["months_t1_t2"] = _num(r[cint])
+                    # T.INTERVENCIÓN está en semanas (intervención de unas 12), no en
+                    # meses (Alejandro, 06-11-2026); el intervalo T1–T2 sale de las fechas
+                    d["intervention_weeks"] = _num(r[cint])
                 end
             end
         end
@@ -436,6 +443,8 @@ end
 Categorías de Javier (Hoja1 de Javier_NeuroMIND.xlsx): EDSS leve/grave,
 D-FIS alta/baja con la mediana de T1 (transversal) o de T1+T2 (longitudinal)
 y respuesta mayor/menor. Se traducen a las etiquetas de participants.json.
+EDSS se usa tal cual; las tres de fatiga se guardan como `*_orig` y las vigentes
+se recalculan en `fatigue_categories!`.
 """
 function load_javier()::Dict{String,Dict{String,String}}
     out = Dict{String,Dict{String,String}}()
@@ -470,17 +479,73 @@ _fmt(x) = x === nothing || ismissing(x) ? "n/a" :
 
 const PARTICIPANT_COLS = [
     "participant_id", "group", "sex", "age", "birth_date", "education_level", "has_t1", "has_t2",
-    "inclusion_date_t1", "inclusion_date_t2", "months_t1_t2", "diagnosis", "treatment_t1", "treatment_t2",
+    "inclusion_date_t1", "inclusion_date_t2", "interval_days_t1_t2", "interval_months_t1_t2",
+    "intervention_weeks", "diagnosis", "treatment_t1", "treatment_t2",
     "edss_t1", "edss_t2", "dfis_t1", "dfis_t2", "bdi_t1", "bdi_t2",
-    "edss_group", "dfis_group_t1", "dfis_group_t1t2", "fatigue_response",
+    "edss_group", "dfis_group_t1", "dfis_group_long_t1", "dfis_group_long_t2", "fatigue_response",
+    "dfis_group_t1_orig", "dfis_group_t1t2_orig", "fatigue_response_orig",
 ]
+
+"Edad en años cumplidos en la fecha `d`."
+age_at(b::Date, d::Date) = year(d) - year(b) - ((month(d), day(d)) < (month(b), day(b)) ? 1 : 0)
+
+_median(v) = (s = sort(v); n = length(s); isodd(n) ? s[(n + 1) ÷ 2] : (s[n ÷ 2] + s[n ÷ 2 + 1]) / 2)
+
+"""
+    fatigue_categories!(vals) -> NamedTuple
+
+Categorías de fatiga por mediana (propuesta de Alejandro, 06-11-2026). Cada
+muestra se divide por su propia mediana y **el valor igual a la mediana va a la
+categoría superior** (Alta / Mayor):
+
+- `dfis_group_t1`: D-FIS T1 frente a la mediana de todos los pacientes con D-FIS T1
+  (muestra transversal).
+- `dfis_group_long_t1` / `dfis_group_long_t2`: D-FIS T1 y D-FIS T2 frente a las
+  medianas de T1 y de T2 del seguimiento clínico: pacientes con D-FIS en T1 y T2,
+  **con independencia del QC del EEG** (incluye pacientes sin EEG T2 válido). Así
+  lo fija la propuesta de Alejandro: no recalcular las medianas al excluir EEG sin
+  justificar el cambio de población. Los análisis EEG longitudinales usan el subconjunto
+  con `has_t2`.
+- `fatigue_response`: reducción D-FIS T1 − T2 frente a su mediana en el seguimiento
+  clínico (Mayor ⇔ reducción ≥ mediana).
+
+Los análisis principales usan D-FIS continuo; estas divisiones son secundarias.
+Devuelve las medianas y los tamaños de grupo para el resumen.
+"""
+function fatigue_categories!(vals)
+    ms  = filter(v -> v["group"] == "MS", vals)
+    hi(x, m, a, b) = x >= m ? a : b
+    t1  = filter(v -> v["dfis_t1"] !== nothing, ms)
+    seg = filter(v -> v["dfis_t1"] !== nothing && v["dfis_t2"] !== nothing, ms)
+    m1  = _median([v["dfis_t1"] for v in t1])
+    ms1 = _median([v["dfis_t1"] for v in seg])
+    ms2 = _median([v["dfis_t2"] for v in seg])
+    mr  = _median([v["dfis_t1"] - v["dfis_t2"] for v in seg])
+    for v in vals, k in ("dfis_group_t1", "dfis_group_long_t1", "dfis_group_long_t2", "fatigue_response")
+        v[k] = nothing
+    end
+    foreach(v -> v["dfis_group_t1"] = hi(v["dfis_t1"], m1, "high", "low"), t1)
+    for v in seg
+        v["dfis_group_long_t1"] = hi(v["dfis_t1"], ms1, "high", "low")
+        v["dfis_group_long_t2"] = hi(v["dfis_t2"], ms2, "high", "low")
+        v["fatigue_response"]   = hi(v["dfis_t1"] - v["dfis_t2"], mr, "greater", "lesser")
+    end
+    n(k, l) = count(v -> v[k] == l && v["has_t2"], vals)   # grupos en el subconjunto con EEG T2
+    return (n_t1 = length(t1), n_seg = length(seg), n_eeg = count(v -> v["has_t2"], seg), med_t1 = m1,
+            med_long_t1 = ms1, med_long_t2 = ms2, med_reduction = mr,
+            t1 = (count(v -> v["dfis_group_t1"] == "high", t1), count(v -> v["dfis_group_t1"] == "low", t1)),
+            long_t1 = (n("dfis_group_long_t1", "high"), n("dfis_group_long_t1", "low")),
+            long_t2 = (n("dfis_group_long_t2", "high"), n("dfis_group_long_t2", "low")),
+            response = (n("fatigue_response", "greater"), n("fatigue_response", "lesser")))
+end
 
 """
     write_participants(rows, demog)
 
 Escribe data/bids/participants.tsv (una fila por participante con alguna
 grabación válida) fusionando inventario, CSV demográfico, base clínica y
-categorías de Javier, y lista las discrepancias entre fuentes.
+categorías de Javier, recalcula las categorías de fatiga por mediana y lista
+las discrepancias entre fuentes.
 """
 function write_participants(rows, demog)
     clin = load_clinical()
@@ -489,62 +554,81 @@ function write_participants(rows, demog)
     seen  = Set{String}()
     notes = String[]
     n_clin = Dict("MS" => 0, "HC" => 0); n_tot = Dict("MS" => 0, "HC" => 0)
+    vals_all = Dict{String,Any}[]
+
+    for r in sort(rows, by = r -> r.bids_id)
+        (r.excluded || r.bids_id in seen) && continue
+        push!(seen, r.bids_id)
+        sid = r.subject_id
+        c = get(clin, sid, Dict{String,Any}())
+        j = get(jav, sid, Dict{String,String}())
+        g(k) = get(c, k, nothing)
+
+        # sexo: Excel MIND-EM (pacientes) > CSV demográfico
+        sex_x = g("sex")
+        sex   = sex_x !== nothing ? sex_x : r.sexo
+        sex_b = sex == "Hombre" ? "M" : (sex == "Mujer" ? "F" : "n/a")
+        sex_x !== nothing && r.sexo != "n/a" && sex_x != r.sexo &&
+            push!(notes, "$sid: sexo Excel=$(sex_x) vs CSV=$(r.sexo)")
+
+        # edad: fechas de nacimiento y evaluación T1 (fiables, Alejandro 06-11-2026)
+        # > columna EDAD del Excel > CSV demográfico
+        bd, i1, i2 = g("birth_date"), g("inclusion_date_t1"), g("inclusion_date_t2")
+        age_x = g("age")
+        age = (bd !== nothing && i1 !== nothing) ? Float64(age_at(bd, i1)) :
+              age_x !== nothing ? age_x : (r.edad > 0 ? Float64(r.edad) : nothing)
+        if age !== nothing && ((age_x !== nothing && age_x != age) || (r.edad > 0 && abs(age - r.edad) >= 1))
+            push!(notes, "$sid: edad $(_fmt(age))" * (age_x !== nothing && age_x != age ? " por fechas (columna EDAD=$(_fmt(age_x)))" : "") *
+                         (r.edad > 0 && r.edad != age ? "; CSV demográfico=$(r.edad)" : ""))
+        end
+        dm = get(demog, sid, nothing)
+        dm === nothing && push!(notes, "$sid: sin fila en el CSV demográfico (grupo/educación/edad sin fuente)")
+        isempty(c) && r.group == "MS" && push!(notes, "$sid: paciente sin datos en la base clínica MIND-EM")
+        isempty(j) && r.group == "MS" && push!(notes, "$sid: paciente sin categorías de Javier")
+
+        has_t1 = any(x -> x.bids_id == r.bids_id && x.session == "T1" && !x.excluded, rows)
+        has_t2 = any(x -> x.bids_id == r.bids_id && x.session == "T2" && !x.excluded, rows)
+        haskey(n_tot, r.group) && (n_tot[r.group] += 1; isempty(c) || (n_clin[r.group] += 1))
+
+        days = (i1 === nothing || i2 === nothing) ? nothing : Dates.value(i2 - i1)
+        vals = Dict{String,Any}(
+            "participant_id" => "sub-$(r.bids_id)", "group" => r.group, "sex" => sex_b,
+            "age" => age, "birth_date" => bd,
+            "education_level" => r.nivel_edu > 0 ? r.nivel_edu : nothing,
+            "has_t1" => has_t1, "has_t2" => has_t2,
+            "interval_days_t1_t2" => days,
+            "interval_months_t1_t2" => days === nothing ? nothing : round(days / 30.4375; digits = 1),
+        )
+        for k in ("inclusion_date_t1", "inclusion_date_t2", "intervention_weeks", "diagnosis", "treatment_t1",
+                  "treatment_t2", "edss_t1", "edss_t2", "dfis_t1", "dfis_t2", "bdi_t1", "bdi_t2")
+            vals[k] = g(k)
+        end
+        vals["edss_group"] = get(j, "edss_group", nothing)
+        for (k, kj) in (("dfis_group_t1_orig", "dfis_group_t1"), ("dfis_group_t1t2_orig", "dfis_group_t1t2"),
+                        ("fatigue_response_orig", "fatigue_response"))
+            vals[k] = get(j, kj, nothing)
+        end
+        push!(vals_all, vals)
+    end
+    fc = fatigue_categories!(vals_all)
 
     path = joinpath(BIDS_DIR, "participants.tsv")
     open(path, "w") do io
         println(io, join(PARTICIPANT_COLS, "\t"))
-        for r in sort(rows, by = r -> r.bids_id)
-            (r.excluded || r.bids_id in seen) && continue
-            push!(seen, r.bids_id)
-            sid = r.subject_id
-            c = get(clin, sid, Dict{String,Any}())
-            j = get(jav, sid, Dict{String,String}())
-            g(k) = get(c, k, nothing)
-
-            # sexo y edad: Excel MIND-EM (pacientes) > CSV demográfico
-            sex_x = g("sex")
-            sex   = sex_x !== nothing ? sex_x : r.sexo
-            sex_b = sex == "Hombre" ? "M" : (sex == "Mujer" ? "F" : "n/a")
-            age_x = g("age")
-            age   = age_x !== nothing ? age_x : (r.edad > 0 ? Float64(r.edad) : nothing)
-
-            sex_x !== nothing && r.sexo != "n/a" && sex_x != r.sexo &&
-                push!(notes, "$sid: sexo Excel=$(sex_x) vs CSV=$(r.sexo)")
-            age_x !== nothing && r.edad > 0 && abs(age_x - r.edad) >= 1 &&
-                push!(notes, "$sid: edad Excel=$(_fmt(age_x)) vs CSV=$(r.edad)")
-            if age_x !== nothing && g("birth_date") !== nothing && g("inclusion_date_t1") !== nothing
-                calc = floor(Int, Dates.value(g("inclusion_date_t1") - g("birth_date")) / 365.2425)
-                abs(calc - age_x) >= 1 &&
-                    push!(notes, "$sid: edad EDAD=$(_fmt(age_x)) vs fechas nacimiento/inclusión=$(calc)")
-            end
-            dm = get(demog, sid, nothing)
-            dm === nothing && push!(notes, "$sid: sin fila en el CSV demográfico (grupo/educación/edad sin fuente)")
-            isempty(c) && r.group == "MS" && push!(notes, "$sid: paciente sin datos en la base clínica MIND-EM")
-            isempty(j) && r.group == "MS" && push!(notes, "$sid: paciente sin categorías de Javier")
-
-            has_t1 = any(x -> x.bids_id == r.bids_id && x.session == "T1" && !x.excluded, rows)
-            has_t2 = any(x -> x.bids_id == r.bids_id && x.session == "T2" && !x.excluded, rows)
-            haskey(n_tot, r.group) && (n_tot[r.group] += 1; isempty(c) || (n_clin[r.group] += 1))
-
-            vals = Dict{String,Any}(
-                "participant_id" => "sub-$(r.bids_id)", "group" => r.group, "sex" => sex_b,
-                "age" => age, "birth_date" => g("birth_date"),
-                "education_level" => r.nivel_edu > 0 ? r.nivel_edu : nothing,
-                "has_t1" => has_t1, "has_t2" => has_t2,
-            )
-            for k in ("inclusion_date_t1", "inclusion_date_t2", "months_t1_t2", "diagnosis", "treatment_t1",
-                      "treatment_t2", "edss_t1", "edss_t2", "dfis_t1", "dfis_t2", "bdi_t1", "bdi_t2")
-                vals[k] = g(k)
-            end
-            for k in ("edss_group", "dfis_group_t1", "dfis_group_t1t2", "fatigue_response")
-                vals[k] = get(j, k, nothing)
-            end
-            println(io, join((_fmt(vals[k]) for k in PARTICIPANT_COLS), "\t"))
-        end
+        foreach(v -> println(io, join((_fmt(v[k]) for k in PARTICIPANT_COLS), "\t")), vals_all)
     end
     println("✓ participants.tsv guardado: $path ($(length(seen)) participantes)")
     for grp in ("MS", "HC")
         println("  $(grp): $(n_tot[grp]) participantes · $(n_clin[grp]) con datos en la base clínica")
+    end
+    println("  D-FIS por mediana (empate → categoría superior): transversal T1 N=$(fc.n_t1), mediana $(_fmt(fc.med_t1)), alta/baja $(fc.t1[1])/$(fc.t1[2])")
+    println("    seguimiento clínico N=$(fc.n_seg) (grupos en los $(fc.n_eeg) con EEG T2): T1 mediana $(_fmt(fc.med_long_t1)) → $(fc.long_t1[1])/$(fc.long_t1[2]) · T2 mediana $(_fmt(fc.med_long_t2)) → $(fc.long_t2[1])/$(fc.long_t2[2]) · reducción mediana $(_fmt(fc.med_reduction)) → mayor/menor $(fc.response[1])/$(fc.response[2])")
+    for (k, ko) in (("dfis_group_t1", "dfis_group_t1_orig"), ("dfis_group_long_t1", "dfis_group_t1t2_orig"),
+                    ("fatigue_response", "fatigue_response_orig"))
+        d = [v["participant_id"] for v in vals_all if v[ko] !== nothing && v[k] != v[ko]]
+        nw = [v["participant_id"] for v in vals_all if v[ko] === nothing && v[k] !== nothing]
+        println("    $k distinta de la original: ", isempty(d) ? "ninguno" : join(d, ", "),
+                isempty(nw) ? "" : " · sin categoría original (nueva): " * join(nw, ", "))
     end
     if !isempty(notes)
         println("\n⚠ Discrepancias / huecos entre fuentes ($(length(notes))):")

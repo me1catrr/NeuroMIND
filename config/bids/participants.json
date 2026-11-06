@@ -17,18 +17,18 @@
         }
     },
     "age": {
-        "Description": "Age in years at the first assessment (T1).",
+        "Description": "Age in completed years at the first assessment (T1). Patients: computed from date of birth and T1 assessment date (the clinical team confirmed the dates are reliable; this corrects the AGE column of the clinical database for three patients). Controls: demographic sheet.",
         "Units": "years"
     },
     "birth_date": {
         "Description": "Date of birth (ISO 8601). Identifying information; available for patients only."
     },
     "education_level": {
-        "Description": "Educational level, ordinal project coding 1-3 (NIVEL EDUCATIVO of the demographic sheet). The meaning of each category is not documented in the source files.",
+        "Description": "Educational level (NIVEL EDUCATIVO of the demographic sheet), ordinal coding confirmed by the clinical team.",
         "Levels": {
-            "1": "Category 1",
-            "2": "Category 2",
-            "3": "Category 3"
+            "1": "Primary education (estudios primarios)",
+            "2": "Secondary education (estudios medios)",
+            "3": "University education (estudios universitarios)"
         }
     },
     "has_t1": {
@@ -45,9 +45,17 @@
     "inclusion_date_t2": {
         "Description": "Date of the follow-up assessment (ISO 8601). Identifying information."
     },
-    "months_t1_t2": {
-        "Description": "Months between T1 and T2 (column T.INTERVENCION of the clinical database).",
+    "interval_days_t1_t2": {
+        "Description": "Days between the T1 and T2 assessment dates (inclusion_date_t2 - inclusion_date_t1).",
+        "Units": "days"
+    },
+    "interval_months_t1_t2": {
+        "Description": "interval_days_t1_t2 / 30.4375, rounded to one decimal.",
         "Units": "months"
+    },
+    "intervention_weeks": {
+        "Description": "Duration of the intervention between T1 and T2 (column T.INTERVENCION of the clinical database). It is in weeks, not months (about 12-week intervention); the T1-T2 interval is interval_days_t1_t2.",
+        "Units": "weeks"
     },
     "diagnosis": {
         "Description": "MS clinical course.",
@@ -94,24 +102,52 @@
         }
     },
     "dfis_group_t1": {
-        "Description": "Fatigue category from the D-FIS median of all patients with T1. Use in cross-sectional analyses.",
+        "Description": "Fatigue category at T1 from the median D-FIS T1 of all patients (cross-sectional sample). Ties with the median go to the upper category. Secondary/exploratory analyses only: primary analyses use continuous D-FIS.",
         "Levels": {
-            "low": "Below the median (BAJA)",
-            "high": "Above the median (ALTA)"
+            "low": "D-FIS below the median (BAJA)",
+            "high": "D-FIS at or above the median (ALTA)"
         }
     },
-    "dfis_group_t1t2": {
-        "Description": "Fatigue category from the D-FIS median of patients with both T1 and T2. Use in longitudinal analyses only; the median differs from dfis_group_t1.",
+    "dfis_group_long_t1": {
+        "Description": "Fatigue category at T1 within the clinical follow-up cohort (patients with D-FIS at T1 and T2, regardless of EEG quality control), from that cohort's median D-FIS T1. Longitudinal EEG analyses use the subset with has_t2. Ties with the median go to the upper category. Secondary/exploratory analyses only: primary analyses use continuous D-FIS.",
         "Levels": {
-            "low": "Below the median (BAJA)",
-            "high": "Above the median (ALTA)"
+            "low": "D-FIS below the median (BAJA)",
+            "high": "D-FIS at or above the median (ALTA)"
+        }
+    },
+    "dfis_group_long_t2": {
+        "Description": "Fatigue category at T2 within the clinical follow-up cohort, from that cohort's median D-FIS T2 (T1 and T2 medians are computed separately). Ties with the median go to the upper category. Secondary/exploratory analyses only: primary analyses use continuous D-FIS.",
+        "Levels": {
+            "low": "D-FIS below the median (BAJA)",
+            "high": "D-FIS at or above the median (ALTA)"
         }
     },
     "fatigue_response": {
-        "Description": "Magnitude of the fatigue change between T1 and T2 (patients with T2 only).",
+        "Description": "Fatigue response in the clinical follow-up cohort: D-FIS reduction (dfis_t1 - dfis_t2) compared with the median reduction. Ties with the median go to the upper category. Secondary/exploratory analyses only: primary analyses use continuous D-FIS.",
         "Levels": {
-            "greater": "Larger change (MAYOR)",
-            "lesser": "Smaller change (MENOR)"
+            "greater": "Reduction at or above the median (MAYOR)",
+            "lesser": "Reduction below the median (MENOR)"
+        }
+    },
+    "dfis_group_t1_orig": {
+        "Description": "Original cross-sectional fatigue category (median of all patients with T1). Original classification sent by the clinical team (2026-09-10), kept for traceability; superseded by the column without _orig.",
+        "Levels": {
+            "low": "BAJA",
+            "high": "ALTA"
+        }
+    },
+    "dfis_group_t1t2_orig": {
+        "Description": "Original longitudinal fatigue category at T1 (median of patients with T1 and T2). Original classification sent by the clinical team (2026-09-10), kept for traceability; superseded by the column without _orig.",
+        "Levels": {
+            "low": "BAJA",
+            "high": "ALTA"
+        }
+    },
+    "fatigue_response_orig": {
+        "Description": "Original fatigue response between T1 and T2. Original classification sent by the clinical team (2026-09-10), kept for traceability; superseded by the column without _orig.",
+        "Levels": {
+            "greater": "MAYOR",
+            "lesser": "MENOR"
         }
     }
 }

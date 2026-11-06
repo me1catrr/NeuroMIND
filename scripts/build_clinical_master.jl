@@ -11,21 +11,25 @@
 # ───────────────────────────────────────────────────────────────
 #  Fichero    scripts/build_clinical_master.jl
 #  Autor      Rafael Castro Triguero <me1catrr@uco.es>
-#  Modificado 15-10-2026
+#  Modificado 06-11-2026
 # ───────────────────────────────────────────────────────────────
 #
 #  Invocación: julia --project=. scripts/build_clinical_master.jl [--check]
 #
 #  --check   tras escribir, cruza BIDS en disco, inventario, raw_selection.csv,
-#            participants.tsv, el CSV/xlsx recién escritos, la base clínica original
-#            y las cifras del capítulo 4 del informe; imprime las filas de los
-#            Cuadros 4.1 y 4.2 y sale con error si algo no coincide.
+#            participants.tsv, el CSV/xlsx recién escritos, la base clínica original,
+#            la propuesta de clasificación de fatiga de Alejandro (06-11-2026) y las
+#            cifras del capítulo 4 del libro (../NeuroMIND-quarto, si está); imprime
+#            las filas de sus dos tablas de participantes y sale con error si algo
+#            no coincide.
 #
 #  Entradas (regenerar antes con audit_full_dataset.jl si cambian las fuentes)
 #  ───────────────────────────────────────────────────────────────────────────
 #    data/bids/participants.tsv                 clínica fusionada (una fila por sujeto)
 #    data/tables/inventory.csv                  grabaciones EEG y decisiones de selección
 #    data/sourcedata/clinical/anteriores/Javier_NeuroMIND.xlsx   solo observaciones de Javier (col. H/I)
+#    data/sourcedata/clinical/aclaraciones_equipo_clinico.toml   aclaraciones del equipo clínico por
+#                                                 paciente (privado; el código no lleva datos clínicos)
 #
 #  Salidas (data/ está en .gitignore)
 #  ──────────────────────────────────
@@ -36,7 +40,7 @@
 #  La fecha de nacimiento no se incluye (dato identificativo; basta la edad).
 #  El .xlsx se escribe sin dependencias nuevas: XML SpreadsheetML + `zip` del sistema.
 
-using CSV, Dates, Statistics, XLSX
+using CSV, Dates, Statistics, TOML, XLSX
 
 # ─── Rutas ────────────────────────────────────────────────────
 
@@ -113,26 +117,32 @@ const COLUMNS = [   # (clave, anchura, descripción, fuente)
     ("id_bids", 11, "Identificador BIDS (M5 → sub-M05); el mismo que en data/bids.", "Proyecto"),
     ("grupo", 10, "Paciente (EM) o Control.", "Base clínica MIND-EM / CSV demográfico"),
     ("sexo", 8, "Hombre / Mujer.", "Base clínica (pacientes); CSV demográfico (controles)"),
-    ("edad_t1", 8, "Edad en años en la primera evaluación (T1).", "Base clínica (pacientes); CSV demográfico (controles)"),
-    ("nivel_educativo", 10, "Nivel educativo, codificación ordinal 1–3. El significado de cada categoría no está documentado en las fuentes.", "CSV demográfico"),
+    ("edad_t1", 8, "Edad en años cumplidos en la primera evaluación (T1). Pacientes: calculada con la fecha de nacimiento y la de evaluación T1, que el equipo clínico da por fiables (corrige la columna EDAD de la base en tres pacientes). Controles: CSV demográfico.", "Calculado (pacientes); CSV demográfico (controles)"),
+    ("nivel_educativo", 10, "Nivel educativo: 1 = estudios primarios; 2 = estudios medios; 3 = estudios universitarios.", "CSV demográfico; significado confirmado por Alejandro (06-11-2026)"),
     ("fecha_inclusion_t1", 13, "Fecha de inclusión / primera evaluación. Solo pacientes.", "Base clínica MIND-EM"),
     ("fecha_inclusion_t2", 13, "Fecha de la evaluación de seguimiento. Solo pacientes con T2.", "Base clínica MIND-EM"),
-    ("intervalo_meses_t1_t2", 11, "Meses entre T1 y T2 (columna T.INTERVENCIÓN de la base).", "Base clínica MIND-EM"),
+    ("intervalo_dias_t1_t2", 10, "CALCULADO: días entre las fechas de evaluación T1 y T2.", "Calculado"),
+    ("intervalo_meses_t1_t2", 10, "CALCULADO: intervalo_dias_t1_t2 / 30,4375, con un decimal.", "Calculado"),
+    ("semanas_intervencion", 11, "Duración de la intervención en SEMANAS (columna T.INTERVENCIÓN; no son meses: la intervención dura unas 12 semanas). El intervalo real T1–T2 es intervalo_dias_t1_t2.", "Base clínica MIND-EM; unidad confirmada por Alejandro (06-11-2026)"),
     ("diagnostico", 11, "EMRR = remitente-recurrente; EMPP = primaria progresiva.", "Base clínica MIND-EM"),
     ("tratamiento_t1", 14, "Tratamiento modificador de la enfermedad en T1 (nombres normalizados).", "Base clínica MIND-EM"),
     ("tratamiento_t2", 14, "Tratamiento modificador de la enfermedad en T2 (nombres normalizados).", "Base clínica MIND-EM"),
     ("edss_t1", 8, "EDSS (0–10) en T1. Valor numérico.", "Base clínica MIND-EM"),
     ("edss_t2", 8, "EDSS (0–10) en T2. Valor numérico.", "Base clínica MIND-EM"),
-    ("dfis_t1", 8, "D-FIS (escala de impacto de la fatiga) en T1. También disponible para controles.", "Base clínica MIND-EM, hoja de valoración neuropsicológica"),
+    ("dfis_t1", 8, "D-FIS (escala de impacto de la fatiga) en T1. También disponible para controles. Variable principal de fatiga (continua).", "Base clínica MIND-EM, hoja de valoración neuropsicológica"),
     ("dfis_t2", 8, "D-FIS en T2.", "Base clínica MIND-EM, hoja de valoración neuropsicológica"),
     ("bdi2_t1", 8, "BDI-II (depresión) en T1. También disponible para controles.", "Base clínica MIND-EM, hoja de valoración neuropsicológica"),
     ("bdi2_t2", 8, "BDI-II en T2.", "Base clínica MIND-EM, hoja de valoración neuropsicológica"),
     ("delta_edss", 9, "CALCULADO: edss_t2 − edss_t1.", "Calculado"),
     ("delta_dfis", 9, "CALCULADO: dfis_t2 − dfis_t1 (negativo = menos fatiga).", "Calculado"),
     ("edss_categoria", 11, "Leve / Grave (categoría de Javier, análisis transversal).", "Javier (Hoja1, col. C)"),
-    ("dfis_cat_transversal", 12, "Alta / Baja según mediana de D-FIS T1 (categoría de Javier; usar en transversal).", "Javier (Hoja1, col. D)"),
-    ("dfis_cat_longitudinal", 12, "Alta / Baja según mediana recalculada solo con sujetos T1+T2 (usar en longitudinal).", "Javier (Hoja1, col. E)"),
-    ("respuesta_fatiga", 11, "Mayor / Menor: respuesta de la fatiga entre T1 y T2 (solo sujetos con T2).", "Javier (Hoja1, col. F)"),
+    ("dfis_cat_t1_transversal", 12, "CALCULADO: Alta / Baja según la mediana de D-FIS T1 de todos los pacientes (muestra transversal); el valor igual a la mediana es Alta. Solo análisis secundarios.", "Calculado (regla de Alejandro, 06-11-2026)"),
+    ("dfis_cat_t1_seguimiento", 12, "CALCULADO: Alta / Baja según la mediana de D-FIS T1 del seguimiento clínico (pacientes con D-FIS en T1 y T2, con independencia del QC del EEG; incluye pacientes sin EEG T2 válido); igual a la mediana = Alta. Los análisis EEG longitudinales usan solo los pacientes con EEG T2.", "Calculado (regla de Alejandro, 06-11-2026)"),
+    ("dfis_cat_t2_seguimiento", 12, "CALCULADO: Alta / Baja según la mediana de D-FIS T2 del mismo seguimiento clínico (mediana de T2 aparte de la de T1); igual a la mediana = Alta.", "Calculado (regla de Alejandro, 06-11-2026)"),
+    ("respuesta_fatiga", 11, "CALCULADO: Mayor / Menor según la mediana de la reducción de D-FIS (T1 − T2) en el seguimiento clínico; igual a la mediana = Mayor.", "Calculado (regla de Alejandro, 06-11-2026)"),
+    ("dfis_cat_transversal_original", 12, "Categoría original de Javier (D-FIS T1, mediana de todos los pacientes). Se conserva para trazabilidad; la vigente es dfis_cat_t1_transversal.", "Javier (Hoja1, col. D)"),
+    ("dfis_cat_longitudinal_original", 12, "Categoría original de Javier (D-FIS T1, mediana de los pacientes con T1+T2). Se conserva para trazabilidad; la vigente es dfis_cat_t1_seguimiento.", "Javier (Hoja1, col. E)"),
+    ("respuesta_fatiga_original", 11, "Respuesta original de Javier (Mayor / Menor). Se conserva para trazabilidad; la vigente es respuesta_fatiga.", "Javier (Hoja1, col. F)"),
     ("eeg_t1_ec", 18, "¿Hay EEG utilizable en T1, ojos cerrados? «Sí (segmento a–b s)» = recorte de un raw único.", "Inventario EEG / raw_selection.csv"),
     ("eeg_t1_eo", 18, "Idem, T1 ojos abiertos.", "Inventario EEG / raw_selection.csv"),
     ("eeg_t2_ec", 18, "Idem, T2 ojos cerrados.", "Inventario EEG / raw_selection.csv"),
@@ -149,13 +159,39 @@ function eeg_status(recs)
     return r.tmin === nothing ? "Sí" : "Sí (segmento $(fmtn(r.tmin))–$(fmtn(r.tmax)) s)"
 end
 
+# Aclaraciones del equipo clínico (correo de Alejandro, 06-11-2026). Los hechos por
+# paciente (EDSS confirmados, seguimiento, controles excluidos, propuesta de fatiga) son
+# datos clínicos y el repositorio es público: viven en un TOML privado dentro de data/.
+const ACLARACIONES = joinpath(PROJ_ROOT, "data", "sourcedata", "clinical", "aclaraciones_equipo_clinico.toml")
+const ALEJANDRO = "Alejandro, 06-11-2026"
+aclaraciones() = isfile(ACLARACIONES) ? TOML.parsefile(ACLARACIONES) : nothing
+lista(A, k) = A === nothing ? String[] : String.(get(A, k, String[]))
+
+# (columna vigente, columna original, etiqueta, valor de la muestra, muestra)
+const FATIGUE_KEYS = [("dfis_group_t1", "dfis_group_t1_orig", "D-FIS T1, muestra transversal"),
+                      ("dfis_group_long_t1", "dfis_group_t1t2_orig", "D-FIS T1, seguimiento clínico"),
+                      ("dfis_group_long_t2", nothing, "D-FIS T2, seguimiento clínico"),
+                      ("fatigue_response", "fatigue_response_orig", "Respuesta: reducción D-FIS T1 − T2, seguimiento clínico")]
+
+"Muestra y valor de cada clasificación de fatiga (misma definición que audit_full_dataset.jl):
+el seguimiento clínico son los pacientes con D-FIS en T1 y T2, con independencia del EEG."
+function fatigue_sample(ms, key)
+    seg(p) = p["dfis_t1"] !== nothing && p["dfis_t2"] !== nothing
+    key == "dfis_group_t1"      && return [p for p in ms if p["dfis_t1"] !== nothing], p -> num(p["dfis_t1"])
+    key == "dfis_group_long_t1" && return filter(seg, ms), p -> num(p["dfis_t1"])
+    key == "dfis_group_long_t2" && return filter(seg, ms), p -> num(p["dfis_t2"])
+    return filter(seg, ms), p -> num(p["dfis_t1"]) - num(p["dfis_t2"])
+end
+upper(key) = key == "fatigue_response" ? "greater" : "high"
+
 "Aplica las comprobaciones de coherencia; devuelve (filas del informe, avisos por código)."
 function quality_checks(P, inv)
     rows = Vector{NamedTuple}()
-    flags = Dict{String,Vector{String}}()
+    flags = Dict{String,Vector{Tuple{String,String}}}()
     add!(chk, res, who, det) = (push!(rows, (comprobacion = chk, resultado = res, participante = who, detalle = det));
-                                res == "Revisar" && who != "" && push!(get!(flags, who, String[]), det))
+                                res in ("Revisar", "Info") && who != "" && push!(get!(flags, who, Tuple{String,String}[]), (res, det)))
     ms = filter(p -> p["group"] == "MS" && p["code"] != "", P)
+    byc = Dict(p["code"] => p for p in P)
 
     # 1) EDSS: la categoría debe separar por un corte único
     mild   = [p["edss_t1"] for p in ms if p["edss_group"] == "mild"   && p["edss_t1"] !== nothing]
@@ -171,82 +207,124 @@ function quality_checks(P, inv)
         end
     end
 
-    # 2) D-FIS transversal: Alta ⇔ D-FIS T1 ≥ mediana de todos los pacientes con T1
-    d1 = [num(p["dfis_t1"]) for p in ms if p["dfis_t1"] !== nothing]
-    med1 = median(d1); bad = 0
-    for p in ms
-        v = num(p["dfis_t1"]); (v === nothing || p["dfis_group_t1"] === nothing) && continue
-        if (v >= med1) != (p["dfis_group_t1"] == "high")
-            bad += 1
-            add!("D-FIS T1 vs categoría transversal", "Revisar", p["code"], "D-FIS T1=$(fmtn(v)) pero categoría $(cat_es(p["dfis_group_t1"])) (mediana=$(fmtn(med1)))")
+    # 2) Categorías de fatiga por mediana: se recalculan aquí de forma independiente
+    #    (empate con la mediana → Alta / Mayor) y se comparan con las de participants.tsv
+    for (key, okey, label) in FATIGUE_KEYS
+        S, val = fatigue_sample(ms, key)
+        m = median(val.(S)); up = upper(key)
+        chk = "Fatiga por mediana: " * label
+        bad = [p for p in S if (val(p) >= m) != (p[key] == up)]
+        out = [p for p in P if p[key] !== nothing && !(p in S)]
+        foreach(p -> add!(chk, "Revisar", p["code"], "Valor $(fmtn(val(p))) pero categoría $(cat_es(p[key])) (mediana=$(fmtn(m)))"), bad)
+        foreach(p -> add!(chk, "Revisar", p["code"], "Tiene categoría $(cat_es(p[key])) sin pertenecer a la muestra"), out)
+        if isempty(bad) && isempty(out)
+            nu = count(p -> p[key] == up, S)
+            add!(chk, "OK", "", "Mediana = $(fmtn(m)) (N=$(length(S))); $(cat_es(up)) / $(cat_es(up == "high" ? "low" : "lesser")) = $nu / $(length(S) - nu); $(count(p -> val(p) == m, S)) valores iguales a la mediana, asignados a $(cat_es(up))")
         end
-    end
-    bad == 0 && add!("D-FIS T1 vs categoría transversal", "OK", "", "Coherente: Alta ⇔ D-FIS T1 ≥ mediana = $(fmtn(med1)) (N=$(length(d1)); los empates con la mediana cuentan como Alta)")
-
-    # 3) D-FIS longitudinal: mediana de T1 solo en sujetos con categoría T1+T2
-    lg = [p for p in ms if p["dfis_group_t1t2"] !== nothing && p["dfis_t1"] !== nothing]
-    med12 = median(num.(getindex.(lg, "dfis_t1"))); bad = 0
-    for p in lg
-        v = num(p["dfis_t1"])
-        if (v >= med12) != (p["dfis_group_t1t2"] == "high")
-            bad += 1
-            add!("D-FIS T1 vs categoría longitudinal", "Revisar", p["code"], "D-FIS T1=$(fmtn(v)) pero categoría longitudinal $(cat_es(p["dfis_group_t1t2"])) (mediana del subgrupo=$(fmtn(med12)))")
+        # cambios frente a la clasificación original de Javier
+        okey === nothing && continue
+        for p in ms
+            (p[okey] === nothing && p[key] !== nothing) || continue
+            add!("Cambio respecto a la categoría original", "Info", p["code"],
+                 "$label: sin categoría original de Javier; ahora $(cat_es(p[key])) (valor $(fmtn(val(p))), mediana $(fmtn(m)); entra en el seguimiento clínico, $ALEJANDRO)")
         end
+        dif = [p for p in ms if p[okey] !== nothing && p[key] != p[okey]]
+        for p in dif
+            add!("Cambio respecto a la categoría original", "Info", p["code"],
+                 "$label: $(something(cat_es(p[okey]), "—")) (original de Javier) → $(something(cat_es(p[key]), "—")) " *
+                 "(valor $(p in S ? fmtn(val(p)) : "—"), mediana $(fmtn(m)); el valor igual a la mediana va a la categoría superior, $ALEJANDRO)")
+        end
+        isempty(dif) && add!("Cambio respecto a la categoría original", "OK", "", "$label: sin cambios respecto a Javier")
     end
-    bad == 0 && add!("D-FIS T1 vs categoría longitudinal", "OK", "", "Coherente: Alta ⇔ D-FIS T1 ≥ mediana del subgrupo = $(fmtn(med12)) (N=$(length(lg)))")
 
-    # 4) Respuesta: debe ser monótona en ΔD-FIS; se busca el corte que menos discrepancias deja
-    rs = [(p, delta(num(p["dfis_t1"]), num(p["dfis_t2"]))) for p in ms if p["fatigue_response"] !== nothing]
-    rs = [(p, d) for (p, d) in rs if d !== nothing]
-    cuts = sort(unique(last.(rs)))
-    miss(t) = count(((p, d),) -> (d <= t) != (p["fatigue_response"] == "greater"), rs)
-    t = cuts[argmin(miss.(cuts))]
-    viol = [(p, d) for (p, d) in rs if (d <= t) != (p["fatigue_response"] == "greater")]
-    for (p, d) in viol
-        add!("Respuesta de fatiga vs ΔD-FIS", "Revisar", p["code"],
-             "ΔD-FIS=$(fmtn(d)) (T1=$(p["dfis_t1"]), T2=$(p["dfis_t2"])) pero respuesta $(cat_es(p["fatigue_response"])); la regla que mejor encaja es Mayor ⇔ ΔD-FIS ≤ $(fmtn(t))")
-    end
-    isempty(viol) && add!("Respuesta de fatiga vs ΔD-FIS", "OK", "", "Coherente: Mayor ⇔ ΔD-FIS ≤ $(fmtn(t)) (N=$(length(rs)))")
-
-    # 5) Misma pareja (T1,T2) de D-FIS con categorías distintas = contradicción directa
-    for (nombre, key) in (("D-FIS longitudinal", "dfis_group_t1t2"), ("Respuesta de fatiga", "fatigue_response"))
+    # 3) Misma pareja (T1,T2) de D-FIS con categorías distintas = contradicción directa
+    for (nombre, key) in (("D-FIS T1, seguimiento", "dfis_group_long_t1"), ("D-FIS T2, seguimiento", "dfis_group_long_t2"),
+                          ("Respuesta de fatiga", "fatigue_response"))
         g = Dict{Tuple,Vector{Any}}()
         for p in ms
             (p[key] === nothing || p["dfis_t1"] === nothing || p["dfis_t2"] === nothing) && continue
             push!(get!(g, (p["dfis_t1"], p["dfis_t2"]), Any[]), p)
         end
+        nbad = 0
         for ((a, b), ps) in g
-            length(unique(p[key] for p in ps)) > 1 &&
-                add!("Mismos valores D-FIS, distinta categoría", "Revisar", join(sort(getindex.(ps, "code")), " y "),
-                     "$nombre: D-FIS T1=$a / T2=$b en todos ellos, pero categorías " * join(("$(p["code"])=$(cat_es(p[key]))" for p in ps), ", "))
+            length(unique(p[key] for p in ps)) > 1 || continue
+            nbad += 1
+            add!("Mismos valores D-FIS, distinta categoría", "Revisar", join(sort(getindex.(ps, "code")), " y "),
+                 "$nombre: D-FIS T1=$a / T2=$b en todos ellos, pero categorías " * join(("$(p["code"])=$(cat_es(p[key]))" for p in ps), ", "))
         end
+        nbad == 0 && add!("Mismos valores D-FIS, distinta categoría", "OK", "", "$nombre: los pacientes con los mismos D-FIS T1 y T2 comparten categoría")
     end
 
-    # 6) Edad y sexo entre fuentes
+    # 4) Edad y sexo entre fuentes
     byinv = Dict(r.code => r for r in inv)
+    nage = 0
     for p in P
         r = get(byinv, p["code"], nothing)
         a = num(p["age"])
-        if r !== nothing && a !== nothing && r.edad > 0 && abs(a - r.edad) >= 1
-            add!("Edad: base clínica vs CSV demográfico", "Revisar", p["code"], "Edad base=$(fmtn(a)) vs CSV demográfico=$(r.edad)")
-        end
         b, i = dat(p["birth_date"]), dat(p["inclusion_date_t1"])
         if a !== nothing && b !== nothing && i !== nothing
-            calc = floor(Int, Dates.value(i - b) / 365.2425)
-            abs(calc - a) >= 1 && add!("Edad: columna EDAD vs fechas", "Revisar", p["code"], "Edad=$(fmtn(a)) vs $(calc) calculada con fechas de nacimiento e inclusión")
+            nage += 1
+            calc = year(i) - year(b) - ((month(i), day(i)) < (month(b), day(b)) ? 1 : 0)
+            calc != a && add!("Edad vs fechas de nacimiento y T1", "Revisar", p["code"], "Edad=$(fmtn(a)) vs $(calc) calculada con fechas")
+        end
+        if r !== nothing && a !== nothing && r.edad > 0 && abs(a - r.edad) >= 1
+            add!("Edad corregida con fechas", "Info", p["code"],
+                 "Edad T1 = $(fmtn(a)), calculada con fechas de nacimiento y evaluación (fiables, $ALEJANDRO); la columna EDAD de la base y el CSV demográfico decían $(r.edad)")
         end
         if r !== nothing && r.sexo !== nothing && p["sex"] !== nothing &&
            (p["sex"] == "M") != (r.sexo == "Hombre")
             add!("Sexo: base clínica vs CSV demográfico", "Revisar", p["code"], "Sexo base=$(p["sex"]) vs CSV=$(r.sexo)")
         end
     end
+    add!("Edad vs fechas de nacimiento y T1", "OK", "", "La edad de los $nage pacientes con fechas es la calculada con ellas")
 
-    # 7) Datos clínicos de T2 sin EEG T2 utilizable
+    # 5) Intervalo T1–T2 por fechas y unidad de T.INTERVENCIÓN
+    t2 = [p for p in ms if p["inclusion_date_t2"] !== nothing]
+    dd = [num(p["interval_days_t1_t2"]) for p in t2]
+    sinf = [p["code"] for p in ms if p["inclusion_date_t2"] === nothing && (p["edss_t2"] !== nothing || p["dfis_t2"] !== nothing)]
+    if any(isnothing, dd) || !isempty(sinf) || any(<=(0), filter(!isnothing, dd))
+        add!("Intervalo T1–T2 por fechas", "Revisar", join(sinf, ", "), "Faltan fechas de T2 o hay intervalos no positivos")
+    else
+        w = filter(!isnothing, [num(p["intervention_weeks"]) for p in t2])
+        add!("Intervalo T1–T2 por fechas", "OK", "",
+             "N=$(length(dd)): $(fmtn(minimum(dd)))–$(fmtn(maximum(dd))) días (mediana $(fmtn(median(dd))), ≈ $(fmtn(round(median(dd) / 30.4375; digits = 1))) meses). " *
+             "T.INTERVENCIÓN está en semanas ($(fmtn(minimum(w)))–$(fmtn(maximum(w))), intervención de unas 12; $ALEJANDRO), no en meses")
+    end
+
+    # 6) Datos clínicos de T2 sin EEG T2 utilizable
     for p in P
         has_clin = p["inclusion_date_t2"] !== nothing || p["edss_t2"] !== nothing || p["dfis_t2"] !== nothing
         has_clin && p["has_t2"] == "false" &&
-            add!("Datos clínicos T2 sin EEG T2", "Info", p["code"], "Hay EDSS/D-FIS T2 en la base, pero el EEG T2 no se analiza (decisión de Javier)")
+            add!("Datos clínicos T2 sin EEG T2", "Info", p["code"], "Se conservan EDSS/D-FIS/BDI-II de T2 aunque su EEG T2 no es válido ($ALEJANDRO): entra en las medianas y categorías de fatiga del seguimiento clínico, pero no en los análisis EEG longitudinales")
     end
+
+    # 7) Aclaraciones del equipo clínico, comprobadas contra los datos
+    conf(chk, c, ok, det) = add!(chk, ok ? "Info" : "Revisar", c, ok ? det * " ($ALEJANDRO)" : "No cuadra con los datos: " * det)
+    A = aclaraciones()
+    A === nothing && add!("Aclaraciones del equipo clínico", "Revisar", "", "No se encuentra $ACLARACIONES")
+    for c in lista(A, "edss_t2_igual")
+        p = byc[c]; conf("EDSS T2 confirmado", c, p["edss_t2"] !== nothing && num(p["edss_t2"]) == num(p["edss_t1"]),
+                         "EDSS T2 = EDSS T1 = $(p["edss_t1"]) es correcto: la discapacidad no cambió")
+    end
+    for c in lista(A, "edss_subida")
+        p = byc[c]; conf("EDSS T2 confirmado", c, p["edss_t2"] !== nothing && num(p["edss_t2"]) > num(p["edss_t1"]),
+                         "Subida de EDSS $(p["edss_t1"]) → $(p["edss_t2"]) correcta (brote)")
+    end
+    for c in lista(A, "sin_t2")
+        p = byc[c]; conf("Sin seguimiento T2", c, p["has_t2"] == "false" && all(k -> p[k] === nothing, ("inclusion_date_t2", "edss_t2", "dfis_t2", "bdi_t2")),
+                         "No tiene seguimiento T2 (ni EEG ni valoración clínica)")
+    end
+    for c in lista(A, "controles_excluidos")
+        conf("Control excluido", c, !haskey(byc, c) && !any(r -> r.code == c && !r.excluded, inv),
+             "Excluido porque su EEG era demasiado ruidoso; no figura en el dataset")
+    end
+    for c in lista(A, "controles_posteriores")
+        conf("Control de incorporación posterior", c, haskey(byc, c), "Incorporación posterior al reclutamiento inicial (de ahí el salto en la numeración)")
+    end
+    m7 = [r for r in inv if r.code == "M7" && r.session == "T1" && r.cond == "EO" && !r.excluded]
+    sel7 = any(l -> occursin(r"^[^,]*,M7,T1,EO,use,", l), readlines(RAW_SELECTION))
+    conf("Selección de raws", "M7", length(m7) == 1 && sel7 && m7[1].cond_raw !== nothing && occursin(r"(?i)^cog-10-1$", m7[1].cond_raw),
+         "El archivo T1 Cog-10-1 (sin sufijo de ojos) es su ojos abiertos de T1; aplicado en config/raw_selection.csv")
 
     # 8) Valores clínicos que faltan
     for p in ms, k in ("edss_t1", "dfis_t1", "bdi_t1", "edss_group", "dfis_group_t1")
@@ -275,16 +353,21 @@ function build_rows()
             push!(obs, "T1: raw único dividido en abiertos/cerrados por segundos (indicación de Javier)")
         any(r -> r.code == c && !r.excluded && r.note !== nothing && occursin("sin sufijo de ojos", r.note), inv) &&
             push!(obs, "El archivo sin sufijo de ojos es su EO de T1 (confirmado por Alejandro, 28-09-2026)")
-        haskey(flags, c) && push!(obs, "REVISAR: " * join(flags[c], " · "))
+        fl = get(flags, c, Tuple{String,String}[])
+        any(f -> f[1] == "Revisar", fl) && push!(obs, "REVISAR: " * join((d for (r, d) in fl if r == "Revisar"), " · "))
+        any(f -> f[1] == "Info", fl) && push!(obs, "Nota: " * join((d for (r, d) in fl if r == "Info"), " · "))
         push!(rows, Any[
             c, p["participant_id"], p["group"] == "MS" ? "Paciente" : "Control",
             p["sex"] == "M" ? "Hombre" : p["sex"] == "F" ? "Mujer" : nothing,
             num(p["age"]), num(p["education_level"]),
-            dat(p["inclusion_date_t1"]), dat(p["inclusion_date_t2"]), num(p["months_t1_t2"]),
+            dat(p["inclusion_date_t1"]), dat(p["inclusion_date_t2"]),
+            num(p["interval_days_t1_t2"]), num(p["interval_months_t1_t2"]), num(p["intervention_weeks"]),
             p["diagnosis"], p["treatment_t1"], p["treatment_t2"],
             e1, e2, d1, d2, num(p["bdi_t1"]), num(p["bdi_t2"]),
             delta(e1, e2), delta(d1, d2),
-            cat_es(p["edss_group"]), cat_es(p["dfis_group_t1"]), cat_es(p["dfis_group_t1t2"]), cat_es(p["fatigue_response"]),
+            cat_es(p["edss_group"]), cat_es(p["dfis_group_t1"]), cat_es(p["dfis_group_long_t1"]),
+            cat_es(p["dfis_group_long_t2"]), cat_es(p["fatigue_response"]),
+            cat_es(p["dfis_group_t1_orig"]), cat_es(p["dfis_group_t1t2_orig"]), cat_es(p["fatigue_response_orig"]),
             eeg_status(get(recs, (c, "T1", "EC"), [])), eeg_status(get(recs, (c, "T1", "EO"), [])),
             eeg_status(get(recs, (c, "T2", "EC"), [])), eeg_status(get(recs, (c, "T2", "EO"), [])),
             isempty(obs) ? nothing : join(obs, " | "),
@@ -419,14 +502,18 @@ function readme_rows(rows, qa, nrec)
     nrev = length(unique(q.participante for q in qa if q.resultado == "Revisar" && q.participante != ""))
     srcmod(f) = Dates.format(unix2datetime(mtime(f)), "yyyy-mm-dd")
     base = filter(f -> occursin(r"^BASE DE DATOS MIND-EM.*\.xlsx$", f), readdir(CLINICAL_DIR))
+    clin_sin_eeg = [col("codigo")[i] for i in eachindex(rows)
+                    if col("grupo")[i] == "Paciente" && (col("edss_t2")[i] !== nothing || col("dfis_t2")[i] !== nothing) && !isyes(col("eeg_t2_ec")[i]) && !isyes(col("eeg_t2_eo")[i])]
+    sin_t2 = lista(aclaraciones(), "sin_t2")
     return Vector{Any}[
         ["NeuroMIND — Datos clínicos y selección EEG unificados", nothing],
         ["Generado", string(today()) * " (scripts/build_clinical_master.jl)"],
-        ["Para qué sirve", "Un único documento con los valores numéricos (EDSS, D-FIS, BDI-II), las categorías e indicaciones finales de Javier y la selección de grabaciones EEG, actualizado a la fecha de generación. El mismo contenido de la hoja «Participantes» está en el .csv."],
+        ["Para qué sirve", "Un único documento con los valores numéricos (EDSS, D-FIS, BDI-II), las categorías clínicas (las de Javier y las de fatiga recalculadas por mediana según la propuesta de Alejandro del 06-11-2026), las aclaraciones del equipo clínico y la selección de grabaciones EEG, actualizado a la fecha de generación. El mismo contenido de la hoja «Participantes» está en el .csv."],
         ["Hojas", "Participantes: una fila por sujeto.\nGrabaciones EEG: una fila por archivo raw, con su estado final (usada / segmento / excluida) y el motivo.\nControl de calidad: comprobaciones de coherencia entre categorías y valores numéricos, y discrepancias entre fuentes.\nDiccionario: significado, unidades y fuente de cada columna."],
         ["Muestra", "$(length(rows)) sujetos: $(length(pac)) pacientes EM y $(length(ctl)) controles. $nrec grabaciones EEG registradas.\nParejas T1+T2 con EEG utilizable: $(pair("ec")) en ojos cerrados y $(pair("eo")) en ojos abiertos.\nSujetos con algún aviso por revisar: $nrev (ver Control de calidad)."],
-        ["Fuentes", "• Base clínica MIND-EM ($(isempty(base) ? "no encontrada" : last(base)), modificada $(isempty(base) ? "—" : srcmod(joinpath(CLINICAL_DIR, last(base))))): fechas, sexo, edad, EDSS, tratamiento, diagnóstico, D-FIS y BDI-II de T1 y T2.\n• Javier_NeuroMIND.xlsx (= segmentos.xlsx, modificado $(srcmod(JAVIER_XLSX))): categorías EDSS / D-FIS / respuesta, segmentos de los raw únicos de T1 y observaciones.\n• CSV demográfico: nivel educativo y demografía de los controles.\n• Selección de raws (config/raw_selection.csv): decisiones de Javier aplicadas al inventario de grabaciones."],
-        ["Cómo leerlo", "• Celda vacía = dato no disponible (p. ej. controles sin EDSS ni fechas; pacientes sin T2).\n• Los valores numéricos y las categorías son los de las fuentes, sin modificar. Las únicas columnas calculadas son delta_edss y delta_dfis.\n• Usar dfis_cat_transversal en el análisis transversal y dfis_cat_longitudinal en el longitudinal (la mediana cambia, así que un mismo sujeto puede ser Baja en uno y Alta en otro).\n• M4, M5 y M6 tienen un único raw en T1: se recortan por segundos en ojos abiertos y cerrados (columnas eeg_t1_*).\n• M31: hay D-FIS/EDSS de T2, pero su raw de T2 no vale y solo se analiza T1.\n• M37: de los 4 archivos de T2 se usan los T2_2; M16: en T1 cerrados se usa el que acaba en _ojoscerrados.\n• M7: el archivo T1 sin sufijo de ojos es su ojos abiertos (confirmado por Alejandro el 28-09-2026).\n• Los controles MC5, MC6, MC11 y MC12 no tienen datos."],
+        ["Fuentes", "• Base clínica MIND-EM ($(isempty(base) ? "no encontrada" : last(base)), modificada $(isempty(base) ? "—" : srcmod(joinpath(CLINICAL_DIR, last(base))))): fechas, sexo, edad, EDSS, tratamiento, diagnóstico, D-FIS y BDI-II de T1 y T2.\n• Javier_NeuroMIND.xlsx (= segmentos.xlsx, modificado $(srcmod(JAVIER_XLSX))): categoría EDSS, categorías originales de D-FIS / respuesta, segmentos de los raw únicos de T1 y observaciones.\n• Correo de Alejandro (06-11-2026): regla de clasificación de la fatiga por mediana, unidad de T.INTERVENCIÓN, significado del nivel educativo, fiabilidad de las fechas de nacimiento, seguimiento T2, EDSS de T2 y controles excluidos.\n• CSV demográfico: nivel educativo y demografía de los controles.\n• Selección de raws (config/raw_selection.csv): decisiones de Javier aplicadas al inventario de grabaciones."],
+        ["Cómo leerlo", "• Celda vacía = dato no disponible (p. ej. controles sin EDSS ni fechas; pacientes sin T2).\n• Los valores numéricos son los de las fuentes, sin modificar, salvo la edad de los pacientes, que se calcula con las fechas de nacimiento y de evaluación T1. Las columnas marcadas CALCULADO en el Diccionario se derivan de ellos.\n• semanas_intervencion (T.INTERVENCIÓN) está en semanas, no en meses; el intervalo real entre evaluaciones es intervalo_dias_t1_t2 / intervalo_meses_t1_t2, calculado con las fechas.\n• M4, M5 y M6 tienen un único raw en T1: se recortan por segundos en ojos abiertos y cerrados (columnas eeg_t1_*).$(isempty(clin_sin_eeg) ? "" : "\n• " * join(clin_sin_eeg, ", ") * ": se conservan sus datos clínicos de T2 (y entran en las categorías de fatiga del seguimiento), pero su EEG de T2 no es válido y solo se analiza su EEG de T1.")$(isempty(sin_t2) ? "" : "\n• " * join(sin_t2, ", ") * ": sin seguimiento T2.")\n• M37: de los 4 archivos de T2 se usan los T2_2; M16: en T1 cerrados se usa el que acaba en _ojoscerrados.\n• M7: el archivo T1 Cog-10-1, sin sufijo de ojos, es su ojos abiertos (confirmado por Alejandro el 28-09-2026 y el 06-11-2026).\n• Los controles MC5, MC6, MC11 y MC12 se excluyeron porque su EEG era demasiado ruidoso; MC39 y MC40 son incorporaciones posteriores."],
+        ["Fatiga (D-FIS)", "• Los análisis principales usan D-FIS continuo (dfis_t1, dfis_t2, delta_dfis). Las categorías por mediana son solo para análisis secundarios o exploratorios.\n• Cada muestra se divide por su propia mediana y el valor igual a la mediana va a la categoría superior (Alta / Mayor).\n• dfis_cat_t1_transversal: mediana de D-FIS T1 de todos los pacientes (transversal).\n• dfis_cat_t1_seguimiento y dfis_cat_t2_seguimiento: medianas de D-FIS T1 y de D-FIS T2, por separado, en el seguimiento clínico (pacientes con D-FIS en T1 y T2, con independencia del QC del EEG; incluye pacientes sin EEG T2 válido). No se recalculan al excluir EEG sin justificar el cambio de población.\n• respuesta_fatiga: Mayor si la reducción de D-FIS (T1 − T2) es igual o mayor que su mediana.\n• Los análisis EEG longitudinales usan solo los pacientes con EEG T2 válido.\n• Las columnas *_original guardan las categorías que envió Javier, para trazabilidad. Las diferencias con las vigentes están en Control de calidad («Cambio respecto a la categoría original»).\n• Un mismo paciente puede ser Baja en la clasificación transversal y Alta en la de seguimiento: no mezclar columnas en una misma tabla de resultados."],
         ["Privacidad", "No se incluye la fecha de nacimiento; se mantienen la edad y las fechas de inclusión necesarias para el intervalo T1–T2. Los nombres de archivo originales (con iniciales) tampoco aparecen."],
     ]
 end
@@ -435,9 +522,9 @@ end
 
 const BIDS_DIR      = joinpath(PROJ_ROOT, "data", "bids")
 const RAW_SELECTION = joinpath(PROJ_ROOT, "config", "raw_selection.csv")
-const REPORT_TEX    = [joinpath(PROJ_ROOT, "Report_Pre", "chapters", "04_diseno_adquisicion.tex"),
-                       joinpath(PROJ_ROOT, "Report_Pre", "assets", "04_diseno_adquisicion", "report", "tikz", "bids_folder_tree.tikz"),
-                       joinpath(PROJ_ROOT, "Report_Pre", "assets", "04_diseno_adquisicion", "report", "tikz", "bids_brainvision.tikz")]
+# Capítulo 4 del libro (repositorio privado hermano NeuroMIND-quarto; el informe LaTeX
+# Report_Pre se archivó en noviembre de 2026). Si no está, esas comprobaciones se omiten.
+const BOOK_CH4      = joinpath(dirname(PROJ_ROOT), "NeuroMIND-quarto", "chapters", "04-diseno-adquisicion.qmd")
 const TASK_OF       = Dict("EC" => "eyesclosed", "EO" => "eyesopen")
 
 "Valores numéricos de la base MIND-EM leídos celda a celda: código → (edss_t1, dfis_t1, bdi2_t1, …)."
@@ -478,32 +565,34 @@ end
 squash(s) = replace(String(s), r"\s+" => "")
 q25_75(v) = (quantile(v, 0.25), median(v), quantile(v, 0.75))   # cuantiles inclusivos, como el informe
 
-"Filas del Cuadro 4.1 y 4.2 del capítulo 4, con el formato LaTeX del informe."
+"Filas de las tablas de participantes del capítulo 4 del libro (Markdown, como en el .qmd)."
 function report_tables(rows)
     idx = Dict(k => i for (i, k) in enumerate(KEYS))
     yes(x) = x isa AbstractString && startswith(x, "Sí")
+    md(cells) = "| " * join(cells, " | ") * " |"
     function t41(label, S; clin = true, t2 = true)
         c(f) = count(f, S)
         g(k) = [r[idx[k]] for r in S]
         ages = Float64.(g("edad_t1"))
-        fmt(v) = lpad(string(round(v; digits = 1)), 0)
-        edad = "$(fmt(mean(ages))) \$\\pm\$ $(fmt(std(ages))) ($(Int(minimum(ages)))--$(Int(maximum(ages))))"
+        fmt(v) = string(round(v; digits = 1))
+        edad = "$(fmt(mean(ages))) ± $(fmt(std(ages))) ($(Int(minimum(ages)))–$(Int(maximum(ages))))"
         edu = join((c(r -> r[idx["nivel_educativo"]] == k) for k in 1:3), " / ")
         pair(a, b) = "$(c(r -> yes(r[idx[a]]) && (b === nothing || yes(r[idx[b]])))) / $(c(r -> yes(r[idx[replace(a, "_ec" => "_eo")]]) && (b === nothing || yes(r[idx[replace(b, "_ec" => "_eo")]]))))"
-        dx   = clin ? "$(c(r -> r[idx["diagnostico"]] == "EMRR")) / $(c(r -> r[idx["diagnostico"]] == "EMPP"))" : "--"
-        edss = clin ? "$(c(r -> r[idx["edss_categoria"]] == "Leve")) / $(c(r -> r[idx["edss_categoria"]] == "Grave"))" : "--"
-        dfis = clin ? "$(c(r -> r[idx["dfis_cat_transversal"]] == "Alta")) / $(c(r -> r[idx["dfis_cat_transversal"]] == "Baja"))" : "--"
-        clin2 = t2 ? string(c(r -> r[idx["edss_t2"]] !== nothing || r[idx["dfis_t2"]] !== nothing)) : "--"
-        par = t2 ? pair("eeg_t1_ec", "eeg_t2_ec") : "--"
-        "$label & $(length(S)) & $edad & $(c(r -> r[idx["sexo"]] == "Mujer")) / $(c(r -> r[idx["sexo"]] == "Hombre")) & $edu & $dx & $edss & $dfis & $clin2 & $(pair("eeg_t1_ec", nothing)) & $(pair("eeg_t2_ec", nothing)) & $par \\\\"
+        dx   = clin ? "$(c(r -> r[idx["diagnostico"]] == "EMRR")) / $(c(r -> r[idx["diagnostico"]] == "EMPP"))" : "—"
+        edss = clin ? "$(c(r -> r[idx["edss_categoria"]] == "Leve")) / $(c(r -> r[idx["edss_categoria"]] == "Grave"))" : "—"
+        dfis = clin ? "$(c(r -> r[idx["dfis_cat_t1_transversal"]] == "Alta")) / $(c(r -> r[idx["dfis_cat_t1_transversal"]] == "Baja"))" : "—"
+        clin2 = t2 ? string(c(r -> r[idx["edss_t2"]] !== nothing || r[idx["dfis_t2"]] !== nothing)) : "—"
+        par = t2 ? pair("eeg_t1_ec", "eeg_t2_ec") : "—"
+        md([label, length(S), edad, "$(c(r -> r[idx["sexo"]] == "Mujer")) / $(c(r -> r[idx["sexo"]] == "Hombre"))", edu, dx, edss, dfis,
+            clin2, pair("eeg_t1_ec", nothing), pair("eeg_t2_ec", nothing), par])
     end
     em = filter(r -> r[idx["grupo"]] == "Paciente", rows); hc = filter(r -> r[idx["grupo"]] == "Control", rows)
     l41 = [t41("EM / MS", em), t41("Control / HC", hc; clin = false, t2 = false),
            t41("Total", rows; clin = false)]
     function t42(label, k, hcflag)
         s(S, t) = (v = Float64[x for x in (r[idx["$(k)_$t"]] for r in S) if x !== nothing];
-                   isempty(v) ? "--" : (q = q25_75(v); "$(fmtn(q[2])) [$(fmtn(q[1]))--$(fmtn(q[3]))] ($(length(v)))"))
-        "$label & $(s(em, "t1")) & $(s(em, "t2")) & $(hcflag ? s(hc, "t1") : "--") \\\\"
+                   isempty(v) ? "—" : (q = q25_75(v); "$(fmtn(q[2])) [$(fmtn(q[1]))–$(fmtn(q[3]))] ($(length(v)))"))
+        md([label, s(em, "t1"), s(em, "t2"), hcflag ? s(hc, "t1") : "—"])
     end
     l42 = [t42("EDSS", "edss", false), t42("D-FIS", "dfis", true), t42("BDI-II", "bdi2", true)]
     return l41, l42
@@ -513,7 +602,8 @@ end
     run_checks(rows, inv) -> Int
 
 Cruza BIDS en disco, inventario, `raw_selection.csv`, `participants.tsv`, el CSV y el
-libro recién escritos, la base clínica original y las cifras del capítulo 4 del informe.
+libro recién escritos, la base clínica original, la propuesta de clasificación de la
+fatiga de Alejandro y las cifras del capítulo 4 del libro.
 Devuelve el número de fallos.
 """
 function run_checks(rows, inv)
@@ -580,25 +670,51 @@ function run_checks(rows, inv)
         ck(isempty(nbad), "valores EDSS/D-FIS/BDI-II: $n comparados con la base original (discrepan: $(join(first(nbad, 8), ", ")))")
     end
 
-    # 5. Cifras del capítulo 4 del informe
-    tex = join((isfile(f) ? squash(read(f, String)) : "" for f in REPORT_TEX[1:1]))
-    l41, l42 = report_tables(rows)
-    for l in vcat(l41, l42)
-        ck(occursin(squash(l), tex), "informe, Cuadro 4.1/4.2: fila «" * first(split(l, " & ")) * "» coincide con el capítulo 4")
-        occursin(squash(l), tex) || println("   esperada: ", l)
+    # 5. Categorías de fatiga frente a la propuesta de Alejandro (06-11-2026), leída del TOML privado
+    A = aclaraciones()
+    ms = filter(p -> p["group"] == "MS", P)
+    foreach(p -> p["code"] = original_code(p["participant_id"]), P)
+    if A === nothing || !haskey(A, "propuesta_dfis")
+        ck(false, "propuesta de Alejandro: no se encuentra en $ACLARACIONES")
+    else
+        PD = A["propuesta_dfis"]
+        for (key, okey, label) in FATIGUE_KEYS
+            S, val = fatigue_sample(ms, key); m = median(val.(S)); up = upper(key)
+            ck(m == PD["mediana"][key] && length(S) == PD["N"][key],
+               "propuesta de Alejandro, $label: mediana $(fmtn(m)) con N=$(length(S)) (propuesta: $(fmtn(PD["mediana"][key])) con N=$(PD["N"][key]))")
+            if haskey(PD["grupos"], key)
+                E = filter(p -> p["has_t2"] == "true", S)
+                nn = [count(p -> p[key] == up, E), count(p -> p[key] !== nothing && p[key] != up, E)]
+                ck(nn == PD["grupos"][key], "propuesta de Alejandro, $label: grupos $(nn[1])/$(nn[2]) entre los $(length(E)) con EEG T2 (propuesta: $(join(PD["grupos"][key], "/")))")
+            end
+            if okey !== nothing
+                d = sort([p["code"] for p in ms if p[okey] !== nothing && p[key] != p[okey]])
+                ck(d == sort(String.(PD["cambios"][key])), "propuesta de Alejandro, $label: $(length(d)) cambios respecto a Javier, los mismos que en la propuesta")
+            end
+        end
     end
-    nv = length(valid); nec = count(r -> r.cond == "EC", valid); neo = count(r -> r.cond == "EO", valid)
-    nses = length(dirs); nt2 = count(p -> p[2] == "T2", dirs)
-    nsel_files = length(Set(first(split(l, ",")) for l in sel))
-    phrases = [(1, "quedan $nv grabaciones válidas de $(length(P)) participantes"),
-               (1, "$nses sesiones (T1 de los $(length(P)) participantes y T2 de $nt2 pacientes) y $nv grabaciones, $nec en ojos cerrados y $neo en ojos abiertos"),
-               (1, "($(length(inv)) filas: $nv utilizables y $(length(inv) - nv) excluidas)"),
-               (1, "$(length(sel)) filas sobre $nsel_files archivos")]
-    for (i, ph) in phrases
-        ck(occursin(squash(ph), tex), "informe, capítulo 4: «" * ph * "»")
-    end
-    for (f, ph) in ((REPORT_TEX[2], "(T1: $(length(P)) · T2: $nt2 pacientes)"), (REPORT_TEX[3], "$(length(P)) sujetos, $nv grabaciones"))
-        ck(isfile(f) && occursin(squash(ph), squash(read(f, String))), "figura $(basename(f)): «$ph»")
+
+    # 6. Cifras del capítulo 4 del libro
+    if !isfile(BOOK_CH4)
+        println("\n⚠ NO PROBADO: no se encuentra el capítulo 4 del libro en $BOOK_CH4")
+    else
+        tex = squash(read(BOOK_CH4, String))
+        l41, l42 = report_tables(rows)
+        for l in vcat(l41, l42)
+            ok = occursin(squash(l), tex)
+            ck(ok, "libro, tablas del cap. 4: fila «" * strip(split(l, "|")[2]) * "» coincide")
+            ok || println("   esperada: ", l)
+        end
+        nv = length(valid); nec = count(r -> r.cond == "EC", valid); neo = count(r -> r.cond == "EO", valid)
+        nses = length(dirs); nt2 = count(p -> p[2] == "T2", dirs)
+        nsel_files = length(Set(first(split(l, ",")) for l in sel))
+        phrases = ["quedan $nv grabaciones válidas de $(length(P)) participantes",
+                   "$nses sesiones (T1 de los $(length(P)) participantes y T2 de $nt2 pacientes) y $nv grabaciones, $nec en ojos cerrados y $neo en ojos abiertos",
+                   "($(length(inv)) filas: $nv utilizables y $(length(inv) - nv) excluidas)",
+                   "$(length(sel)) filas sobre $nsel_files archivos",
+                   "(T1: $(length(P)), T2: $nt2 pacientes)",          # texto alternativo de la figura del árbol BIDS
+                   "($(length(P)) sujetos, $nv grabaciones)"]          # texto alternativo de la figura de construcción
+        foreach(ph -> ck(occursin(squash(ph), tex), "libro, capítulo 4: «" * ph * "»"), phrases)
     end
 
     println("\nComprobaciones de consistencia:")
@@ -649,7 +765,7 @@ function main()
 
     if "--check" in ARGS
         l41, l42 = report_tables(rows)
-        println("\nFilas para los Cuadros 4.1 y 4.2 del informe (formato LaTeX):")
+        println("\nFilas de las tablas de participantes del capítulo 4 del libro (Markdown):")
         foreach(l -> println("  ", l), vcat(l41, l42))
         run_checks(rows, inv) == 0 || exit(1)
     end
