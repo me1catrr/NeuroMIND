@@ -4,9 +4,10 @@
 # =========================
 
 # --- Sensitive EEG data and generated derivatives ---
-# data, results y mne_brain/results son ENLACES SIMBÓLICOS a la carpeta privada
-# BRAIN/04_NeuroMIND (iCloud). Sin barra final: así se ignoran tanto el enlace
-# como un directorio real con ese nombre.
+# data, results y mne_brain/results son ENLACES SIMBÓLICOS a carpetas privadas
+# fuera del repo: data → BRAIN/04_NeuroMIND/data (iCloud); results y
+# mne_brain/results → ~/Proyectos/NeuroMIND-results (local). Ver AGENTS.md §8.
+# Sin barra final: así se ignoran tanto el enlace como un directorio real.
 /data
 /results
 /mne_brain/results
