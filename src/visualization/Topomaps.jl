@@ -4,6 +4,47 @@
 using CairoMakie
 
 """
+    _topomap_idw_grid(xv, yv, vv, xg, yg; idw_power=3.0) -> Matrix{Float64}
+
+Interpola por IDW los valores `vv` de los electrodos situados en `(xv, yv)` sobre la
+rejilla `xg × yg` (disco unitario; fuera del disco, `NaN`).
+
+Convención de índices: `Z[i, j]` es el valor en `(xg[i], yg[j])`, la que espera
+`CairoMakie.heatmap!(ax, xg, yg, Z)` (y `contour!`). Hasta el 10-11-2026 la rejilla se
+llenaba como `Z[j, i]`, con lo que el campo salía reflejado respecto a la diagonal x = y
+(p. ej. un componente ICA dominado por Fp2 se pintaba junto a FT10/T8) mientras las
+etiquetas de los electrodos se dibujaban en su sitio.
+"""
+function _topomap_idw_grid(
+    xv::AbstractVector{<:Real},
+    yv::AbstractVector{<:Real},
+    vv::AbstractVector{<:Real},
+    xg::AbstractVector{<:Real},
+    yg::AbstractVector{<:Real};
+    idw_power::Real = 3.0,
+)::Matrix{Float64}
+    Z    = fill(NaN, length(xg), length(yg))
+    p    = Float64(idw_power)
+    eps2 = 1e-8
+    @inbounds for j in eachindex(yg), i in eachindex(xg)
+        xx, yy = xg[i], yg[j]
+        r2 = xx^2 + yy^2
+        r2 > 1.0 && continue
+        # Extrapolación suave al rim: proyectar query hacia anillo interior
+        qx, qy = xx, yy
+        if r2 > 0.95^2
+            r = sqrt(r2)
+            s = 0.95 / r
+            qx *= s; qy *= s
+        end
+        d2 = (qx .- xv).^2 .+ (qy .- yv).^2
+        w  = 1.0 ./ (d2 .+ eps2).^(p / 2)
+        Z[i, j] = sum(w .* vv) / sum(w)   # i ↔ x, j ↔ y
+    end
+    return Z
+end
+
+"""
     plot_topomap(values, ch_names, ch_pos; kwargs...) -> Figure
 
 Topomap 2D por IDW (Inverse Distance Weighting), estilo publicación EEG.
@@ -54,25 +95,7 @@ function plot_topomap(
     # ── IDW sobre disco unitario ───────────────────────────────
     xg = range(-1.0, 1.0; length=grid_res)
     yg = range(-1.0, 1.0; length=grid_res)
-    Z  = fill(NaN, grid_res, grid_res)
-    p  = Float64(idw_power)
-    eps2 = 1e-8
-
-    @inbounds for j in 1:grid_res, i in 1:grid_res
-        xx, yy = xg[i], yg[j]
-        r2 = xx^2 + yy^2
-        r2 > 1.0 && continue
-        # Extrapolación suave al rim: proyectar query hacia anillo interior
-        qx, qy = xx, yy
-        if r2 > 0.95^2
-            r = sqrt(r2)
-            s = 0.95 / r
-            qx *= s; qy *= s
-        end
-        d2 = (qx .- xv).^2 .+ (qy .- yv).^2
-        w  = 1.0 ./ (d2 .+ eps2).^(p / 2)
-        Z[j, i] = sum(w .* vv) / sum(w)
-    end
+    Z  = _topomap_idw_grid(xv, yv, vv, xg, yg; idw_power=idw_power)
 
     # ── Figura estilo publicación ─────────────────────────────
     fig = CairoMakie.Figure(size=(480, 520), backgroundcolor=:white)

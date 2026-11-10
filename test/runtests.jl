@@ -1811,4 +1811,27 @@ end
     @test gm.density <= 1.0
 end
 
+@testset "Topomap_IDW_Orientation" begin
+    # Regresión (10-11-2026): la rejilla IDW debe cumplir Z[i, j] ↔ (xg[i], yg[j]),
+    # la convención de heatmap!. Antes se llenaba como Z[j, i] y el mapa salía
+    # reflejado respecto a x = y. Un electrodo asimétrico (tipo Fp2) con valor alto
+    # debe dar el máximo cerca de su posición, no en la reflejada.
+    xv = [0.23, -0.85, 0.0, 0.0, -0.5]
+    yv = [0.92,  0.43, 0.0, -0.8, -0.5]
+    vv = [10.0,  0.0,  0.0,  0.0,  0.0]
+    xg = range(-1.0, 1.0; length=101)
+    yg = range(-1.0, 1.0; length=101)
+    Z  = NeuroMIND._topomap_idw_grid(xv, yv, vv, xg, yg)
+
+    @test size(Z) == (length(xg), length(yg))
+    zmax = maximum(filter(!isnan, Z))
+    imax = findfirst(z -> !isnan(z) && z == zmax, Z)
+    @test hypot(xg[imax[1]] - 0.23, yg[imax[2]] - 0.92) < 0.1
+    # el punto reflejado (0.92, 0.23) queda lejos del máximo y con valor bajo
+    i_ref = argmin(abs.(xg .- 0.92)); j_ref = argmin(abs.(yg .- 0.23))
+    @test Z[i_ref, j_ref] < 0.5 * zmax
+    # fuera del disco unitario no se interpola
+    @test isnan(Z[1, 1])
+end
+
 println("\n✅ Todos los tests completados")
