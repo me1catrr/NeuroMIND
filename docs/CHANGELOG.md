@@ -4,6 +4,21 @@
 > no se cargue en cada sesión de los agentes. Las entradas nuevas van arriba.
 > `AGENTS.md` §13 apunta aquí (y `Report_Pre/chapters/12_espectral.tex` cita esa sección).
 
+### 2026-11-10 — Topomapas transpuestos en `plot_topomap`
+
+- **Error:** `plot_topomap` (`src/visualization/Topomaps.jl`) llenaba la rejilla IDW como
+  `Z[j, i]` (fila = y) y se la pasaba a `heatmap!(ax, xg, yg, Z)`, que espera `Z[x, y]`. El
+  campo interpolado salía reflejado respecto a la diagonal x = y, mientras las etiquetas de los
+  electrodos se dibujaban en su sitio. Detectado al revisar M05/T2/EC: IC7 (peso dominante en Fp2)
+  se pintaba junto a FT10/T8, e IC13 (FT9) abajo a la derecha, donde no hay electrodo.
+- **Corrección:** la interpolación pasa a `_topomap_idw_grid` con la convención `Z[i, j]` ↔
+  `(xg[i], yg[j])`; el cálculo IDW no cambia. Test de regresión `Topomap_IDW_Orientation`.
+- **Origen:** el patrón está en `Topomaps.jl` desde el commit inicial (`90916b9`, 2026-05-21).
+- **Alcance:** todas las figuras `figures/ica/ica_topomap_NNN.png` generadas hasta hoy (y lo que
+  las muestra: visor `plot_ica_components.jl` y panel 5 del dashboard) están transpuestas; se
+  corrigen al relanzar el pipeline. Las tablas (`ica_mixing_matrix.csv`, rasgos, rechazos) no se
+  ven afectadas: la clasificación ICA no usa las figuras.
+
 ### 2026-10-15 — `build_clinical_master.jl --check`
 
 - Nueva opción `--check`: tras escribir el libro y el CSV cruza 22 comprobaciones (BIDS en disco ↔
