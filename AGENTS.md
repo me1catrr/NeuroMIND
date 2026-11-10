@@ -384,7 +384,7 @@ open graphify-out/graph.html         # grafo interactivo
 
 ---
 
-## 10. Project status (2026-10-15)
+## 10. Project status (2026-11-10)
 
 ### Dataset: MINDEM-IMIBIC
 - **41 MS patients** (M4–M44) + **36 controls** = 77 subjects (`data/bids/participants.tsv`)
@@ -431,18 +431,26 @@ open graphify-out/graph.html         # grafo interactivo
 
 ### Active branches
 - Merge policy: never commit directly to `main` — use `feat/<name>`
-- `feat/graphify-setup` → PR me1catrr/NeuroMIND#5 (21 commits: trabajo de julio + graphify)
-- `feat/ci` → PR me1catrr/NeuroMIND#6, apilado sobre #5 (fusionar #5 primero)
+- `feat/resultados-locales` → PR me1catrr/NeuroMIND#11 (results en `~/Proyectos/NeuroMIND-results`)
+- `feat/aclaraciones-clinicas` → apilada sobre #11: código que genera el maestro clínico vigente
+  (aclaraciones de Alejandro, 2026-11-06). **Es la rama que reproduce los datos de `data/`**:
+  desde `main`, `audit_full_dataset.jl` / `build_clinical_master.jl` reescribirían
+  `participants.tsv` (24 columnas) y el maestro con el formato anterior
+- `fix/topomap-transpuesto` → PR me1catrr/NeuroMIND#12 (independiente)
+
+> **Verificado 2026-11-10** en `feat/aclaraciones-clinicas`: fase A y `build_clinical_master.jl --check`
+> reproducen byte a byte `inventory.csv`, `participants.{tsv,json}` y `datos_clinicos_unificados.csv`
+> del 2026-11-06 (el libro .xlsx solo cambia la fecha de generación); 31 comprobaciones sin fallos;
+> tests sin fallos. Copia previa en `BRAIN/04_NeuroMIND/copias/2026-11-10_antes_de_regenerar/`.
 
 ### Pending
-- [ ] Review/merge PR #5 and then PR #6 into main
+- [ ] Merge PR #11 and then `feat/aclaraciones-clinicas` into main (until then, regenerate `data/` only from that branch)
 - [ ] Reprocess M04/M05/M06 T1 (now cropped in `data/bids/`) and relaunch the batch on the new BIDS tree,
       then rerun transversal/longitudinal analyses; M05 T2 EC regression check vs the old TSV-based run
 - [ ] Port the dashboard raw-signal/PSD routes (still read `*_eeg_data.tsv`, absent since the light BIDS) to the BrainVision reader
 - [ ] Electrode coordinate system is undocumented in the source (declared `Other`); confirm origin with the cap supplier
 - [ ] `data/_archive/` (pre-reform copies) can be deleted once the batch is reprocessed on the new BIDS
 - [ ] Integration tests for full pipeline
-- [ ] GitHub Actions CI: workflow added in PR #6 (`.github/workflows/ci.yml`); confirm first green run
 - [ ] Decide GroupStats.jl/FDR.jl: production (Transversal/Longitudinal) does not call them —
       only test/runtests.jl does (confirmed 2026-10-07 with graphify + grep)
 - [ ] Report_Pre/figures/plots/ out of sync with results/ since 2026-07-27 (manual sync)
