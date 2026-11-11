@@ -4,6 +4,60 @@
 > no se cargue en cada sesión de los agentes. Las entradas nuevas van arriba.
 > `AGENTS.md` §13 apunta aquí (y `Report_Pre/chapters/12_espectral.tex` cita esa sección).
 
+### 2026-11-11 — La caché de ICA identifica su señal, sus parámetros y su implementación
+
+Corrige dos defectos de la caché de ICA. Es un cambio de comportamiento deliberado y acotado:
+no toca el algoritmo de ICA, la clasificación de componentes ni el rechazo.
+
+- **Qué fallaba.** La clave de la caché solo cubría cuatro valores de `[filtering]` (perfil,
+  pasa-alta, pasa-baja y orden): al cambiar el notch o el rechazo de banda se reutilizaba una
+  descomposición calculada sobre otra señal y, como la señal posterior a ICA se reconstruye
+  con las activaciones guardadas, segmentación, espectro y conectividad salían idénticos a
+  los de la ejecución anterior. Y si el archivo de la caché no se podía leer, el pipeline
+  seguía **sin ICA**, sin aviso, dejando en la carpeta las tablas y figuras de ICA anteriores.
+- **Identidad de la caché** (`_ica_cache_identity`, `src/SingleSubjectPipeline.jl`). La clave
+  es un SHA-256 sobre: la señal filtrada que entra en `run_ica` (tipo, dimensiones y valores),
+  los canales por nombre y en su orden, la frecuencia de muestreo, los parámetros
+  **efectivos** de ICA y la implementación (código de `src/ica/ICACore.jl`,
+  `ICA_ALGORITHM_VERSION`, formato, versión de Julia y máquina). La serialización es
+  canónica y no pasa por texto: enteros como Int64, reales por sus 64 bits IEEE-754 y cadenas
+  como longitud más bytes, todo en little-endian. Cualquier cambio de filtrado invalida la
+  caché porque cambia la señal, sin enumerar claves del TOML. Con el perfil `eeg_julia`,
+  los valores de `[ica]` que el perfil ignora ya no invalidan.
+- **Lectura** (`_ica_read_cache`). La caché solo se usa si su clave es la de la ejecución, el
+  archivo se puede leer y contiene una descomposición con las dimensiones y los canales de
+  la señal. Si no, se anota el motivo en el registro, se avisa y **se recalcula**. Lo mismo
+  si la clave guardada no se puede leer (permisos, bytes no válidos): una clave ilegible no
+  acredita nada. Si la identidad de la ejecución no se puede calcular, se anota el motivo y
+  no se usa ni se escribe caché. Si el cálculo falla, el comportamiento es el de siempre:
+  aviso, `status = :failed` y el pipeline sigue con la señal filtrada.
+- **Productos de la etapa** (`_ica_retire_products!`). Antes de escribir los productos de
+  ICA se retiran de la carpeta del sujeto los de la ejecución anterior, y sin ICA válida
+  también la caché: lo que queda describe siempre la última ejecución. Se borra solo lo que
+  el manifiesto de procedencia acredita como escrito por la etapa; lo demás se aparta a
+  `obsolete/ica_<n>/` con una nota. `ica_labels.csv`, la decisión manual, no se toca nunca.
+- **Procedencia** (`cache/ica_provenance.toml`, nuevo). Clave, señal, canales, parámetros
+  efectivos, implementación y lista de productos de la etapa. No lleva fecha.
+  `cache/ica_result.jls` sigue siendo un `ICAResult`: los visores de `src/interactive/` lo
+  leen igual.
+- **Etiquetas manuales.** `ica_labels.csv` identifica los componentes por su número, y los
+  números no son transferibles de una descomposición a otra. Si la descomposición de la
+  carpeta cambia y hay etiquetas manuales, el pipeline las sigue aplicando, pero ahora lo
+  avisa. Ligar las etiquetas a su descomposición queda para un cambio aparte.
+- **Consecuencia.** Las cachés existentes dejan de ser válidas: la ICA se recalcula la
+  primera vez. Dependencia nueva: `SHA` (biblioteca estándar); `Manifest.toml` no cambia
+  ninguna versión.
+- **Verificación.** Comparación de todos los archivos del pipeline en 32 configuraciones
+  sobre una grabación sintética, con las diferencias declaradas de antemano: cambia el
+  contenido de `ica_config.hash` y aparece `ica_provenance.toml`; el caso de caché ilegible
+  pasa a dar las salidas de una ejecución normal, y el de caché desfasada, las de una
+  carpeta nueva con ese filtrado, ambas calculadas con el código anterior. Nada más cambia.
+- **`test/runtests.jl`**: `ICA_Cache` (178 comprobaciones): cada clave de `[filtering]`
+  invalida; parámetros efectivos frente a ignorados; caché truncada, vacía, con otro
+  contenido y de otra señal; clave guardada ilegible o sin permiso de lectura; identidad que
+  no se puede calcular; productos anteriores; manifiesto; clave; etiquetas manuales.
+  Con el código anterior fallaban 36 y 9 daban error.
+
 ### 2026-11-11 — Una función por etapa en el pipeline individual
 
 Reorganización de `run_single_subject_pipeline` **sin cambio de comportamiento**: mismas
