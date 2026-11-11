@@ -725,7 +725,7 @@ uv tool install bids-validator-deno && bids-validator-deno data/bids
 
 **Qué hace cada fase:**
 
-- **Fase A** aplica las decisiones de `config/raw_selection.csv` (selección de raws y recortes de Javier), fusiona las hojas clínicas (Excel MIND-EM para pacientes, CSV demográfico para controles y nivel educativo, categorías de Javier) y escribe `participants.tsv` (24 columnas, descritas en `participants.json`). Imprime las discrepancias entre fuentes.
+- **Fase A** aplica las decisiones de `config/raw_selection.csv` (selección de raws y recortes de Javier), fusiona las hojas clínicas (Excel MIND-EM para pacientes, CSV demográfico para controles y nivel educativo, categoría EDSS de Javier), calcula la edad de los pacientes con sus fechas, recalcula las categorías de fatiga por mediana (el empate va a la categoría superior; las originales de Javier quedan en columnas `*_orig`) y escribe `participants.tsv` (30 columnas, descritas en `participants.json`). Imprime las medianas, los cambios frente a las categorías originales y las discrepancias entre fuentes.
 - **Fase B** comprueba que los 209 `.vhdr` comparten canales y orden, copia cada `.eeg` con el nombre BIDS (clon de bloques en APFS, sin duplicar espacio real), reescribe `DataFile=`/`MarkerFile=` en `.vhdr`/`.vmrk` (así desaparecen las iniciales de los nombres) y **corta antes de cualquier filtro** los raws únicos de M04, M05 y M06 en T1 en dos grabaciones con intervalos semiabiertos `[tmin, tmax)`. Lo que deja de ser válido se mueve a `data/_archive/bids_descartados/`.
 - Los sidecars comunes (`task-*_eeg.json`, `task-*_channels.tsv`) están en la raíz y se heredan por el principio de herencia de BIDS; `electrodes.tsv` y `coordsystem.json` van en cada sesión.
 

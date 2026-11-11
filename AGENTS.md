@@ -337,8 +337,9 @@ julia --project=. -e 'using Pkg; Pkg.test()'
 julia --project=. scripts/audit_full_dataset.jl      # → data/tables/inventory.csv + data/bids/participants.tsv
 julia --project=. scripts/build_bids_full.jl         # → data/bids/sub-*/ses-*/eeg/ (BIDS-EEG)
 julia --project=. scripts/build_clinical_master.jl --check   # → data/sourcedata/clinical/datos_clinicos_unificados.{xlsx,csv}
-#   --check cruza BIDS en disco ↔ inventory ↔ raw_selection ↔ participants ↔ libro/CSV ↔ base original ↔ cifras
-#   del cap. 4 del informe, imprime las filas de los Cuadros 4.1/4.2 y sale con error si algo no coincide
+#   --check cruza BIDS en disco ↔ inventory ↔ raw_selection ↔ participants ↔ libro/CSV ↔ base original ↔
+#   propuesta de fatiga de Alejandro ↔ cifras del cap. 4 del libro (../NeuroMIND-quarto; se omite si no está),
+#   imprime las filas de sus tablas de participantes (Markdown) y sale con error si algo no coincide
 bids-validator-deno data/bids                        # must report 0 errors (uv tool install bids-validator-deno)
 
 # Single-subject pipeline
@@ -383,7 +384,7 @@ open graphify-out/graph.html         # grafo interactivo
 
 ---
 
-## 10. Project status (2026-10-15)
+## 10. Project status (2026-11-10)
 
 ### Dataset: MINDEM-IMIBIC
 - **41 MS patients** (M4–M44) + **36 controls** = 77 subjects (`data/bids/participants.tsv`)
@@ -394,9 +395,17 @@ open graphify-out/graph.html         # grafo interactivo
   July run and must be recomputed on the new BIDS.
 - Phases A+B rebuilt 2026-10-15 (BIDS-EEG validated with bids-validator-deno 3.0.2: 0 errors, 4 documented warnings). **Phase C (batch) last executed 2026-07-25** — 201 OK, 5 SKIP, 0 ERR (~51 min, surrogates OFF) on the old light-BIDS layout; M04/M05/M06 T1 and the group analyses still need reprocessing
 
+> **Clinical review closed (2026-11-06, Alejandro).** Fatigue categories are recomputed by
+> median split per sample (ties → upper category; follow-up medians over the 29 patients with
+> D-FIS at T1 and T2 regardless of EEG QC, T1 and T2 separate; 15/13 among the 28 with T2 EEG);
+> Javier's originals stay in `*_orig` columns. Primary analyses use
+> continuous D-FIS. Patient ages come from birth/T1 dates; `T.INTERVENCIÓN` is weeks (T1–T2
+> interval from dates: 77–119 days); education 1/2/3 = primary/secondary/university. MC5/6/11/12
+> were excluded for noisy EEG; MC39/MC40 are later additions. Detail: `docs/CHANGELOG.md`.
+
 > **Audit correction (2026-07-25).** The real roster in `inventory.csv` has 77 unique
 > subjects (41 MS + 36 controls, not 37 — MC5/6/11/12 are missing from the declared
-> range), and only 75 have data in `results/subjects/` (M4/M6 were excluded as ODDBALL;
+> range; excluded for noisy EEG, per Alejandro 2026-11-06), and only 75 have data in `results/subjects/` (M4/M6 were excluded as ODDBALL;
 > **corrected 2026-10-14**: per Javier their single T1 raw holds eyes-open + eyes-closed
 > and is split by seconds — see `config/raw_selection.csv`; not yet reprocessed). An
 > uncurated duplicate recording (M16 T1 EC,
@@ -422,19 +431,26 @@ open graphify-out/graph.html         # grafo interactivo
 
 ### Active branches
 - Merge policy: never commit directly to `main` — use `feat/<name>`
-- `feat/graphify-setup` → PR me1catrr/NeuroMIND#5 (21 commits: trabajo de julio + graphify)
-- `feat/ci` → PR me1catrr/NeuroMIND#6, apilado sobre #5 (fusionar #5 primero)
+- `feat/resultados-locales` → PR me1catrr/NeuroMIND#11 (results en `~/Proyectos/NeuroMIND-results`)
+- `feat/aclaraciones-clinicas` → apilada sobre #11: código que genera el maestro clínico vigente
+  (aclaraciones de Alejandro, 2026-11-06). **Es la rama que reproduce los datos de `data/`**:
+  desde `main`, `audit_full_dataset.jl` / `build_clinical_master.jl` reescribirían
+  `participants.tsv` (24 columnas) y el maestro con el formato anterior
+- `fix/topomap-transpuesto` → PR me1catrr/NeuroMIND#12 (independiente)
+
+> **Verificado 2026-11-10** en `feat/aclaraciones-clinicas`: fase A y `build_clinical_master.jl --check`
+> reproducen byte a byte `inventory.csv`, `participants.{tsv,json}` y `datos_clinicos_unificados.csv`
+> del 2026-11-06 (el libro .xlsx solo cambia la fecha de generación); 31 comprobaciones sin fallos;
+> tests sin fallos. Copia previa en `BRAIN/04_NeuroMIND/copias/2026-11-10_antes_de_regenerar/`.
 
 ### Pending
-- [ ] Review/merge PR #5 and then PR #6 into main
+- [ ] Merge PR #11 and then `feat/aclaraciones-clinicas` into main (until then, regenerate `data/` only from that branch)
 - [ ] Reprocess M04/M05/M06 T1 (now cropped in `data/bids/`) and relaunch the batch on the new BIDS tree,
       then rerun transversal/longitudinal analyses; M05 T2 EC regression check vs the old TSV-based run
 - [ ] Port the dashboard raw-signal/PSD routes (still read `*_eeg_data.tsv`, absent since the light BIDS) to the BrainVision reader
 - [ ] Electrode coordinate system is undocumented in the source (declared `Other`); confirm origin with the cap supplier
-- [ ] Age discrepancies between sources: M13 (34 vs 33), M29 (43 vs 42), M35 (41 vs 43 by dates) — confirm with the clinical team
 - [ ] `data/_archive/` (pre-reform copies) can be deleted once the batch is reprocessed on the new BIDS
 - [ ] Integration tests for full pipeline
-- [ ] GitHub Actions CI: workflow added in PR #6 (`.github/workflows/ci.yml`); confirm first green run
 - [ ] Decide GroupStats.jl/FDR.jl: production (Transversal/Longitudinal) does not call them —
       only test/runtests.jl does (confirmed 2026-10-07 with graphify + grep)
 - [ ] Report_Pre/figures/plots/ out of sync with results/ since 2026-07-27 (manual sync)

@@ -4,6 +4,43 @@
 > no se cargue en cada sesión de los agentes. Las entradas nuevas van arriba.
 > `AGENTS.md` §13 apunta aquí (y `Report_Pre/chapters/12_espectral.tex` cita esa sección).
 
+### 2026-11-06 — Aclaraciones clínicas de Alejandro y fatiga por mediana
+
+Respuesta de Alejandro (coordinador clínico) al maestro unificado; cierra la revisión clínica.
+Las aclaraciones por paciente son datos clínicos y este repositorio es público: viven en
+`data/sourcedata/clinical/aclaraciones_equipo_clinico.toml` (privado) y aquí solo constan
+reglas y agregados.
+
+- **Fatiga por mediana** (`audit_full_dataset.jl`, `fatigue_categories!`): cada muestra se divide
+  por su propia mediana y **el valor igual a la mediana va a la categoría superior** (Alta/Mayor).
+  Transversal: D-FIS T1 de los 41 pacientes. Seguimiento clínico: los 29 pacientes con D-FIS en
+  T1 y T2, **con independencia del QC del EEG** (como fija la hoja de reglas de Alejandro: no
+  recalcular medianas al excluir EEG sin justificarlo), con medianas de T1 y de T2 por separado;
+  respuesta = reducción T1 − T2 frente a su mediana. Entre los 28 con EEG T2 los grupos quedan
+  15/13. Frente a la clasificación de Javier cambian dos pacientes, por los empates. Comparado
+  celda a celda con `NeuroMIND_propuesta_clasificacion_DFIS.xlsx` (41 + 28 filas: 0 diferencias);
+  el maestro que devolvió es el generado el 15-10 y no trae anotaciones.
+  Los análisis principales usan D-FIS continuo; las divisiones son secundarias.
+- **`participants.tsv` pasa de 24 a 30 columnas**: `dfis_group_t1` (recalculada, mismos valores),
+  `dfis_group_long_t1`, `dfis_group_long_t2` y `fatigue_response` (vigentes) y
+  `dfis_group_t1_orig`, `dfis_group_t1t2_orig`, `fatigue_response_orig` (Javier, trazabilidad);
+  `months_t1_t2` se sustituye por `intervention_weeks` (T.INTERVENCIÓN está en **semanas**, unas 12)
+  e `interval_days_t1_t2` / `interval_months_t1_t2`, calculados con las fechas (unos 3 meses).
+  `config/bids/participants.json` documenta las columnas y el nivel educativo
+  (1 primarios, 2 medios, 3 universitarios); `config/bids/README.md` corrige «12 months later».
+  `bids-validator-deno` 3.0.2: 0 errores, los 4 avisos conocidos.
+- **Edad**: la de los pacientes se calcula con fecha de nacimiento y de evaluación T1 (fiables);
+  corrige la columna EDAD en tres pacientes. Media y DE de la tabla del cap. 4 no cambian.
+- **`build_clinical_master.jl`**: columnas nuevas (intervalo, semanas, categorías vigentes y
+  `*_original`), hojas Léeme y Diccionario actualizadas, y «Control de calidad» con las
+  aclaraciones del TOML privado comprobadas contra los datos (EDSS de T2, seguimiento, controles
+  excluidos por EEG ruidoso y posteriores, M7 `Cog-10-1` = EO de T1) y los cambios frente a Javier
+  como `Info`. No queda ninguna fila «Revisar».
+- **`--check`**: el informe LaTeX `Report_Pre` se archivó, así que las cifras del capítulo 4 se
+  comprueban ahora en `../NeuroMIND-quarto/chapters/04-diseno-adquisicion.qmd` (tablas Markdown;
+  se omite con aviso si el libro no está). Nueva comprobación frente a la propuesta de Alejandro
+  (medianas y su población, grupos y cambios). 31 comprobaciones, sin fallos.
+
 ### 2026-11-06 — Resultados nuevos en local; iCloud queda como archivo
 
 - `results` y `mne_brain/results` apuntan ahora a `~/Proyectos/NeuroMIND-results/{results,mne_results}`

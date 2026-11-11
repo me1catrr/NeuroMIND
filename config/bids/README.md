@@ -3,8 +3,12 @@
 Resting-state EEG of patients with multiple sclerosis (MS) and healthy
 controls (HC), recorded in two conditions (`task-eyesclosed`,
 `task-eyesopen`) and, for MS patients, at two time points
-(`ses-T1` baseline, `ses-T2` follow-up about 12 months later).
-Healthy controls have a single session (`ses-T1`).
+(`ses-T1` baseline, `ses-T2` follow-up after an intervention of about
+12 weeks; 77-119 days between assessments).
+Healthy controls have a single session (`ses-T1`). Controls MC5, MC6, MC11
+and MC12 were excluded by the clinical team because their EEG was too
+noisy; MC39 and MC40 were recruited later (the control numbering is not
+contiguous).
 
 This dataset is generated, not edited by hand: `scripts/audit_full_dataset.jl`
 writes `participants.tsv` and `scripts/build_bids_full.jl` writes everything
@@ -37,7 +41,10 @@ unmodified.
 
 `participants.tsv` includes clinical variables (EDSS, D-FIS, BDI-II,
 diagnosis, treatment) and dates of birth and inclusion. Column definitions
-are in `participants.json`. **The dataset contains personal health data and
+are in `participants.json`. Fatigue categories (`dfis_group_*`,
+`fatigue_response`) split each sample at its own D-FIS median, with ties
+going to the upper category; the clinical team's original categories are
+kept in the `*_orig` columns. Primary analyses use continuous D-FIS. **The dataset contains personal health data and
 must not be shared or published without removing the identifying columns.**
 
 ## Validation
