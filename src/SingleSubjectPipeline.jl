@@ -31,7 +31,8 @@
 #  Helpers internos
 #  ────────────────
 #    Config / ICA
-#      _ica_config_hash
+#      _ica_cache_identity · _ica_cache_key · _ica_read_cache
+#      _ica_retire_products! · _ica_write_provenance
 #    Persistencia por etapa
 #      _save_segmentation_results
 #      _save_ar_results
@@ -62,38 +63,263 @@
 # ───────────────────────────────────────────────────────────────
 
 using CairoMakie, Serialization
+using SHA: sha256
 
-# ── Helper: hash de config ICA para invalidar caché ──────────
+# ── Caché de ICA: identidad, lectura y productos ─────────────
+#
+# La caché de ICA no es solo un archivo de aceleración: es un resultado
+# condicionado por una señal, unos parámetros y una implementación. Su clave
+# identifica esas tres cosas. Si alguna cambia, la caché no vale y se recalcula.
+#
+#   cache/ica_result.jls       ICAResult serializado (formato sin cambios: lo
+#                              leen también los visores de src/interactive/)
+#   cache/ica_config.hash      clave de la descomposición guardada
+#   cache/ica_provenance.toml  de qué señal, parámetros e implementación
+#                              procede, y qué productos escribió la etapa
+
+"Formato de la clave y del manifiesto de procedencia de la caché de ICA."
+const ICA_CACHE_FORMAT = 2
 
 """
-    _ica_config_hash(cfg) -> String
-
-Devuelve un string identificador del subconjunto de config que
-afecta al resultado de ICA (perfil, n_components, seed, tol, max_iter).
-El caché del ICAResult se invalida automáticamente si cambia alguno de estos.
+Versión del algoritmo de descomposición. Hay que subirla si su comportamiento
+cambia por algo que no esté en `ICA_IMPLEMENTATION_FILES`.
 """
-function _ica_config_hash(cfg::PipelineConfig)::String
-    ica = cfg.ica
-    flt = cfg.filtering
-    # Incluir también params de filtrado porque ICA se calcula sobre la señal filtrada
-    key = string(
-        get(ica, "profile",      "default"),   "_",
-        get(ica, "n_components", 0),           "_",
-        get(ica, "seed",         42),          "_",
-        get(ica, "tol",          1e-5),        "_",
-        get(ica, "max_iter",     500),         "_",
-        get(ica, "max_attempts", 1),           "_",
-        get(flt, "profile",      "default"),   "_",
-        get(flt, "highpass_hz",  0.5),         "_",
-        get(flt, "lowpass_hz",   150.0),       "_",
-        get(flt, "filter_order", 4),
-    )
-    # Hash simple pero suficiente para detectar cambios de config
-    h = zero(UInt32)
-    for c in key
-        h = xor(h * 31, UInt32(c))
+const ICA_ALGORITHM_VERSION = 1
+
+"""
+Archivos de código de los que depende la descomposición: `run_ica` y sus
+auxiliares (`_whiten_pca`, `_sym_decorr`, `_fastica_attempt`). Fuera de ellos
+solo intervienen las bibliotecas estándar de Julia (LinearAlgebra, Random,
+Statistics), que la clave cubre con la versión de Julia.
+"""
+const ICA_IMPLEMENTATION_FILES = ["ica/ICACore.jl"]
+
+const ICA_IMPLEMENTATION_SHA = bytes2hex(sha256(join(
+    (read(joinpath(@__DIR__, f), String) for f in ICA_IMPLEMENTATION_FILES), "\n")))
+
+"""Implementación con la que se calcula la ICA en esta sesión."""
+_ica_implementation() = (
+    format    = ICA_CACHE_FORMAT,
+    algorithm = ICA_ALGORITHM_VERSION,
+    files     = ICA_IMPLEMENTATION_FILES,
+    sha256    = ICA_IMPLEMENTATION_SHA,
+    julia     = string(VERSION),
+    machine   = String(Sys.MACHINE),
+)
+
+# Serialización canónica de lo que entra en la clave. No pasa por texto:
+# enteros como Int64, reales como los 64 bits IEEE-754 del Float64 (así
+# -0.0 y cada NaN se distinguen) y cadenas como longitud + bytes UTF-8;
+# todo en little-endian, sea cual sea la máquina.
+_ica_put(io::IO, x::Integer)        = write(io, htol(Int64(x)))
+_ica_put(io::IO, x::AbstractFloat)  = write(io, htol(reinterpret(UInt64, Float64(x))))
+_ica_put(io::IO, s::AbstractString) = (b = codeunits(String(s)); write(io, htol(Int64(length(b)))); write(io, b))
+
+"""
+    _ica_cache_identity(rec, cfg; implementation=_ica_implementation())
+
+Identidad de la descomposición que `run_ica(rec, cfg)` produciría:
+
+- la señal de entrada efectiva: tipo, dimensiones y los valores de `rec.data`
+  en orden de almacenamiento (por columnas);
+- los canales, por nombre y en su orden, y la frecuencia de muestreo;
+- los parámetros **efectivos** de ICA (`_ica_effective_params`): con el perfil
+  `eeg_julia`, los valores del TOML que el perfil ignora no cuentan;
+- la implementación: formato, versión del algoritmo, huella del código,
+  versión de Julia y máquina.
+
+Devuelve la clave (`key`, SHA-256 en hexadecimal) y sus componentes. No
+incluye `artifact_threshold`, `auto_reject` ni las etiquetas manuales: se
+aplican después y no cambian la descomposición.
+"""
+function _ica_cache_identity(rec::EEGRecording, cfg::PipelineConfig;
+                             implementation = _ica_implementation())
+    p = _ica_effective_params(cfg, rec.meta.n_channels)
+    n_ch, n_samp = size(rec.data)
+    names = rec.meta.channel_names
+
+    io = IOBuffer()
+    _ica_put(io, "neuromind-ica-signal"); _ica_put(io, "Float64")
+    _ica_put(io, n_ch); _ica_put(io, n_samp)
+    write(io, ENDIAN_BOM == 0x04030201 ? rec.data : htol.(reinterpret(UInt64, rec.data)))
+    signal_sha = bytes2hex(sha256(take!(io)))
+
+    io = IOBuffer()
+    _ica_put(io, "neuromind-ica-cache")
+    _ica_put(io, implementation.format); _ica_put(io, implementation.algorithm)
+    _ica_put(io, implementation.sha256); _ica_put(io, implementation.julia); _ica_put(io, implementation.machine)
+    _ica_put(io, p.profile); _ica_put(io, p.n_comp); _ica_put(io, p.max_iter); _ica_put(io, p.tol)
+    _ica_put(io, p.seed); _ica_put(io, p.max_attempts); _ica_put(io, p.a)
+    _ica_put(io, rec.meta.fs); _ica_put(io, length(names)); foreach(n -> _ica_put(io, n), names)
+    _ica_put(io, signal_sha)
+
+    return (key = bytes2hex(sha256(take!(io))), signal_sha256 = signal_sha, params = p,
+            implementation = implementation, n_channels = n_ch, n_samples = n_samp,
+            fs = rec.meta.fs, channels = names)
+end
+
+"""Clave de la caché de ICA para esta señal y esta configuración. Ver `_ica_cache_identity`."""
+_ica_cache_key(rec::EEGRecording, cfg::PipelineConfig; kwargs...)::String =
+    _ica_cache_identity(rec, cfg; kwargs...).key
+
+"""
+    _ica_read_cache(cache_path, key_path, key, rec) -> (resultado, estado, motivo)
+
+Lee la caché de ICA solo si es la descomposición de esta señal. `estado`:
+
+- `:valid`        se devuelve el `ICAResult`;
+- `:absent`       no hay caché;
+- `:stale`        la clave guardada no es la de esta ejecución;
+- `:unreadable`   la clave coincide, pero el archivo no se puede leer;
+- `:incompatible` se lee, pero no es una descomposición de esta señal.
+
+En los cuatro últimos el resultado es `nothing` y quien llama recalcula.
+"""
+function _ica_read_cache(cache_path::String, key_path::String, key::String, rec::EEGRecording)
+    (isfile(cache_path) && isfile(key_path)) || return (nothing, :absent, "")
+    strip(read(key_path, String)) == key ||
+        return (nothing, :stale, "su clave no corresponde a esta señal, estos parámetros o esta implementación")
+    obj = try
+        Serialization.deserialize(cache_path)
+    catch
+        return (nothing, :unreadable, "el archivo no se puede leer")
     end
-    return string(h, base=16)
+    obj isa ICAResult || return (nothing, :incompatible, "no contiene una descomposición")
+    n_ch, n_samp = size(rec.data)
+    n_comp = size(obj.activations, 1)
+    (size(obj.mixing_matrix) == (n_ch, n_comp) && size(obj.unmixing_matrix) == (n_comp, n_ch) &&
+     size(obj.activations, 2) == n_samp) ||
+        return (nothing, :incompatible, "sus dimensiones no son las de esta señal")
+    obj.meta.channel_names == rec.meta.channel_names ||
+        return (nothing, :incompatible, "sus canales no son los de esta señal")
+    return (obj, :valid, "")
+end
+
+# Productos de la etapa de ICA dentro de la carpeta del sujeto (rutas relativas).
+# ica_labels.csv, la decisión manual del investigador, no es un producto.
+const _ICA_PRODUCT_DIRS  = ("tables/ica", "figures/ica")
+const _ICA_PRODUCT_FILES = ("json/ica_summary.json", "ica_labels_auto.csv")
+const _ICA_CACHE_FILES   = ("cache/ica_result.jls", "cache/ica_config.hash")
+const _ICA_PROVENANCE    = "cache/ica_provenance.toml"
+
+"""Productos de ICA presentes en `export_dir`, sin los archivos de caché."""
+function _ica_products_on_disk(export_dir::String)::Vector{String}
+    out = String[]
+    for d in _ICA_PRODUCT_DIRS
+        dir = joinpath(export_dir, split(d, '/')...)
+        isdir(dir) || continue
+        for (root, _, files) in walkdir(dir), f in files
+            push!(out, join(splitpath(relpath(joinpath(root, f), export_dir)), '/'))
+        end
+    end
+    for f in _ICA_PRODUCT_FILES
+        isfile(joinpath(export_dir, split(f, '/')...)) && push!(out, f)
+    end
+    return sort!(out)
+end
+
+"""
+    _ica_retire_products!(export_dir, log_io; cache=false)
+
+Retira de `export_dir` los productos de ICA que dejó una ejecución anterior,
+para que lo que quede en la carpeta describa solo la ejecución en curso. Con
+`cache=true` retira también la caché: es lo que se hace cuando la ejecución
+termina sin una ICA válida.
+
+Solo actúa dentro de `export_dir` y solo sobre productos de la etapa de ICA.
+Nunca toca `ica_labels.csv`.
+
+- Un producto que figura en el manifiesto de procedencia de la ejecución
+  anterior se borra: se sabe qué proceso lo escribió.
+- Un producto sin procedencia conocida no se borra: se aparta a
+  `obsolete/ica_<n>/`, con una nota.
+"""
+function _ica_retire_products!(export_dir::String, log_io::IO; cache::Bool=false)
+    here(rel) = joinpath(export_dir, split(rel, '/')...)
+    listed = Set{String}()
+    if isfile(here(_ICA_PROVENANCE))
+        try
+            products = get(TOML.parsefile(here(_ICA_PROVENANCE)), "products", Dict{String,Any}())
+            union!(listed, String.(get(products, "files", String[])))
+        catch
+            # manifiesto ilegible: no acredita nada
+        end
+    end
+    present = _ica_products_on_disk(export_dir)
+    cache && append!(present, [f for f in _ICA_CACHE_FILES if isfile(here(f))])
+    isempty(present) && !isfile(here(_ICA_PROVENANCE)) && return nothing
+
+    removed  = 0
+    isolated = String[]
+    for rel in present
+        if rel in listed
+            rm(here(rel)); removed += 1
+        else
+            push!(isolated, rel)
+        end
+    end
+    if !isempty(isolated)
+        k = 1
+        while ispath(joinpath(export_dir, "obsolete", "ica_$(k)")); k += 1; end
+        dest = joinpath(export_dir, "obsolete", "ica_$(k)")
+        for rel in isolated
+            target = joinpath(dest, split(rel, '/')...)
+            mkpath(dirname(target))
+            mv(here(rel), target)
+        end
+        write(joinpath(dest, "LEEME.txt"),
+              "Productos de ICA de una ejecución anterior, apartados por el pipeline.\n" *
+              "No correspondían a la ejecución en curso y no constaba qué proceso los escribió,\n" *
+              "así que no se han borrado. No describen los resultados actuales de esta carpeta.\n")
+        _log(log_io, "  Productos de ICA anteriores sin procedencia conocida: $(length(isolated)) apartados a obsolete/ica_$(k)/")
+    end
+    removed > 0 && cache && _log(log_io, "  Productos de ICA de la ejecución anterior retirados: $(removed)")
+    cache && isfile(here(_ICA_PROVENANCE)) && rm(here(_ICA_PROVENANCE))
+    for d in _ICA_PRODUCT_DIRS          # no dejar carpetas vacías
+        dir = here(d)
+        isdir(dir) && isempty(readdir(dir)) && rm(dir)
+    end
+    return nothing
+end
+
+"""
+    _ica_write_provenance(export_dir, identity)
+
+Escribe `cache/ica_provenance.toml`: de qué señal, parámetros e implementación
+procede la descomposición de la carpeta y qué productos escribió la etapa. No
+lleva fecha: dos ejecuciones iguales lo escriben idéntico.
+"""
+function _ica_write_provenance(export_dir::String, identity)
+    p = identity.params
+    files = vcat(_ica_products_on_disk(export_dir),
+                 [f for f in _ICA_CACHE_FILES if isfile(joinpath(export_dir, split(f, '/')...))])
+    doc = Dict{String,Any}(
+        "format" => identity.implementation.format,
+        "key"    => identity.key,
+        "input"  => Dict{String,Any}(
+            "signal_sha256" => identity.signal_sha256,
+            "n_channels"    => identity.n_channels,
+            "n_samples"     => identity.n_samples,
+            "fs"            => identity.fs,
+            "channels"      => identity.channels,
+        ),
+        "ica" => Dict{String,Any}(
+            "profile" => p.profile, "n_components" => p.n_comp, "max_iter" => p.max_iter,
+            "tol" => p.tol, "seed" => p.seed, "max_attempts" => p.max_attempts, "a" => p.a,
+        ),
+        "implementation" => Dict{String,Any}(
+            "algorithm_version" => identity.implementation.algorithm,
+            "files"             => identity.implementation.files,
+            "sha256"            => identity.implementation.sha256,
+            "julia"             => identity.implementation.julia,
+            "machine"           => identity.implementation.machine,
+        ),
+        "products" => Dict{String,Any}("files" => sort(files)),
+    )
+    path = joinpath(export_dir, split(_ICA_PROVENANCE, '/')...)
+    mkpath(dirname(path))
+    open(io -> TOML.print(io, doc; sorted=true), path, "w")
+    return path
 end
 
 # ─── Configuración ────────────────────────────────────────────
@@ -811,11 +1037,12 @@ function stage_ica(ctx::PipelineContext, filtered::FilterOutput)::ICAOutput
     #   → Segmentación [5/8]. No invertir.
     #
     # Flujo de este bloque:
-    #   1) Caché  · Si existe ica_result.jls y el hash de config ICA
-    #      (+ params de filtrado) coincide → deserializar (evita
-    #      recompute ~minutos). El hash incluye filtering porque
-    #      ICA se calcula sobre rec_filt; un cambio de Notch/HP
-    #      invalidaría componentes antiguos.
+    #   1) Caché  · Si existe ica_result.jls y su clave es la de esta
+    #      ejecución → deserializar (evita recompute ~minutos). La
+    #      clave identifica la señal de entrada (rec_filt), los
+    #      canales, los parámetros efectivos y la implementación
+    #      (_ica_cache_identity). Caché caducada, ilegible o de otra
+    #      señal → se registra el motivo y se recalcula.
     #   2) Cómputo · run_ica (ICACore.jl): PCA whitening + FastICA
     #      simétrico (tanh). Perfil eeg_julia → n_comp = n_channels;
     #      mixing A = pinv(W) (o inv si cuadrada). Sin MultivariateStats.
@@ -841,21 +1068,30 @@ function stage_ica(ctx::PipelineContext, filtered::FilterOutput)::ICAOutput
     t_ica     = now()
     cache_dir = joinpath(export_dir, "cache")
     ica_cache = joinpath(cache_dir, "ica_result.jls")
-    ica_cfg_hash = _ica_config_hash(cfg)          # ICA + filtering
+    # Identidad de la descomposición: señal, canales, parámetros efectivos e
+    # implementación. Si no se puede calcular, no se usa ni se escribe caché.
+    ica_identity = try _ica_cache_identity(rec_filt, cfg) catch; nothing end
+    ica_cfg_hash = ica_identity === nothing ? "" : ica_identity.key
     ica_hash_path = joinpath(cache_dir, "ica_config.hash")
+    ica_prev_key  = isfile(ica_hash_path) ? String(strip(read(ica_hash_path, String))) : ""
 
-    # Cache válido solo si el artefacto y el hash coinciden a la vez
-    cache_valid = isfile(ica_cache) &&
-                  isfile(ica_hash_path) &&
-                  strip(read(ica_hash_path, String)) == ica_cfg_hash
+    # La caché solo vale si es la descomposición de esta señal: clave igual,
+    # archivo legible y contenido coherente con la señal.
+    ica_cached, cache_state, cache_reason = ica_identity === nothing ? (nothing, :absent, "") :
+        _ica_read_cache(ica_cache, ica_hash_path, ica_cfg_hash, rec_filt)
+    cache_valid = cache_state == :valid
+    if cache_state in (:stale, :unreadable, :incompatible)
+        _log(log_io, "  Caché de ICA descartada ($(cache_reason)) · se recalcula")
+        cache_state == :stale || @warn "Caché de ICA inservible: $(cache_reason) · se recalcula"
+    end
 
     ica_from_cache = false
     print("  [4/8] ICA... ")
     ica_result = if cache_valid
-        # Reutilizar descomposición previa (mismos params)
+        # Reutilizar descomposición previa (misma señal, parámetros e implementación)
         ica_from_cache = true
         _log(log_io, "  ICA cargado desde caché")
-        try Serialization.deserialize(ica_cache) catch; nothing end
+        ica_cached
     else
         # FastICA sobre rec_filt (continua). Ante error → nothing
         res = try
@@ -865,13 +1101,18 @@ function stage_ica(ctx::PipelineContext, filtered::FilterOutput)::ICAOutput
             nothing
         end
         # Persistir para re-runs (solo si el cómputo tuvo éxito)
-        if res !== nothing
+        if res !== nothing && ica_identity !== nothing
             mkpath(cache_dir)
             Serialization.serialize(ica_cache, res)
             write(ica_hash_path, ica_cfg_hash)
         end
         res
     end
+
+    # Lo que quede en la carpeta debe describir solo esta ejecución: se retiran
+    # los productos de ICA de una ejecución anterior antes de escribir los
+    # nuevos y, si no hay ICA válida, también la caché.
+    _ica_retire_products!(export_dir, log_io; cache = ica_result === nothing)
 
     # Por defecto la señal hacia segmentación es la filtrada;
     # si hay rechazo manual se sustituye por la reconstrucción limpia.
@@ -906,6 +1147,14 @@ function stage_ica(ctx::PipelineContext, filtered::FilterOutput)::ICAOutput
             ("auto", write_ica_labels_auto(export_dir, _eval))
         else
             ("none", Int[])
+        end
+
+        # Las etiquetas manuales identifican los componentes por su número, y los
+        # números no son transferibles de una descomposición a otra. Si la de
+        # esta carpeta ha cambiado, las etiquetas pueden no corresponderle.
+        if rejection_source == "manual" && !ica_from_cache && !isempty(ica_prev_key) && ica_prev_key != ica_cfg_hash
+            @warn "ica_labels.csv se aplica a una descomposición distinta de la que había en esta carpeta: los números de componente no son transferibles entre descomposiciones. Revise las etiquetas."
+            _log(log_io, "  AVISO: ica_labels.csv se aplica a una descomposición distinta de la anterior · revise las etiquetas")
         end
 
         ica_result = ICAResult(
@@ -1056,8 +1305,10 @@ function stage_ica(ctx::PipelineContext, filtered::FilterOutput)::ICAOutput
             push!(_ica_files, ("ica_labels_auto.csv", "ica_labels_auto.csv"))
         end
         _print_kv_table(_ica_files; indent="        ", headers=("Archivo", "Ruta"))
+        # Procedencia de la descomposición y de los productos de esta ejecución
+        ica_identity === nothing || _ica_write_provenance(export_dir, ica_identity)
     else
-        # Fallo de cómputo/caché: no abortar; AR/wPLI siguen sobre filtrada
+        # Fallo de cómputo: no abortar; AR/wPLI siguen sobre filtrada
         ica_dur = round(Dates.value(now() - t_ica) / 1000, digits=1)
         println("✗  omitido por error — continuando con señal filtrada  ($(ica_dur) s)")
         _log(log_io, "  ICA omitido por error · continuando con señal filtrada")

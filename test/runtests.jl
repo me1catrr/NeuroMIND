@@ -60,6 +60,11 @@
 #    · wPLI_dwPLI_Coupled — respuesta en señales acopladas.
 #    · wPLI_BandDuration_Warning — aviso por ciclos insuficientes en DELTA.
 #
+#  Caché de ICA
+#    · ICA_Cache — la caché nunca devuelve una descomposición de otra señal,
+#      otros parámetros u otra implementación; una caché inservible se
+#      recalcula; no quedan productos de ICA de ejecuciones anteriores.
+#
 #  Pipeline individual
 #    · Pipeline_Stages — pipeline completo sobre una grabación sintética: el
 #      orquestador y las etapas encadenadas dan las mismas salidas; estado de
@@ -78,6 +83,7 @@ using Statistics
 using LinearAlgebra: diag, det, I
 using Random
 using CSV, DataFrames
+using Serialization
 using DSP: digitalfilter, Bandstop, Highpass, Lowpass, Butterworth, freqresp
 
 # Los módulos de cohorte son CLI independientes de NeuroMIND.jl; se incluyen
@@ -2047,6 +2053,263 @@ tree(root::String) = sort([relpath(joinpath(d, f), root) for (d, _, fs) in walkd
             @test length(sur.surrogates.results) == length(sur.connectivity.conn.matrices)
             @test isempty(sur.surrogates.failed_bands)
             @test all(r -> r.n_surrogates == 5, sur.surrogates.results)
+        end
+    end
+end
+
+# ─── Caché de ICA ─────────────────────────────────────────────
+#
+# La caché de ICA es un resultado condicionado por una señal, unos parámetros y
+# una implementación. Estas pruebas comprueban que nunca se devuelve una
+# descomposición que no corresponda a la ejecución, y que una caché inservible
+# no deja al pipeline sin ICA en silencio. Usan la grabación sintética de
+# Pipeline_Stages.
+
+"""Ejecuta carga, filtrado e ICA con el TOML indicado, sin salida de terminal."""
+function run_to_ica(cfg_path::String)
+    redirect_stdout(devnull) do
+        ctx      = pipeline_context(cfg_path)
+        filtered = stage_filter(ctx, stage_load(ctx))
+        ica      = stage_ica(ctx, filtered)
+        close(ctx.log_io)
+        (; ctx, filtered, ica)
+    end
+end
+
+"""Productos de ICA presentes en la carpeta del sujeto, con ruta relativa."""
+function ica_products(export_dir::String)
+    out = String[]
+    for d in ("tables/ica", "figures/ica")
+        isdir(joinpath(export_dir, d)) && append!(out, [joinpath(d, f) for f in readdir(joinpath(export_dir, d))])
+    end
+    for f in ("json/ica_summary.json", "ica_labels_auto.csv", "cache/ica_result.jls", "cache/ica_config.hash")
+        isfile(joinpath(export_dir, f)) && push!(out, f)
+    end
+    sort(out)
+end
+
+@testset "ICA_Cache" begin
+    mktempdir() do tmp
+        bids = synthetic_bids(joinpath(tmp, "bids"); seconds=10)
+        root(name) = joinpath(tmp, name)
+        # Carpeta con la caché y los productos de una primera ejecución de referencia
+        base = run_to_ica(synthetic_config(root("base"), bids))
+        seeded(name) = (mkpath(root(name)); cp(joinpath(root("base"), "results"), joinpath(root(name), "results")); root(name))
+
+        @testset "Una caché válida se reutiliza y da lo mismo" begin
+            @test base.ica.status == :computed
+            again = run_to_ica(synthetic_config(root("base"), bids))
+            @test again.ica.status == :cache
+            @test again.ica.result.mixing_matrix == base.ica.result.mixing_matrix
+            @test again.ica.result.activations == base.ica.result.activations
+            @test again.ica.rec.data == base.ica.rec.data
+            # El archivo sigue siendo un ICAResult: lo leen así los visores auxiliares
+            cached = Serialization.deserialize(joinpath(base.ctx.export_dir, "cache", "ica_result.jls"))
+            @test cached isa ICAResult
+        end
+
+        # B-01 · Con la caché de otra señal presente, cualquier cambio del filtrado
+        # debe recalcular, y lo que sale de la etapa debe ser lo de una carpeta nueva.
+        @testset "El filtrado invalida la caché: $(key)" for (key, value) in [
+            "profile"       => "\"default\"",
+            "highpass_hz"   => "1.0",
+            "lowpass_hz"    => "100.0",
+            "filter_order"  => "2",
+            "notch_hz"      => "60.0",
+            "notch_bw_hz"   => "3.0",
+            "bandreject_lo" => "97.0",
+            "bandreject_hi" => "103.0",
+        ]
+            change = ("filtering", key) => value
+            reused = run_to_ica(synthetic_config(seeded("reuse_$(key)"), bids, change))
+            fresh  = run_to_ica(synthetic_config(root("fresh_$(key)"), bids, change))
+            @test fresh.filtered.rec.data != base.filtered.rec.data      # el cambio altera la señal
+            @test reused.ica.status == :computed
+            @test reused.ica.result.mixing_matrix == fresh.ica.result.mixing_matrix
+            @test reused.ica.result.activations == fresh.ica.result.activations
+            @test reused.ica.rec.data == fresh.ica.rec.data              # lo posterior usa la señal procesada
+        end
+
+        @testset "Los parámetros efectivos de ICA invalidan; los ignorados, no" begin
+            # Con eeg_julia la semilla del TOML no se usa: la caché sigue valiendo
+            ignored = run_to_ica(synthetic_config(seeded("ignored"), bids, ("ica", "seed") => "99"))
+            @test ignored.ica.status == :cache
+            # El umbral de artefactos se aplica después de leer la caché
+            thr = run_to_ica(synthetic_config(seeded("threshold"), bids, ("ica", "artifact_threshold") => "0.5"))
+            @test thr.ica.status == :cache
+            # Otro perfil con otra semilla sí es otra descomposición
+            other = run_to_ica(synthetic_config(seeded("seed"), bids, ("ica", "profile") => "\"default\"", ("ica", "seed") => "7"))
+            @test other.ica.status == :computed
+            @test other.ica.result.mixing_matrix != base.ica.result.mixing_matrix
+        end
+
+        # B-02 · Una caché que no se puede usar provoca un recálculo, con aviso:
+        # nunca una ejecución sin ICA.
+        @testset "Caché inservible: $(name)" for (name, damage) in [
+            "truncada"          => p -> open(io -> truncate(io, 64), p, "r+"),
+            "vacía"             => p -> write(p, ""),
+            "con otro contenido" => p -> Serialization.serialize(p, Dict("no" => "es una ICA")),
+            "de otra señal"     => p -> begin
+                r = Serialization.deserialize(p)
+                Serialization.serialize(p, ICAResult(r.meta, r.mixing_matrix, r.unmixing_matrix, r.activations[:, 1:100],
+                                                     r.rejected_components, r.variance_explained, r.diagnostics))
+            end,
+        ]
+            dir  = seeded("bad_$(hash(name))")
+            path = joinpath(dir, "results", "subjects", "sub-S01", "ses-T1", "eyesclosed", "cache", "ica_result.jls")
+            damage(path)
+            cfg_path = synthetic_config(dir, bids)
+            out = @test_logs (:warn, r"[Cc]aché de ICA") match_mode=:any run_to_ica(cfg_path)
+            @test out.ica.status == :computed
+            @test out.ica.result isa ICAResult
+            @test out.ica.result.mixing_matrix == base.ica.result.mixing_matrix
+            @test out.ica.rec.data == base.ica.rec.data
+            @test occursin("se recalcula", read(joinpath(out.ctx.export_dir, "pipeline_log.txt"), String))
+            @test run_to_ica(cfg_path).ica.status == :cache        # la caché recalculada queda válida
+        end
+
+        # Lo que hay en la carpeta describe siempre la última ejecución.
+        @testset "Productos de ICA de una ejecución anterior" begin
+            @test length(ica_products(base.ctx.export_dir)) > 20
+
+            # ICA fallida sobre una carpeta con productos anteriores: no queda ninguno,
+            # pero la decisión manual del investigador no se toca
+            dir = seeded("failed")
+            sub = joinpath(dir, "results", "subjects", "sub-S01", "ses-T1", "eyesclosed")
+            write(joinpath(sub, "ica_labels.csv"), "component,label\n1,artifact\n2,brain\n")
+            failed = run_to_ica(synthetic_config(dir, bids, ("ica", "profile") => "\"default\"", ("ica", "n_components") => "-3"))
+            @test failed.ica.status == :failed
+            @test failed.ica.rec === failed.filtered.rec
+            @test isempty(ica_products(sub))
+            @test isfile(joinpath(sub, "ica_labels.csv"))
+
+            # Menos componentes que antes: no quedan topomapas de la descomposición anterior
+            fewer = run_to_ica(synthetic_config(seeded("fewer"), bids, ("ica", "profile") => "\"default\"", ("ica", "n_components") => "8"))
+            @test fewer.ica.status == :computed
+            @test count(startswith("figures/ica/ica_topomap"), ica_products(fewer.ctx.export_dir)) == 8
+
+            # Sin rechazo automático: no queda el archivo de etiquetas automáticas anterior
+            noauto = run_to_ica(synthetic_config(seeded("noauto"), bids, ("ica", "auto_reject") => "false"))
+            @test noauto.ica.status == :cache
+            @test !isfile(joinpath(noauto.ctx.export_dir, "ica_labels_auto.csv"))
+        end
+
+        @testset "Productos sin procedencia conocida: se apartan, no se borran" begin
+            # Carpeta con productos de ICA pero sin manifiesto de procedencia, como las
+            # escritas antes de este cambio: no consta qué proceso los escribió.
+            dir = seeded("legacy")
+            sub = joinpath(dir, "results", "subjects", "sub-S01", "ses-T1", "eyesclosed")
+            rm(joinpath(sub, "cache", "ica_provenance.toml"))
+            before = ica_products(sub)
+            failed = run_to_ica(synthetic_config(dir, bids, ("ica", "profile") => "\"default\"", ("ica", "n_components") => "-3"))
+            @test failed.ica.status == :failed
+            @test isempty(ica_products(sub))
+            kept = joinpath(sub, "obsolete", "ica_1")
+            @test isfile(joinpath(kept, "LEEME.txt"))
+            @test all(f -> isfile(joinpath(kept, split(f, '/')...)), before)
+            @test occursin("apartados a obsolete/ica_1/", read(joinpath(sub, "pipeline_log.txt"), String))
+        end
+
+        @testset "Manifiesto de procedencia" begin
+            sub  = base.ctx.export_dir
+            prov = NeuroMIND.TOML.parsefile(joinpath(sub, "cache", "ica_provenance.toml"))
+            key  = strip(read(joinpath(sub, "cache", "ica_config.hash"), String))
+            @test prov["key"] == key
+            @test length(key) == 64
+            @test prov["format"] == NeuroMIND.ICA_CACHE_FORMAT
+            @test prov["input"]["n_channels"] == 16
+            @test prov["input"]["n_samples"] == size(base.filtered.rec.data, 2)
+            @test prov["input"]["channels"] == base.filtered.rec.meta.channel_names
+            @test prov["ica"]["profile"] == "eeg_julia"
+            @test prov["ica"]["seed"] == 1234                    # el valor efectivo, no el del TOML
+            @test prov["implementation"]["files"] == ["ica/ICACore.jl"]
+            @test prov["implementation"]["sha256"] == NeuroMIND.ICA_IMPLEMENTATION_SHA
+            @test prov["implementation"]["julia"] == string(VERSION)
+            # Lista exactamente los productos que hay en la carpeta
+            @test sort(prov["products"]["files"]) == ica_products(sub)
+            @test !("ica_labels.csv" in prov["products"]["files"])
+            # Sin fecha: dos ejecuciones iguales lo escriben idéntico
+            other = run_to_ica(synthetic_config(root("prov"), bids))
+            @test read(joinpath(other.ctx.export_dir, "cache", "ica_provenance.toml")) == read(joinpath(sub, "cache", "ica_provenance.toml"))
+        end
+
+        @testset "Clave de la caché" begin
+            rec = base.filtered.rec
+            cfg = base.ctx.cfg
+            key = NeuroMIND._ica_cache_key(rec, cfg)
+            @test occursin(r"^[0-9a-f]{64}$", key)
+            @test NeuroMIND._ica_cache_key(rec, cfg) == key      # estable
+            variant(data; names=rec.meta.channel_names, fs=rec.meta.fs) = EEGRecording(
+                RecordingMeta(rec.meta.subject_id, rec.meta.session_id, rec.meta.condition, rec.meta.run, fs,
+                              size(data, 1), names, rec.meta.channel_positions, rec.meta.bids_path),
+                data, rec.times[1:size(data, 2)])
+            @test NeuroMIND._ica_cache_key(variant(copy(rec.data)), cfg) == key    # depende del contenido, no del objeto
+
+            # La señal: un solo valor, el signo de un cero, las dimensiones
+            d = copy(rec.data); d[3, 7] = nextfloat(d[3, 7])
+            @test NeuroMIND._ica_cache_key(variant(d), cfg) != key
+            z = copy(rec.data); z[1, 1] = 0.0
+            m = copy(z);        m[1, 1] = -0.0
+            @test NeuroMIND._ica_cache_key(variant(z), cfg) != NeuroMIND._ica_cache_key(variant(m), cfg)
+            @test NeuroMIND._ica_cache_key(variant(rec.data[:, 1:end-1]), cfg) != key
+            # Mismos números con otra forma: (canales × muestras) no es (muestras × canales)
+            sq = rec.data[:, 1:16]
+            @test NeuroMIND._ica_cache_key(variant(sq), cfg) != NeuroMIND._ica_cache_key(variant(permutedims(sq)), cfg)
+
+            # Los canales: identidad y orden
+            perm = vcat(2, 1, 3:16)
+            @test NeuroMIND._ica_cache_key(variant(copy(rec.data); names=rec.meta.channel_names[perm]), cfg) != key
+            @test NeuroMIND._ica_cache_key(variant(rec.data[perm, :]; names=rec.meta.channel_names[perm]), cfg) != key
+            @test NeuroMIND._ica_cache_key(variant(copy(rec.data); fs=250.0), cfg) != key
+
+            # Los parámetros efectivos de ICA
+            cfg_of(changes...) = load_ss_config(synthetic_config(root("key_$(hash(changes))"), bids, changes...))
+            @test NeuroMIND._ica_cache_key(rec, cfg_of(("ica", "seed") => "99")) == key                  # ignorado por eeg_julia
+            @test NeuroMIND._ica_cache_key(rec, cfg_of(("ica", "max_iter") => "10")) == key              # ignorado por eeg_julia
+            @test NeuroMIND._ica_cache_key(rec, cfg_of(("ica", "artifact_threshold") => "0.5")) == key   # se aplica después
+            @test NeuroMIND._ica_cache_key(rec, cfg_of(("ica", "auto_reject") => "false")) == key        # se aplica después
+            @test NeuroMIND._ica_cache_key(rec, cfg_of(("filtering", "notch_hz") => "60.0")) == key      # el filtrado entra por la señal
+            default = cfg_of(("ica", "profile") => "\"default\"")
+            @test NeuroMIND._ica_cache_key(rec, default) != key
+            for change in (("ica", "seed") => "7", ("ica", "max_iter") => "10", ("ica", "tol") => "1e-3",
+                           ("ica", "n_components") => "8", ("ica", "max_attempts") => "3")
+                @test NeuroMIND._ica_cache_key(rec, cfg_of(("ica", "profile") => "\"default\"", change)) != NeuroMIND._ica_cache_key(rec, default)
+            end
+
+            # La implementación: código, versión del algoritmo, formato, Julia y máquina
+            impl = NeuroMIND._ica_implementation()
+            @test NeuroMIND._ica_cache_key(rec, cfg; implementation=impl) == key
+            for other in (merge(impl, (sha256 = "0"^64,)), merge(impl, (algorithm = impl.algorithm + 1,)),
+                          merge(impl, (format = impl.format + 1,)), merge(impl, (julia = "0.0.0",)),
+                          merge(impl, (machine = "otra",)))
+                @test NeuroMIND._ica_cache_key(rec, cfg; implementation=other) != key
+            end
+            # La huella del código es la de los archivos que implementan la descomposición
+            core = read(joinpath(@__DIR__, "..", "src", "ica", "ICACore.jl"), String)
+            @test NeuroMIND.ICA_IMPLEMENTATION_SHA == bytes2hex(NeuroMIND.sha256(core))
+        end
+
+        # D-26 · Las etiquetas manuales identifican componentes por su número, y los
+        # números no son transferibles entre descomposiciones. Esta prueba documenta
+        # el riesgo: el pipeline las sigue aplicando, pero ahora lo avisa.
+        @testset "Etiquetas manuales ante una descomposición nueva" begin
+            dir = seeded("manual")
+            sub = joinpath(dir, "results", "subjects", "sub-S01", "ses-T1", "eyesclosed")
+            write(joinpath(sub, "ica_labels.csv"), "component,label\n" * join(["$(i),$(i in (2, 5) ? "artifact" : "brain")" for i in 1:16], "\n") * "\n")
+            # Misma descomposición: las etiquetas le corresponden, sin aviso
+            same = @test_logs min_level=Base.CoreLogging.Warn run_to_ica(synthetic_config(dir, bids))
+            @test same.ica.status == :cache
+            @test same.ica.rejection_source == "manual"
+            @test same.ica.result.rejected_components == [2, 5]
+            # Otro filtrado: la descomposición cambia y los mismos números se aplican igual
+            changed = @test_logs (:warn, r"ica_labels\.csv.*no son transferibles") match_mode=:any run_to_ica(
+                synthetic_config(dir, bids, ("filtering", "notch_hz") => "60.0"))
+            @test changed.ica.status == :computed
+            @test changed.ica.rejection_source == "manual"
+            @test changed.ica.result.rejected_components == [2, 5]
+            @test changed.ica.result.mixing_matrix != same.ica.result.mixing_matrix
+            @test isfile(joinpath(sub, "ica_labels.csv"))
+            @test occursin("revise las etiquetas", read(joinpath(sub, "pipeline_log.txt"), String))
         end
     end
 end
