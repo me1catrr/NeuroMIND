@@ -202,7 +202,13 @@ for CSV layout, figure names (`heatmap_triplet_*`, `explore_network_topN_*`), an
 > **Single output tree (since 2026-07-21).** `_save_all_results` writes directly to the
 > BIDS `export_dir`; the old dual tree `results/{ID}/{SES}/` with `_EC`/`_EO` suffixes was
 > removed, along with the dead readers (`load_dashboard_data`, App.jl "Legacy API" routes).
-> ICA cache now lives in `export_dir/cache/`.
+> ICA cache now lives in `export_dir/cache/`. Since 2026-11-11 its key (`ica_config.hash`, SHA-256) identifies the filtered
+> signal fed to ICA, the channels in order, the *effective* ICA parameters and the implementation
+> (`src/ica/ICACore.jl` source, algorithm version, Julia version): any change recomputes. An unreadable
+> or mismatched cache is recomputed with a warning, never skipped. `cache/ica_provenance.toml` records
+> the provenance and the products written by the stage; stale ICA products from a previous run are
+> removed (or moved to `obsolete/` when their provenance is unknown). `ica_labels.csv` is never touched.
+> If the decomposition algorithm changes outside `ICACore.jl`, bump `ICA_ALGORITHM_VERSION`.
 
 > **Cohort viewers (since 2026-07-25).** `plot_*.jl` are standalone CLIs (not included in
 > `NeuroMIND.jl`). They serve `/static/group_viewer_common.js` and send full `edge_stats`

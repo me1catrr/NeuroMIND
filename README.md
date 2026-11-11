@@ -1017,7 +1017,7 @@ rec_filt (continua, filtrada)
 | `compute_ica_features` | `src/ica/ICAClassification.jl` | 7 features por componente |
 | `evaluate_ica_components` | `src/ica/ICAClassification.jl` | Scores + etiqueta (`brain`, `jump`, `line_noise`, …) |
 | `_save_ica_results` | `src/SingleSubjectPipeline.jl` L1539 | Exporta tablas, topomaps y resumen JSON |
-| Caché | `results/subjects/sub-M05/ses-T2/eyesclosed/cache/ica_result.jls` | Evita re-ejecutar FastICA si la config ICA no cambia |
+| Caché | `results/subjects/sub-M05/ses-T2/eyesclosed/cache/ica_result.jls` | Evita re-ejecutar FastICA mientras no cambien la señal filtrada, los canales, los parámetros efectivos de ICA ni la implementación |
 
 **Parámetros M05** (`config_snapshot.toml` → `[ica]`):
 
@@ -1093,7 +1093,7 @@ rec_filt (continua, filtrada)
 
 1. **Desfase código ↔ ejecución M05 (rechazo automático):** el `config_snapshot.toml` define `artifact_threshold = 1.5` y el log confirma rechazo automático, pero el `SingleSubjectPipeline.jl` **actual** solo llama a `load_ica_labels()` (CSV manual). La lógica de auto-rechazo que aplicó M05 el 2026-07-09 **no está cableada** en el código vigente — pendiente de reintegrar (referencia en config: `ICACleaning.jl`, archivo ausente).
 2. **Figuras ICA extendidas:** butterfly, headplots y detalle de rechazados (`ica_rejected_*`) se generaron en la ejecución verificada pero **no están** en el `_save_ica_results` actual (solo topomaps + tablas). Mismas figuras en disco = versión anterior del pipeline.
-3. **Caché ICA:** `results/subjects/sub-M05/ses-T2/eyesclosed/cache/ica_result.jls` + `ica_config.hash`. Si cambian parámetros `[ica]`, se invalida y se re-ejecuta FastICA (~varios segundos).
+3. **Caché ICA:** `results/subjects/sub-M05/ses-T2/eyesclosed/cache/ica_result.jls` + `ica_config.hash` + `ica_provenance.toml`. La clave identifica la señal filtrada que entra en ICA, los canales en su orden, los parámetros **efectivos** de `[ica]` y la implementación (código de `src/ica/ICACore.jl`, versión de Julia): si cambia cualquiera de ellos —también cualquier clave de `[filtering]`, porque cambia la señal— la caché se descarta y se re-ejecuta FastICA (~varios segundos). Una caché ilegible o que no corresponde a la señal también se recalcula, con aviso. `ica_provenance.toml` registra de qué procede la descomposición y qué productos escribió la etapa.
 4. **`ica_components.csv` vs rechazo real:** la columna `rejected` refleja `ica.rejected_components` al guardar; la clasificación en `ica_component_features.csv` puede etiquetar más ICs como artefacto sin rechazarlos si el umbral no se aplica en código.
 
 **Estado Fase 4/8 M05:** ✅ ICA verificada en log, tablas y figuras en disco — ⚠️ rechazo automático y figuras extendidas requieren reintegración en código para reproducir en un relanzamiento.
