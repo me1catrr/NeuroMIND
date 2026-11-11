@@ -4,6 +4,39 @@
 > no se cargue en cada sesión de los agentes. Las entradas nuevas van arriba.
 > `AGENTS.md` §13 apunta aquí (y `Report_Pre/chapters/12_espectral.tex` cita esa sección).
 
+### 2026-11-11 — Una función por etapa en el pipeline individual
+
+Reorganización de `run_single_subject_pipeline` **sin cambio de comportamiento**: mismas
+llamadas, mismo orden, mismos mensajes y mismos archivos. Es el primer paso para que el
+pipeline pueda ejecutarse por etapas (NeuroMIND Lab) con una sola implementación.
+
+- **`src/SingleSubjectPipeline.jl`**: cada bloque del orquestador pasa a ser una función que
+  recibe el contexto y los resultados de las etapas que consume y devuelve un resultado con
+  tipo: `pipeline_context`, `stage_load`, `stage_qc`, `stage_filter`, `stage_ica`,
+  `stage_montage`, `stage_segmentation`, `stage_spectral`, `stage_connectivity`,
+  `stage_surrogates` y `stage_finalize`. Tipos nuevos: `PipelineContext`, `LoadOutput`,
+  `QCOutput`, `FilterOutput`, `ICAOutput`, `MontageOutput`, `SegmentationOutput`,
+  `ConnectivityOutput` y `SurrogatesOutput`. El orquestador las encadena; su firma y lo que
+  devuelve no cambian. Las líneas de cada bloque no se han movido ni modificado: el cambio
+  son las cabeceras, el desempaquetado de entradas y los `return`.
+- **Información que antes solo llegaba a la terminal**: `ICAOutput.status` (`:computed`,
+  `:cache`, `:failed`), `ICAOutput.classification_ok` y `SurrogatesOutput.failed_bands`.
+  El pipeline no la usa: sigue adelante igual que antes con una ICA fallida.
+- **Se conserva el comportamiento actual también donde es mejorable**: la caché de ICA
+  (su clave no cubre todo el filtrado; si es ilegible se sigue sin ICA), `use_csd`, el trato
+  de Fp2 en el registro y la continuación con cero épocas válidas. Van en cambios aparte.
+- **Verificación**: comparación de todos los archivos que escribe el pipeline, antes y
+  después, en 31 configuraciones sobre una grabación sintética (caché de ICA presente,
+  ilegible y desfasada; etiquetas manuales; ICA sin rechazo, sin converger y con error;
+  combinaciones de Fp2; perfiles de segmentación; cero épocas válidas; tres estimadores de
+  wPLI; CSD; surrogates; las cuatro decisiones de QC): tablas, figuras y matrices idénticas
+  byte a byte; resúmenes y registro iguales salvo fechas y duraciones. También la salida de
+  terminal.
+- **`test/runtests.jl`**: `Pipeline_Stages`, la primera prueba que ejecuta el pipeline de
+  principio a fin, sobre una grabación BrainVision sintética generada en la propia prueba
+  (no necesita `data/` ni `results/`): el orquestador y las etapas encadenadas a mano dan
+  las mismas salidas; estado de la ICA y resultado de los surrogates.
+
 ### 2026-10-15 — `build_clinical_master.jl --check`
 
 - Nueva opción `--check`: tras escribir el libro y el CSV cruza 22 comprobaciones (BIDS en disco ↔

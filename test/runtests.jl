@@ -60,11 +60,16 @@
 #    · wPLI_dwPLI_Coupled — respuesta en señales acopladas.
 #    · wPLI_BandDuration_Warning — aviso por ciclos insuficientes en DELTA.
 #
+#  Pipeline individual
+#    · Pipeline_Stages — pipeline completo sobre una grabación sintética: el
+#      orquestador y las etapas encadenadas dan las mismas salidas; estado de
+#      la ICA (calculada, caché, fallida) y resultado de los surrogates.
+#
 # ───────────────────────────────────────────────────────────────
 #  Fichero     test/runtests.jl
 #  Autor       Rafael Castro Triguero <me1catrr@uco.es>
 #  Creado      21-05-2026
-#  Modificado  28-07-2026
+#  Modificado  11-11-2026
 # ───────────────────────────────────────────────────────────────
 
 using Test
@@ -1809,6 +1814,241 @@ end
     @test all(gm.strength .>= 0.0)
     @test gm.density >= 0.0
     @test gm.density <= 1.0
+end
+
+# ─── Pipeline por etapas ──────────────────────────────────────
+#
+# Primera prueba que ejecuta el pipeline individual de principio a fin. Usa una
+# grabación BrainVision sintética generada aquí: no procede de ningún sujeto ni
+# necesita data/ ni results/.
+
+"""Carpeta BIDS con una grabación sintética: 16 canales, uno de ellos anómalo (T8)."""
+function synthetic_bids(root::String; seconds::Int=20, fs::Int=500)
+    chans = ["Fp1", "Fp2", "F3", "F4", "C3", "C4", "P3", "P4",
+             "O1", "O2", "F7", "F8", "T7", "T8", "Fz", "Cz"]
+    dir  = joinpath(root, "sub-S01", "ses-T1", "eeg")
+    stem = "sub-S01_ses-T1_task-eyesclosed_run-01_eeg"
+    mkpath(dir)
+
+    n    = seconds * fs
+    rng  = MersenneTwister(20261111)
+    data = Matrix{Float32}(undef, length(chans), n)   # (canales × muestras) = multiplexado
+    for t in 1:n
+        x     = (t - 1) / fs
+        mains = 6sin(2π * 50x) + 2sin(2π * 100x)
+        drift = 14sin(2π * 0.08x) + 0.6 * (x - seconds / 2)
+        for (c, name) in enumerate(chans)
+            amp = name[1] in ('O', 'P') ? 16 : 7
+            v = amp * sin(2π * 10x + 0.7c) * (0.7 + 0.3sin(2π * 0.21x + c)) +
+                3sin(2π * 5.5x + 1.3c) + mains + drift + 6 * (2rand(rng) - 1)
+            name == "T8" && (v = 14v + 60 * (2rand(rng) - 1))
+            data[c, t] = v
+        end
+    end
+    write(joinpath(dir, stem * ".eeg"), data)
+    write(joinpath(dir, stem * ".vhdr"), join([
+        "Brain Vision Data Exchange Header File Version 1.0",
+        "; Grabación sintética de las pruebas. No procede de ningún sujeto.",
+        "",
+        "[Common Infos]",
+        "Codepage=UTF-8",
+        "DataFile=$(stem).eeg",
+        "MarkerFile=$(stem).vmrk",
+        "DataFormat=BINARY",
+        "DataOrientation=MULTIPLEXED",
+        "NumberOfChannels=$(length(chans))",
+        "SamplingInterval=$(1e6 / fs)",
+        "",
+        "[Binary Infos]",
+        "BinaryFormat=IEEE_FLOAT_32",
+        "",
+        "[Channel Infos]",
+        ["Ch$(i)=$(name),,1,µV" for (i, name) in enumerate(chans)]...,
+        "",
+    ], "\n"))
+    write(joinpath(dir, stem * ".vmrk"), join([
+        "Brain Vision Data Exchange Marker File, Version 1.0",
+        "",
+        "[Common Infos]",
+        "Codepage=UTF-8",
+        "DataFile=$(stem).eeg",
+        "",
+        "[Marker Infos]",
+        "Mk1=New Segment,,1,1,0,20261111000000000000",
+        "",
+    ], "\n"))
+    open(joinpath(dir, "sub-S01_ses-T1_electrodes.tsv"), "w") do io
+        println(io, "name\tx\ty\tz")
+        for (i, name) in enumerate(chans)
+            ang = 2π * (i - 1) / length(chans)
+            println(io, name, "\t", round(0.08cos(ang), digits=4), "\t", round(0.08sin(ang), digits=4), "\t0.05")
+        end
+    end
+    return root
+end
+
+"""
+Escribe en `root/config/pipeline.toml` el protocolo del repositorio con el sujeto
+sintético, la carpeta BIDS indicada y los cambios `(sección, clave) => literal`.
+Los resultados quedan en `root/results`.
+"""
+function synthetic_config(root::String, bids::String, changes::Pair...)
+    lines = split(read(joinpath(@__DIR__, "..", "config", "pipeline.toml"), String), '\n')
+    function set!(section, key, value)
+        inside = false
+        for (i, l) in enumerate(lines)
+            startswith(strip(l), "[") && (inside = startswith(strip(l), "[$(section)]"))
+            if inside && occursin(Regex("^\\s*$(key)\\s*="), l)
+                lines[i] = "$(key) = $(value)"
+                return
+            end
+        end
+        error("El protocolo no tiene [$(section)] $(key)")
+    end
+    set!("subject", "subject_id", "\"S01\"")
+    set!("subject", "session_id", "\"T1\"")
+    set!("subject", "task", "\"eyesclosed\"")
+    set!("paths", "bids_root", repr(bids))
+    for ((section, key), value) in changes
+        set!(section, key, value)
+    end
+    path = joinpath(root, "config", "pipeline.toml")
+    mkpath(dirname(path))
+    write(path, join(lines, '\n'))
+    return path
+end
+
+"""Archivos bajo `root`, con ruta relativa y ordenados."""
+tree(root::String) = sort([relpath(joinpath(d, f), root) for (d, _, fs) in walkdir(root) for f in fs])
+
+@testset "Pipeline_Stages" begin
+    mktempdir() do tmp
+        bids = synthetic_bids(joinpath(tmp, "bids"))
+
+        # ── El orquestador y las etapas encadenadas a mano dan lo mismo ──
+        cfg_a = synthetic_config(joinpath(tmp, "a"), bids)
+        cfg_b = synthetic_config(joinpath(tmp, "b"), bids)
+
+        res = redirect_stdout(devnull) do
+            run_single_subject_pipeline(cfg_a)
+        end
+        out = redirect_stdout(devnull) do
+            ctx          = pipeline_context(cfg_b)
+            loaded       = stage_load(ctx)
+            qc           = stage_qc(ctx, loaded)
+            filtered     = stage_filter(ctx, loaded)
+            ica          = stage_ica(ctx, filtered)
+            montage      = stage_montage(ctx, ica, qc)
+            seg          = stage_segmentation(ctx, montage, ica)
+            spectra      = stage_spectral(ctx, seg)
+            connectivity = stage_connectivity(ctx, seg, montage)
+            surrogates   = stage_surrogates(ctx, connectivity)
+            stage_finalize(ctx, loaded, qc, filtered, montage, seg, spectra, connectivity)
+            close(ctx.log_io)
+            (; ctx, loaded, qc, filtered, ica, montage, seg, spectra, connectivity, surrogates)
+        end
+
+        @testset "Orquestador" begin
+            @test res.subject_id == "S01"
+            @test res.session_id == "T1"
+            @test res.condition == "EC"
+            @test res.recording isa EEGRecording
+            @test res.spectra isa SpectralResult
+            @test res.connectivity isa ConnectivityMatrix
+        end
+
+        @testset "Mismas salidas" begin
+            a = joinpath(tmp, "a", "results")
+            b = joinpath(tmp, "b", "results")
+            @test tree(a) == tree(b)
+            @test length(tree(a)) > 50
+            # Tablas y figuras idénticas byte a byte. Las dos tablas globales
+            # llevan la fecha de proceso; los JSON y el registro, horas y duraciones.
+            compared  = [f for f in tree(a) if (endswith(f, ".csv") || endswith(f, ".png")) &&
+                                               !occursin("subjects_index", f) && !occursin("qc_decision_table", f)]
+            different = [f for f in compared if read(joinpath(a, f)) != read(joinpath(b, f))]
+            @test length(compared) > 40
+            @test isempty(different)
+            # La decisión de QC, sin la fecha de proceso
+            row(root) = CSV.read(joinpath(root, "qc", "qc_decision_table.csv"), DataFrame)[1, Not(:processed_at)]
+            @test isequal(row(a), row(b))
+        end
+
+        @testset "Resultados de etapa" begin
+            @test out.ctx.condition == "EC"
+            @test out.loaded.rec.meta.n_channels == 16
+            @test out.loaded.electrodes.ok
+            @test out.qc.bad_channels == ["T8"]
+            @test out.qc.stats isa DataFrame
+            @test out.filtered.preview_written
+            @test out.ica.status == :computed
+            @test out.ica.result isa ICAResult
+            @test out.ica.classification_ok
+            @test out.ica.rejection_source in ("auto", "none")
+            @test out.montage.n_channels == 15
+            @test "T8" in out.montage.excluded
+            @test out.montage.rec.meta.n_channels == 15
+            @test out.seg.n_total == 20
+            @test out.seg.n_valid + out.seg.n_rejected == out.seg.n_total
+            @test out.seg.epochs.n_valid == out.seg.n_valid
+            @test out.spectra isa SpectralResult
+            @test out.connectivity.n_edges == 15 * 14 ÷ 2
+            @test out.connectivity.conn.channel_names == out.montage.rec.meta.channel_names
+            @test isempty(out.surrogates.results)      # desactivados en el protocolo
+            @test isempty(out.surrogates.failed_bands)
+        end
+
+        # ── El estado de la ICA es explícito ──
+        @testset "Estado de la ICA" begin
+            # Segunda llamada en la misma carpeta: se lee la caché
+            cached = redirect_stdout(devnull) do
+                ctx = pipeline_context(cfg_b)
+                ica = stage_ica(ctx, out.filtered)
+                close(ctx.log_io)
+                ica
+            end
+            @test cached.status == :cache
+            @test cached.result isa ICAResult
+            @test cached.rec.data == out.ica.rec.data
+
+            # Una ICA que lanza un error no detiene la etapa: queda como fallida
+            cfg_c = synthetic_config(joinpath(tmp, "c"), bids,
+                                     ("ica", "profile") => "\"default\"", ("ica", "n_components") => "-3")
+            failed = redirect_stdout(devnull) do
+                ctx      = pipeline_context(cfg_c)
+                filtered = stage_filter(ctx, stage_load(ctx))
+                ica      = @test_logs (:warn, r"ICA falló") match_mode=:any stage_ica(ctx, filtered)
+                close(ctx.log_io)
+                (; ica, filtered)
+            end
+            @test failed.ica.status == :failed
+            @test failed.ica.result === nothing
+            @test failed.ica.rec === failed.filtered.rec
+            @test failed.ica.rejection_source == "none"
+            @test !failed.ica.classification_ok
+        end
+
+        # ── Los surrogates informan de lo que han hecho ──
+        @testset "Surrogates" begin
+            cfg_d = synthetic_config(joinpath(tmp, "d"), bids,
+                                     ("surrogates", "enabled") => "true", ("surrogates", "n_surrogates") => "5")
+            sur = redirect_stdout(devnull) do
+                ctx          = pipeline_context(cfg_d)
+                loaded       = stage_load(ctx)
+                qc           = stage_qc(ctx, loaded)
+                ica          = stage_ica(ctx, stage_filter(ctx, loaded))
+                montage      = stage_montage(ctx, ica, qc)
+                seg          = stage_segmentation(ctx, montage, ica)
+                connectivity = stage_connectivity(ctx, seg, montage)
+                surrogates   = stage_surrogates(ctx, connectivity)
+                close(ctx.log_io)
+                (; connectivity, surrogates)
+            end
+            @test length(sur.surrogates.results) == length(sur.connectivity.conn.matrices)
+            @test isempty(sur.surrogates.failed_bands)
+            @test all(r -> r.n_surrogates == 5, sur.surrogates.results)
+        end
+    end
 end
 
 println("\n✅ Todos los tests completados")
