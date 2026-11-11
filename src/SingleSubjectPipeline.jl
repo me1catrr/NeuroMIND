@@ -23,6 +23,10 @@
 #    load_single_subject(…)             → EEGRecording
 #    validate_channels(rec, elec_path)
 #    run_single_subject_pipeline(path)  → ejecuta los 8 pasos
+#    pipeline_context(path)             → PipelineContext
+#    stage_load · stage_qc · stage_filter · stage_ica · stage_montage ·
+#    stage_segmentation · stage_spectral · stage_connectivity ·
+#    stage_surrogates · stage_finalize  → una función por etapa
 #
 #  Helpers internos
 #  ────────────────
@@ -54,7 +58,7 @@
 # ───────────────────────────────────────────────────────────────
 #  Fichero    src/SingleSubjectPipeline.jl
 #  Autor      Rafael Castro Triguero <me1catrr@uco.es>
-#  Modificado 15-10-2026
+#  Modificado 11-11-2026
 # ───────────────────────────────────────────────────────────────
 
 using CairoMakie, Serialization
@@ -346,18 +350,117 @@ end
 
 # ─── Pipeline principal ───────────────────────────────────────
 
-"""
-    run_single_subject_pipeline(config_path)
+# ─── Etapas del pipeline: contexto y resultados ───────────────
+#
+# run_single_subject_pipeline encadena una función por etapa. Cada una recibe
+# el contexto de ejecución y los resultados de las etapas que consume, y
+# devuelve un resultado con tipo. Los bloques son los del orquestador original,
+# sin cambios: mismas llamadas, mismo orden, mismos mensajes y mismos archivos.
+#
+#   pipeline_context → stage_load → stage_qc
+#                                 → stage_filter → stage_ica ─┐
+#                        stage_qc (canales marcados) ─────────┴→ stage_montage
+#   → stage_segmentation → stage_spectral
+#                        → stage_connectivity → stage_surrogates
+#   → stage_finalize
+#
+# Toda etapa escribe además en la terminal y en pipeline_log.txt.
 
-Ejecuta el pipeline completo para el primer sujeto disponible.
-Genera resultados en results/{subj}/{sess}/ y results/subjects/.
 """
-function run_single_subject_pipeline(config_path::String)
-    t0 = now()
-    println("  " * "═"^60)
-    println("  NeuroMIND · Pipeline individual · $(Dates.format(t0, "yyyy-mm-dd HH:MM:SS"))")
-    println("  " * "═"^60)
+    PipelineContext
 
+Contexto de una ejecución del pipeline individual: configuración efectiva,
+grabación seleccionada, carpeta de salida y registro abierto. Lo construye
+`pipeline_context` y lo reciben todas las etapas.
+"""
+struct PipelineContext
+    cfg::PipelineConfig
+    config_path::String       # TOML de origen, tal como se pasó
+    subject_id::String
+    session_id::String
+    task::String              # "eyesclosed" | "eyesopen"
+    run::Int
+    condition::String         # "EC" | "EO", derivada de task
+    export_dir::String        # results/subjects/sub-…/ses-…/<task>/
+    dpi::Int                  # output.figure_dpi
+    log_io::IO                # pipeline_log.txt, abierto
+    t0::DateTime              # inicio de la ejecución
+end
+
+"""Resultado de `stage_load`: grabación y validación de electrodos (`validate_channels`)."""
+struct LoadOutput
+    rec::EEGRecording
+    electrodes::NamedTuple
+end
+
+"""Resultado de `stage_qc`. `bad_channels` es la detección automática; no retira canales."""
+struct QCOutput
+    stats::DataFrame
+    bad_channels::Vector{String}
+    amplitude_warning::Bool
+    raw_sigma_mean::Float64
+end
+
+"""Resultado de `stage_filter`. `preview_written`: si se pudo generar la figura."""
+struct FilterOutput
+    rec::EEGRecording
+    preview_written::Bool
+end
+
+"""
+Resultado de `stage_ica`.
+
+- `result`: descomposición, o `nothing` si no la hay.
+- `rec`: señal tras el rechazo; la filtrada si no hay ICA o no se rechaza nada.
+- `status`: `:computed`, `:cache` o `:failed`.
+- `rejection_source`: `"manual"`, `"auto"` o `"none"`.
+- `classification_ok`: si se pudo clasificar los componentes.
+"""
+struct ICAOutput
+    result::Union{ICAResult,Nothing}
+    rec::EEGRecording
+    status::Symbol
+    rejection_source::String
+    classification_ok::Bool
+end
+
+"""Resultado de `stage_montage`: señal con los canales de análisis y exclusiones aplicadas."""
+struct MontageOutput
+    rec::EEGRecording
+    excluded::Vector{String}
+    fp2_excluded::Bool
+    bad_channels_non_fp2::Vector{String}
+    n_channels::Int
+end
+
+"""Resultado de `stage_segmentation`: épocas tras línea base y rechazo, y sus recuentos."""
+struct SegmentationOutput
+    epochs::EpochSet
+    n_total::Int
+    n_valid::Int
+    n_rejected::Int
+end
+
+"""Resultado de `stage_connectivity`. `epochs` son las usadas: con CSD si está activado."""
+struct ConnectivityOutput
+    conn::ConnectivityMatrix
+    epochs::EpochSet
+    n_edges::Int
+end
+
+"""Resultado de `stage_surrogates`. `results` está vacío si `surrogates.enabled = false`."""
+struct SurrogatesOutput
+    results::Vector{SurrogateResult}
+    failed_bands::Vector{String}
+end
+
+"""
+    pipeline_context(config_path, t0=now()) -> PipelineContext
+
+Lee la configuración, resuelve la grabación, crea la carpeta de salida y abre
+`pipeline_log.txt` en modo escritura. Falla si el TOML no existe.
+"""
+function pipeline_context(config_path::String, t0::DateTime=now())::PipelineContext
     # ── 1. Configuración ──────────────────────────────────────
     # load_ss_config lee config/pipeline.toml (o la ruta pasada) y
     # construye un PipelineConfig: objeto único que consumen filtrado,
@@ -448,7 +551,18 @@ function run_single_subject_pipeline(config_path::String)
     _log(log_io, "  filt=$(_filt_p) · ica=$(_ica_p) · seg=$(_seg_p) $(_ep_s)s$(_ov_str)")
     _log(log_io, "  wPLI=$(_wpli) (dwPLI=$(_dwpli_str)) · surrogates=$(_surr_str) · montage=$(_n_an)ch ($(_mont_excl))")
     _log(log_io, "Salida: $(_out_rel)/")
+    return PipelineContext(cfg, config_path, sid, sess_id, task, run_n, condition, export_dir, dpi, log_io, t0)
+end
 
+"""
+    stage_load(ctx) -> LoadOutput
+
+Carga la grabación y valida los electrodos. No escribe archivos.
+Un error de lectura se propaga.
+"""
+function stage_load(ctx::PipelineContext)::LoadOutput
+    cfg = ctx.cfg; log_io = ctx.log_io
+    sid = ctx.subject_id; sess_id = ctx.session_id; task = ctx.task; run_n = ctx.run
     # ── 4. Carga de datos ─────────────────────────────────────
     # load_single_subject: ruta BrainVision preferente (.vhdr + .eeg
     # nativo); aplica la resolución µV/bit del .vhdr y devuelve un
@@ -511,7 +625,19 @@ function run_single_subject_pipeline(config_path::String)
     end
     println(_bot)
 
+    return LoadOutput(rec, val)
+end
 
+"""
+    stage_qc(ctx, loaded) -> QCOutput
+
+QC de canales sobre la señal cruda. Escribe `tables/channel_statistics.csv`,
+`tables/qc_summary.csv` y `tables/raw_signal.csv`.
+"""
+function stage_qc(ctx::PipelineContext, loaded::LoadOutput)::QCOutput
+    cfg = ctx.cfg; log_io = ctx.log_io
+    qc_cfg = ctx.cfg.qc; export_dir = ctx.export_dir
+    rec = loaded.rec
     # ── 5. QC básico + métricas extendidas (Report_Pre) ───────
     # Estadísticas por canal (μ, RMS, σ, rango, asimetría, curtosis)
     # + HFNoise / SNR(dB) / corr. media; flag de canales anómalos
@@ -590,7 +716,19 @@ function run_single_subject_pipeline(config_path::String)
     ]; indent="        ", headers=("Archivo", "Ruta"))
     _log(log_io, "  Guardado: channel_statistics.csv, qc_summary.csv, raw_signal.csv")
     _log(log_io, "    columnas extendidas: skewness, kurtosis, hfnoise, snr_db, mean_abs_corr")
+    return QCOutput(qc_stats, bad_ch, amplitude_warning, raw_sigma_mean)
+end
 
+"""
+    stage_filter(ctx, loaded) -> FilterOutput
+
+Filtra la señal continua. Escribe `tables/filtered_signal_<paso>.csv` y
+`figures/filtered_signal_preview.png`. Si la figura falla, avisa y sigue.
+"""
+function stage_filter(ctx::PipelineContext, loaded::LoadOutput)::FilterOutput
+    cfg = ctx.cfg; log_io = ctx.log_io
+    dpi = ctx.dpi; export_dir = ctx.export_dir
+    rec = loaded.rec
     # ── 6. Filtrado ───────────────────────────────────────────
     # filter_recording: cadena Butterworth según cfg.filtering["profile"].
     #   eeg_julia → Notch(filt) → Bandreject(filt) → HP(filtfilt) → LP(filtfilt)
@@ -647,7 +785,24 @@ function run_single_subject_pipeline(config_path::String)
     _out_rows = Tuple{String,String}[(_filt_fig, _filt_fig_ok ? "figures/$(_filt_fig)" : "no generado")]
     append!(_out_rows, _filt_saved)
     _print_kv_table(_out_rows; indent="        ", headers=("Archivo", "Ruta"))
+    return FilterOutput(rec_filt, _filt_fig_ok)
+end
 
+"""
+    stage_ica(ctx, filtered) -> ICAOutput
+
+ICA sobre la señal continua filtrada, clasificación de componentes y rechazo
+(manual > automático > ninguno). Lee la caché y `ica_labels.csv` si existen.
+Escribe `cache/ica_*`, `tables/ica/*`, `figures/ica/*`, `json/ica_summary.json`
+y, con rechazo automático, `ica_labels_auto.csv`.
+
+No lanza si la ICA falla o la caché es ilegible: devuelve `status = :failed`
+y la señal filtrada.
+"""
+function stage_ica(ctx::PipelineContext, filtered::FilterOutput)::ICAOutput
+    cfg = ctx.cfg; log_io = ctx.log_io
+    sid = ctx.subject_id; sess_id = ctx.session_id; condition = ctx.condition; export_dir = ctx.export_dir
+    rec_filt = filtered.rec
     # ── ICA: antes de segmentar (señal continua filtrada) ─────
     #
     # Regla científica crítica (AGENTS.md / .cursorrules):
@@ -918,6 +1073,21 @@ function run_single_subject_pipeline(config_path::String)
         ]; indent="        ")
     end
 
+    _ica_status = ica_result === nothing ? :failed : (ica_from_cache ? :cache : :computed)
+    _ica_source = ica_result === nothing ? "none" : rejection_source
+    _ica_classified = ica_result !== nothing && !isempty(_eval)
+    return ICAOutput(ica_result, rec_ica, _ica_status, _ica_source, _ica_classified)
+end
+
+"""
+    stage_montage(ctx, ica, qc) -> MontageOutput
+
+Retira de la señal los canales de `montage.exclude_channels` y los marcados
+por el QC. No escribe archivos.
+"""
+function stage_montage(ctx::PipelineContext, ica::ICAOutput, qc::QCOutput)::MontageOutput
+    log_io = ctx.log_io; montage_cfg = ctx.cfg.montage
+    rec_ica = ica.rec; bad_ch = qc.bad_channels
     # ── Construir montaje de análisis ─────────────────────────
     # Quién elimina canales es `exclude_channels` (pipeline.toml
     # [montage]). `exclude_fp2` NO elimina por sí solo: solo filtra
@@ -980,7 +1150,20 @@ function run_single_subject_pipeline(config_path::String)
         ("Bad QC (non-Fp2)",    isempty(bad_ch_non_fp2) ? "ninguno" : join(bad_ch_non_fp2, ", ")),
     ]; indent="        ")
     _log(log_io, "  Montaje análisis: $(n_ch_analysis) ch · Fp2=$(_fp2_status) · excluidos=$(_excl_eff)")
+    return MontageOutput(rec_for_seg, all_excl, fp2_excluded, bad_ch_non_fp2, n_ch_analysis)
+end
 
+"""
+    stage_segmentation(ctx, montage, ica) -> SegmentationOutput
+
+Segmenta, aplica la línea base y rechaza artefactos. Escribe las tablas y
+resúmenes de segmentación y de rechazo. Con cero épocas válidas no lanza.
+"""
+function stage_segmentation(ctx::PipelineContext, montage::MontageOutput, ica::ICAOutput)::SegmentationOutput
+    cfg = ctx.cfg; log_io = ctx.log_io
+    export_dir = ctx.export_dir
+    rec_for_seg = montage.rec; fp2_excluded = montage.fp2_excluded; n_ch_analysis = montage.n_channels
+    rec_ica = ica.rec; ica_result = ica.result
     # ── Segmentación + baseline + AR ──────────────────────────
     #
     # Orden (Epochs.jl / pipeline.toml [segmentation][baseline][artifact_rejection]):
@@ -1072,7 +1255,19 @@ function run_single_subject_pipeline(config_path::String)
     seg_signal_label = _sig_in
     _seg_files = _save_segmentation_results(epochs_bl1, epochs, rec_ica, cfg, export_dir, t_seg, log_io, seg_signal_label)
     _print_kv_table(_seg_files; indent="        ", headers=("Archivo", "Ruta"))
+    return SegmentationOutput(epochs, n_total, n_valid, n_rejected)
+end
 
+"""
+    stage_spectral(ctx, seg) -> SpectralResult
+
+PSD y potencia por banda sobre las épocas válidas. Escribe las tablas,
+el resumen y las figuras espectrales.
+"""
+function stage_spectral(ctx::PipelineContext, seg::SegmentationOutput)::SpectralResult
+    cfg = ctx.cfg; log_io = ctx.log_io
+    dpi = ctx.dpi; export_dir = ctx.export_dir
+    epochs = seg.epochs
     # ── 8. Análisis espectral ─────────────────────────────────
     # compute_psd() — FFT Hamming-taper estilo BrainVision Analyzer
     # (PowerSpectrum.jl). PSD media sobre epochs válidos post-AR.
@@ -1146,7 +1341,19 @@ function run_single_subject_pipeline(config_path::String)
     # CSV / JSON / PNG espectrales (antes del bloque final [8/8])
     _spec_files = _save_spectral_phase_results(spectra, cfg, export_dir, dpi, log_io)
     _print_kv_table(_spec_files; indent="        ", headers=("Archivo", "Ruta"))
+    return spectra
+end
 
+"""
+    stage_connectivity(ctx, seg, montage) -> ConnectivityOutput
+
+wPLI por banda, con CSD previo si `connectivity.use_csd = true`. Escribe
+`tables/connectivity/*`, `figures/connectivity/*` y `json/connectivity_summary.json`.
+"""
+function stage_connectivity(ctx::PipelineContext, seg::SegmentationOutput, montage::MontageOutput)::ConnectivityOutput
+    cfg = ctx.cfg; log_io = ctx.log_io
+    dpi = ctx.dpi; export_dir = ctx.export_dir
+    epochs = seg.epochs; n_ch_analysis = montage.n_channels
     # ── 9. Conectividad wPLI ──────────────────────────────────
     # compute_wpli() — método vía cfg.connectivity["wpli_method"]
     # (_build_estimator, wPLI.jl). Surrogates (paso siguiente) usan
@@ -1250,7 +1457,21 @@ function run_single_subject_pipeline(config_path::String)
     # CSV / JSON / PNG de conectividad (antes del bloque final [8/8])
     _conn_files = _save_connectivity_phase_results(conn, cfg, export_dir, dpi, log_io)
     _print_kv_table(_conn_files; indent="        ", headers=("Archivo", "Ruta"))
+    return ConnectivityOutput(conn, epochs_conn, _n_edges)
+end
 
+"""
+    stage_surrogates(ctx, connectivity) -> SurrogatesOutput
+
+Inferencia por surrogates, si `surrogates.enabled = true`. Escribe
+`tables/surrogate/*`, `figures/surrogate/*`, `cache/surrogate/*` y
+`json/surrogate_summary.json`. El fallo de una banda se avisa y no detiene
+las demás: queda en `failed_bands`.
+"""
+function stage_surrogates(ctx::PipelineContext, connectivity::ConnectivityOutput)::SurrogatesOutput
+    cfg = ctx.cfg; log_io = ctx.log_io
+    dpi = ctx.dpi; export_dir = ctx.export_dir
+    conn = connectivity.conn; epochs_conn = connectivity.epochs; _n_edges = connectivity.n_edges
     # ── Surrogates (opcional) ─────────────────────────────────
     # surrogate_test() (Surrogates.jl) — desplazamiento circular
     # independiente por canal/época, con el MISMO estimador wPLI
@@ -1384,6 +1605,29 @@ function run_single_subject_pipeline(config_path::String)
         end
     end
 
+    _surr_failed = _surr_on ? setdiff(_surr_bands, String[sr.band for sr in surr_results]) : String[]
+    return SurrogatesOutput(surr_results, _surr_failed)
+end
+
+"""
+    stage_finalize(ctx, loaded, qc, filtered, montage, seg, spectra, connectivity) -> Nothing
+
+Escribe las tablas de QC y `overview.csv`, copia el TOML y actualiza las
+tablas globales `subjects_index.csv` y `qc/qc_decision_table.csv`, que están
+fuera de la carpeta del sujeto. No cierra el registro.
+"""
+function stage_finalize(ctx::PipelineContext, loaded::LoadOutput, qc::QCOutput, filtered::FilterOutput,
+                        montage::MontageOutput, seg::SegmentationOutput, spectra::SpectralResult,
+                        connectivity::ConnectivityOutput)::Nothing
+    cfg = ctx.cfg; log_io = ctx.log_io
+    config_path = ctx.config_path; sid = ctx.subject_id; sess_id = ctx.session_id; task = ctx.task
+    condition = ctx.condition; export_dir = ctx.export_dir; dpi = ctx.dpi
+    rec = loaded.rec; val = loaded.electrodes; rec_filt = filtered.rec
+    qc_stats = qc.stats; bad_ch = qc.bad_channels
+    amplitude_warning = qc.amplitude_warning; raw_sigma_mean = qc.raw_sigma_mean
+    bad_ch_non_fp2 = montage.bad_channels_non_fp2; fp2_excluded = montage.fp2_excluded; n_ch_analysis = montage.n_channels
+    n_total = seg.n_total; n_valid = seg.n_valid; n_rejected = seg.n_rejected
+    conn = connectivity.conn
     # ── 10. Guardar resultados ────────────────────────────────
     print("  [8/8] Guardando resultados... ")
     _log(log_io, "\n[8/8] Guardando resultados")
@@ -1404,6 +1648,40 @@ function run_single_subject_pipeline(config_path::String)
         log_io
     )
     println("✓  tablas · figuras · BIDS export · QC table  ($(round(Dates.value(now()-t_step)/1000,digits=1)) s)")
+    return nothing
+end
+
+"""
+    run_single_subject_pipeline(config_path)
+
+Ejecuta el pipeline completo para el primer sujeto disponible.
+Genera resultados en results/{subj}/{sess}/ y results/subjects/.
+"""
+function run_single_subject_pipeline(config_path::String)
+    t0 = now()
+    println("  " * "═"^60)
+    println("  NeuroMIND · Pipeline individual · $(Dates.format(t0, "yyyy-mm-dd HH:MM:SS"))")
+    println("  " * "═"^60)
+
+    ctx          = pipeline_context(config_path, t0)
+    loaded       = stage_load(ctx)
+    qc           = stage_qc(ctx, loaded)
+    filtered     = stage_filter(ctx, loaded)
+    ica          = stage_ica(ctx, filtered)
+    montage      = stage_montage(ctx, ica, qc)
+    seg          = stage_segmentation(ctx, montage, ica)
+    spectra      = stage_spectral(ctx, seg)
+    connectivity = stage_connectivity(ctx, seg, montage)
+    surrogates   = stage_surrogates(ctx, connectivity)
+    stage_finalize(ctx, loaded, qc, filtered, montage, seg, spectra, connectivity)
+
+    # Lo que usa el resumen final
+    cfg = ctx.cfg; log_io = ctx.log_io
+    sid = ctx.subject_id; sess_id = ctx.session_id; task = ctx.task; condition = ctx.condition
+    rec = loaded.rec; conn = connectivity.conn; surr_results = surrogates.results
+    amplitude_warning = qc.amplitude_warning
+    bad_ch_non_fp2 = montage.bad_channels_non_fp2; fp2_excluded = montage.fp2_excluded; n_ch_analysis = montage.n_channels
+    n_total = seg.n_total; n_valid = seg.n_valid; n_rejected = seg.n_rejected
 
     elapsed = round(Dates.value(now() - t0) / 1000, digits=1)
     _log(log_io, "\n✓ Pipeline completado en $(elapsed) s")

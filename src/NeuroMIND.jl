@@ -158,6 +158,12 @@ export save_figure
 include("SingleSubjectPipeline.jl")
 export load_ss_config, detect_first_subject, load_single_subject, validate_channels
 export run_single_subject_pipeline
+# Etapas del pipeline individual: contexto, una función por etapa y sus resultados
+export PipelineContext, pipeline_context
+export stage_load, stage_qc, stage_filter, stage_ica, stage_montage, stage_segmentation
+export stage_spectral, stage_connectivity, stage_surrogates, stage_finalize
+export LoadOutput, QCOutput, FilterOutput, ICAOutput, MontageOutput
+export SegmentationOutput, ConnectivityOutput, SurrogatesOutput
 
 # ─── Dashboard web (carga DIFERIDA) ────────────────────────────
 #  webapp/App.jl hace `using Genie` (framework web pesado). Para que

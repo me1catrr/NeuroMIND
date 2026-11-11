@@ -80,6 +80,15 @@ using **weighted Phase Lag Index (wPLI)**.
 
 **Critical rule:** ICA (step 4) MUST always precede segmentation (step 5).
 
+**One function per stage (since 2026-11-11).** `run_single_subject_pipeline` chains
+`pipeline_context` → `stage_load` → `stage_qc` / `stage_filter` → `stage_ica` → `stage_montage`
+→ `stage_segmentation` → `stage_spectral` / `stage_connectivity` → `stage_surrogates` →
+`stage_finalize` (all in `src/SingleSubjectPipeline.jl`). Each takes the `PipelineContext` plus the
+typed outputs of the stages it consumes (`LoadOutput`, `QCOutput`, `FilterOutput`, `ICAOutput`,
+`MontageOutput`, `SegmentationOutput`, `ConnectivityOutput`, `SurrogatesOutput`) and writes its
+own files. Montage and surrogates have no `[k/8]` label of their own in the log. Behaviour is
+unchanged; keep stage bodies in the same order when editing.
+
 ### ICA — custom implementation (no MultivariateStats)
 - File: `src/ica/ICACore.jl`
 - PCA whitening → symmetric FastICA with `tanh` nonlinearity
