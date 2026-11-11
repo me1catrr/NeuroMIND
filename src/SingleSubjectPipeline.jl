@@ -31,7 +31,8 @@
 #  Helpers internos
 #  ────────────────
 #    Config / ICA
-#      _ica_cache_identity · _ica_cache_key · _ica_read_cache
+#      _ica_cache_identity · _ica_cache_key · _ica_identity_or_nothing
+#      _ica_stored_key · _ica_read_cache
 #      _ica_retire_products! · _ica_write_provenance
 #    Persistencia por etapa
 #      _save_segmentation_results
@@ -163,6 +164,42 @@ _ica_cache_key(rec::EEGRecording, cfg::PipelineConfig; kwargs...)::String =
     _ica_cache_identity(rec, cfg; kwargs...).key
 
 """
+    _ica_stored_key(key_path) -> String | nothing
+
+Clave guardada junto a la caché. `nothing` si el archivo no se puede leer
+(permisos, error de disco) o no contiene texto válido: una clave que no se
+puede leer no acredita nada.
+"""
+function _ica_stored_key(key_path::String)
+    text = try
+        read(key_path, String)
+    catch
+        return nothing
+    end
+    isvalid(text) || return nothing
+    return String(strip(text))
+end
+
+"""
+    _ica_identity_or_nothing(rec, cfg, log_io) -> identidad | nothing
+
+Identidad de la caché para esta ejecución. Si no se puede calcular, lo anota
+en el registro con su motivo, avisa y devuelve `nothing`: sin identidad no se
+puede validar la procedencia de ninguna caché, así que quien llama ni la usa
+ni la escribe.
+"""
+function _ica_identity_or_nothing(rec::EEGRecording, cfg::PipelineConfig, log_io::IO)
+    try
+        return _ica_cache_identity(rec, cfg)
+    catch e
+        reason = sprint(showerror, e)
+        _log(log_io, "  No se pudo calcular la identidad de la caché de ICA ($(reason)) · no se usa ni se escribe caché")
+        @warn "No se pudo calcular la identidad de la caché de ICA: $(reason) · no se usa ni se escribe caché"
+        return nothing
+    end
+end
+
+"""
     _ica_read_cache(cache_path, key_path, key, rec) -> (resultado, estado, motivo)
 
 Lee la caché de ICA solo si es la descomposición de esta señal. `estado`:
@@ -170,14 +207,16 @@ Lee la caché de ICA solo si es la descomposición de esta señal. `estado`:
 - `:valid`        se devuelve el `ICAResult`;
 - `:absent`       no hay caché;
 - `:stale`        la clave guardada no es la de esta ejecución;
-- `:unreadable`   la clave coincide, pero el archivo no se puede leer;
+- `:unreadable`   la clave guardada o el archivo de la caché no se pueden leer;
 - `:incompatible` se lee, pero no es una descomposición de esta señal.
 
 En los cuatro últimos el resultado es `nothing` y quien llama recalcula.
 """
 function _ica_read_cache(cache_path::String, key_path::String, key::String, rec::EEGRecording)
     (isfile(cache_path) && isfile(key_path)) || return (nothing, :absent, "")
-    strip(read(key_path, String)) == key ||
+    stored = _ica_stored_key(key_path)
+    stored === nothing && return (nothing, :unreadable, "la clave guardada no se puede leer")
+    stored == key ||
         return (nothing, :stale, "su clave no corresponde a esta señal, estos parámetros o esta implementación")
     obj = try
         Serialization.deserialize(cache_path)
@@ -1069,11 +1108,12 @@ function stage_ica(ctx::PipelineContext, filtered::FilterOutput)::ICAOutput
     cache_dir = joinpath(export_dir, "cache")
     ica_cache = joinpath(cache_dir, "ica_result.jls")
     # Identidad de la descomposición: señal, canales, parámetros efectivos e
-    # implementación. Si no se puede calcular, no se usa ni se escribe caché.
-    ica_identity = try _ica_cache_identity(rec_filt, cfg) catch; nothing end
+    # implementación. Si no se puede calcular, se anota el motivo y no se usa
+    # ni se escribe caché: su procedencia no se podría validar.
+    ica_identity = _ica_identity_or_nothing(rec_filt, cfg, log_io)
     ica_cfg_hash = ica_identity === nothing ? "" : ica_identity.key
     ica_hash_path = joinpath(cache_dir, "ica_config.hash")
-    ica_prev_key  = isfile(ica_hash_path) ? String(strip(read(ica_hash_path, String))) : ""
+    ica_prev_key  = isfile(ica_hash_path) ? something(_ica_stored_key(ica_hash_path), "") : ""
 
     # La caché solo vale si es la descomposición de esta señal: clave igual,
     # archivo legible y contenido coherente con la señal.
@@ -1103,6 +1143,8 @@ function stage_ica(ctx::PipelineContext, filtered::FilterOutput)::ICAOutput
         # Persistir para re-runs (solo si el cómputo tuvo éxito)
         if res !== nothing && ica_identity !== nothing
             mkpath(cache_dir)
+            # Se sustituyen los archivos anteriores, también si no se podían leer
+            rm(ica_cache; force=true); rm(ica_hash_path; force=true)
             Serialization.serialize(ica_cache, res)
             write(ica_hash_path, ica_cfg_hash)
         end
@@ -1111,8 +1153,9 @@ function stage_ica(ctx::PipelineContext, filtered::FilterOutput)::ICAOutput
 
     # Lo que quede en la carpeta debe describir solo esta ejecución: se retiran
     # los productos de ICA de una ejecución anterior antes de escribir los
-    # nuevos y, si no hay ICA válida, también la caché.
-    _ica_retire_products!(export_dir, log_io; cache = ica_result === nothing)
+    # nuevos y, si no hay ICA válida o no se ha podido establecer su
+    # identidad, también la caché.
+    _ica_retire_products!(export_dir, log_io; cache = ica_result === nothing || ica_identity === nothing)
 
     # Por defecto la señal hacia segmentación es la filtrada;
     # si hay rechazo manual se sustituye por la reconstrucción limpia.

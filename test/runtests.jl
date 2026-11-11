@@ -2168,6 +2168,67 @@ end
             @test run_to_ica(cfg_path).ica.status == :cache        # la caché recalculada queda válida
         end
 
+        # La clave guardada tampoco se da por buena si no se puede leer.
+        @testset "Clave guardada inservible: $(name)" for (name, damage) in [
+            "con bytes no válidos" => p -> write(p, UInt8[0xff, 0xfe, 0x00, 0xc3, 0x28, 0x80]),
+            "vacía"                => p -> write(p, ""),
+            "sin permiso de lectura" => p -> chmod(p, 0o000),
+        ]
+            dir = seeded("key_$(hash(name))")
+            sub = joinpath(dir, "results", "subjects", "sub-S01", "ses-T1", "eyesclosed")
+            key_path = joinpath(sub, "cache", "ica_config.hash")
+            damage(key_path)
+            cfg_path = synthetic_config(dir, bids)
+            out = run_to_ica(cfg_path)
+            @test out.ica.status == :computed                    # no se usa la caché sin clave válida
+            @test out.ica.result.mixing_matrix == base.ica.result.mixing_matrix
+            @test out.ica.rec.data == base.ica.rec.data
+            @test occursin("se recalcula", read(joinpath(sub, "pipeline_log.txt"), String))
+            # La clave vuelve a ser legible y válida
+            @test strip(read(key_path, String)) == strip(read(joinpath(base.ctx.export_dir, "cache", "ica_config.hash"), String))
+            @test run_to_ica(cfg_path).ica.status == :cache
+        end
+
+        @testset "Clave guardada ilegible: se avisa" begin
+            path = joinpath(tmp, "clave_invalida.hash")
+            write(path, UInt8[0xff, 0xfe, 0x00])
+            @test NeuroMIND._ica_stored_key(path) === nothing
+            @test NeuroMIND._ica_stored_key(joinpath(tmp, "no_existe.hash")) === nothing
+            write(path, "  abc123\n")
+            @test NeuroMIND._ica_stored_key(path) == "abc123"
+            # Con bytes no válidos: aviso y recálculo
+            dir = seeded("key_warn")
+            write(joinpath(dir, "results", "subjects", "sub-S01", "ses-T1", "eyesclosed", "cache", "ica_config.hash"), UInt8[0xff, 0xfe, 0x00])
+            out = @test_logs (:warn, r"Caché de ICA inservible: la clave guardada no se puede leer") match_mode=:any run_to_ica(synthetic_config(dir, bids))
+            @test out.ica.status == :computed
+        end
+
+        @testset "Archivo de la caché sin permiso de lectura" begin
+            dir = seeded("jls_perm")
+            sub = joinpath(dir, "results", "subjects", "sub-S01", "ses-T1", "eyesclosed")
+            chmod(joinpath(sub, "cache", "ica_result.jls"), 0o000)
+            cfg_path = synthetic_config(dir, bids)
+            out = run_to_ica(cfg_path)
+            @test out.ica.status == :computed
+            @test out.ica.result.mixing_matrix == base.ica.result.mixing_matrix
+            @test Serialization.deserialize(joinpath(sub, "cache", "ica_result.jls")) isa ICAResult
+            @test run_to_ica(cfg_path).ica.status == :cache
+        end
+
+        # Sin identidad no se puede validar la procedencia de ninguna caché:
+        # se anota el motivo y no se usa ni se escribe.
+        @testset "Identidad de la caché que no se puede calcular" begin
+            bad = load_ss_config(synthetic_config(root("identity"), bids, ("ica", "profile") => "\"default\"", ("ica", "n_components") => "\"muchos\""))
+            log = IOBuffer()
+            id  = @test_logs (:warn, r"No se pudo calcular la identidad de la caché de ICA") NeuroMIND._ica_identity_or_nothing(base.filtered.rec, bad, log)
+            @test id === nothing
+            @test occursin("No se pudo calcular la identidad de la caché de ICA", String(take!(log)))
+            @test occursin("no se usa ni se escribe caché", sprint(io -> NeuroMIND._ica_identity_or_nothing(base.filtered.rec, bad, io)))
+            # Con una configuración válida devuelve la identidad, sin avisos
+            good = @test_logs NeuroMIND._ica_identity_or_nothing(base.filtered.rec, base.ctx.cfg, IOBuffer())
+            @test good.key == NeuroMIND._ica_cache_key(base.filtered.rec, base.ctx.cfg)
+        end
+
         # Lo que hay en la carpeta describe siempre la última ejecución.
         @testset "Productos de ICA de una ejecución anterior" begin
             @test length(ica_products(base.ctx.export_dir)) > 20

@@ -26,9 +26,11 @@ no toca el algoritmo de ICA, la clasificación de componentes ni el rechazo.
   los valores de `[ica]` que el perfil ignora ya no invalidan.
 - **Lectura** (`_ica_read_cache`). La caché solo se usa si su clave es la de la ejecución, el
   archivo se puede leer y contiene una descomposición con las dimensiones y los canales de
-  la señal. Si no, se anota el motivo en el registro, se avisa y **se recalcula**. Si el
-  cálculo falla, el comportamiento es el de siempre: aviso, `status = :failed` y el pipeline
-  sigue con la señal filtrada.
+  la señal. Si no, se anota el motivo en el registro, se avisa y **se recalcula**. Lo mismo
+  si la clave guardada no se puede leer (permisos, bytes no válidos): una clave ilegible no
+  acredita nada. Si la identidad de la ejecución no se puede calcular, se anota el motivo y
+  no se usa ni se escribe caché. Si el cálculo falla, el comportamiento es el de siempre:
+  aviso, `status = :failed` y el pipeline sigue con la señal filtrada.
 - **Productos de la etapa** (`_ica_retire_products!`). Antes de escribir los productos de
   ICA se retiran de la carpeta del sujeto los de la ejecución anterior, y sin ICA válida
   también la caché: lo que queda describe siempre la última ejecución. Se borra solo lo que
@@ -50,9 +52,10 @@ no toca el algoritmo de ICA, la clasificación de componentes ni el rechazo.
   contenido de `ica_config.hash` y aparece `ica_provenance.toml`; el caso de caché ilegible
   pasa a dar las salidas de una ejecución normal, y el de caché desfasada, las de una
   carpeta nueva con ese filtrado, ambas calculadas con el código anterior. Nada más cambia.
-- **`test/runtests.jl`**: `ICA_Cache` (145 comprobaciones): cada clave de `[filtering]`
+- **`test/runtests.jl`**: `ICA_Cache` (178 comprobaciones): cada clave de `[filtering]`
   invalida; parámetros efectivos frente a ignorados; caché truncada, vacía, con otro
-  contenido y de otra señal; productos anteriores; manifiesto; clave; etiquetas manuales.
+  contenido y de otra señal; clave guardada ilegible o sin permiso de lectura; identidad que
+  no se puede calcular; productos anteriores; manifiesto; clave; etiquetas manuales.
   Con el código anterior fallaban 36 y 9 daban error.
 
 ### 2026-11-11 — Una función por etapa en el pipeline individual
