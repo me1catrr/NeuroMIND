@@ -89,6 +89,10 @@ include("ica/ICAClassification.jl")
 include("ica/ICAInspection.jl")
 export run_ica, apply_ica_rejection, load_ica_labels, write_ica_labels_auto, has_manual_ica_labels
 export compute_ica_features, evaluate_ica_components
+# Perfil experimental «estable»: convergencia exigida y repetibilidad por componente.
+include("ica/ICAStable.jl")
+include("ica/ICAStability.jl")
+export run_ica_stable, ica_stability
 
 # ─── Segmentación ──────────────────────────────────────────────
 #  Épocas, baseline y rechazo de artefactos por amplitud.

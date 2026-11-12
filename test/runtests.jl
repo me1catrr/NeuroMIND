@@ -65,6 +65,12 @@
 #      otros parámetros u otra implementación; una caché inservible se
 #      recalcula; no quedan productos de ICA de ejecuciones anteriores.
 #
+#  Perfil experimental de ICA «estable»
+#    · ICA_Stable — eeg_julia no cambia (implementación, parámetros, claves);
+#      identidades de caché separadas; emparejamiento global; fuentes
+#      sintéticas conocidas (casos 1 a 5); convergencia, repetibilidad y
+#      medidas exploratorias separadas; la estabilidad no cambia el rechazo.
+#
 #  Pipeline individual
 #    · Pipeline_Stages — pipeline completo sobre una grabación sintética: el
 #      orquestador y las etapas encadenadas dan las mismas salidas; estado de
@@ -74,7 +80,7 @@
 #  Fichero     test/runtests.jl
 #  Autor       Rafael Castro Triguero <me1catrr@uco.es>
 #  Creado      21-05-2026
-#  Modificado  11-11-2026
+#  Modificado  12-11-2026
 # ───────────────────────────────────────────────────────────────
 
 using Test
@@ -2371,6 +2377,342 @@ end
             @test changed.ica.result.mixing_matrix != same.ica.result.mixing_matrix
             @test isfile(joinpath(sub, "ica_labels.csv"))
             @test occursin("revise las etiquetas", read(joinpath(sub, "pipeline_log.txt"), String))
+        end
+    end
+end
+
+# ─── Perfil experimental de ICA «estable» ─────────────────────
+
+"Configuración del protocolo con el perfil `estable` y claves del perfil añadidas en [ica]."
+function stable_config(root::String, bids::String, extra::Pair{String,String}...; changes::Tuple = ())
+    path = synthetic_config(root, bids, ("ica", "profile") => "\"estable\"", changes...)
+    lines = split(read(path, String), '\n')
+    i = findfirst(l -> strip(l) == "[ica]", lines)
+    for (k, v) in reverse(collect(extra))
+        insert!(lines, i + 1, "$(k) = $(v)")
+    end
+    write(path, join(lines, '\n'))
+    return path
+end
+
+"Grabación en memoria con las fuentes mezcladas, para probar el perfil sin pasar por disco."
+function stable_recording(X::AbstractMatrix; fs = 500.0)
+    names = ["X$(i)" for i in 1:size(X, 1)]
+    meta  = NeuroMIND.RecordingMeta("S01", "T1", "EC", 1, fs, size(X, 1), names, nothing, "")
+    return NeuroMIND.EEGRecording(meta, Matrix{Float64}(X), collect((0:size(X, 2)-1) ./ fs))
+end
+
+"Configuración en memoria del perfil estable, con parámetros opcionales."
+function stable_cfg(; kw...)
+    cfg = load_ss_config(joinpath(@__DIR__, "..", "config", "pipeline.toml"))
+    cfg.ica["profile"] = "estable"
+    for (k, v) in kw
+        cfg.ica[String(k)] = v
+    end
+    return cfg
+end
+
+"Seis fuentes no gaussianas conocidas (las del plan), normalizadas."
+function stable_sources(rng, n; fs = 500.0)
+    t = (0:n-1) ./ fs
+    S = [
+        (randn(rng, n) .* sign.(randn(rng, n))) .* abs.(randn(rng, n)),   # supergaussiana
+        rand(rng, n) .- 0.5,                                              # subgaussiana
+        sin.(2π * 10 .* t) .* (1 .+ 0.5 .* sin.(2π * 0.2 .* t)),          # alfa modulada
+        [rand(rng) < 0.002 ? 8.0 : 0.0 for _ in 1:n] .+ 0.1 .* randn(rng, n),  # picos aislados
+        mod.(3 .* t, 1.0) .- 0.5,                                         # diente de sierra
+        sin.(2π * 50 .* t),                                               # red eléctrica
+    ]
+    return permutedims(hcat([(x .- mean(x)) ./ std(x) for x in S]...))
+end
+
+"Correlación de cada fuente verdadera con su componente, por emparejamiento global."
+function stable_recovery(S_true, S_est)
+    C = abs.(cor(S_true', S_est'))
+    a = NeuroMIND._ica_hungarian(C)
+    return [C[i, a[i]] for i in 1:size(C, 1)]
+end
+
+"Todas las permutaciones de 1:n (para comprobar el emparejamiento con búsqueda exhaustiva)."
+function all_permutations(n)
+    n == 1 && return [[1]]
+    out = Vector{Vector{Int}}()
+    for p in all_permutations(n - 1), k in 0:n-1
+        push!(out, [p[1:k]; n; p[k+1:end]])
+    end
+    return out
+end
+
+@testset "ICA_Stable" begin
+    @testset "eeg_julia no cambia: implementación, parámetros y huella de ICACore.jl" begin
+        cfg = load_ss_config(joinpath(@__DIR__, "..", "config", "pipeline.toml"))
+        @test cfg.ica["profile"] == "eeg_julia"
+        # Huella de ICACore.jl en b633a7f: la que entra en las claves de caché históricas
+        @test NeuroMIND.ICA_IMPLEMENTATION_SHA == "5f3d6c69c81b73a14719c50f51bd27e3ac79faa98bea790a2a4b9c2cb5c3ff10"
+        @test NeuroMIND.ICA_IMPLEMENTATION_FILES == ["ica/ICACore.jl"]
+        @test NeuroMIND._ica_implementation_for(cfg) == NeuroMIND._ica_implementation()
+        @test NeuroMIND._ica_effective_params(cfg, 31) == (profile = "eeg_julia", n_comp = 31, max_iter = 512,
+            tol = 1e-7, seed = 1234, max_attempts = 1, a = 1.0, mixing = "inv(W)  (n_comp = n_ch)")
+        # El perfil estable declara otra implementación y otros parámetros
+        st = stable_cfg()
+        @test NeuroMIND._ica_implementation_for(st).files == ["ica/ICACore.jl", "ica/ICAStable.jl"]
+        # El análisis de estabilidad no forma parte de la identidad de la descomposición
+        @test !("ica/ICAStability.jl" in NeuroMIND._ica_implementation_for(st).files)
+        @test NeuroMIND._ica_implementation_for(st).sha256 != NeuroMIND.ICA_IMPLEMENTATION_SHA
+        @test NeuroMIND._ica_effective_params(st, 16) == (profile = "estable", n_comp = 16, max_iter = 2048,
+            tol = 1e-7, seed = 1234, max_attempts = 1, a = 1.0, mixing = "inv(W)  (n_comp = n_ch)")
+    end
+
+    @testset "Emparejamiento global igual al óptimo exhaustivo" begin
+        rng = MersenneTwister(7)
+        for n in 1:7, rep in 1:4
+            # Enteros pequeños: provoca empates y filas que compiten por la misma columna
+            C = Float64.(rand(rng, 0:3, n, n))
+            a = NeuroMIND._ica_hungarian(C)
+            @test sort(a) == collect(1:n)
+            @test sum(C[i, a[i]] for i in 1:n) == maximum(sum(C[i, p[i]] for i in 1:n) for p in all_permutations(n))
+        end
+        # El máximo por filas asignaría la columna 1 dos veces; el global, no
+        C = [0.9 0.8; 0.95 0.1]
+        @test NeuroMIND._ica_hungarian(C) == [2, 1]
+    end
+
+    n  = 50_000
+    S6 = stable_sources(MersenneTwister(20261112), n)
+
+    @testset "Caso 1 · fuentes no gaussianas: converge y todo se repite" begin
+        rng = MersenneTwister(1)
+        rec = stable_recording(randn(rng, 6, 6) * S6)
+        cfg = stable_cfg()
+        ref = run_ica_stable(rec, cfg)
+        @test ref.diagnostics["converged"] && ref.diagnostics["reference_valid"]
+        @test minimum(stable_recovery(S6, ref.activations)) > 0.99
+        st = ica_stability(rec, cfg, ref)
+        @test st.measures == "reference_converged"
+        @test st.runs_converged == 5
+        @test st.seeds == collect(1235:1239)
+        @test all(st.components.evaluable)
+        @test all(st.components.n_r_ge_099 .== 5)
+        @test minimum(st.components.r_min) > 0.99
+        @test nrow(st.similarity) == 5 * 6 * 6
+        @test count(st.similarity.paired) == 5 * 6
+        @test all(st.runs.matching .== "hungarian_max_sum_abs_corr")
+        # Determinismo en el mismo entorno
+        again = run_ica_stable(rec, cfg)
+        @test again.activations == ref.activations && again.mixing_matrix == ref.mixing_matrix
+    end
+
+    @testset "Caso 2 · con dos fuentes gaussianas: lo no gaussiano se separa y se repite; lo gaussiano, como subespacio" begin
+        # Qué hace FastICA con las fuentes gaussianas depende de la muestra y del redondeo:
+        # se prueba solo lo que no depende de ellos. Las variantes que sí dependen están
+        # en test/validacion_ica_estable.jl, con sus resultados en el informe.
+        rng = MersenneTwister(2)
+        S = vcat(S6, randn(rng, 2, n))
+        rec = stable_recording(randn(rng, 8, 8) * S)
+        cfg = stable_cfg()
+        ref = run_ica_stable(rec, cfg)
+        st  = ica_stability(rec, cfg, ref)
+        C = abs.(cor(S', Float64.(ref.activations)')); a = NeuroMIND._ica_hungarian(C)
+        ng, g = a[1:6], a[7:8]
+        @test minimum(C[i, a[i]] for i in 1:6) > 0.99                # las no gaussianas, separadas
+        @test minimum(skipmissing(st.components.r_min_all_runs[ng])) > 0.99   # y repetidas
+        @test st.measures == (ref.diagnostics["converged"] ? "reference_converged" : "exploratory")
+        # Los dos componentes restantes generan el subespacio de las fuentes gaussianas
+        Q1 = Matrix(NeuroMIND.qr(S[7:8, :]').Q)[:, 1:2]
+        Q2 = Matrix(NeuroMIND.qr(Float64.(ref.activations[g, :])').Q)[:, 1:2]
+        @test minimum(NeuroMIND.svdvals(Q1' * Q2)) > 0.99
+    end
+
+    @testset "Las claves del perfil se leen del TOML y solo si están" begin
+        mktempdir() do tmp
+            bids = synthetic_bids(joinpath(tmp, "bids"); seconds=2)
+            con = load_ss_config(stable_config(joinpath(tmp, "con"), bids, "stable_max_iter" => "7", "stable_runs" => "3",
+                                               "stable_tol" => "1e-9", "stable_seed" => "11"))
+            @test (con.ica["stable_max_iter"], con.ica["stable_runs"], con.ica["stable_tol"], con.ica["stable_seed"]) == (7, 3, 1e-9, 11)
+            @test NeuroMIND._ica_effective_params(con, 16).max_iter == 7
+            sin = load_ss_config(synthetic_config(joinpath(tmp, "sin"), bids))
+            @test !any(startswith(k, "stable_") for k in keys(sin.ica))   # eeg_julia, sin claves nuevas
+        end
+    end
+
+    @testset "Tres estados del perfil: completo, incompleto, no válido" begin
+        evaluada = (runs_converged = 3,)
+        sin_convergidas = (runs_converged = 0,)
+        @test NeuroMIND._ica_stable_status(true, evaluada) == (stability = "evaluated", validation = "complete")
+        @test NeuroMIND._ica_stable_status(true, sin_convergidas) == (stability = "not_evaluable", validation = "incomplete")
+        @test NeuroMIND._ica_stable_status(true, nothing) == (stability = "failed", validation = "incomplete")
+        @test NeuroMIND._ica_stable_status(false, evaluada).validation == "not_valid"
+        @test NeuroMIND._ica_stable_status(false, nothing).validation == "not_valid"
+    end
+
+    @testset "Identidad del análisis de estabilidad, separada de la descomposición" begin
+        rec = stable_recording(randn(MersenneTwister(1), 6, 6) * S6)
+        cfg = stable_cfg()
+        ref = run_ica_stable(rec, cfg)
+        a = ica_stability(rec, cfg, ref)
+        b = ica_stability(rec, cfg, ref; runs = 3)
+        @test a.identity.decomposition == b.identity.decomposition == NeuroMIND._ica_cache_key(rec, cfg)
+        @test a.identity.key != b.identity.key                    # otra K, otro diagnóstico
+        @test b.identity.seeds == [1235, 1236, 1237]
+        @test a.identity.files == ["ica/ICAStability.jl"]
+        @test a.identity.sha256 == bytes2hex(NeuroMIND.sha256(read(joinpath(@__DIR__, "..", "src", "ica", "ICAStability.jl"))))
+        @test a.identity.key == ica_stability(rec, cfg, ref).identity.key   # determinista
+    end
+
+    @testset "Una ejecución que falla no cuenta como no convergida" begin
+        rec = stable_recording(randn(MersenneTwister(1), 6, 6) * S6)
+        cfg = stable_cfg()
+        ref = run_ica_stable(rec, cfg)
+        falla(Z, V, it, tol, seed) = seed == 1236 ? throw(DomainError(-1e-17, "prueba")) : NeuroMIND._ica_stable_run(Z, V, it, tol, seed)
+        st = ica_stability(rec, cfg, ref; _run = falla)
+        @test st.runs.status == ["converged", "failed", "converged", "converged", "converged"]
+        @test st.runs_failed == 1 && st.runs_converged == 4
+        @test all(st.components.n_r_ge_099 .== 4)
+        @test nrow(st.similarity) == 4 * 36
+        @test occursin("DomainError", st.runs.error[2])
+    end
+
+    @testset "Caso 3 · ninguna ejecución converge: no evaluable, no inestable" begin
+        rec = stable_recording(randn(MersenneTwister(3), 6, 6) * S6)
+        cfg = stable_cfg(stable_max_iter = 2)
+        ref = run_ica_stable(rec, cfg)
+        @test !ref.diagnostics["converged"] && !ref.diagnostics["reference_valid"]
+        st = ica_stability(rec, cfg, ref)
+        @test st.runs_converged == 0
+        @test st.measures == "exploratory"
+        @test !any(st.components.evaluable)
+        @test all(ismissing, st.components.r_min) && all(ismissing, st.components.r_median)
+        @test all(st.components.n_r_ge_090 .== 0)
+        @test nrow(st.similarity) == 5 * 36                    # las matrices se guardan igualmente
+    end
+
+    @testset "Caso 4 · parada inalcanzable: no converge sin fuentes gaussianas" begin
+        rec = stable_recording(randn(MersenneTwister(4), 6, 6) * S6)
+        cfg = stable_cfg(stable_tol = 1e-16)
+        ref = run_ica_stable(rec, cfg)
+        @test !ref.diagnostics["converged"]
+        @test minimum(stable_recovery(S6, ref.activations)) > 0.99   # las fuentes quedan separadas
+        st = ica_stability(rec, cfg, ref)
+        @test st.runs_converged == 0 && !any(st.components.evaluable)
+        @test st.measures == "exploratory"
+        @test minimum(st.components.r_min_all_runs) > 0.99            # similitud exploratoria ≈ 1
+        # El cambio de la última iteración es del orden del redondeo y no se concentra en ningún componente
+        @test maximum(st.components.last_step_change) < 1e-12
+        # Nada de la salida atribuye la falta de convergencia a fuentes gaussianas
+        @test minimum(abs.(st.components.excess_kurtosis)) > 0.5
+        @test !any(occursin("gauss", lowercase(c)) for c in names(st.components))
+    end
+
+    @testset "Caso 5 · mezcla casi singular con ruido: converge y se repite, pero no recupera las fuentes" begin
+        rng = MersenneTwister(5)
+        U = Matrix(NeuroMIND.qr(randn(rng, 6, 6)).Q); V = Matrix(NeuroMIND.qr(randn(rng, 6, 6)).Q)
+        A = U * NeuroMIND.Diagonal(10.0 .^ range(0, -10, length = 6)) * V'
+        rec = stable_recording(A * S6 .+ 1e-6 .* randn(rng, 6, n))
+        cfg = stable_cfg()
+        ref = run_ica_stable(rec, cfg)
+        st = ica_stability(rec, cfg, ref)
+        @test ref.diagnostics["converged"] && st.runs_converged == 5
+        @test minimum(st.components.r_min) > 0.99                     # repetible…
+        @test minimum(stable_recovery(S6, ref.activations)) < 0.5     # …y aun así no son las fuentes
+    end
+
+    @testset "Entre entornos: 1 hilo de BLAS frente a varios, mismas conclusiones" begin
+        rec = stable_recording(randn(MersenneTwister(1), 6, 6) * S6)
+        cfg = stable_cfg()
+        hilos = NeuroMIND.BLAS.get_num_threads()
+        a = ica_stability(rec, cfg, run_ica_stable(rec, cfg))
+        NeuroMIND.BLAS.set_num_threads(1)
+        b = try ica_stability(rec, cfg, run_ica_stable(rec, cfg)) finally NeuroMIND.BLAS.set_num_threads(hilos) end
+        for c in (:evaluable, :runs_converged, :n_r_ge_090, :n_r_ge_095, :n_r_ge_099, :auto_proposed_runs)
+            @test a.components[!, c] == b.components[!, c]
+        end
+        @test maximum(abs.(a.components.r_min .- b.components.r_min)) < 1e-6
+    end
+
+    @testset "En la etapa: tablas, resumen, procedencia y separación de cachés" begin
+        mktempdir() do tmp
+            bids = synthetic_bids(joinpath(tmp, "bids"); seconds=10)
+            root(x) = joinpath(tmp, x)
+            hist = run_to_ica(synthetic_config(root("hist"), bids))
+            est  = run_to_ica(stable_config(root("est"), bids))
+            sub  = est.ctx.export_dir
+            for f in ("ica_stability.csv", "ica_stability_runs.csv", "ica_stability_similarity.csv")
+                @test isfile(joinpath(sub, "tables", "ica", f))
+            end
+            summary = read(joinpath(sub, "json", "ica_summary.json"), String)
+            @test occursin("\"profile\": \"estable\"", summary)
+            st_ = NeuroMIND._ica_stable_status(Bool(est.ica.result.diagnostics["reference_valid"]),
+                (runs_converged = count(NeuroMIND.CSV.read(joinpath(sub, "tables", "ica", "ica_stability_runs.csv"), NeuroMIND.DataFrame).converged),))
+            @test occursin("\"profile_validation\": \"$(st_.validation)\"", summary)
+            @test occursin("\"manual_labels\": \"none\"", summary)
+            prov = NeuroMIND.TOML.parsefile(joinpath(sub, "cache", "ica_provenance.toml"))
+            @test prov["stability"]["runs"] == 5 && haskey(prov, "environment")
+            @test prov["stability"]["decomposition"] == prov["key"]
+            @test prov["stability"]["files"] == ["ica/ICAStability.jl"]
+            # Cambiar K invalida el diagnóstico, no la descomposición
+            otra_k = run_to_ica(stable_config(root("est"), bids, "stable_runs" => "3"))
+            @test otra_k.ica.status == :cache
+            prov3 = NeuroMIND.TOML.parsefile(joinpath(sub, "cache", "ica_provenance.toml"))
+            @test prov3["key"] == prov["key"] && prov3["stability"]["key"] != prov["stability"]["key"]
+            @test prov3["stability"]["runs"] == 3
+            @test nrow(NeuroMIND.CSV.read(joinpath(sub, "tables", "ica", "ica_stability_runs.csv"), NeuroMIND.DataFrame)) == 3
+            @test "ica/ICAStable.jl" in prov["implementation"]["files"]
+            # El histórico no lleva nada del perfil nuevo
+            hp = NeuroMIND.TOML.parsefile(joinpath(hist.ctx.export_dir, "cache", "ica_provenance.toml"))
+            @test !haskey(hp, "stability") && !haskey(hp, "environment") && hp["implementation"]["files"] == ["ica/ICACore.jl"]
+            @test !occursin("profile", read(joinpath(hist.ctx.export_dir, "json", "ica_summary.json"), String))
+            # La estabilidad no cambia la clasificación ni el rechazo
+            valid = Bool(est.ica.result.diagnostics["reference_valid"])
+            feats = NeuroMIND.CSV.read(joinpath(sub, "tables", "ica", "ica_component_features.csv"), NeuroMIND.DataFrame)
+            if valid
+                @test est.ica.rejection_source == "auto"
+                @test est.ica.result.rejected_components == findall(!=("brain"), String.(feats.artifact_type))
+            else
+                @test est.ica.rejection_source == "none" && isempty(est.ica.result.rejected_components)
+            end
+            # Una caché de un perfil no vale para el otro, en los dos sentidos
+            cp(joinpath(root("hist"), "results"), joinpath(mkpath(root("h2e")), "results"))
+            @test run_to_ica(stable_config(root("h2e"), bids)).ica.status == :computed
+            cp(joinpath(root("est"), "results"), joinpath(mkpath(root("e2h")), "results"))
+            @test run_to_ica(synthetic_config(root("e2h"), bids)).ica.status == :computed
+            @test run_to_ica(stable_config(root("est"), bids)).ica.status == :cache
+        end
+    end
+
+    @testset "En la etapa: una referencia no convergida no aplica rechazos" begin
+        mktempdir() do tmp
+            bids = synthetic_bids(joinpath(tmp, "bids"); seconds=10)
+            r = run_to_ica(stable_config(joinpath(tmp, "nc"), bids, "stable_max_iter" => "2"))
+            @test r.ica.status == :computed
+            @test r.ica.result.diagnostics["reference_valid"] == false
+            @test r.ica.rejection_source == "none" && isempty(r.ica.result.rejected_components)
+            @test r.ica.rec.data == r.filtered.rec.data        # sale la señal filtrada
+            sub = r.ctx.export_dir
+            summary = read(joinpath(sub, "json", "ica_summary.json"), String)
+            @test occursin("\"valid_for_analysis\": false", summary) && occursin("\"stability_measures\": \"exploratory\"", summary)
+            st = NeuroMIND.CSV.read(joinpath(sub, "tables", "ica", "ica_stability.csv"), NeuroMIND.DataFrame)
+            @test all(st.measures .== "exploratory")
+            @test isfile(joinpath(sub, "cache", "ica_result.jls"))   # la descomposición se conserva
+            @test !isfile(joinpath(sub, "ica_labels_auto.csv"))
+            @test occursin("\"profile_validation\": \"not_valid\"", summary)
+        end
+    end
+
+    @testset "En la etapa: una decisión manual se conserva, pero no se aplica sin convergencia" begin
+        mktempdir() do tmp
+            bids = synthetic_bids(joinpath(tmp, "bids"); seconds=10)
+            dir  = joinpath(tmp, "manual")
+            primero = run_to_ica(stable_config(dir, bids, "stable_max_iter" => "2"))
+            etiquetas = "component,label\n" * join(["$(i),$(i in (2, 5) ? "artifact" : "brain")" for i in 1:16], "\n") * "\n"
+            ruta = joinpath(primero.ctx.export_dir, "ica_labels.csv")
+            write(ruta, etiquetas)
+            r = run_to_ica(stable_config(dir, bids, "stable_max_iter" => "2"))
+            @test r.ica.rejection_source == "none" && isempty(r.ica.result.rejected_components)
+            @test r.ica.rec.data == r.filtered.rec.data
+            @test read(ruta, String) == etiquetas                  # ni borrada ni sobrescrita
+            summary = read(joinpath(r.ctx.export_dir, "json", "ica_summary.json"), String)
+            @test occursin("\"manual_labels\": \"not_applicable\"", summary)
+            @test occursin("no es aplicable a esta descomposición", read(joinpath(r.ctx.export_dir, "pipeline_log.txt"), String))
         end
     end
 end

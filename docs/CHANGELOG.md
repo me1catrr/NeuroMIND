@@ -4,6 +4,65 @@
 > no se cargue en cada sesión de los agentes. Las entradas nuevas van arriba.
 > `AGENTS.md` §13 apunta aquí (y `Report_Pre/chapters/12_espectral.tex` cita esa sección).
 
+### 2026-11-12 — Perfil experimental de ICA «estable»: convergencia exigida y repetibilidad por componente
+
+Añade un perfil de ICA nuevo y experimental, `ica.profile = "estable"`. **No cambia el
+protocolo**: el perfil por defecto sigue siendo `eeg_julia`, y su código, sus resultados y
+sus claves de caché son idénticos a los de la versión anterior.
+
+- **Por qué.** Con `eeg_julia` (512 iteraciones, un intento) una grabación real no convergió,
+  y converger o no dependía del redondeo. Con otras semillas, los componentes de artefacto
+  marcados se repetían y los casi gaussianos no. Son dos problemas distintos: la
+  **convergencia** del algoritmo y la **estabilidad** de la solución. Una ICA convergida no
+  garantiza componentes estables.
+- **Dónde.** `src/ica/ICAStable.jl` (descomposición) y `src/ica/ICAStability.jl` (análisis de
+  estabilidad). `src/ica/ICACore.jl` no se toca: su huella forma parte de la clave de caché de
+  `eeg_julia`. `stage_ica` dirige el perfil nuevo a `run_ica_stable`; la identidad de la caché
+  del perfil incluye `ICAStable.jl` (`_ica_implementation_for`), así que una caché de un
+  perfil nunca vale para el otro.
+- **Dos identidades.** La de la descomposición (la clave de caché) y la del análisis de
+  estabilidad (`_ica_stability_identity`: clave de la descomposición, K, semillas,
+  emparejamiento, umbrales, versión y huella de `ICAStability.jl`). Cambiar K o el
+  emparejamiento invalida el diagnóstico, no la descomposición, que se reutiliza de caché.
+- **Tres estados** (`profile_validation` en `ica_summary.json`): `complete` (referencia
+  convergida y estabilidad evaluada), `incomplete` (referencia convergida, pero ninguna
+  ejecución adicional convergió o el cálculo de estabilidad falló) y `not_valid` (referencia
+  no convergida).
+- **Convergencia exigida.** Un intento con `stable_seed` (1234) y hasta `stable_max_iter`
+  (2048) iteraciones, con `stable_tol` (1e-7). Si no converge, se conservan la
+  descomposición y sus diagnósticos, `ica_summary.json` lo marca como
+  `"valid_for_analysis": false` y la etapa no aplica ningún rechazo, ni automático ni
+  manual. Una decisión manual existente se conserva, sin borrar ni sobrescribir, con
+  `"manual_labels": "not_applicable"`. Los diagnósticos incluyen cuánto se movería cada
+  componente en una iteración más (`component_step`).
+- **Repetibilidad.** `stable_runs` (5) descomposiciones más con semillas `seed+1…seed+K`,
+  emparejadas con la de referencia por asignación global uno a uno (algoritmo húngaro) sobre
+  la correlación absoluta de las activaciones. Tablas: `ica_stability.csv` (por componente:
+  ejecuciones convergidas, correlación mínima y mediana, coincidencias ≥ 0,90, 0,95 y 0,99,
+  propuesta automática en cada ejecución, curtosis en exceso, cambio de la última iteración),
+  `ica_stability_runs.csv` (por ejecución) e `ica_stability_similarity.csv` (las matrices
+  completas). Solo cuentan las ejecuciones convergidas; si ninguna converge, la estabilidad
+  es «no evaluable». Si la referencia no converge, todas las medidas son `exploratory`. Una
+  ejecución que falla (por ejemplo, `_sym_decorr` de `ICACore.jl` con un autovalor negativo
+  por redondeo) se registra como `failed`, distinta de una no convergida.
+- **Qué no es.** Una aproximación simplificada inspirada en ICASSO (Himberg, Hyvärinen y
+  Esposito, 2004): sin agrupamiento, sin índice de calidad de grupo, sin centrotipo. La
+  estabilidad no cambia la clasificación ni el rechazo, y la repetibilidad de un componente
+  no dice nada de su origen fisiológico. Los umbrales son exploratorios.
+- **Pruebas** (`ICA_Stable`): protección de `eeg_julia` (huella de `ICACore.jl`, parámetros,
+  implementación, manifiestos), separación de cachés en los dos sentidos, emparejamiento
+  frente a búsqueda exhaustiva, cinco casos sintéticos con fuentes conocidas (no gaussianas;
+  con dos gaussianas, comprobando el subespacio; sin ninguna ejecución convergida; parada
+  inalcanzable sin fuentes gaussianas; mezcla casi singular que converge y se repite sin
+  recuperar las fuentes), ejecuciones fallidas, determinismo, 1 frente a varios hilos de
+  BLAS, y la etapa completa con referencia válida y no convergida.
+- **Validación** (`test/validacion_ica_estable.jl`, fuera de `runtests.jl`, con la especificación
+  completa de datos, semillas, parámetros y métricas en su cabecera): lo que depende de
+  la muestra y del redondeo. Con dos fuentes gaussianas, los componentes que les corresponden
+  pueden repetirse entre semillas sin recuperarlas, o recuperarlas sin repetirse; el
+  subespacio que generan coincide siempre con el de las fuentes. **Repetibilidad no es
+  identificación.**
+
 ### 2026-11-11 — La caché de ICA identifica su señal, sus parámetros y su implementación
 
 Corrige dos defectos de la caché de ICA. Es un cambio de comportamiento deliberado y acotado:
