@@ -91,6 +91,7 @@ export run_ica, apply_ica_rejection, load_ica_labels, write_ica_labels_auto, has
 export compute_ica_features, evaluate_ica_components
 # Perfil experimental «estable»: convergencia exigida y repetibilidad por componente.
 include("ica/ICAStable.jl")
+include("ica/ICAStability.jl")
 export run_ica_stable, ica_stability
 
 # ─── Segmentación ──────────────────────────────────────────────

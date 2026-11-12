@@ -15,16 +15,26 @@ sus claves de caché son idénticos a los de la versión anterior.
   marcados se repetían y los casi gaussianos no. Son dos problemas distintos: la
   **convergencia** del algoritmo y la **estabilidad** de la solución. Una ICA convergida no
   garantiza componentes estables.
-- **Dónde.** `src/ica/ICAStable.jl`. `src/ica/ICACore.jl` no se toca: su huella forma parte
-  de la clave de caché de `eeg_julia`. `stage_ica` dirige el perfil nuevo a
-  `run_ica_stable`; la identidad de la caché del perfil incluye su propio archivo
-  (`_ica_implementation_for`), así que una caché de un perfil nunca vale para el otro.
+- **Dónde.** `src/ica/ICAStable.jl` (descomposición) y `src/ica/ICAStability.jl` (análisis de
+  estabilidad). `src/ica/ICACore.jl` no se toca: su huella forma parte de la clave de caché de
+  `eeg_julia`. `stage_ica` dirige el perfil nuevo a `run_ica_stable`; la identidad de la caché
+  del perfil incluye `ICAStable.jl` (`_ica_implementation_for`), así que una caché de un
+  perfil nunca vale para el otro.
+- **Dos identidades.** La de la descomposición (la clave de caché) y la del análisis de
+  estabilidad (`_ica_stability_identity`: clave de la descomposición, K, semillas,
+  emparejamiento, umbrales, versión y huella de `ICAStability.jl`). Cambiar K o el
+  emparejamiento invalida el diagnóstico, no la descomposición, que se reutiliza de caché.
+- **Tres estados** (`profile_validation` en `ica_summary.json`): `complete` (referencia
+  convergida y estabilidad evaluada), `incomplete` (referencia convergida, pero ninguna
+  ejecución adicional convergió o el cálculo de estabilidad falló) y `not_valid` (referencia
+  no convergida).
 - **Convergencia exigida.** Un intento con `stable_seed` (1234) y hasta `stable_max_iter`
   (2048) iteraciones, con `stable_tol` (1e-7). Si no converge, se conservan la
   descomposición y sus diagnósticos, `ica_summary.json` lo marca como
   `"valid_for_analysis": false` y la etapa no aplica ningún rechazo, ni automático ni
-  manual. Los diagnósticos incluyen cuánto se movería cada componente en una iteración más
-  (`component_step`).
+  manual. Una decisión manual existente se conserva, sin borrar ni sobrescribir, con
+  `"manual_labels": "not_applicable"`. Los diagnósticos incluyen cuánto se movería cada
+  componente en una iteración más (`component_step`).
 - **Repetibilidad.** `stable_runs` (5) descomposiciones más con semillas `seed+1…seed+K`,
   emparejadas con la de referencia por asignación global uno a uno (algoritmo húngaro) sobre
   la correlación absoluta de las activaciones. Tablas: `ica_stability.csv` (por componente:
@@ -46,7 +56,8 @@ sus claves de caché son idénticos a los de la versión anterior.
   inalcanzable sin fuentes gaussianas; mezcla casi singular que converge y se repite sin
   recuperar las fuentes), ejecuciones fallidas, determinismo, 1 frente a varios hilos de
   BLAS, y la etapa completa con referencia válida y no convergida.
-- **Validación** (`test/validacion_ica_estable.jl`, fuera de `runtests.jl`): lo que depende de
+- **Validación** (`test/validacion_ica_estable.jl`, fuera de `runtests.jl`, con la especificación
+  completa de datos, semillas, parámetros y métricas en su cabecera): lo que depende de
   la muestra y del redondeo. Con dos fuentes gaussianas, los componentes que les corresponden
   pueden repetirse entre semillas sin recuperarlas, o recuperarlas sin repetirse; el
   subespacio que generan coincide siempre con el de las fuentes. **Repetibilidad no es

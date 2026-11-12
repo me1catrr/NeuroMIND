@@ -100,8 +100,9 @@ const ICA_IMPLEMENTATION_SHA = bytes2hex(sha256(join(
 
 """
 Archivos de los que depende la descomposición del perfil experimental
-`estable`: los auxiliares de ICACore.jl y su propio archivo, que contiene el
-centrado y el emparejamiento.
+`estable`: los auxiliares de ICACore.jl y su propio archivo, con el centrado.
+El análisis de estabilidad (ICAStability.jl) no está aquí: tiene su propia
+identidad, y cambiarlo no invalida la descomposición.
 """
 const ICA_STABLE_IMPLEMENTATION_FILES = ["ica/ICACore.jl", "ica/ICAStable.jl"]
 
@@ -394,6 +395,9 @@ function _ica_write_provenance(export_dir::String, identity; stability=nothing)
         doc["centering"] = Dict{String,Any}("version" => ICA_STABLE_CENTERING)
         if stability !== nothing
             doc["stability"] = Dict{String,Any}(
+                "key" => stability.identity.key, "version" => stability.identity.version,
+                "files" => stability.identity.files, "sha256" => stability.identity.sha256,
+                "decomposition" => stability.identity.decomposition,
                 "runs" => stability.n_runs, "seeds" => stability.seeds,
                 "runs_converged" => stability.runs_converged, "runs_failed" => stability.runs_failed,
                 "matching" => stability.matching,
@@ -409,19 +413,50 @@ end
 
 # ── Perfil experimental «estable»: piezas de la etapa ────────
 
+"""Claves de `[ica]` del perfil `estable` presentes en el TOML, con su tipo."""
+function _ica_stable_keys(ica_raw::AbstractDict)
+    tipos = ("stable_max_iter" => Int, "stable_tol" => Float64, "stable_seed" => Int, "stable_runs" => Int)
+    return [k => T(ica_raw[k]) for (k, T) in tipos if haskey(ica_raw, k)]
+end
+
 "`true` si la configuración pide el perfil experimental `estable` (ICAStable.jl)."
 _ica_stable_profile(cfg::PipelineConfig) = String(get(cfg.ica, "profile", "default")) == "estable"
 
+"""
+    _ica_stable_status(reference_valid, stab) -> (stability, validation)
+
+Estado del perfil `estable`, en tres situaciones que no se confunden:
+
+- `validation = "complete"`: referencia convergida y estabilidad evaluada
+  (al menos una ejecución adicional convergida);
+- `"incomplete"`: referencia convergida, pero la estabilidad no es evaluable
+  (ninguna ejecución adicional convergió) o su cálculo falló;
+- `"not_valid"`: la referencia no convergió.
+
+`stability` es `"evaluated"`, `"not_evaluable"` o `"failed"`.
+"""
+function _ica_stable_status(reference_valid::Bool, stab)
+    stability = stab === nothing ? "failed" : stab.runs_converged > 0 ? "evaluated" : "not_evaluable"
+    validation = !reference_valid ? "not_valid" : stability == "evaluated" ? "complete" : "incomplete"
+    return (; stability, validation)
+end
+
 "Campos que el perfil `estable` añade a `json/ica_summary.json`."
-function _ica_stable_summary_json(valid::Bool, stab)
+function _ica_stable_summary_json(valid::Bool, stab, manual::String = "none")
     runs = stab === nothing ? "null" : string(stab.n_runs)
     conv = stab === nothing ? "null" : string(stab.runs_converged)
     fail = stab === nothing ? "null" : string(stab.runs_failed)
     meas = stab === nothing ? "not_available" : stab.measures
+    st   = _ica_stable_status(valid, stab)
+    key  = stab === nothing ? "null" : "\"$(stab.identity.key)\""
     return join([
         "  \"profile\": \"estable\"",
         "  \"reference_valid\": $(valid)",
         "  \"valid_for_analysis\": $(valid)",
+        "  \"profile_validation\": \"$(st.validation)\"",
+        "  \"stability_status\": \"$(st.stability)\"",
+        "  \"stability_key\": $(key)",
+        "  \"manual_labels\": \"$(manual)\"",
         "  \"stability_runs\": $(runs)",
         "  \"stability_runs_converged\": $(conv)",
         "  \"stability_runs_failed\": $(fail)",
@@ -572,6 +607,9 @@ function load_ss_config(path::String)::PipelineConfig
             "verbose"            => Bool(get(ica_raw, "verbose", false)),
             "artifact_threshold" => Float64(get(ica_raw, "artifact_threshold", 1.5)),
             "auto_reject"        => Bool(get(ica_raw, "auto_reject", true)),
+            # Perfil experimental «estable»: sus claves solo entran si el TOML las
+            # declara, de modo que la configuración de los demás perfiles no cambia.
+            _ica_stable_keys(ica_raw)...,
         ),
         Dict{String,Any}(
             "nfft"       => Int(get(sp, "nfft", 512)),
@@ -1282,6 +1320,10 @@ function stage_ica(ctx::PipelineContext, filtered::FilterOutput)::ICAOutput
 
         # Precedencia de rechazo: manual > auto (auto_reject) > ninguno
         _has_manual = has_manual_ica_labels(cfg, sid, sess_id, condition)
+        # Con una referencia no válida, la decisión manual se conserva (no se borra ni
+        # se sobrescribe), pero no se aplica: no corresponde a una descomposición válida.
+        _manual_state = !_stable ? "" : !_has_manual ? "none" : _stable_valid ? "applied" : "not_applicable"
+        _manual_state == "not_applicable" && _log(log_io, "  Perfil estable: ica_labels.csv se conserva, pero no es aplicable a esta descomposición (no convergida)")
         rejection_source, rej_labels = if !_stable_valid
             ("none", Int[])
         elseif _has_manual
@@ -1441,7 +1483,7 @@ function stage_ica(ctx::PipelineContext, filtered::FilterOutput)::ICAOutput
         # Tablas/figuras ICA (features, mixing, topomaps, summary…)
         _ica_files = _save_ica_results(ica_result, rec_filt, rec_ica, export_dir, ica_dur, log_io;
             eval_df=_eval, rejection_source=rejection_source, artifact_thresh=_artifact_thresh,
-            extra_json=_stable ? _ica_stable_summary_json(_stable_valid, _stability) : "")
+            extra_json=_stable ? _ica_stable_summary_json(_stable_valid, _stability, _manual_state) : "")
         _stability === nothing || append!(_ica_files, _save_ica_stability(_stability, export_dir, log_io))
         # Caché serializada (si se escribió o ya existía)
         push!(_ica_files, ("ica_result.jls", "cache/ica_result.jls"))

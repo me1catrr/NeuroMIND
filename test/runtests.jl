@@ -2456,6 +2456,8 @@ end
         # El perfil estable declara otra implementación y otros parámetros
         st = stable_cfg()
         @test NeuroMIND._ica_implementation_for(st).files == ["ica/ICACore.jl", "ica/ICAStable.jl"]
+        # El análisis de estabilidad no forma parte de la identidad de la descomposición
+        @test !("ica/ICAStability.jl" in NeuroMIND._ica_implementation_for(st).files)
         @test NeuroMIND._ica_implementation_for(st).sha256 != NeuroMIND.ICA_IMPLEMENTATION_SHA
         @test NeuroMIND._ica_effective_params(st, 16) == (profile = "estable", n_comp = 16, max_iter = 2048,
             tol = 1e-7, seed = 1234, max_attempts = 1, a = 1.0, mixing = "inv(W)  (n_comp = n_ch)")
@@ -2519,6 +2521,42 @@ end
         Q1 = Matrix(NeuroMIND.qr(S[7:8, :]').Q)[:, 1:2]
         Q2 = Matrix(NeuroMIND.qr(Float64.(ref.activations[g, :])').Q)[:, 1:2]
         @test minimum(NeuroMIND.svdvals(Q1' * Q2)) > 0.99
+    end
+
+    @testset "Las claves del perfil se leen del TOML y solo si están" begin
+        mktempdir() do tmp
+            bids = synthetic_bids(joinpath(tmp, "bids"); seconds=2)
+            con = load_ss_config(stable_config(joinpath(tmp, "con"), bids, "stable_max_iter" => "7", "stable_runs" => "3",
+                                               "stable_tol" => "1e-9", "stable_seed" => "11"))
+            @test (con.ica["stable_max_iter"], con.ica["stable_runs"], con.ica["stable_tol"], con.ica["stable_seed"]) == (7, 3, 1e-9, 11)
+            @test NeuroMIND._ica_effective_params(con, 16).max_iter == 7
+            sin = load_ss_config(synthetic_config(joinpath(tmp, "sin"), bids))
+            @test !any(startswith(k, "stable_") for k in keys(sin.ica))   # eeg_julia, sin claves nuevas
+        end
+    end
+
+    @testset "Tres estados del perfil: completo, incompleto, no válido" begin
+        evaluada = (runs_converged = 3,)
+        sin_convergidas = (runs_converged = 0,)
+        @test NeuroMIND._ica_stable_status(true, evaluada) == (stability = "evaluated", validation = "complete")
+        @test NeuroMIND._ica_stable_status(true, sin_convergidas) == (stability = "not_evaluable", validation = "incomplete")
+        @test NeuroMIND._ica_stable_status(true, nothing) == (stability = "failed", validation = "incomplete")
+        @test NeuroMIND._ica_stable_status(false, evaluada).validation == "not_valid"
+        @test NeuroMIND._ica_stable_status(false, nothing).validation == "not_valid"
+    end
+
+    @testset "Identidad del análisis de estabilidad, separada de la descomposición" begin
+        rec = stable_recording(randn(MersenneTwister(1), 6, 6) * S6)
+        cfg = stable_cfg()
+        ref = run_ica_stable(rec, cfg)
+        a = ica_stability(rec, cfg, ref)
+        b = ica_stability(rec, cfg, ref; runs = 3)
+        @test a.identity.decomposition == b.identity.decomposition == NeuroMIND._ica_cache_key(rec, cfg)
+        @test a.identity.key != b.identity.key                    # otra K, otro diagnóstico
+        @test b.identity.seeds == [1235, 1236, 1237]
+        @test a.identity.files == ["ica/ICAStability.jl"]
+        @test a.identity.sha256 == bytes2hex(NeuroMIND.sha256(read(joinpath(@__DIR__, "..", "src", "ica", "ICAStability.jl"))))
+        @test a.identity.key == ica_stability(rec, cfg, ref).identity.key   # determinista
     end
 
     @testset "Una ejecución que falla no cuenta como no convergida" begin
@@ -2603,8 +2641,21 @@ end
             end
             summary = read(joinpath(sub, "json", "ica_summary.json"), String)
             @test occursin("\"profile\": \"estable\"", summary)
+            st_ = NeuroMIND._ica_stable_status(Bool(est.ica.result.diagnostics["reference_valid"]),
+                (runs_converged = count(NeuroMIND.CSV.read(joinpath(sub, "tables", "ica", "ica_stability_runs.csv"), NeuroMIND.DataFrame).converged),))
+            @test occursin("\"profile_validation\": \"$(st_.validation)\"", summary)
+            @test occursin("\"manual_labels\": \"none\"", summary)
             prov = NeuroMIND.TOML.parsefile(joinpath(sub, "cache", "ica_provenance.toml"))
             @test prov["stability"]["runs"] == 5 && haskey(prov, "environment")
+            @test prov["stability"]["decomposition"] == prov["key"]
+            @test prov["stability"]["files"] == ["ica/ICAStability.jl"]
+            # Cambiar K invalida el diagnóstico, no la descomposición
+            otra_k = run_to_ica(stable_config(root("est"), bids, "stable_runs" => "3"))
+            @test otra_k.ica.status == :cache
+            prov3 = NeuroMIND.TOML.parsefile(joinpath(sub, "cache", "ica_provenance.toml"))
+            @test prov3["key"] == prov["key"] && prov3["stability"]["key"] != prov["stability"]["key"]
+            @test prov3["stability"]["runs"] == 3
+            @test nrow(NeuroMIND.CSV.read(joinpath(sub, "tables", "ica", "ica_stability_runs.csv"), NeuroMIND.DataFrame)) == 3
             @test "ica/ICAStable.jl" in prov["implementation"]["files"]
             # El histórico no lleva nada del perfil nuevo
             hp = NeuroMIND.TOML.parsefile(joinpath(hist.ctx.export_dir, "cache", "ica_provenance.toml"))
@@ -2643,6 +2694,25 @@ end
             @test all(st.measures .== "exploratory")
             @test isfile(joinpath(sub, "cache", "ica_result.jls"))   # la descomposición se conserva
             @test !isfile(joinpath(sub, "ica_labels_auto.csv"))
+            @test occursin("\"profile_validation\": \"not_valid\"", summary)
+        end
+    end
+
+    @testset "En la etapa: una decisión manual se conserva, pero no se aplica sin convergencia" begin
+        mktempdir() do tmp
+            bids = synthetic_bids(joinpath(tmp, "bids"); seconds=10)
+            dir  = joinpath(tmp, "manual")
+            primero = run_to_ica(stable_config(dir, bids, "stable_max_iter" => "2"))
+            etiquetas = "component,label\n" * join(["$(i),$(i in (2, 5) ? "artifact" : "brain")" for i in 1:16], "\n") * "\n"
+            ruta = joinpath(primero.ctx.export_dir, "ica_labels.csv")
+            write(ruta, etiquetas)
+            r = run_to_ica(stable_config(dir, bids, "stable_max_iter" => "2"))
+            @test r.ica.rejection_source == "none" && isempty(r.ica.result.rejected_components)
+            @test r.ica.rec.data == r.filtered.rec.data
+            @test read(ruta, String) == etiquetas                  # ni borrada ni sobrescrita
+            summary = read(joinpath(r.ctx.export_dir, "json", "ica_summary.json"), String)
+            @test occursin("\"manual_labels\": \"not_applicable\"", summary)
+            @test occursin("no es aplicable a esta descomposición", read(joinpath(r.ctx.export_dir, "pipeline_log.txt"), String))
         end
     end
 end
