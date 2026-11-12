@@ -98,7 +98,35 @@ const ICA_IMPLEMENTATION_FILES = ["ica/ICACore.jl"]
 const ICA_IMPLEMENTATION_SHA = bytes2hex(sha256(join(
     (read(joinpath(@__DIR__, f), String) for f in ICA_IMPLEMENTATION_FILES), "\n")))
 
-"""Implementación con la que se calcula la ICA en esta sesión."""
+"""
+Archivos de los que depende la descomposición del perfil experimental
+`estable`: los auxiliares de ICACore.jl y su propio archivo, que contiene el
+centrado y el emparejamiento.
+"""
+const ICA_STABLE_IMPLEMENTATION_FILES = ["ica/ICACore.jl", "ica/ICAStable.jl"]
+
+const ICA_STABLE_IMPLEMENTATION_SHA = bytes2hex(sha256(join(
+    (read(joinpath(@__DIR__, f), String) for f in ICA_STABLE_IMPLEMENTATION_FILES), "\n")))
+
+"""
+Implementación con la que se calcula la ICA en esta sesión, según el perfil.
+Para `eeg_julia` y `default` es exactamente la de `_ica_implementation()`, y
+por tanto sus claves de caché no cambian. El perfil `estable` declara sus
+propios archivos: una caché de un perfil nunca vale para el otro.
+"""
+function _ica_implementation_for(cfg::PipelineConfig)
+    String(get(cfg.ica, "profile", "default")) == "estable" || return _ica_implementation()
+    return (
+        format    = ICA_CACHE_FORMAT,
+        algorithm = ICA_ALGORITHM_VERSION,
+        files     = ICA_STABLE_IMPLEMENTATION_FILES,
+        sha256    = ICA_STABLE_IMPLEMENTATION_SHA,
+        julia     = string(VERSION),
+        machine   = String(Sys.MACHINE),
+    )
+end
+
+"""Implementación con la que se calcula la ICA en esta sesión (perfiles `eeg_julia` y `default`)."""
 _ica_implementation() = (
     format    = ICA_CACHE_FORMAT,
     algorithm = ICA_ALGORITHM_VERSION,
@@ -134,7 +162,7 @@ incluye `artifact_threshold`, `auto_reject` ni las etiquetas manuales: se
 aplican después y no cambian la descomposición.
 """
 function _ica_cache_identity(rec::EEGRecording, cfg::PipelineConfig;
-                             implementation = _ica_implementation())
+                             implementation = _ica_implementation_for(cfg))
     p = _ica_effective_params(cfg, rec.meta.n_channels)
     n_ch, n_samp = size(rec.data)
     names = rec.meta.channel_names
@@ -328,7 +356,7 @@ Escribe `cache/ica_provenance.toml`: de qué señal, parámetros e implementaci�
 procede la descomposición de la carpeta y qué productos escribió la etapa. No
 lleva fecha: dos ejecuciones iguales lo escriben idéntico.
 """
-function _ica_write_provenance(export_dir::String, identity)
+function _ica_write_provenance(export_dir::String, identity; stability=nothing)
     p = identity.params
     files = vcat(_ica_products_on_disk(export_dir),
                  [f for f in _ICA_CACHE_FILES if isfile(joinpath(export_dir, split(f, '/')...))])
@@ -355,10 +383,63 @@ function _ica_write_provenance(export_dir::String, identity)
         ),
         "products" => Dict{String,Any}("files" => sort(files)),
     )
+    # Solo el perfil «estable» añade secciones: el manifiesto de los demás no cambia.
+    if p.profile == "estable"
+        doc["environment"] = Dict{String,Any}(
+            "julia" => string(VERSION), "machine" => String(Sys.MACHINE),
+            "blas" => string(LinearAlgebra.BLAS.get_config()),
+            "blas_threads" => LinearAlgebra.BLAS.get_num_threads(),
+            "note" => "Identidad binaria garantizada solo en el mismo entorno numérico",
+        )
+        doc["centering"] = Dict{String,Any}("version" => ICA_STABLE_CENTERING)
+        if stability !== nothing
+            doc["stability"] = Dict{String,Any}(
+                "runs" => stability.n_runs, "seeds" => stability.seeds,
+                "runs_converged" => stability.runs_converged, "runs_failed" => stability.runs_failed,
+                "matching" => stability.matching,
+                "thresholds" => collect(stability.thresholds), "measures" => stability.measures,
+            )
+        end
+    end
     path = joinpath(export_dir, split(_ICA_PROVENANCE, '/')...)
     mkpath(dirname(path))
     open(io -> TOML.print(io, doc; sorted=true), path, "w")
     return path
+end
+
+# ── Perfil experimental «estable»: piezas de la etapa ────────
+
+"`true` si la configuración pide el perfil experimental `estable` (ICAStable.jl)."
+_ica_stable_profile(cfg::PipelineConfig) = String(get(cfg.ica, "profile", "default")) == "estable"
+
+"Campos que el perfil `estable` añade a `json/ica_summary.json`."
+function _ica_stable_summary_json(valid::Bool, stab)
+    runs = stab === nothing ? "null" : string(stab.n_runs)
+    conv = stab === nothing ? "null" : string(stab.runs_converged)
+    fail = stab === nothing ? "null" : string(stab.runs_failed)
+    meas = stab === nothing ? "not_available" : stab.measures
+    return join([
+        "  \"profile\": \"estable\"",
+        "  \"reference_valid\": $(valid)",
+        "  \"valid_for_analysis\": $(valid)",
+        "  \"stability_runs\": $(runs)",
+        "  \"stability_runs_converged\": $(conv)",
+        "  \"stability_runs_failed\": $(fail)",
+        "  \"stability_measures\": \"$(meas)\"",
+    ], ",\n")
+end
+
+"Escribe las tres tablas de estabilidad en `tables/ica/`."
+function _save_ica_stability(stab, export_dir::String, log_io::IO)
+    dir = joinpath(export_dir, "tables", "ica"); mkpath(dir)
+    out = Tuple{String,String}[]
+    for (name, df) in (("ica_stability.csv", stab.components), ("ica_stability_runs.csv", stab.runs),
+                       ("ica_stability_similarity.csv", stab.similarity))
+        CSV.write(joinpath(dir, name), df)
+        push!(out, (name, "tables/ica/$(name)"))
+    end
+    _log(log_io, "  Estabilidad: $(stab.runs_converged) de $(stab.n_runs) ejecuciones convergidas, $(stab.runs_failed) fallidas · medidas $(stab.measures)")
+    return out
 end
 
 # ─── Configuración ────────────────────────────────────────────
@@ -1135,7 +1216,8 @@ function stage_ica(ctx::PipelineContext, filtered::FilterOutput)::ICAOutput
     else
         # FastICA sobre rec_filt (continua). Ante error → nothing
         res = try
-            run_ica(rec_filt, cfg)
+            # Perfil experimental «estable» (ICAStable.jl); el resto, como siempre
+            _ica_stable_profile(cfg) ? run_ica_stable(rec_filt, cfg) : run_ica(rec_filt, cfg)
         catch e
             @warn "ICA falló: $e · continuando sin ICA"
             nothing
@@ -1182,9 +1264,27 @@ function stage_ica(ctx::PipelineContext, filtered::FilterOutput)::ICAOutput
             _log(log_io, "  WARN: clasificación automática ICA falló: $e")
         end
 
+        # Perfil «estable»: una referencia no convergida no es válida para análisis
+        # definitivo. Se conserva con sus diagnósticos, pero no se aplica ningún
+        # rechazo, ni automático ni manual.
+        _stable       = _ica_stable_profile(cfg)
+        _stable_valid = !_stable || Bool(get(ica_result.diagnostics, "reference_valid", false))
+        _stability    = nothing
+        if _stable
+            _stable_valid || _log(log_io, "  Perfil estable: la descomposición de referencia no ha convergido · no válida para análisis definitivo; no se aplica ningún rechazo")
+            _stability = try
+                ica_stability(rec_filt, cfg, ica_result)
+            catch e
+                _log(log_io, "  WARN: análisis de estabilidad de ICA fallido: $e")
+                nothing
+            end
+        end
+
         # Precedencia de rechazo: manual > auto (auto_reject) > ninguno
         _has_manual = has_manual_ica_labels(cfg, sid, sess_id, condition)
-        rejection_source, rej_labels = if _has_manual
+        rejection_source, rej_labels = if !_stable_valid
+            ("none", Int[])
+        elseif _has_manual
             ("manual", load_ica_labels(cfg, sid, sess_id, condition))
         elseif Bool(get(cfg.ica, "auto_reject", true)) && !isempty(_eval)
             ("auto", write_ica_labels_auto(export_dir, _eval))
@@ -1340,7 +1440,9 @@ function stage_ica(ctx::PipelineContext, filtered::FilterOutput)::ICAOutput
 
         # Tablas/figuras ICA (features, mixing, topomaps, summary…)
         _ica_files = _save_ica_results(ica_result, rec_filt, rec_ica, export_dir, ica_dur, log_io;
-            eval_df=_eval, rejection_source=rejection_source, artifact_thresh=_artifact_thresh)
+            eval_df=_eval, rejection_source=rejection_source, artifact_thresh=_artifact_thresh,
+            extra_json=_stable ? _ica_stable_summary_json(_stable_valid, _stability) : "")
+        _stability === nothing || append!(_ica_files, _save_ica_stability(_stability, export_dir, log_io))
         # Caché serializada (si se escribió o ya existía)
         push!(_ica_files, ("ica_result.jls", "cache/ica_result.jls"))
         push!(_ica_files, ("ica_config.hash", "cache/ica_config.hash"))
@@ -1349,7 +1451,7 @@ function stage_ica(ctx::PipelineContext, filtered::FilterOutput)::ICAOutput
         end
         _print_kv_table(_ica_files; indent="        ", headers=("Archivo", "Ruta"))
         # Procedencia de la descomposición y de los productos de esta ejecución
-        ica_identity === nothing || _ica_write_provenance(export_dir, ica_identity)
+        ica_identity === nothing || _ica_write_provenance(export_dir, ica_identity; stability=_stability)
     else
         # Fallo de cómputo: no abortar; AR/wPLI siguen sobre filtrada
         ica_dur = round(Dates.value(now() - t_ica) / 1000, digits=1)
@@ -3187,7 +3289,20 @@ sobrescribe). Con `"default"` se leen de `cfg.ica`.
 function _ica_effective_params(cfg::PipelineConfig, n_ch::Int)
     ica_cfg = cfg.ica
     profile = String(get(ica_cfg, "profile", "default"))
-    if profile == "eeg_julia"
+    if profile == "estable"
+        # Perfil experimental (ICAStable.jl). Claves propias en [ica], con prefijo
+        # stable_, para no heredar los valores pensados para otros perfiles.
+        return (
+            profile      = profile,
+            n_comp       = n_ch,
+            max_iter     = Int(get(ica_cfg, "stable_max_iter", 2048)),
+            tol          = Float64(get(ica_cfg, "stable_tol", 1e-7)),
+            seed         = Int(get(ica_cfg, "stable_seed", 1234)),
+            max_attempts = 1,
+            a            = 1.0,
+            mixing       = "inv(W)  (n_comp = n_ch)",
+        )
+    elseif profile == "eeg_julia"
         return (
             profile      = profile,
             n_comp       = n_ch,
@@ -3228,6 +3343,7 @@ function _save_ica_results(
     eval_df::DataFrame = DataFrame(),
     rejection_source::String = "none",
     artifact_thresh::Real = 1.5,
+    extra_json::String = "",
 )::Vector{Tuple{String,String}}
     written = Tuple{String,String}[]
     n_comp  = size(ica.activations, 1)
@@ -3350,7 +3466,7 @@ function _save_ica_results(
   "has_features": $((!isempty(eval_df))),
   "rejection_source": "$(rejection_source)",
   "artifact_threshold": $(Float64(artifact_thresh)),
-$(conv_json)
+$(conv_json)$(isempty(extra_json) ? "" : ",\n" * extra_json)
 }""")
     end
     push!(written, ("ica_summary.json", "json/ica_summary.json"))
