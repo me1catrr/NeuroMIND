@@ -2090,28 +2090,45 @@ function stage_finalize(ctx::PipelineContext, loaded::LoadOutput, qc::QCOutput, 
 end
 
 """
-    run_single_subject_pipeline(config_path)
+    run_single_subject_pipeline(config_path; checkpoints=false, checkpoint_store=nothing)
 
 Ejecuta el pipeline completo para el primer sujeto disponible.
 Genera resultados en results/{subj}/{sess}/ y results/subjects/.
+
+Con `checkpoints=true` guarda además, tras cada etapa, su checkpoint en
+`<carpeta de la tarea>/checkpoints/` (`src/pipeline/Checkpoints.jl`), dentro
+del almacén `checkpoint_store` (por defecto, la carpeta de resultados). Las
+etapas, sus archivos y la salida de la terminal no cambian. Desactivado por
+defecto: sin la opción, el pipeline no escribe ningún archivo nuevo.
 """
-function run_single_subject_pipeline(config_path::String)
+function run_single_subject_pipeline(config_path::String; checkpoints::Bool=false, checkpoint_store=nothing)
     t0 = now()
     println("  " * "═"^60)
     println("  NeuroMIND · Pipeline individual · $(Dates.format(t0, "yyyy-mm-dd HH:MM:SS"))")
     println("  " * "═"^60)
 
     ctx          = pipeline_context(config_path, t0)
+    ck           = checkpoints ? _checkpoint_run(ctx, checkpoint_store) : nothing
     loaded       = stage_load(ctx)
+    ck === nothing || _checkpoint_after!(ck, :load, loaded)
     qc           = stage_qc(ctx, loaded)
+    ck === nothing || _checkpoint_after!(ck, :qc, qc)
     filtered     = stage_filter(ctx, loaded)
+    ck === nothing || _checkpoint_after!(ck, :filter, filtered)
     ica          = stage_ica(ctx, filtered)
+    ck === nothing || _checkpoint_after!(ck, :ica, ica; filter=filtered)
     montage      = stage_montage(ctx, ica, qc)
+    ck === nothing || _checkpoint_after!(ck, :montage, montage; qc=qc)
     seg          = stage_segmentation(ctx, montage, ica)
+    ck === nothing || _checkpoint_after!(ck, :segmentation, seg)
     spectra      = stage_spectral(ctx, seg)
+    ck === nothing || _checkpoint_after!(ck, :spectral, spectra)
     connectivity = stage_connectivity(ctx, seg, montage)
+    ck === nothing || _checkpoint_after!(ck, :connectivity, connectivity; segmentation=seg)
     surrogates   = stage_surrogates(ctx, connectivity)
+    ck === nothing || _checkpoint_after!(ck, :surrogates, surrogates)
     stage_finalize(ctx, loaded, qc, filtered, montage, seg, spectra, connectivity)
+    ck === nothing || _checkpoint_after!(ck, :finalize, nothing)
 
     # Lo que usa el resumen final
     cfg = ctx.cfg; log_io = ctx.log_io

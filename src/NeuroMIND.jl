@@ -169,6 +169,13 @@ export stage_spectral, stage_connectivity, stage_surrogates, stage_finalize
 export LoadOutput, QCOutput, FilterOutput, ICAOutput, MontageOutput
 export SegmentationOutput, ConnectivityOutput, SurrogatesOutput
 
+# Checkpoints comunes de las etapas (PR 3): escritura segura, identidad,
+# compatibilidad y verificación antes de deserializar.
+include("pipeline/Checkpoints.jl")
+export CHECKPOINT_FORMAT, CHECKPOINT_STAGES, CHECKPOINT_SPEC, CheckpointError
+export checkpoint_key, checkpoint_load_inputs, checkpoint_content_sha256, checkpoint_facts
+export save_checkpoint, load_checkpoint, verify_checkpoint
+
 # ─── Dashboard web (carga DIFERIDA) ────────────────────────────
 #  webapp/App.jl hace `using Genie` (framework web pesado). Para que
 #  `using NeuroMIND` y el pipeline NO compilen Genie, App.jl NO se incluye
