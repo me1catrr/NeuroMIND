@@ -648,8 +648,52 @@ end
         for s in (:ica, :surrogates, :finalize)
             ok, reason, msg = verify_checkpoint(dir, s; store)
             @test !ok && reason == :ALTERADO
-            @test occursin("consumido", msg)
+            @test occursin("consumido", msg) && occursin("consumed_dirs", msg)
         end
+    end
+
+    # E-1: quien llama da la ubicación efectiva de lo consumido
+    here(s) = Dict(c => dir for c in CHECKPOINT_SPEC[s].consumes)
+    @testset "Con consumed_dirs, las diez etapas cargan y verifican tras el renombrado" begin
+        for s in CHECKPOINT_STAGES
+            @test verify_checkpoint(dir, s; store, consumed_dirs=here(s)) == (true, nothing, "")
+            @test verify_checkpoint(dir, s; store, consumed_dirs=here(s), deserialize=true) == (true, nothing, "")
+            out = load_checkpoint(dir, s; store, consumed_dirs=here(s))
+            @test checkpoint_content_sha256(out) == prov(s)["content_sha256"]
+        end
+    end
+
+    @testset "consumed_dirs no se salta ninguna comprobación" begin
+        # Otra ejecución, con otra configuración, dentro del mismo almacén
+        otra = joinpath(store, "otra")
+        mkpath(otra); cp(joinpath(CK_E, "results"), joinpath(otra, "results"))
+        function rejected(s, cdirs)
+            CK.CHECKPOINT_DESERIALIZATIONS[] = 0
+            e = try
+                load_checkpoint(dir, s; store, consumed_dirs=cdirs); nothing
+            catch err
+                err isa CheckpointError || rethrow(); err
+            end
+            return e, CK.CHECKPOINT_DESERIALIZATIONS[]
+        end
+        # Un consumido de otro cálculo: otra identidad
+        e, n = rejected(:montage, Dict(:ica => ckdir(otra)))
+        @test e !== nothing && e.reason == :ALTERADO && occursin("no es el declarado", e.message) && n == 0
+        # El mismo consumido con un byte cambiado
+        alt = joinpath(store, "alterada"); mkpath(alt); cp(final, joinpath(alt, "etapa"))
+        flip_byte!(joinpath(ckdir(joinpath(alt, "etapa")), "ica.jls"))
+        e, n = rejected(:montage, Dict(:ica => ckdir(joinpath(alt, "etapa"))))
+        @test e !== nothing && e.reason == :ALTERADO && occursin("huella", e.message) && n == 0
+        # Una ubicación fuera del almacén, aunque sea una copia idéntica
+        fuera = joinpath(CK_TMP, "fuera-p1"); cp(final, fuera)
+        e, n = rejected(:montage, Dict(:ica => ckdir(fuera)))
+        @test e !== nothing && e.reason == :ALTERADO && occursin("fuera del almacén", e.message) && n == 0
+        # Una carpeta que no es de la etapa consumida
+        e, n = rejected(:montage, Dict(:ica => joinpath(dir, "..")))
+        @test e !== nothing && e.reason == :ALTERADO && n == 0
+        # Una etapa que no se consume
+        @test_throws ArgumentError load_checkpoint(dir, :montage; store, consumed_dirs=Dict(:qc => dir))
+        @test_throws ArgumentError verify_checkpoint(dir, :montage; store, consumed_dirs=Dict(:qc => dir))
     end
 end
 

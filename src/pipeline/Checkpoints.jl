@@ -432,16 +432,35 @@ end
 Paso 5 sobre los checkpoints consumidos: dentro del almacén, con la
 procedencia y la clave declaradas y con los bytes registrados. No los
 deserializa. Devuelve etapa ⇒ (carpeta, procedencia).
+
+`consumed_dirs` (etapa ⇒ carpeta `checkpoints/`) da la ubicación efectiva de
+un consumido que se ha trasladado desde que se registró, como la carpeta
+temporal de una tanda de Lab renombrada a su destino (E-1). Solo cambia
+dónde se busca: la carpeta se valida dentro del almacén y el consumido tiene
+que ser el declarado, por identidad, huella de contenido y huella de bytes.
 """
-function _verify_consumed(stage::Symbol, prov, store::String)
+function _verify_consumed(stage::Symbol, prov, store::String; consumed_dirs=nothing)
     out = Dict{Symbol,Tuple{String,Dict{String,Any}}}()
     entries = get(prov, "consumed", Any[])
     declared = Set(Symbol(get(c, "stage", "")) for c in entries)
     declared == Set(CHECKPOINT_SPEC[stage].consumes) ||
         _alterado(stage, "consume $(sort(collect(declared))), y la etapa consume $(sort(CHECKPOINT_SPEC[stage].consumes))")
+    given = consumed_dirs === nothing ? Dict{Symbol,String}() :
+            Dict{Symbol,String}(Symbol(k) => String(v) for (k, v) in consumed_dirs)
+    extra = setdiff(keys(given), declared)
+    isempty(extra) ||
+        throw(ArgumentError("consumed_dirs: $(stage) no consume $(join(sort(collect(extra)), ", "))"))
     for c in entries
         cst  = Symbol(c["stage"])
-        jls  = _inside_store(stage, store, store, c["path"]; what="consumido $(cst)")
+        jls  = if haskey(given, cst)
+            _check_inside(stage, store, _jls(given[cst], cst); what="consumido $(cst) entregado")
+        else
+            p = _inside_store(stage, store, store, c["path"]; what="consumido $(cst)")
+            (ispath(p) || ispath(_prov(dirname(p), cst))) ||
+                _alterado(stage, "el consumido $(cst) no está en la ruta registrada ($(c["path"])). " *
+                                 "Si se ha trasladado, su ubicación se da con `consumed_dirs`")
+            p
+        end
         cdir = dirname(jls)
         basename(jls) == "$(cst).jls" || _alterado(stage, "el consumido $(cst) no es un checkpoint de esa etapa")
         cprov = try
@@ -477,7 +496,7 @@ _consumed_payload(stage::Symbol, cdir::String, cprov) =
                                                     what="consumido $(cprov["stage"])"))
 
 """
-    load_checkpoint(dir, stage; store, expected_key=nothing, invariants=true) -> salida
+    load_checkpoint(dir, stage; store, expected_key=nothing, invariants=true, consumed_dirs=nothing) -> salida
 
 Carga el checkpoint de `stage` de la carpeta `dir` (la carpeta `checkpoints/`)
 con la verificación del apartado 3.5, en su orden:
@@ -492,16 +511,23 @@ con la verificación del apartado 3.5, en su orden:
 6. solo entonces deserializa, reconstruye la salida completa y comprueba su
    huella de contenido y, con `invariants=true`, las invariantes de la etapa.
 
+`consumed_dirs` (etapa consumida ⇒ su carpeta `checkpoints/`) da la ubicación
+efectiva de los consumidos que se han trasladado desde que se registraron
+(E-1). No omite ninguna comprobación: cada consumido entregado se valida dentro
+del almacén y tiene que ser el declarado en identidad y huellas, o el
+resultado es `ALTERADO`. Una etapa que no se consume da `ArgumentError`.
+
 Devuelve exactamente la salida que la etapa devolvió en memoria. Lanza
 `CheckpointError` con el motivo.
 """
-function load_checkpoint(dir::String, stage::Symbol; store::String, expected_key=nothing, invariants::Bool=true)
+function load_checkpoint(dir::String, stage::Symbol; store::String, expected_key=nothing, invariants::Bool=true,
+                         consumed_dirs=nothing)
     prov = _read_provenance(dir, stage, store)
     expected_key === nothing || prov["key"] == expected_key ||
         throw(CheckpointError(:OTRA_CONFIGURACION, stage, "la identidad guardada no es la pedida"))
     stage_root = dirname(normpath(abspath(dir)))
     refs = _verify_references(stage, prov, store, stage_root)
-    consumed = _verify_consumed(stage, prov, store)
+    consumed = _verify_consumed(stage, prov, store; consumed_dirs)
     bytes = _read_checked(stage, _jls(dir, stage), prov["file_sha256"]; what="el checkpoint")
     data = _payload(stage, bytes)
     out = _reconstruct(stage, data, prov, refs, consumed)
@@ -512,22 +538,25 @@ function load_checkpoint(dir::String, stage::Symbol; store::String, expected_key
 end
 
 """
-    verify_checkpoint(dir, stage; store, expected_key=nothing, deserialize=false) -> (ok, reason, message)
+    verify_checkpoint(dir, stage; store, expected_key=nothing, deserialize=false, consumed_dirs=nothing)
+        -> (ok, reason, message)
 
 La verificación de `load_checkpoint` para auditar una carpeta. Por defecto
 recorre los cinco primeros pasos sin deserializar nada; con `deserialize=true`
-hace también el sexto y las invariantes. No lanza: devuelve el motivo.
+hace también el sexto y las invariantes. `consumed_dirs`, como en
+`load_checkpoint`. No lanza por un checkpoint rechazado: devuelve el motivo.
 """
-function verify_checkpoint(dir::String, stage::Symbol; store::String, expected_key=nothing, deserialize::Bool=false)
+function verify_checkpoint(dir::String, stage::Symbol; store::String, expected_key=nothing, deserialize::Bool=false,
+                           consumed_dirs=nothing)
     try
         if deserialize
-            load_checkpoint(dir, stage; store, expected_key, invariants=true)
+            load_checkpoint(dir, stage; store, expected_key, invariants=true, consumed_dirs)
         else
             prov = _read_provenance(dir, stage, store)
             expected_key === nothing || prov["key"] == expected_key ||
                 throw(CheckpointError(:OTRA_CONFIGURACION, stage, "la identidad guardada no es la pedida"))
             _verify_references(stage, prov, store, dirname(normpath(abspath(dir))))
-            _verify_consumed(stage, prov, store)
+            _verify_consumed(stage, prov, store; consumed_dirs)
             _file_sha256(_jls(dir, stage)) == prov["file_sha256"] ||
                 _alterado(stage, "huella de bytes que no coincide en el checkpoint ($(stage).jls)")
             # Los productos de la etapa, relativos a su carpeta (decisión 133, P-1)
