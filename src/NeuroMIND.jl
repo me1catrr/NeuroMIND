@@ -176,6 +176,11 @@ export CHECKPOINT_FORMAT, CHECKPOINT_STAGES, CHECKPOINT_SPEC, CheckpointError
 export checkpoint_key, checkpoint_load_inputs, checkpoint_content_sha256, checkpoint_facts
 export save_checkpoint, load_checkpoint, verify_checkpoint
 
+# Ejecución por etapas (PR 3): una etapa por llamada, con entradas verificadas
+# y su checkpoint; identidad sin ejecutar la etapa; grafo de etapas.
+include("pipeline/RunStage.jl")
+export run_stage, stage_key, stage_graph, StageError, STAGE_INPUTS
+
 # ─── Dashboard web (carga DIFERIDA) ────────────────────────────
 #  webapp/App.jl hace `using Genie` (framework web pesado). Para que
 #  `using NeuroMIND` y el pipeline NO compilen Genie, App.jl NO se incluye

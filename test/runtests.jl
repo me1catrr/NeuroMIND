@@ -2719,5 +2719,6 @@ end
 
 # Checkpoints comunes de las etapas (PR 3, entrega 2f-1)
 include(joinpath(@__DIR__, "checkpoints_tests.jl"))
+include(joinpath(@__DIR__, "run_stage_tests.jl"))
 
 println("\n✅ Todos los tests completados")

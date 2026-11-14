@@ -1028,9 +1028,11 @@ end
 # ── Orquestador: checkpoints opcionales ──────────────────────
 
 """
-Estado de una ejecución del orquestador con checkpoints: carpeta, almacén,
-claves de las etapas ya guardadas e inventario de archivos para saber qué
-escribió cada etapa.
+Estado de una ejecución con checkpoints, del orquestador o de `run_stage`:
+carpeta, almacén, claves de las etapas ya guardadas o recibidas, carpetas de
+lo consumido (por defecto, la propia), inventario de archivos para saber qué
+escribió cada etapa, commit del motor si quien llama lo conoce y notas que
+pasan a los hechos.
 """
 mutable struct _CheckpointRun
     ctx::PipelineContext
@@ -1040,6 +1042,9 @@ mutable struct _CheckpointRun
     toml_sha256::String
     inventory::Dict{String,Tuple{Int,Float64}}
     hashes::Dict{String,String}
+    consumed_dirs::Dict{Symbol,String}
+    commit::Union{Nothing,String}
+    notes::Dict{String,Any}
 end
 
 # El registro es de toda la ejecución, no de una etapa; la decisión manual de
@@ -1086,7 +1091,8 @@ function _checkpoint_run(ctx::PipelineContext, store)
         end
     end
     run = _CheckpointRun(ctx, st, dir, Dict{Symbol,String}(), _file_sha256(ctx.config_path),
-                         Dict{String,Tuple{Int,Float64}}(), Dict{String,String}())
+                         Dict{String,Tuple{Int,Float64}}(), Dict{String,String}(),
+                         Dict{Symbol,String}(), nothing, Dict{String,Any}())
     run.inventory = _inventory(run)
     return run
 end
@@ -1100,22 +1106,28 @@ function _checkpoint_after!(run::_CheckpointRun, stage::Symbol, out; consumed_ou
     ctx = run.ctx; cfg = ctx.cfg
     spec = CHECKPOINT_SPEC[stage]
     consumed_keys = Dict(c => run.keys[c] for c in spec.consumes)
-    consumed_dirs = Dict(c => run.dir for c in spec.consumes)
+    consumed_dirs = Dict(c => get(run.consumed_dirs, c, run.dir) for c in spec.consumes)
     products = _products!(run)
     absent = String[]
     references = Dict{Any,Any}()
-    extra = Dict{Symbol,Any}()
+    extra = Dict{Symbol,Any}(Symbol(k) => v for (k, v) in run.notes)
     extra_kw = NamedTuple()
 
-    inputs = if stage == :load
-        checkpoint_load_inputs(cfg, ctx.subject_id, ctx.session_id, ctx.task, ctx.run)
-    elseif stage == :ica
-        filt = consumed_outputs[:filter]
-        ident = try _ica_cache_identity(filt.rec, cfg) catch; nothing end
-        manual = has_manual_ica_labels(cfg, ctx.subject_id, ctx.session_id, ctx.condition) ?
-                 load_ica_labels(cfg, ctx.subject_id, ctx.session_id, ctx.condition) : nothing
+    # La identidad, con la misma función que `stage_key` y `run_stage` (E-2).
+    # La decisión manual de ICA es el archivo que la etapa ha leído.
+    ids = (subject_id = ctx.subject_id, session_id = ctx.session_id, task = ctx.task, run = ctx.run)
+    labels = stage == :ica ?
+        (i = findfirst(isfile, _ica_manual_label_candidates(cfg, ctx.subject_id, ctx.session_id, ctx.condition));
+         i === nothing ? nothing : _ica_manual_label_candidates(cfg, ctx.subject_id, ctx.session_id, ctx.condition)[i]) :
+        nothing
+    id = _stage_identity(stage, cfg, ids, ctx.config_path, consumed_keys;
+                         filter = get(consumed_outputs, :filter, nothing), qc = get(consumed_outputs, :qc, nothing),
+                         labels_file = labels, toml_sha256 = run.toml_sha256)
+
+    if stage == :ica
+        ident = id.decomposition
         extra[:decomposition_identity] = ident === nothing ? "" : ident.key
-        extra[:manual_decision] = manual === nothing ? "none" :
+        extra[:manual_decision] = id.manual === nothing ? "none" :
             (out.rejection_source == "manual" ? "applied" : "not_applicable")
         cache = joinpath(ctx.export_dir, "cache", "ica_result.jls")
         hashf = joinpath(ctx.export_dir, "cache", "ica_config.hash")
@@ -1123,17 +1135,23 @@ function _checkpoint_after!(run::_CheckpointRun, stage::Symbol, out; consumed_ou
            _ica_stored_key(hashf) == ident.key
             references[:ica_decomposition] = (path = cache, identity = ident.key)
         end
-        (decomposition = ident === nothing ? "sin identidad" : ident.key,
-         manual_rejected = manual === nothing ? "sin decisión manual" : manual)
-    elseif stage == :montage
-        (qc_bad_channels = consumed_outputs[:qc].bad_channels,)
+    elseif stage == :segmentation && haskey(consumed_outputs, :ica)
+        # P-9: el motor rotula la entrada a partir de la lista de rechazados de
+        # la ICA consumida; el rótulo escrito tiene que ser el que corresponde
+        ica = consumed_outputs[:ica]
+        want = (ica.result !== nothing && !isempty(ica.result.rejected_components)) ? "ICA-limpiada" : "filtrada"
+        summary = joinpath(ctx.export_dir, "json", "segmentation_summary.json")
+        m = isfile(summary) ? match(r"\"signal_input\":\s*\"([^\"]*)\"", read(summary, String)) : nothing
+        got = m === nothing ? "" : String(m.captures[1])
+        got == want || throw(StageError(:segmentation, :SEGMENTACION_ROTULO,
+            "el motor rotula la entrada como «$(got)» y a la lista de rechazados le corresponde «$(want)»"))
+        extra[:signal_input] = got
     elseif stage == :connectivity
         # Sin CSD, las épocas de la conectividad son las de la segmentación: se
         # referencian a ese checkpoint en lugar de guardarlas otra vez.
         seg = consumed_outputs[:segmentation]
         extra_kw = (epochs_from_segmentation = out.epochs === seg.epochs ||
                     checkpoint_content_sha256(out.epochs) == checkpoint_content_sha256(seg.epochs),)
-        NamedTuple()
     elseif stage == :surrogates
         # Solo se referencia una distribución nula que esta ejecución acaba de
         # escribir: una de una ejecución anterior no describe este cálculo.
@@ -1141,7 +1159,6 @@ function _checkpoint_after!(run::_CheckpointRun, stage::Symbol, out; consumed_ou
             p = joinpath(ctx.export_dir, "cache", "surrogate", "null_distribution_$(sr.band).jls")
             isfile(p) && haskey(products, _rel(ctx.export_dir, p)) && (references[sr.band] = p)
         end
-        NamedTuple()
     elseif stage == :finalize
         snap = joinpath(ctx.export_dir, "config_snapshot.toml")
         rel = _rel(ctx.export_dir, snap)
@@ -1150,14 +1167,11 @@ function _checkpoint_after!(run::_CheckpointRun, stage::Symbol, out; consumed_ou
         end
         extra[:toml_sha256] = run.toml_sha256
         extra[:config_snapshot] = isempty(absent) ? "presente" : "ausente"
-        (toml_sha256 = run.toml_sha256,)
-    else
-        NamedTuple()
     end
-    key = checkpoint_key(stage, cfg, consumed_keys; inputs...)
+    key = id.key
     facts = checkpoint_facts(stage, out, cfg; extra...)
     save_checkpoint(ctx, stage, out; key, store=run.store, consumed=consumed_dirs, references,
-                    facts, products, absent, extra_kw...)
+                    facts, products, absent, commit=run.commit, extra_kw...)
     run.keys[stage] = key
     run.inventory = _inventory(run)
     return key

@@ -81,8 +81,18 @@ function load_ica_labels(
 
     idx = findfirst(isfile, candidates)
     idx === nothing && return Int[]
+    return _read_ica_labels_csv(candidates[idx])
+end
 
-    df = CSV.read(candidates[idx], DataFrame)
+"""
+    _read_ica_labels_csv(path) -> Vector{Int}
+
+Componentes marcados `artifact` en un CSV de inspección (`component`, `label`).
+Sin esas columnas, ninguno. La única lectura de una decisión manual: la usan
+`load_ica_labels` y la identidad de los checkpoints de ICA.
+"""
+function _read_ica_labels_csv(path::AbstractString)::Vector{Int}
+    df = CSV.read(path, DataFrame)
     hasproperty(df, :label)     || return Int[]
     hasproperty(df, :component) || return Int[]
 

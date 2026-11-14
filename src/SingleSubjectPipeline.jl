@@ -839,6 +839,30 @@ struct SurrogatesOutput
 end
 
 """
+    _context_ids(cfg, config_path; raw_cfg) -> NamedTuple
+
+Sujeto, sesión, tarea, `run`, condición y carpeta de salida de una
+configuración, sin escribir nada. La usan `pipeline_context` y, antes de abrir
+el registro, `run_stage` y `stage_key`.
+"""
+function _context_ids(cfg::PipelineConfig, config_path::String;
+                      raw_cfg = TOML.parsefile(isabspath(config_path) ? config_path : abspath(config_path)))
+    sub_cfg = get(raw_cfg, "subject", Dict{String,Any}())
+    sid     = String(get(sub_cfg, "subject_id", "auto"))
+    sess_id = String(get(sub_cfg, "session_id", "T2"))
+    task    = String(get(sub_cfg, "task", "eyesclosed"))
+    run_n   = Int(get(sub_cfg, "run", 1))
+    sid_mode = sid == "auto" ? "auto" : "manual"
+    if sid == "auto"
+        sid, sess_id, task, run_n = detect_first_subject(bids_root_dir(cfg))
+    end
+    condition = task == "eyesclosed" ? "EC" : (task == "eyesopen" ? "EO" : task)
+    export_dir = joinpath(results_dir(cfg), "subjects", "sub-$(sid)", "ses-$(sess_id)", task)
+    return (subject_id = String(sid), session_id = String(sess_id), task = String(task), run = Int(run_n),
+            condition = String(condition), export_dir = export_dir, sid_mode = sid_mode)
+end
+
+"""
     pipeline_context(config_path, t0=now()) -> PipelineContext
 
 Lee la configuración, resuelve la grabación, crea la carpeta de salida y abre
@@ -852,7 +876,6 @@ function pipeline_context(config_path::String, t0::DateTime=now())::PipelineCont
     # [subject] no entra en el struct: se lee del TOML crudo más abajo.
     cfg = load_ss_config(config_path)
     raw_cfg     = TOML.parsefile(isabspath(config_path) ? config_path : abspath(config_path))
-    sub_cfg     = get(raw_cfg, "subject",  Dict{String,Any}())
     dpi         = Int(get(cfg.export_cfg, "figure_dpi", 150))
     qc_cfg      = cfg.qc
     montage_cfg = cfg.montage
@@ -899,22 +922,11 @@ function pipeline_context(config_path::String, t0::DateTime=now())::PipelineCont
     ])
 
     # ── 2. Detección / resolución del sujeto ──────────────────
-    sid     = String(get(sub_cfg, "subject_id", "auto"))
-    sess_id = String(get(sub_cfg, "session_id", "T2"))
-    task    = String(get(sub_cfg, "task", "eyesclosed"))
-    run_n   = Int(get(sub_cfg, "run", 1))
-
-    _sid_mode = sid == "auto" ? "auto" : "manual"
-    if sid == "auto"
-        sid, sess_id, task, run_n = detect_first_subject(bids_root_dir(cfg))
-    end
-
-    condition = task == "eyesclosed" ? "EC" : (task == "eyesopen" ? "EO" : task)
-
     # ── 3. Directorio de salida ────────────────────────────────
     # results/subjects/sub-{id}/ses-{sess}/{task}/
-    export_dir = joinpath(results_dir(cfg), "subjects",
-                          "sub-$(sid)", "ses-$(sess_id)", task)
+    _ids = _context_ids(cfg, config_path; raw_cfg)
+    sid, sess_id, task, run_n = _ids.subject_id, _ids.session_id, _ids.task, _ids.run
+    _sid_mode = _ids.sid_mode; condition = _ids.condition; export_dir = _ids.export_dir
     mkpath(joinpath(export_dir, "cache"))
     _out_rel = joinpath("results", "subjects", "sub-$(sid)", "ses-$(sess_id)", task)
 
@@ -2120,7 +2132,7 @@ function run_single_subject_pipeline(config_path::String; checkpoints::Bool=fals
     montage      = stage_montage(ctx, ica, qc)
     ck === nothing || _checkpoint_after!(ck, :montage, montage; qc=qc)
     seg          = stage_segmentation(ctx, montage, ica)
-    ck === nothing || _checkpoint_after!(ck, :segmentation, seg)
+    ck === nothing || _checkpoint_after!(ck, :segmentation, seg; ica=ica)
     spectra      = stage_spectral(ctx, seg)
     ck === nothing || _checkpoint_after!(ck, :spectral, spectra)
     connectivity = stage_connectivity(ctx, seg, montage)
