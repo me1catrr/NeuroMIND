@@ -89,6 +89,26 @@ typed outputs of the stages it consumes (`LoadOutput`, `QCOutput`, `FilterOutput
 own files. Montage and surrogates have no `[k/8]` label of their own in the log. Behaviour is
 unchanged; keep stage bodies in the same order when editing.
 
+**Checkpoints and staged execution (PR 3, since 2026-11-14), off by default.**
+`src/pipeline/Checkpoints.jl` and `src/pipeline/RunStage.jl`. With
+`run_single_subject_pipeline(config; checkpoints=true)` each stage also writes
+`checkpoints/<stage>.jls` + `<stage>.toml` (no clock, no date). `run_stage(stage, config;
+inputs, ica_labels, ica_cache, store)` runs one stage from verified checkpoints and saves its own;
+`stage_key` gives the identity it will record without running anything; `stage_graph()` is the
+single source of what each stage consumes and reads. Rules that matter when editing:
+- **Any change under `src/` or in `Manifest.toml` changes every checkpoint identity.** Machine is
+  not in the checkpoint identity, but it is in the ICA decomposition identity, so a machine
+  change invalidates ICA and everything after it. The finalize identity also hashes the raw TOML
+  bytes (a comment changes it); stages 01–09 do not.
+- **Never deserialize a `.jls` before checking its byte hash**, including referenced files
+  (`cache/ica_result.jls`, null distributions). Paths must stay inside the authorized store: no
+  absolute paths, no `..` leaving it, no symlinks. References and products are relative to the
+  stage folder (the one holding `checkpoints/`); consumed checkpoints are relative to the store
+  root, and `consumed_dirs` gives their effective location if they moved.
+- Stage functions are unchanged: `run_stage` calls the same `stage_*`. Rejection reasons are
+  `INCOMPATIBLE`, `OTRA_CONFIGURACION` and `ALTERADO` (`CheckpointError`); request problems are
+  `StageError`. Both entry points close `pipeline_log.txt` on exceptions and rethrow the original.
+
 ### ICA — custom implementation (no MultivariateStats)
 - File: `src/ica/ICACore.jl`
 - PCA whitening → symmetric FastICA with `tanh` nonlinearity

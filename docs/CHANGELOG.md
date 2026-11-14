@@ -4,6 +4,48 @@
 > no se cargue en cada sesión de los agentes. Las entradas nuevas van arriba.
 > `AGENTS.md` §13 apunta aquí (y `Report_Pre/chapters/12_espectral.tex` cita esa sección).
 
+### 2026-11-14 — Checkpoints de las etapas y ejecución por etapas (PR 3)
+
+Añade checkpoints verificables de las diez etapas y una forma de ejecutarlas una a una.
+**No cambia el comportamiento por defecto**: sin la opción nueva, el pipeline completo escribe
+los mismos archivos y la misma salida de terminal que antes. Las funciones de etapa no cambian.
+
+- **Checkpoints** (`src/pipeline/Checkpoints.jl`). La salida completa de cada etapa, con su tipo,
+  en `checkpoints/<etapa>.jls`, y su procedencia, sin fecha, en `checkpoints/<etapa>.toml`.
+  Escritura segura: temporal, volcado a disco, huella de los bytes del archivo definitivo y
+  procedencia publicada al final; una interrupción no deja nada cargable y no se sobrescribe un
+  checkpoint existente. `run_single_subject_pipeline(config; checkpoints=true)` los escribe
+  tras cada etapa; se niega a usar una carpeta que ya tiene checkpoints, antes de abrir el registro.
+- **Identidad, compatibilidad y procedencia, separadas.** La identidad (configuración efectiva
+  de las secciones que lee cada etapa, identidades consumidas, entradas propias y huella de
+  `src/` y `Manifest.toml`) decide si es el mismo cálculo; la compatibilidad (formato,
+  envoltorio, versión de Julia), si se puede leer; la máquina y el commit se registran. Un cambio
+  de máquina invalida la ICA y lo posterior a través de la identidad de la descomposición. El
+  cierre incluye la huella de los bytes del TOML, así que no se comparte entre textos distintos.
+- **Verificación antes de deserializar.** `load_checkpoint` y `verify_checkpoint` comprueban
+  rutas, procedencia, compatibilidad, identidad y huellas de bytes, también de
+  `cache/ica_result.jls` y de las distribuciones nulas, antes de leer nada, y distinguen
+  `INCOMPATIBLE`, `OTRA_CONFIGURACION` y `ALTERADO`. Las referencias y los productos son relativos
+  a la carpeta de la etapa; lo consumido, a la raíz del almacén, con `consumed_dirs` si se ha
+  trasladado. Las huellas verifican integridad, no autenticidad.
+- **Ejecución por etapas** (`src/pipeline/RunStage.jl`). `run_stage` carga y verifica las
+  entradas, llama a la misma función de etapa y guarda el checkpoint. `stage_key` da la identidad
+  sin ejecutar nada; es la misma función que usan `run_stage` y el orquestador. `stage_graph()`
+  dice qué consume y qué lee cada etapa, incluida `[output]`. La decisión manual de ICA se
+  verifica contra la descomposición; la caché de ICA entregada solo se usa con su huella de
+  bytes; la identidad de la descomposición de una ICA consumida se recalcula; y el rótulo de
+  entrada de la segmentación se contrasta con la lista de rechazados.
+- **Registro ante excepciones.** `run_single_subject_pipeline` y `run_stage` cierran
+  `pipeline_log.txt` también cuando una etapa falla, anotan la etapa y el mensaje, y vuelven a
+  lanzar la excepción original. Es el único cambio que puede verse en una ejecución sin la
+  opción: en los casos que terminan con un error (como la conectividad con CSD, D-21), el
+  registro tiene dos líneas más al final.
+- **Pruebas.** `test/checkpoints_tests.jl` (ida y vuelta de los diez tipos, escritura segura,
+  nada se deserializa sin comprobar sus bytes, los tres motivos, perturbación sección a sección,
+  ICA, renombrado y `consumed_dirs`) y `test/run_stage_tests.jl` (grafo, identidad, equivalencia
+  con un proceso de Julia por etapa frente al orquestador, decisión y caché de ICA, reutilización
+  del cierre y registro ante excepciones). Datos sintéticos.
+
 ### 2026-11-12 — Perfil experimental de ICA «estable»: convergencia exigida y repetibilidad por componente
 
 Añade un perfil de ICA nuevo y experimental, `ica.profile = "estable"`. **No cambia el

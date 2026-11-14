@@ -255,6 +255,18 @@ En modo lote, `run_batch_pipeline.jl` copia este fichero y sobreescribe `[subjec
 ### [8/8] Guardado de resultados
 `_save_all_results` + `_save_config_snapshot`. Actualiza dos índices globales: `results/subjects_index.csv` y `results/qc/qc_decision_table.csv`. Salidas por sujeto: `overview.csv`, `config_snapshot.toml`, `pipeline_log.txt`.
 
+### Checkpoints y ejecución por etapas (opcional)
+
+Desde el PR 3 (`src/pipeline/Checkpoints.jl`, `src/pipeline/RunStage.jl`), cada una de las diez etapas puede guardar su salida completa como **checkpoint** verificable y ejecutarse por separado. **Nada de esto está activo por defecto**: el pipeline completo escribe los mismos archivos que antes.
+
+- **Dos archivos por etapa**, en `<carpeta de la tarea>/checkpoints/`: `<etapa>.jls` (la salida, sin hora) y `<etapa>.toml` (la procedencia, sin fecha). `run_single_subject_pipeline(config; checkpoints=true)` los escribe tras cada etapa.
+- **Tres conceptos separados.** La *identidad* (`key`: etapa, configuración efectiva de las secciones que lee, identidades de lo que consume, entradas propias y huella de `src/` y `Manifest.toml`) decide si es el mismo cálculo. La *compatibilidad* (formato, envoltorio, versión de Julia) decide si se puede leer. La *procedencia del entorno* (máquina, commit) se registra y no invalida.
+- **Consecuencias que hay que conocer.** Cualquier cambio en `src/` o en `Manifest.toml` da otra identidad en todas las etapas. La máquina no entra en la identidad de los checkpoints, pero sí en la de la descomposición de ICA: **un cambio de máquina invalida la ICA y todo lo posterior**, no la carga, el QC ni el filtrado. El cierre incluye además la huella de los bytes del TOML, porque `config_snapshot.toml` lo copia literalmente: un comentario cambia su identidad, y **el cierre no se comparte entre textos distintos del TOML**; las etapas anteriores no cambian.
+- **Verificación antes de deserializar.** `load_checkpoint(dir, etapa; store, expected_key)` comprueba rutas (dentro del almacén `store`, sin `..` que salga, sin rutas absolutas ni enlaces simbólicos), procedencia, compatibilidad, identidad y huellas de bytes del `.jls` y de cada archivo referenciado (`cache/ica_result.jls`, `cache/surrogate/null_distribution_<banda>.jls`) **antes** de deserializar nada. Distingue `INCOMPATIBLE`, `OTRA_CONFIGURACION` y `ALTERADO`. Las huellas verifican la integridad frente a lo registrado; no hacen seguro un archivo que alguien haya podido reescribir junto con su procedencia.
+- **Rutas.** Las referencias y los productos de una etapa son relativos a su carpeta (la que contiene `checkpoints/`), así que sobreviven a que la carpeta se renombre; lo consumido es relativo a la raíz del almacén. Si lo consumido se ha trasladado, su ubicación efectiva se da con `consumed_dirs`, sin saltarse ninguna comprobación.
+- **Ejecución por etapas.** `run_stage(etapa, config; inputs, ica_labels, ica_cache, store)` carga y verifica las entradas, ejecuta la misma función `stage_*` que el pipeline y guarda el checkpoint; no sobrescribe uno existente. `stage_key(etapa, config; inputs, store)` da la identidad que registrará, sin ejecutar ni escribir nada. `stage_graph()` dice qué consume y qué lee cada etapa. La decisión manual de ICA se entrega con la identidad de la descomposición sobre la que se tomó, y si no es la de esta ejecución la etapa falla sin aplicar nada. Una caché de ICA entregada solo se usa si su huella de bytes es la registrada.
+- **Registro ante excepciones.** Si una etapa falla, `pipeline_log.txt` anota el fallo y se cierra, y la excepción original llega sin cambios.
+
 ---
 
 ## 7. Salidas del pipeline
