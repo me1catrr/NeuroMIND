@@ -1,6 +1,6 @@
 # ───────────────────────────────────────────────────────────────
 #  Fichero    src/pipeline/Checkpoints.jl
-#  Modificado 13-11-2026
+#  Modificado 14-11-2026
 # ───────────────────────────────────────────────────────────────
 #
 # Checkpoints comunes de las etapas del pipeline individual (PR 3, entrega 2f-1).
@@ -368,7 +368,8 @@ function _check_inside(stage::Symbol, store::String, path::AbstractString; what=
     return p
 end
 
-_rel(store::String, path::String) = join(splitpath(relpath(normpath(abspath(path)), normpath(abspath(store)))), '/')
+"Ruta de `path` relativa a `base`, con `/`. Puede empezar por `..` si `path` está fuera de `base`."
+_rel(base::String, path::String) = join(splitpath(relpath(normpath(abspath(path)), normpath(abspath(base)))), '/')
 
 # ── Lectura verificada ───────────────────────────────────────
 
@@ -529,8 +530,10 @@ function verify_checkpoint(dir::String, stage::Symbol; store::String, expected_k
             _verify_consumed(stage, prov, store)
             _file_sha256(_jls(dir, stage)) == prov["file_sha256"] ||
                 _alterado(stage, "huella de bytes que no coincide en el checkpoint ($(stage).jls)")
+            # Los productos de la etapa, relativos a su carpeta (decisión 133, P-1)
+            stage_root = dirname(normpath(abspath(dir)))
             for (rel, h) in get(get(prov, "products", Dict{String,Any}()), "files", Dict{String,Any}())
-                p = _inside_store(stage, store, store, rel; what="producto")
+                p = _inside_store(stage, store, stage_root, rel; what="producto")
                 isfile(p) || _alterado(stage, "falta el producto $(rel)")
                 _file_sha256(p) == h || _alterado(stage, "la huella del producto $(rel) no coincide")
             end
@@ -546,16 +549,17 @@ end
 
 """
 Paso 5 sobre los archivos referenciados: rutas dentro del almacén y huella de
-bytes. Devuelve los bytes comprobados, sin deserializarlos. La ruta de
-`ica_result.jls` es relativa al almacén; la de las distribuciones nulas, a la
-raíz de la etapa (decisión 130), y las dos se validan dentro del almacén.
+bytes. Devuelve los bytes comprobados, sin deserializarlos. Las dos rutas,
+`ica_result.jls` y las distribuciones nulas, son relativas a la carpeta de la
+etapa (decisión 133, P-1), la que contiene `checkpoints/`, y se validan dentro
+del almacén. Las nulas, además, no pueden salir de esa carpeta (decisión 130).
 """
 function _verify_references(stage::Symbol, prov, store::String, stage_root::String)
     out = Dict{String,Vector{UInt8}}()
     for r in get(prov, "references", Any[])
         kind = get(r, "kind", "")
         p = if kind == "ica_decomposition"
-            _inside_store(stage, store, store, r["path"]; what="referencia")
+            _inside_store(stage, store, stage_root, r["path"]; what="referencia")
         elseif kind == "null_distribution"
             # Más estricto que «dentro del almacén»: la distribución nula no
             # puede salir de la carpeta de su etapa, ni por `..`, ni por una
@@ -750,11 +754,12 @@ function _check_invariants(stage::Symbol, out, data, prov, consumed, store, stag
     elseif stage == :finalize
         facts = get(prov, "facts", Dict{String,Any}())
         files = get(get(prov, "products", Dict{String,Any}()), "files", Dict{String,Any}())
-        snap = [k for k in keys(files) if endswith(k, "/config_snapshot.toml") || k == "config_snapshot.toml"]
-        for k in snap
+        # `config_snapshot.toml` está en la carpeta de la etapa, y sus productos
+        # son relativos a ella (decisión 133, P-1)
+        for k in (k for k in keys(files) if k == "config_snapshot.toml")
             files[k] == get(facts, "toml_sha256", "") ||
                 _alterado(:finalize, "la huella de config_snapshot.toml no es la del TOML de la identidad")
-            p = _inside_store(:finalize, store, store, k; what="producto")
+            p = _inside_store(:finalize, store, stage_root, k; what="producto")
             isfile(p) && _file_sha256(p) == files[k] ||
                 _alterado(:finalize, "config_snapshot.toml no es el registrado")
         end
@@ -801,9 +806,14 @@ que falla no deja ningún checkpoint cargable.
 - `consumed`: etapa consumida ⇒ su carpeta de checkpoints.
 - `references`: para ICA, `:ica_decomposition => (path, identity)`; para
   surrogates, `banda => path` de cada distribución nula. Rutas absolutas;
-  se registran relativas (ICA al almacén; nulas a la raíz de la etapa).
-- `products`: archivos que escribió la etapa (ruta relativa al almacén ⇒ huella);
-  `absent`: los que debía escribir y no están.
+  se registran relativas a la carpeta de la etapa (`export_dir`, la que
+  contiene `checkpoints/`; decisión 133, P-1).
+- `products`: archivos que escribió la etapa (ruta relativa a la carpeta de la
+  etapa ⇒ huella; puede empezar por `..` si el archivo está fuera de ella y
+  dentro del almacén, como las tablas globales del cierre); `absent`: los que
+  debía escribir y no están.
+
+Los consumidos se registran relativos a la raíz del almacén.
 """
 function save_checkpoint(ctx::PipelineContext, stage::Symbol, output; key::String, store::String,
                          consumed::AbstractDict = Dict{Symbol,String}(),
@@ -829,7 +839,7 @@ function save_checkpoint(ctx::PipelineContext, stage::Symbol, output; key::Strin
         r = get(references, :ica_decomposition, nothing)
         if r !== nothing
             p = _check_inside(stage, store, r.path; what="referencia")
-            push!(refs_toml, Dict{String,Any}("kind" => "ica_decomposition", "path" => _rel(store, p),
+            push!(refs_toml, Dict{String,Any}("kind" => "ica_decomposition", "path" => _rel(stage_root, p),
                                               "identity" => r.identity, "file_sha256" => _file_sha256(p)))
         end
         _checkpoint_data(Val(:ica), output; referenced = r !== nothing)
@@ -845,7 +855,7 @@ function save_checkpoint(ctx::PipelineContext, stage::Symbol, output; key::Strin
             _check_inside(stage, stage_root, p; what="distribución nula", where="de la carpeta de la etapa")
             p = _check_inside(stage, store, p; what="referencia")
             push!(refs_toml, Dict{String,Any}("kind" => "null_distribution", "band" => sr.band,
-                                              "path" => join(splitpath(relpath(p, stage_root)), '/'),
+                                              "path" => _rel(stage_root, p),
                                               "dims" => collect(size(sr.null_distribution)),
                                               "file_sha256" => _file_sha256(p)))
             push!(bands, sr.band)
@@ -1029,7 +1039,7 @@ function _products!(run::_CheckpointRun)
     prods = Dict{String,String}()
     for (p, sm) in now_inv
         get(run.inventory, p, nothing) == sm && continue
-        prods[_rel(run.store, p)] = _file_sha256(p)
+        prods[_rel(run.ctx.export_dir, p)] = _file_sha256(p)
     end
     run.inventory = now_inv
     return prods
@@ -1100,12 +1110,12 @@ function _checkpoint_after!(run::_CheckpointRun, stage::Symbol, out; consumed_ou
         # escribir: una de una ejecución anterior no describe este cálculo.
         for sr in out.results
             p = joinpath(ctx.export_dir, "cache", "surrogate", "null_distribution_$(sr.band).jls")
-            isfile(p) && haskey(products, _rel(run.store, p)) && (references[sr.band] = p)
+            isfile(p) && haskey(products, _rel(ctx.export_dir, p)) && (references[sr.band] = p)
         end
         NamedTuple()
     elseif stage == :finalize
         snap = joinpath(ctx.export_dir, "config_snapshot.toml")
-        rel = _rel(run.store, snap)
+        rel = _rel(ctx.export_dir, snap)
         if !(haskey(products, rel) && products[rel] == run.toml_sha256)
             delete!(products, rel); push!(absent, rel)
         end

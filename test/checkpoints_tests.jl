@@ -40,12 +40,14 @@ ckstore(root) = joinpath(root, "results")
 
 """
 Ejecuta las etapas a mano, como el orquestador, guardando el checkpoint de cada
-una, y devuelve las salidas en memoria. `until` corta la cadena.
+una, y devuelve las salidas en memoria. `until` corta la cadena; `store` es el
+almacén (por defecto, la carpeta de resultados).
 """
-function chain_with_checkpoints(cfg; until::Symbol=:finalize, before_ica=nothing, before_finalize_ck=nothing)
+function chain_with_checkpoints(cfg; until::Symbol=:finalize, before_ica=nothing, before_finalize_ck=nothing,
+                                store=nothing)
     redirect_stdout(devnull) do
         ctx = pipeline_context(cfg)
-        ck  = CK._checkpoint_run(ctx, nothing)
+        ck  = CK._checkpoint_run(ctx, store)
         o = Dict{Symbol,Any}(:ctx => ctx)
         try
             o[:load] = stage_load(ctx);                 CK._checkpoint_after!(ck, :load, o[:load])
@@ -265,10 +267,15 @@ end
         dir = ckdir(root); store = ckstore(root)
         alter!(dir, store)
         CK.CHECKPOINT_DESERIALIZATIONS[] = 0
-        r = reason_of(() -> load_checkpoint(dir, stage; store))
+        m = try
+            load_checkpoint(dir, stage; store); nothing
+        catch e
+            e isa CheckpointError || rethrow()
+            e
+        end
         n = CK.CHECKPOINT_DESERIALIZATIONS[]
         v = verify_checkpoint(dir, stage; store)
-        return r, n, v
+        return (m === nothing ? :ninguno : m.reason), (m === nothing ? "" : m.message), n, v
     end
     eyes(dir) = dirname(dir)
 
@@ -277,8 +284,14 @@ end
         ("byte de ica_result.jls", :ica, (d, s) -> flip_byte!(joinpath(eyes(d), "cache", "ica_result.jls"))),
         ("referencia absoluta", :ica, (d, s) -> edit_provenance!(p -> (p["references"][1]["path"] =
             joinpath(eyes(d), "cache", "ica_result.jls")), d, :ica)),
-        ("referencia que sale del almacén", :ica, (d, s) -> edit_provenance!(p -> (p["references"][1]["path"] =
-            "../../fuera/ica_result.jls"), d, :ica)),
+        # La referencia es relativa a la carpeta de la etapa (decisión 133): la
+        # ruta sale del almacén y apunta a una copia con los mismos bytes, para
+        # que el rechazo sea por la ruta y no porque falte el archivo
+        ("referencia que sale del almacén", :ica, function (d, s)
+            out = joinpath(dirname(s), "fuera", "ica_result.jls"); mkpath(dirname(out))
+            cp(joinpath(eyes(d), "cache", "ica_result.jls"), out)
+            edit_provenance!(p -> (p["references"][1]["path"] = CK._rel(eyes(d), out)), d, :ica)
+        end),
         ("consumido que sale del almacén", :montage, (d, s) -> edit_provenance!(p -> (p["consumed"][1]["path"] =
             "../ica.jls"), d, :montage)),
         ("enlace simbólico en el recorrido", :ica, function (d, s)
@@ -309,12 +322,25 @@ end
             symlink(joinpath(eyes(d), "cache", "surrogate_real"), c)
         end),
     ]
+    # Los rechazos por la ruta tienen que serlo por la ruta, no porque falte
+    # el archivo
+    motive = Dict(
+        "referencia absoluta" => "absoluta",
+        "referencia que sale del almacén" => "fuera del almacén autorizado",
+        "consumido que sale del almacén" => "fuera del almacén autorizado",
+        "enlace simbólico en el recorrido" => "enlace simbólico",
+        "checkpoint que es un enlace simbólico" => "enlace simbólico",
+        "nula fuera de la carpeta de la etapa, con ../" => "fuera de la carpeta de la etapa",
+        "nula con ruta absoluta" => "absoluta",
+        "nula a través de un enlace simbólico" => "enlace simbólico",
+    )
     for (name, stage, alter!) in cases
         @testset "$(name)" begin
-            r, n, v = untrusted(replace(name, " " => "-"), stage, alter!)
+            r, msg, n, v = untrusted(replace(name, " " => "-"), stage, alter!)
             @test r == :ALTERADO
             @test n == 0
             @test v[1] == false && v[2] == :ALTERADO
+            haskey(motive, name) && @test occursin(motive[name], msg)
         end
     end
 
@@ -533,12 +559,13 @@ end
     @testset "Cierre: la copia del TOML es la de la identidad, o su ausencia queda registrada" begin
         prov = CK.TOML.parsefile(joinpath(ckdir(CK_A), "finalize.toml"))
         h = bytes2hex(open(sha256, joinpath(CK_A, "config", "pipeline.toml")))
-        snap = "subjects/sub-S01/ses-T1/eyesclosed/config_snapshot.toml"
+        snap = "config_snapshot.toml"     # relativo a la carpeta de la etapa (decisión 133)
         @test prov["facts"]["toml_sha256"] == h
         @test prov["products"]["files"][snap] == h
         @test isempty(prov["products"]["absent"])
-        @test any(endswith("subjects_index.csv"), keys(prov["products"]["files"]))
-        @test any(endswith("qc_decision_table.csv"), keys(prov["products"]["files"]))
+        # Las tablas globales están fuera de la carpeta de la etapa y dentro del almacén
+        @test "../../../../subjects_index.csv" in keys(prov["products"]["files"])
+        @test "../../../../qc/qc_decision_table.csv" in keys(prov["products"]["files"])
 
         # La copia falla: se registra su ausencia y no se da por escrita
         root = joinpath(CK_TMP, "f12-ausente")
@@ -587,3 +614,42 @@ end
         end
     end
 end
+
+# ── Checkpoints_Rename (decisión 133, P-1) ───────────────────
+
+@testset "Checkpoints_Rename" begin
+    # Como Lab: la etapa se calcula en una carpeta temporal dentro del almacén
+    # y se renombra al terminar. Las referencias y los productos son relativos
+    # a la carpeta de la etapa, así que sobreviven al renombrado.
+    store = joinpath(CK_TMP, "almacen-p1")
+    tmp   = joinpath(store, ".en-curso", "m1", "etapa")
+    final = joinpath(store, "etapa")
+    chain_with_checkpoints(synthetic_config(tmp, CK_BIDS, SURR20...); store)
+    mv(tmp, final)
+    dir = ckdir(final)
+
+    prov(s) = CK.TOML.parsefile(joinpath(dir, "$(s).toml"))
+    @testset "Rutas registradas relativas a la carpeta de la etapa" begin
+        @test only(prov(:ica)["references"])["path"] == "cache/ica_result.jls"
+        @test all(startswith(r["path"], "cache/surrogate/") for r in prov(:surrogates)["references"])
+        fk = collect(keys(prov(:filter)["products"]["files"]))
+        @test !isempty(fk) && all(k -> !startswith(k, "..") && !startswith(k, "subjects/"), fk)
+        @test haskey(prov(:finalize)["products"]["files"], "config_snapshot.toml")
+        # Los consumidos, relativos a la raíz del almacén: apuntan a la carpeta temporal
+        @test all(startswith(c["path"], ".en-curso/m1/etapa/") for c in prov(:qc)["consumed"])
+    end
+
+    @testset "Una etapa sin consumidos carga y verifica tras el renombrado" begin
+        @test verify_checkpoint(dir, :load; store) == (true, nothing, "")
+        @test load_checkpoint(dir, :load; store) isa LoadOutput
+    end
+
+    @testset "Tras el renombrado, lo único que no se encuentra es lo consumido" begin
+        for s in (:ica, :surrogates, :finalize)
+            ok, reason, msg = verify_checkpoint(dir, s; store)
+            @test !ok && reason == :ALTERADO
+            @test occursin("consumido", msg)
+        end
+    end
+end
+
