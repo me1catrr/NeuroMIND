@@ -1079,17 +1079,29 @@ function _products!(run::_CheckpointRun)
     return prods
 end
 
+"Checkpoints que ya hay en `dir` (`.jls` y `.toml`)."
+_existing_checkpoints(dir::String) =
+    isdir(dir) ? [f for f in readdir(dir) if endswith(f, ".jls") || endswith(f, ".toml")] : String[]
+
+"""
+P-5: el orquestador con checkpoints no usa una carpeta que ya los tiene. Se
+comprueba antes de abrir el registro, sin escribir nada.
+"""
+function _refuse_existing_checkpoints(config_path::String)
+    cfg = load_ss_config(config_path)
+    dir = joinpath(_context_ids(cfg, config_path).export_dir, "checkpoints")
+    prev = _existing_checkpoints(dir)
+    isempty(prev) || error("La carpeta ya tiene checkpoints ($(join(prev, ", "))): no se sobrescriben. " *
+                           "Use otra carpeta de resultados.")
+    return nothing
+end
+
 function _checkpoint_run(ctx::PipelineContext, store)
     st = store === nothing ? results_dir(ctx.cfg) : String(store)
     dir = joinpath(ctx.export_dir, "checkpoints")
-    if isdir(dir)
-        prev = [f for f in readdir(dir) if endswith(f, ".jls") || endswith(f, ".toml")]
-        if !isempty(prev)
-            close(ctx.log_io)
-            error("La carpeta ya tiene checkpoints ($(join(prev, ", "))): no se sobrescriben. " *
-                  "Use otra carpeta de resultados.")
-        end
-    end
+    prev = _existing_checkpoints(dir)
+    isempty(prev) || error("La carpeta ya tiene checkpoints ($(join(prev, ", "))): no se sobrescriben. " *
+                           "Use otra carpeta de resultados.")
     run = _CheckpointRun(ctx, st, dir, Dict{Symbol,String}(), _file_sha256(ctx.config_path),
                          Dict{String,Tuple{Int,Float64}}(), Dict{String,String}(),
                          Dict{Symbol,String}(), nothing, Dict{String,Any}())

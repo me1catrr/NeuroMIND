@@ -350,3 +350,54 @@ end
     @test r.key == k2
     @test stage_prov(r.dir, :finalize)["facts"]["toml_sha256"] == bytes2hex(open(sha256, cfg2))
 end
+
+# ── Stage_Log_On_Error (apartado 3.9) y P-5 ──────────────────
+
+@testset "Stage_Log_On_Error" begin
+    csd(root) = synthetic_config(root, CK_BIDS, ("connectivity", "use_csd") => "true")
+    logof(root) = joinpath(root, "results", "subjects", "sub-S01", "ses-T1", "eyesclosed", "pipeline_log.txt")
+
+    @testset "Pipeline completo: la excepción original, el registro cerrado con el fallo" begin
+        root = joinpath(CK_TMP, "log-pipeline")
+        e = try
+            redirect_stdout(devnull) do; run_single_subject_pipeline(csd(root)); end; nothing
+        catch err
+            err
+        end
+        @test e isa DimensionMismatch          # D-21: la de la etapa, sin envolver
+        txt = read(logof(root), String)
+        @test occursin("La etapa connectivity ha fallado", txt)
+        @test endswith(rstrip(txt), "No se ha guardado ningún checkpoint de esta etapa.")
+    end
+
+    @testset "Con checkpoints: tampoco queda el de la etapa que falla" begin
+        root = joinpath(CK_TMP, "log-pipeline-ck")
+        @test_throws DimensionMismatch redirect_stdout(devnull) do
+            run_single_subject_pipeline(csd(root); checkpoints=true)
+        end
+        d = ckdir(root)
+        @test isfile(joinpath(d, "segmentation.toml"))
+        @test !ispath(joinpath(d, "connectivity.toml")) && !ispath(joinpath(d, "connectivity.jls"))
+        @test isempty([f for f in readdir(d) if startswith(f, ".tmp-")])
+    end
+
+    @testset "run_stage: la excepción original, el registro cerrado y sin checkpoint" begin
+        root = joinpath(RS_STORE, "log-conectividad")
+        @test_throws DimensionMismatch redirect_stdout(devnull) do
+            run_stage(:connectivity, csd(root); inputs=RS_DIRS, store=RS_STORE)
+        end
+        txt = read(logof(root), String)
+        @test occursin("La etapa connectivity ha fallado", txt)
+        d = joinpath(dirname(logof(root)), "checkpoints")
+        @test !ispath(joinpath(d, "connectivity.toml")) && !ispath(joinpath(d, "connectivity.jls"))
+    end
+
+    @testset "P-5: rechazar una carpeta con checkpoints no borra su registro" begin
+        root = joinpath(CK_TMP, "p5"); cp(CK_A, root)
+        before = read(logof(root))
+        @test_throws ErrorException redirect_stdout(devnull) do
+            run_single_subject_pipeline(joinpath(root, "config", "pipeline.toml"); checkpoints=true)
+        end
+        @test read(logof(root)) == before
+    end
+end

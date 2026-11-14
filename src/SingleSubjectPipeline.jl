@@ -2111,7 +2111,13 @@ Con `checkpoints=true` guarda además, tras cada etapa, su checkpoint en
 `<carpeta de la tarea>/checkpoints/` (`src/pipeline/Checkpoints.jl`), dentro
 del almacén `checkpoint_store` (por defecto, la carpeta de resultados). Las
 etapas, sus archivos y la salida de la terminal no cambian. Desactivado por
-defecto: sin la opción, el pipeline no escribe ningún archivo nuevo.
+defecto: sin la opción, el pipeline no escribe ningún archivo nuevo. Si la
+carpeta ya tiene checkpoints, falla antes de abrir el registro, así que no
+toca el de la ejecución anterior.
+
+`pipeline_log.txt` se cierra también si una etapa lanza una excepción: el
+registro anota la etapa y el mensaje, y la excepción original se vuelve a
+lanzar sin cambiarla (plan de 2f, apartado 3.9).
 """
 function run_single_subject_pipeline(config_path::String; checkpoints::Bool=false, checkpoint_store=nothing)
     t0 = now()
@@ -2119,40 +2125,61 @@ function run_single_subject_pipeline(config_path::String; checkpoints::Bool=fals
     println("  NeuroMIND · Pipeline individual · $(Dates.format(t0, "yyyy-mm-dd HH:MM:SS"))")
     println("  " * "═"^60)
 
+    # P-5: una carpeta con checkpoints se rechaza antes de cualquier escritura;
+    # abrir el registro en modo "w" borraría el de la ejecución anterior
+    checkpoints && _refuse_existing_checkpoints(config_path)
     ctx          = pipeline_context(config_path, t0)
-    ck           = checkpoints ? _checkpoint_run(ctx, checkpoint_store) : nothing
-    loaded       = stage_load(ctx)
-    ck === nothing || _checkpoint_after!(ck, :load, loaded)
-    qc           = stage_qc(ctx, loaded)
-    ck === nothing || _checkpoint_after!(ck, :qc, qc)
-    filtered     = stage_filter(ctx, loaded)
-    ck === nothing || _checkpoint_after!(ck, :filter, filtered)
-    ica          = stage_ica(ctx, filtered)
-    ck === nothing || _checkpoint_after!(ck, :ica, ica; filter=filtered)
-    montage      = stage_montage(ctx, ica, qc)
-    ck === nothing || _checkpoint_after!(ck, :montage, montage; qc=qc)
-    seg          = stage_segmentation(ctx, montage, ica)
-    ck === nothing || _checkpoint_after!(ck, :segmentation, seg; ica=ica)
-    spectra      = stage_spectral(ctx, seg)
-    ck === nothing || _checkpoint_after!(ck, :spectral, spectra)
-    connectivity = stage_connectivity(ctx, seg, montage)
-    ck === nothing || _checkpoint_after!(ck, :connectivity, connectivity; segmentation=seg)
-    surrogates   = stage_surrogates(ctx, connectivity)
-    ck === nothing || _checkpoint_after!(ck, :surrogates, surrogates)
-    stage_finalize(ctx, loaded, qc, filtered, montage, seg, spectra, connectivity)
-    ck === nothing || _checkpoint_after!(ck, :finalize, nothing)
+    log_io       = ctx.log_io
+    local loaded, qc, filtered, ica, montage, seg, spectra, connectivity, surrogates, elapsed
+    current      = :load
+    try
+        ck           = checkpoints ? _checkpoint_run(ctx, checkpoint_store) : nothing
+        loaded       = stage_load(ctx)
+        ck === nothing || _checkpoint_after!(ck, :load, loaded)
+        current      = :qc
+        qc           = stage_qc(ctx, loaded)
+        ck === nothing || _checkpoint_after!(ck, :qc, qc)
+        current      = :filter
+        filtered     = stage_filter(ctx, loaded)
+        ck === nothing || _checkpoint_after!(ck, :filter, filtered)
+        current      = :ica
+        ica          = stage_ica(ctx, filtered)
+        ck === nothing || _checkpoint_after!(ck, :ica, ica; filter=filtered)
+        current      = :montage
+        montage      = stage_montage(ctx, ica, qc)
+        ck === nothing || _checkpoint_after!(ck, :montage, montage; qc=qc)
+        current      = :segmentation
+        seg          = stage_segmentation(ctx, montage, ica)
+        ck === nothing || _checkpoint_after!(ck, :segmentation, seg; ica=ica)
+        current      = :spectral
+        spectra      = stage_spectral(ctx, seg)
+        ck === nothing || _checkpoint_after!(ck, :spectral, spectra)
+        current      = :connectivity
+        connectivity = stage_connectivity(ctx, seg, montage)
+        ck === nothing || _checkpoint_after!(ck, :connectivity, connectivity; segmentation=seg)
+        current      = :surrogates
+        surrogates   = stage_surrogates(ctx, connectivity)
+        ck === nothing || _checkpoint_after!(ck, :surrogates, surrogates)
+        current      = :finalize
+        stage_finalize(ctx, loaded, qc, filtered, montage, seg, spectra, connectivity)
+        ck === nothing || _checkpoint_after!(ck, :finalize, nothing)
+
+        elapsed = round(Dates.value(now() - t0) / 1000, digits=1)
+        _log(log_io, "\n✓ Pipeline completado en $(elapsed) s")
+    catch e
+        _log_failure(log_io, current, e)
+        rethrow()
+    finally
+        isopen(log_io) && close(log_io)
+    end
 
     # Lo que usa el resumen final
-    cfg = ctx.cfg; log_io = ctx.log_io
+    cfg = ctx.cfg
     sid = ctx.subject_id; sess_id = ctx.session_id; task = ctx.task; condition = ctx.condition
     rec = loaded.rec; conn = connectivity.conn; surr_results = surrogates.results
     amplitude_warning = qc.amplitude_warning
     bad_ch_non_fp2 = montage.bad_channels_non_fp2; fp2_excluded = montage.fp2_excluded; n_ch_analysis = montage.n_channels
     n_total = seg.n_total; n_valid = seg.n_valid; n_rejected = seg.n_rejected
-
-    elapsed = round(Dates.value(now() - t0) / 1000, digits=1)
-    _log(log_io, "\n✓ Pipeline completado en $(elapsed) s")
-    close(log_io)
 
     # ── Resumen final ──────────────────────────────────────────
     _valid_pct_f  = n_total > 0 ? round(100*n_valid/n_total, digits=1) : 0.0
