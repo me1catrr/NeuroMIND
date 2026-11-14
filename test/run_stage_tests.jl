@@ -160,7 +160,8 @@ skip_compare(f) = occursin("/checkpoints/", f) || endswith(f, "pipeline_log.txt"
 @testset "Pipeline_Staged_Equivalence" begin
     store = joinpath(CK_TMP, "rs-procesos")
     dirs, times = staged_chain_processes(store, surr_config)
-    @info "Un proceso de Julia por etapa" segundos = Dict(s => round(t, digits=1) for (s, t) in times) total = round(sum(values(times)), digits=1)
+    @info "Un proceso de Julia por etapa: " * join(["$(s) $(round(times[s], digits=1)) s" for s in CHECKPOINT_STAGES], " · ") *
+          " · total $(round(sum(values(times)), digits=1)) s"
 
     @testset "Mismos checkpoints por contenido e identidad que el orquestador en memoria" begin
         for s in CHECKPOINT_STAGES
