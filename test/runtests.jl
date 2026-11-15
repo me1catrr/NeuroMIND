@@ -2950,19 +2950,20 @@ end
         @test !M.qc_ok("manual_review")
         @test !M.qc_ok("exclude")
         @test !M.qc_ok("unknown")
-        @test_broken M.qc_decision(Dict{Tuple{String,String,String},String}(), "S01", "T1", "EC") == "unknown"
-        @test_broken !M.qc_ok(M.qc_decision(Dict{Tuple{String,String,String},String}(), "S01", "T1", "EC"))
+        @test M.qc_decision(Dict{Tuple{String,String,String},String}(), "S01", "T1", "EC") == "unknown"
+        @test !M.qc_ok(M.qc_decision(Dict{Tuple{String,String,String},String}(), "S01", "T1", "EC"))
     end
 end
 
 @testset "QC_Unknown_Transversal" begin
     mktempdir() do res
-        subjects = ["S01", "S02", "S03", "S04", "S05", "M9"]
+        subjects = ["S01", "S02", "S03", "S04", "S05", "S06", "M9"]
         for sid in subjects
             qc_fixture_wpli(Transversal, res, sid, "T1", "eyesclosed")
         end
         qc_fixture_table(res, [("S01", "T1", "EC", "include"), ("S02", "T1", "EC", "exclude"),
                                ("S04", "T1", "EC", ""), ("S05", "T1", "EC", "nan"),
+                               ("S06", "T1", "EC", "manual_review"),
                                ("M09", "T1", "EC", "include")])
         qc = Transversal.load_qc_table(res)
         notes = Transversal.load_qc_notes(res)
@@ -2972,25 +2973,32 @@ end
 
         @test r["S01"].included && r["S01"].qc_decision == "include" && r["S01"].excluded_reason == ""
         @test !r["S02"].included && r["S02"].excluded_reason == "QC=exclude"
+        @test !r["S06"].included && r["S06"].excluded_reason == "QC=manual_review"
         # Sin fila
-        @test_broken !r["S03"].included
-        @test_broken r["S03"].qc_decision == "unknown"
-        @test_broken startswith(r["S03"].excluded_reason, "QC=unknown (sin fila en qc_decision_table.csv")
+        @test !r["S03"].included
+        @test r["S03"].qc_decision == "unknown"
+        @test startswith(r["S03"].excluded_reason, "QC=unknown (sin fila en qc_decision_table.csv")
         # Celda vacía
-        @test_broken !r["S04"].included
-        @test_broken r["S04"].qc_decision == "unknown"
-        @test_broken occursin("celda final_decision vacía", r["S04"].excluded_reason)
+        @test !r["S04"].included
+        @test r["S04"].qc_decision == "unknown"
+        @test occursin("celda final_decision vacía", r["S04"].excluded_reason)
         # Valor no reconocido: hoy ya queda fuera, pero sin el estado desconocido
         @test !r["S05"].included
-        @test_broken r["S05"].qc_decision == "unknown"
-        @test_broken occursin("valor no reconocido «nan»", r["S05"].excluded_reason)
+        @test r["S05"].qc_decision == "unknown"
+        @test occursin("valor no reconocido «nan»", r["S05"].excluded_reason)
         # Alias del código de sujeto (con y sin el cero a la izquierda)
         @test r["M9"].included && r["M9"].qc_decision == "include"
     end
 
     @testset "Sin tabla de QC, error explícito" begin
         mktempdir() do res
-            @test_broken (try Transversal.load_qc_table(res); false catch; true end)
+            @test_throws ErrorException Transversal.load_qc_table(res)
+            err = try Transversal.load_qc_table(res); "" catch e; sprint(showerror, e) end
+            @test occursin("qc_decision_table.csv", err)
+            # Una tabla sin la columna de decisión tampoco permite decidir
+            mkpath(joinpath(res, "qc"))
+            write(joinpath(res, "qc", "qc_decision_table.csv"), "subject_id,session_id,condition\nS01,T1,EC\n")
+            @test_throws ErrorException Transversal.load_qc_table(res)
         end
     end
 end
@@ -3006,14 +3014,14 @@ end
         p1 = Longitudinal.evaluate_inclusion(res, Longitudinal.SubjPair("P01", "T1", "T2", true, true), "eyesclosed", qc)
         p2 = Longitudinal.evaluate_inclusion(res, Longitudinal.SubjPair("P02", "T1", "T2", true, true), "eyesclosed", qc)
         @test p2[1] && p2[3] == "include" && p2[4] == "include"
-        @test_broken !p1[1]
-        @test_broken p1[4] == "unknown"
-        @test_broken startswith(p1[2], "QC T2=unknown (sin fila en qc_decision_table.csv")
+        @test !p1[1]
+        @test p1[4] == "unknown"
+        @test startswith(p1[2], "QC T2=unknown (sin fila en qc_decision_table.csv")
     end
 
     @testset "Sin tabla de QC, error explícito" begin
         mktempdir() do res
-            @test_broken (try Longitudinal.load_qc_table(res); false catch; true end)
+            @test_throws ErrorException Longitudinal.load_qc_table(res)
         end
     end
 end
@@ -3022,7 +3030,7 @@ end
     for M in (Transversal, Longitudinal)
         policy = NeuroMIND.TOML.parse(sprint(M.write_qc_policy))
         @test policy["qc_allowed"] == ["include", "include_with_warning"]
-        @test_broken get(policy, "qc_unknown", "") == "not_included"
+        @test get(policy, "qc_unknown", "") == "not_included"
     end
 end
 

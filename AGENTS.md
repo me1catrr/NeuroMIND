@@ -274,6 +274,13 @@ The first rule that holds wins, in this order (`min_segments` from `[segmentatio
 | 5 | amplitude_warning **or** ≥1 bad channel | `include_with_warning` | ✅ With caution |
 | 6 | otherwise | `include` | ✅ Yes |
 
+Group analyses (`Transversal.jl`, `Longitudinal.jl`) include only `include` and
+`include_with_warning`. A recording with **no row** in the table, an **empty**
+`final_decision` cell or an **unrecognised** value is in state **`unknown`** (B-05): it is
+not included, its reason says so (`QC=unknown (…)`, `QC T1=unknown (…)`), and
+`config_snapshot.toml` records `qc_unknown = "not_included"`. Without
+`qc_decision_table.csv` the group analyses stop with an explicit error.
+
 ### wPLI reliability per band (minimum cycles per epoch)
 With epochs of 1.0 s (`profile = eeg_julia`) and `min_cycles_for_wpli = 4.0`:
 - DELTA (0.5 Hz × 1s = 0.5 cycles) → below threshold, `@warn`

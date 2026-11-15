@@ -522,6 +522,8 @@ Una sola regla, `qc_final_decision` (`src/SingleSubjectPipeline.jl`), para la ta
 | 5 | `amplitude_warning` **o** ≥1 canal malo | `include_with_warning` | ✅ Con cautela |
 | 6 | en otro caso | `include` | ✅ Sí |
 
+Los análisis de grupo (`Transversal.jl`, `Longitudinal.jl`) solo incluyen `include` e `include_with_warning`. Una grabación **sin fila** en la tabla, con la celda `final_decision` **vacía** o con un valor **no reconocido** queda en estado **`unknown`** (B-05): no entra, su motivo lo dice (`QC=unknown (…)`, `QC T1=unknown (…)`) y `config_snapshot.toml` registra `qc_unknown = "not_included"`. Sin `qc_decision_table.csv`, los análisis de grupo se detienen con un error explícito.
+
 ---
 
 ## 10. Dashboard e informe
