@@ -4,6 +4,93 @@
 > no se cargue en cada sesión de los agentes. Las entradas nuevas van arriba.
 > `AGENTS.md` §13 apunta aquí (y `Report_Pre/chapters/12_espectral.tex` cita esa sección).
 
+### 2026-11-15 — PR de QC: una sola regla de decisión de QC y QC ausente como estado desconocido
+
+**No cambia ningún criterio de QC, umbral ni parámetro**, ni reescribe resultados. Misma
+regla, misma tabla. La revisión del criterio (alternativa C de D-22: `min_segments`, D-14,
+D-19, la regla del 50 %, `manual_review`) queda aplazada de forma expresa hasta el primer
+análisis de grupo (decisión B8).
+
+- **D-22, alternativa B: la terminal dice lo que dice la tabla.** El resumen final de
+  `run_single_subject_pipeline` aplicaba una regla propia (mínimo fijo de 10 épocas y sin
+  las reglas 3 y 4 de la tabla). En el caso grave anunciaba `include` para una grabación que
+  `qc_decision_table.csv` excluye por tener menos de `min_segments` épocas. Ahora la regla
+  vive en una función pura, `qc_final_decision`, que usan la tabla y la terminal con los
+  mismos parámetros del TOML (`_qc_min_epochs`, `_qc_ar_threshold_uv`). El resumen se
+  imprime con `_print_final_summary(io, cfg; …)`. Cambian solo el valor y el icono de la línea
+  de la decisión, y solo donde antes discrepaban; ningún archivo cambia. Docstrings,
+  `AGENTS.md` y `README.md` describen la regla real en su orden de precedencia.
+- **B-05: QC ausente = estado desconocido** (decisión 120.5; B4 y B5). En `Transversal.jl` y
+  `Longitudinal.jl`, una grabación sin fila en la tabla, con la celda `final_decision` vacía o
+  con un valor no reconocido queda en `QC_UNKNOWN = "unknown"`: no entra, con un motivo
+  propio (`QC=unknown (sin fila en qc_decision_table.csv, requiere decisión explícita)`, y en
+  el longitudinal `QC T1=` / `QC T2=` por sesión). Antes, `qc_ok("missing")` era verdadero y
+  esas grabaciones entraban. Sin la tabla (o sin sus columnas de sujeto y decisión), los
+  análisis se detienen con un error explícito en lugar de incluir a toda la cohorte.
+  `config_snapshot.toml` añade `qc_unknown = "not_included"`, que distingue los análisis
+  hechos con la regla nueva. Sin cambios: `QC_ALLOWED`, la resolución de alias del código de
+  sujeto, las columnas de las tablas de inclusión y las versiones de esquema.
+- **Extracciones sin cambio de comportamiento**, para poder probarlo:
+  `Transversal.evaluate_inclusion` (como ya tenía el longitudinal) y `write_qc_policy`.
+- **Pruebas** (datos sintéticos): `QC_Decision_Rule` (oráculo con la copia literal de la regla
+  de `7677710` en una rejilla completa, y bordes de cada regla), `QC_Decision_Terminal`,
+  `QC_Unknown_Rule`, `QC_Unknown_Transversal`, `QC_Unknown_Longitudinal` y
+  `QC_Unknown_Snapshot`.
+- **Prueba dorada** (Lab, raíz aislada, `ref-6a2089e` ampliada con el caso nuevo
+  `pocas-epocas-sin-aviso`, decisión B6, frente a `esperado-pr3.json`): 33 casos, ninguna
+  diferencia de archivos nueva respecto a la base `7677710`. En la terminal, 2 de 33 casos
+  cambian, solo en la línea de la decisión: `pocas-epocas-sin-aviso` (`include` → `exclude`)
+  y `pocas-epocas` (`include_with_warning` → `exclude`).
+- **Histórico.** Las tablas de QC existentes no cambian. Repetir un análisis de grupo sobre
+  resultados antiguos solo cambia la cohorte si alguna grabación no tiene fila, tiene la celda
+  vacía o falta la tabla.
+
+### 2026-11-14 — Checkpoints de las etapas y ejecución por etapas (PR 3)
+
+Añade checkpoints verificables de las diez etapas y una forma de ejecutarlas una a una.
+**No cambia el comportamiento por defecto**: sin la opción nueva, el pipeline completo escribe
+los mismos archivos y la misma salida de terminal que antes. Las funciones de etapa no cambian.
+
+- **Checkpoints** (`src/pipeline/Checkpoints.jl`). La salida completa de cada etapa, con su tipo,
+  en `checkpoints/<etapa>.jls`, y su procedencia, sin fecha, en `checkpoints/<etapa>.toml`.
+  Escritura segura: temporal, volcado a disco, huella de los bytes del archivo definitivo y
+  procedencia publicada al final; una interrupción no deja nada cargable y no se sobrescribe un
+  checkpoint existente. `run_single_subject_pipeline(config; checkpoints=true)` los escribe
+  tras cada etapa; se niega a usar una carpeta que ya tiene checkpoints, antes de abrir el registro.
+- **Identidad, compatibilidad y procedencia, separadas.** La identidad (configuración efectiva
+  de las secciones que lee cada etapa, identidades consumidas, entradas propias y huella de
+  `src/` y `Manifest.toml`) decide si es el mismo cálculo; la compatibilidad (formato,
+  envoltorio, versión de Julia), si se puede leer; la máquina y el commit se registran. Un cambio
+  de máquina invalida la ICA y lo posterior a través de la identidad de la descomposición. El
+  cierre incluye la huella de los bytes del TOML, así que no se comparte entre textos distintos.
+- **Verificación antes de deserializar.** `load_checkpoint` y `verify_checkpoint` comprueban
+  rutas, procedencia, compatibilidad, identidad y huellas de bytes, también de
+  `cache/ica_result.jls` y de las distribuciones nulas, antes de leer nada, y distinguen
+  `INCOMPATIBLE`, `OTRA_CONFIGURACION` y `ALTERADO`. Las referencias y los productos son relativos
+  a la carpeta de la etapa; lo consumido, a la raíz del almacén, con `consumed_dirs` si se ha
+  trasladado. Las huellas verifican integridad, no autenticidad.
+- **Huella de contenido.** Compara salidas por su valor, campo a campo. Solo dos datos quedan
+  fuera, cada uno por su posición: `RecordingMeta.bids_path` (dónde estaba la entrada) y la
+  clave `optimize_s` en la raíz de `ICAResult.diagnostics` (tiempo de reloj). Ninguna otra clave
+  se excluye por su nombre, ni en la huella ni en la identidad.
+- **Ejecución por etapas** (`src/pipeline/RunStage.jl`). `run_stage` carga y verifica las
+  entradas, llama a la misma función de etapa y guarda el checkpoint. `stage_key` da la identidad
+  sin ejecutar nada; es la misma función que usan `run_stage` y el orquestador. `stage_graph()`
+  dice qué consume y qué lee cada etapa, incluida `[output]`. La decisión manual de ICA se
+  verifica contra la descomposición; la caché de ICA entregada solo se usa con su huella de
+  bytes; la identidad de la descomposición de una ICA consumida se recalcula; y el rótulo de
+  entrada de la segmentación se contrasta con la lista de rechazados.
+- **Registro ante excepciones.** `run_single_subject_pipeline` y `run_stage` cierran
+  `pipeline_log.txt` también cuando una etapa falla, anotan la etapa y el mensaje, y vuelven a
+  lanzar la excepción original. Es el único cambio que puede verse en una ejecución sin la
+  opción: en los casos que terminan con un error (como la conectividad con CSD, D-21), el
+  registro tiene dos líneas más al final.
+- **Pruebas.** `test/checkpoints_tests.jl` (ida y vuelta de los diez tipos, escritura segura,
+  nada se deserializa sin comprobar sus bytes, los tres motivos, perturbación sección a sección,
+  ICA, renombrado y `consumed_dirs`) y `test/run_stage_tests.jl` (grafo, identidad, equivalencia
+  con un proceso de Julia por etapa frente al orquestador, decisión y caché de ICA, reutilización
+  del cierre, registro ante excepciones y alcance de la huella de contenido). Datos sintéticos.
+
 ### 2026-11-12 — Perfil experimental de ICA «estable»: convergencia exigida y repetibilidad por componente
 
 Añade un perfil de ICA nuevo y experimental, `ica.profile = "estable"`. **No cambia el

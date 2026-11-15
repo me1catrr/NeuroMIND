@@ -76,6 +76,11 @@ const POWER_FDR_SCOPE = "available_channels_within_each_band"
 
 const N_PAIRED_DESIGN = 30   # Fig. 3.1 — pares EM T1+T2 comparables
 const QC_ALLOWED      = Set(["include", "include_with_warning"])
+# Decisiones que escribe el pipeline individual en qc_decision_table.csv.
+const QC_RECOGNIZED = Set(["include", "include_with_warning", "manual_review", "exclude"])
+# Estado de una grabación sin decisión de QC válida (sin fila, celda vacía o
+# valor no reconocido). No es favorable: no entra en el análisis de grupo (B-05).
+const QC_UNKNOWN    = "unknown"
 
 _ch_xy(ch::AbstractString) = get(CH_POS, uppercase(String(ch)), (0.0, 0.0))
 
@@ -463,34 +468,78 @@ function load_seg_epochs(res_root, subj_id, sess_id, cond)
     return (n_valid, n_total, pct)
 end
 
+"""
+    load_qc_table(res_root) -> Dict{(subject, session, condition), String}
+
+Lee `qc/qc_decision_table.csv`. Cada valor es la celda `final_decision` en
+minúsculas, o `""` si la celda está vacía. Sin la tabla (o sin las columnas
+de sujeto y de decisión) no se puede decidir la inclusión de ninguna
+grabación: lanza un error en lugar de devolver una tabla vacía (B-05).
+"""
 function load_qc_table(res_root)::Dict{Tuple{String,String,String}, String}
     path = joinpath(res_root, "qc", "qc_decision_table.csv")
     out = Dict{Tuple{String,String,String}, String}()
-    isfile(path) || return out
+    isfile(path) || error("No existe la tabla de QC $(path). Sin ella no se puede decidir " *
+                          "la inclusión de ninguna grabación. Se genera al ejecutar el " *
+                          "pipeline individual (etapa de cierre) de cada grabación.")
     df = CSV.read(path, DataFrame)
     rename!(df, Dict(n => Symbol(lowercase(string(n))) for n in names(df)))
     sid_col = hasproperty(df, :subject_id) ? :subject_id : (hasproperty(df, :bids_id) ? :bids_id : nothing)
-    sid_col === nothing && return out
+    (sid_col === nothing || !hasproperty(df, :final_decision)) &&
+        error("La tabla de QC $(path) no tiene las columnas subject_id (o bids_id) y final_decision.")
     for row in eachrow(df)
         sid  = string(row[sid_col])
         sess = string(hasproperty(row, :session_id) ? row.session_id : row.session)
         cond = cond_code(string(row.condition))
-        out[(sid, sess, cond)] = lowercase(string(row.final_decision))
+        out[(sid, sess, cond)] = ismissing(row.final_decision) ? "" : lowercase(string(row.final_decision))
     end
     return out
 end
 
-function qc_decision(qc::Dict, sid::String, sess::String, cond::String)::String
+function _qc_cell(qc::Dict, sid::String, sess::String, cond::String)::Union{Nothing,String}
     cc = cond_code(cond)
     haskey(qc, (sid, sess, cc)) && return qc[(sid, sess, cc)]
     if startswith(sid, "M") && !startswith(sid, "MC")
         alt = occursin(r"^M\d$", sid) ? "M0"*sid[2:end] : (occursin(r"^M0\d$", sid) ? "M"*sid[3:end] : "")
         !isempty(alt) && haskey(qc, (alt, sess, cc)) && return qc[(alt, sess, cc)]
     end
-    return "missing"
+    return nothing
 end
 
-qc_ok(dec::String)::Bool = dec == "missing" || dec in QC_ALLOWED
+"""
+    qc_state(qc, sid, sess, cond) -> (decision, detail)
+
+Decisión de QC de una grabación. Si no tiene fila, si la celda está vacía o si
+el valor no es una de las cuatro decisiones reconocidas, la decisión es
+`QC_UNKNOWN` y `detail` dice por qué; en otro caso `detail` es `""`.
+"""
+function qc_state(qc::Dict, sid::String, sess::String, cond::String)::Tuple{String,String}
+    cell = _qc_cell(qc, sid, sess, cond)
+    cell === nothing && return (QC_UNKNOWN, "sin fila en qc_decision_table.csv, requiere decisión explícita")
+    isempty(cell)    && return (QC_UNKNOWN, "celda final_decision vacía en qc_decision_table.csv, requiere decisión explícita")
+    cell in QC_RECOGNIZED ||
+        return (QC_UNKNOWN, "valor no reconocido «$(cell)» en qc_decision_table.csv, requiere decisión explícita")
+    return (cell, "")
+end
+
+qc_decision(qc::Dict, sid::String, sess::String, cond::String)::String = qc_state(qc, sid, sess, cond)[1]
+
+"""Texto del motivo de exclusión por QC (`label` es `QC`, `QC T1` o `QC T2`)."""
+qc_reason(label::String, dec::String, detail::String)::String =
+    dec == QC_UNKNOWN ? "$(label)=$(QC_UNKNOWN) ($(detail))" : "$(label)=$(dec)"
+
+qc_ok(dec::String)::Bool = dec in QC_ALLOWED
+
+"""
+    write_qc_policy(io)
+
+Escribe en `config_snapshot.toml` la política de QC con la que se decidió la
+inclusión.
+"""
+function write_qc_policy(io::IO)
+    println(io, "qc_allowed = [\"include\", \"include_with_warning\"]")
+    println(io, "qc_unknown = \"not_included\"")
+end
 
 function _prop_threshold(W::Matrix{Float64}, density::Float64)::Float64
     vals = sort([W[i,j] for i in 1:size(W,1) for j in (i+1):size(W,1) if W[i,j] > 0.0]; rev=true)
@@ -1145,8 +1194,8 @@ function evaluate_inclusion(res_root, sp::SubjPair, cond::String, qc::Dict)
         return (false, "Sin par T1/T2 para $cc en el inventario", "n/a", "n/a",
                 missing, missing, missing, missing, 0)
     end
-    qc_t1 = qc_decision(qc, sp.subject_id, sp.session_t1, cc)
-    qc_t2 = qc_decision(qc, sp.subject_id, sp.session_t2, cc)
+    qc_t1, qc_detail_t1 = qc_state(qc, sp.subject_id, sp.session_t1, cc)
+    qc_t2, qc_detail_t2 = qc_state(qc, sp.subject_id, sp.session_t2, cc)
     ev_t1 = load_seg_epochs(res_root, sp.subject_id, sp.session_t1, cc)
     ev_t2 = load_seg_epochs(res_root, sp.subject_id, sp.session_t2, cc)
     n_bands = 0
@@ -1157,8 +1206,8 @@ function evaluate_inclusion(res_root, sp::SubjPair, cond::String, qc::Dict)
     end
     reasons = String[]
     n_bands == 0 && push!(reasons, "Sin wPLI pareado en disco")
-    qc_ok(qc_t1) || push!(reasons, "QC T1=$(qc_t1)")
-    qc_ok(qc_t2) || push!(reasons, "QC T2=$(qc_t2)")
+    qc_ok(qc_t1) || push!(reasons, qc_reason("QC T1", qc_t1, qc_detail_t1))
+    qc_ok(qc_t2) || push!(reasons, qc_reason("QC T2", qc_t2, qc_detail_t2))
     included = isempty(reasons)
     return (included, included ? "" : join(reasons,"; "), qc_t1, qc_t2,
             ev_t1[1], ev_t2[1], ev_t1[3], ev_t2[3], n_bands)
@@ -1241,7 +1290,7 @@ function run(config_path::String)
             println(io, "graph_density = $graph_dens")
             println(io, "graph_threshold_method = \"$graph_meth\"")
             println(io, "n_channels_analysis = $n_ch_mont")
-            println(io, "qc_allowed = [\"include\", \"include_with_warning\"]")
+            write_qc_policy(io)
             println(io, "source_config = \"$config_path\"")
         end
 

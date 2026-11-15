@@ -839,6 +839,30 @@ struct SurrogatesOutput
 end
 
 """
+    _context_ids(cfg, config_path; raw_cfg) -> NamedTuple
+
+Sujeto, sesión, tarea, `run`, condición y carpeta de salida de una
+configuración, sin escribir nada. La usan `pipeline_context` y, antes de abrir
+el registro, `run_stage` y `stage_key`.
+"""
+function _context_ids(cfg::PipelineConfig, config_path::String;
+                      raw_cfg = TOML.parsefile(isabspath(config_path) ? config_path : abspath(config_path)))
+    sub_cfg = get(raw_cfg, "subject", Dict{String,Any}())
+    sid     = String(get(sub_cfg, "subject_id", "auto"))
+    sess_id = String(get(sub_cfg, "session_id", "T2"))
+    task    = String(get(sub_cfg, "task", "eyesclosed"))
+    run_n   = Int(get(sub_cfg, "run", 1))
+    sid_mode = sid == "auto" ? "auto" : "manual"
+    if sid == "auto"
+        sid, sess_id, task, run_n = detect_first_subject(bids_root_dir(cfg))
+    end
+    condition = task == "eyesclosed" ? "EC" : (task == "eyesopen" ? "EO" : task)
+    export_dir = joinpath(results_dir(cfg), "subjects", "sub-$(sid)", "ses-$(sess_id)", task)
+    return (subject_id = String(sid), session_id = String(sess_id), task = String(task), run = Int(run_n),
+            condition = String(condition), export_dir = export_dir, sid_mode = sid_mode)
+end
+
+"""
     pipeline_context(config_path, t0=now()) -> PipelineContext
 
 Lee la configuración, resuelve la grabación, crea la carpeta de salida y abre
@@ -852,7 +876,6 @@ function pipeline_context(config_path::String, t0::DateTime=now())::PipelineCont
     # [subject] no entra en el struct: se lee del TOML crudo más abajo.
     cfg = load_ss_config(config_path)
     raw_cfg     = TOML.parsefile(isabspath(config_path) ? config_path : abspath(config_path))
-    sub_cfg     = get(raw_cfg, "subject",  Dict{String,Any}())
     dpi         = Int(get(cfg.export_cfg, "figure_dpi", 150))
     qc_cfg      = cfg.qc
     montage_cfg = cfg.montage
@@ -899,22 +922,11 @@ function pipeline_context(config_path::String, t0::DateTime=now())::PipelineCont
     ])
 
     # ── 2. Detección / resolución del sujeto ──────────────────
-    sid     = String(get(sub_cfg, "subject_id", "auto"))
-    sess_id = String(get(sub_cfg, "session_id", "T2"))
-    task    = String(get(sub_cfg, "task", "eyesclosed"))
-    run_n   = Int(get(sub_cfg, "run", 1))
-
-    _sid_mode = sid == "auto" ? "auto" : "manual"
-    if sid == "auto"
-        sid, sess_id, task, run_n = detect_first_subject(bids_root_dir(cfg))
-    end
-
-    condition = task == "eyesclosed" ? "EC" : (task == "eyesopen" ? "EO" : task)
-
     # ── 3. Directorio de salida ────────────────────────────────
     # results/subjects/sub-{id}/ses-{sess}/{task}/
-    export_dir = joinpath(results_dir(cfg), "subjects",
-                          "sub-$(sid)", "ses-$(sess_id)", task)
+    _ids = _context_ids(cfg, config_path; raw_cfg)
+    sid, sess_id, task, run_n = _ids.subject_id, _ids.session_id, _ids.task, _ids.run
+    _sid_mode = _ids.sid_mode; condition = _ids.condition; export_dir = _ids.export_dir
     mkpath(joinpath(export_dir, "cache"))
     _out_rel = joinpath("results", "subjects", "sub-$(sid)", "ses-$(sess_id)", task)
 
@@ -2080,9 +2092,9 @@ function stage_finalize(ctx::PipelineContext, loaded::LoadOutput, qc::QCOutput, 
         results_dir(cfg), sid, sess_id, condition,
         amplitude_warning, raw_sigma_mean,
         bad_ch, bad_ch_non_fp2, fp2_excluded, n_ch_analysis,
-        Float64(get(cfg.artifact_rejection, "max_amplitude_uv", 70.0)),
+        _qc_ar_threshold_uv(cfg),
         n_total, n_rejected, n_valid,
-        Int(get(cfg.segmentation, "min_epochs", 10)),
+        _qc_min_epochs(cfg),
         log_io
     )
     println("✓  tablas · figuras · BIDS export · QC table  ($(round(Dates.value(now()-t_step)/1000,digits=1)) s)")
@@ -2090,70 +2102,143 @@ function stage_finalize(ctx::PipelineContext, loaded::LoadOutput, qc::QCOutput, 
 end
 
 """
-    run_single_subject_pipeline(config_path)
+    run_single_subject_pipeline(config_path; checkpoints=false, checkpoint_store=nothing)
 
 Ejecuta el pipeline completo para el primer sujeto disponible.
 Genera resultados en results/{subj}/{sess}/ y results/subjects/.
+
+Con `checkpoints=true` guarda además, tras cada etapa, su checkpoint en
+`<carpeta de la tarea>/checkpoints/` (`src/pipeline/Checkpoints.jl`), dentro
+del almacén `checkpoint_store` (por defecto, la carpeta de resultados). Las
+etapas, sus archivos y la salida de la terminal no cambian. Desactivado por
+defecto: sin la opción, el pipeline no escribe ningún archivo nuevo. Si la
+carpeta ya tiene checkpoints, falla antes de abrir el registro, así que no
+toca el de la ejecución anterior.
+
+`pipeline_log.txt` se cierra también si una etapa lanza una excepción: el
+registro anota la etapa y el mensaje, y la excepción original se vuelve a
+lanzar sin cambiarla (plan de 2f, apartado 3.9).
 """
-function run_single_subject_pipeline(config_path::String)
+function run_single_subject_pipeline(config_path::String; checkpoints::Bool=false, checkpoint_store=nothing)
     t0 = now()
     println("  " * "═"^60)
     println("  NeuroMIND · Pipeline individual · $(Dates.format(t0, "yyyy-mm-dd HH:MM:SS"))")
     println("  " * "═"^60)
 
+    # P-5: una carpeta con checkpoints se rechaza antes de cualquier escritura;
+    # abrir el registro en modo "w" borraría el de la ejecución anterior
+    checkpoints && _refuse_existing_checkpoints(config_path)
     ctx          = pipeline_context(config_path, t0)
-    loaded       = stage_load(ctx)
-    qc           = stage_qc(ctx, loaded)
-    filtered     = stage_filter(ctx, loaded)
-    ica          = stage_ica(ctx, filtered)
-    montage      = stage_montage(ctx, ica, qc)
-    seg          = stage_segmentation(ctx, montage, ica)
-    spectra      = stage_spectral(ctx, seg)
-    connectivity = stage_connectivity(ctx, seg, montage)
-    surrogates   = stage_surrogates(ctx, connectivity)
-    stage_finalize(ctx, loaded, qc, filtered, montage, seg, spectra, connectivity)
+    log_io       = ctx.log_io
+    local loaded, qc, filtered, ica, montage, seg, spectra, connectivity, surrogates, elapsed
+    current      = :load
+    try
+        ck           = checkpoints ? _checkpoint_run(ctx, checkpoint_store) : nothing
+        loaded       = stage_load(ctx)
+        ck === nothing || _checkpoint_after!(ck, :load, loaded)
+        current      = :qc
+        qc           = stage_qc(ctx, loaded)
+        ck === nothing || _checkpoint_after!(ck, :qc, qc)
+        current      = :filter
+        filtered     = stage_filter(ctx, loaded)
+        ck === nothing || _checkpoint_after!(ck, :filter, filtered)
+        current      = :ica
+        ica          = stage_ica(ctx, filtered)
+        ck === nothing || _checkpoint_after!(ck, :ica, ica; filter=filtered)
+        current      = :montage
+        montage      = stage_montage(ctx, ica, qc)
+        ck === nothing || _checkpoint_after!(ck, :montage, montage; qc=qc)
+        current      = :segmentation
+        seg          = stage_segmentation(ctx, montage, ica)
+        ck === nothing || _checkpoint_after!(ck, :segmentation, seg; ica=ica)
+        current      = :spectral
+        spectra      = stage_spectral(ctx, seg)
+        ck === nothing || _checkpoint_after!(ck, :spectral, spectra)
+        current      = :connectivity
+        connectivity = stage_connectivity(ctx, seg, montage)
+        ck === nothing || _checkpoint_after!(ck, :connectivity, connectivity; segmentation=seg)
+        current      = :surrogates
+        surrogates   = stage_surrogates(ctx, connectivity)
+        ck === nothing || _checkpoint_after!(ck, :surrogates, surrogates)
+        current      = :finalize
+        stage_finalize(ctx, loaded, qc, filtered, montage, seg, spectra, connectivity)
+        ck === nothing || _checkpoint_after!(ck, :finalize, nothing)
+
+        elapsed = round(Dates.value(now() - t0) / 1000, digits=1)
+        _log(log_io, "\n✓ Pipeline completado en $(elapsed) s")
+    catch e
+        _log_failure(log_io, current, e)
+        rethrow()
+    finally
+        isopen(log_io) && close(log_io)
+    end
 
     # Lo que usa el resumen final
-    cfg = ctx.cfg; log_io = ctx.log_io
+    cfg = ctx.cfg
     sid = ctx.subject_id; sess_id = ctx.session_id; task = ctx.task; condition = ctx.condition
     rec = loaded.rec; conn = connectivity.conn; surr_results = surrogates.results
     amplitude_warning = qc.amplitude_warning
     bad_ch_non_fp2 = montage.bad_channels_non_fp2; fp2_excluded = montage.fp2_excluded; n_ch_analysis = montage.n_channels
     n_total = seg.n_total; n_valid = seg.n_valid; n_rejected = seg.n_rejected
 
-    elapsed = round(Dates.value(now() - t0) / 1000, digits=1)
-    _log(log_io, "\n✓ Pipeline completado en $(elapsed) s")
-    close(log_io)
-
     # ── Resumen final ──────────────────────────────────────────
+    # (PR 3: «elapsed», el cierre del registro y la línea «Pipeline completado» ya se han
+    #  hecho dentro del try/finally; PR de QC: el resumen sale de qc_final_decision.)
+    _print_final_summary(stdout, cfg;
+        subject_id=sid, session_id=sess_id, task=task, condition=condition, elapsed=elapsed,
+        amplitude_warning=amplitude_warning, raw_sigma_uv=qc.raw_sigma_mean,
+        bad_ch_non_fp2=bad_ch_non_fp2, fp2_excluded=fp2_excluded, n_ch_analysis=n_ch_analysis,
+        n_total=n_total, n_valid=n_valid, n_rejected=n_rejected,
+        band_power=spectra.band_power, surr_results=surr_results)
+
+    return (subject_id=sid, session_id=sess_id, task=task,
+            condition=condition, recording=rec, spectra=spectra, connectivity=conn)
+end
+
+"""
+    _print_final_summary(io, cfg; subject_id, session_id, task, condition, elapsed,
+                         amplitude_warning, raw_sigma_uv, bad_ch_non_fp2, fp2_excluded,
+                         n_ch_analysis, n_total, n_valid, n_rejected, band_power, surr_results)
+
+Imprime en `io` el resumen final de `run_single_subject_pipeline`. No escribe
+ningún archivo. La decisión de QC sale de `qc_final_decision`, con los mismos
+parámetros del TOML que la tabla `qc/qc_decision_table.csv`, así que dice lo
+mismo que la tabla.
+"""
+function _print_final_summary(io::IO, cfg::PipelineConfig;
+                              subject_id, session_id, task, condition, elapsed,
+                              amplitude_warning::Bool, raw_sigma_uv::Real,
+                              bad_ch_non_fp2::Vector{String}, fp2_excluded::Bool, n_ch_analysis::Int,
+                              n_total::Int, n_valid::Int, n_rejected::Int,
+                              band_power, surr_results)
+    sid = subject_id; sess_id = session_id
     _valid_pct_f  = n_total > 0 ? round(100*n_valid/n_total, digits=1) : 0.0
-    _qc_decision  = n_valid == 0 ? "exclude" :
-                    (amplitude_warning || !isempty(bad_ch_non_fp2)) ?
-                    (n_valid < 10 ? "manual_review" : "include_with_warning") : "include"
+    # Misma regla y mismos parámetros que qc_decision_table.csv (D-22)
+    _qc_decision  = qc_final_decision(amplitude_warning, Float64(raw_sigma_uv), bad_ch_non_fp2,
+                                      _qc_ar_threshold_uv(cfg), n_total, n_valid,
+                                      _qc_min_epochs(cfg)).decision
     _decision_icon = _qc_decision == "include" ? "✅" :
                      _qc_decision == "include_with_warning" ? "🟡" :
                      _qc_decision == "manual_review" ? "🟠" : "❌"
     _bad_summary  = isempty(bad_ch_non_fp2) ? "ninguno" : join(bad_ch_non_fp2, ", ")
     _warn_flag    = amplitude_warning ? " · ⚠ amplitude_warning" : ""
-    println()
-    println("  " * "─"^60)
-    println("  $(_decision_icon)  sub-$(sid) / ses-$(sess_id) / $(condition)  →  $(_qc_decision)   ($(elapsed) s total)")
-    println("     Epochs  : $(n_valid)/$(n_total) válidos ($(_valid_pct_f)%) · rechazados: $(n_rejected)")
-    println("     Montaje : $(n_ch_analysis) canales$(fp2_excluded ? " (Fp2 excluido)" : "") · bad no-Fp2: $(_bad_summary)$(_warn_flag)")
-    println("     PSD     : " * join(["$(b)=$(round(mean(spectra.band_power[b]),digits=2))" for (b,_) in sort(collect(cfg.bands))], " · ") * " µV²")
+    println(io)
+    println(io, "  " * "─"^60)
+    println(io, "  $(_decision_icon)  sub-$(sid) / ses-$(sess_id) / $(condition)  →  $(_qc_decision)   ($(elapsed) s total)")
+    println(io, "     Epochs  : $(n_valid)/$(n_total) válidos ($(_valid_pct_f)%) · rechazados: $(n_rejected)")
+    println(io, "     Montaje : $(n_ch_analysis) canales$(fp2_excluded ? " (Fp2 excluido)" : "") · bad no-Fp2: $(_bad_summary)$(_warn_flag)")
+    println(io, "     PSD     : " * join(["$(b)=$(round(mean(band_power[b]),digits=2))" for (b,_) in sort(collect(cfg.bands))], " · ") * " µV²")
     if !isempty(surr_results)
         _sig_counts = ["$(sr.band): $(count(sr.sig_mask)÷2)" for sr in surr_results]
-        println("     Sig wPLI: " * join(_sig_counts, " · ") * " pares (FDR 5%)")
+        println(io, "     Sig wPLI: " * join(_sig_counts, " · ") * " pares (FDR 5%)")
     end
-    println("  " * "─"^60)
-    println()
-    println("Resultados principales:")
-    println("  Dashboard:  results/$(sid)/$(sess_id)/")
-    println("  Exportación BIDS: results/subjects/sub-$(sid)/ses-$(sess_id)/$(task)/")
-    println("=" ^ 62)
-
-    return (subject_id=sid, session_id=sess_id, task=task,
-            condition=condition, recording=rec, spectra=spectra, connectivity=conn)
+    println(io, "  " * "─"^60)
+    println(io)
+    println(io, "Resultados principales:")
+    println(io, "  Dashboard:  results/$(sid)/$(sess_id)/")
+    println(io, "  Exportación BIDS: results/subjects/sub-$(sid)/ses-$(sess_id)/$(task)/")
+    println(io, "=" ^ 62)
+    return nothing
 end
 
 # ─── Guardado de resultados ───────────────────────────────────
@@ -3670,43 +3755,42 @@ end
 # ─── Tabla QC global ──────────────────────────────────────────
 
 """
-    _update_qc_decision_table(results_dir, ...)
+    _qc_min_epochs(cfg) -> Int
+    _qc_ar_threshold_uv(cfg) -> Float64
 
-Escribe o actualiza results/qc/qc_decision_table.csv con la decisión
-de inclusión/exclusión de cada grabación procesada.
-
-### Criterios de `final_decision`
-- `include`              — válido sin alertas
-- `include_with_warning` — válido pero con amplitude_warning o canales malos adicionales
-- `manual_review`        — amplitude_warning Y epochs cerca del mínimo, o canales malos graves
-- `exclude`              — 0 epochs válidos o duración insuficiente
+Parámetros de la decisión de QC leídos del TOML (`min_segments` y
+`max_amplitude_uv`). La tabla y el resumen de la terminal los toman de aquí,
+para que las dos usen exactamente los mismos valores.
 """
-function _update_qc_decision_table(
-    res_dir        ::String,
-    subject_id     ::String,
-    session_id     ::String,
-    condition      ::String,
-    amplitude_warning ::Bool,
-    raw_sigma_uv   ::Float64,
-    bad_ch_original::Vector{String},
-    bad_ch_non_fp2 ::Vector{String},
-    fp2_excluded   ::Bool,
-    n_ch_analysis  ::Int,
-    ar_threshold_uv::Float64,
-    n_epochs_total ::Int,
-    n_epochs_rejected::Int,
-    n_epochs_valid ::Int,
-    min_epochs     ::Int,
-    log_io         ::IO
-)
-    qc_dir  = joinpath(res_dir, "qc")
-    mkpath(qc_dir)
-    out_path = joinpath(qc_dir, "qc_decision_table.csv")
+_qc_min_epochs(cfg::PipelineConfig)::Int = Int(get(cfg.segmentation, "min_epochs", 10))
+_qc_ar_threshold_uv(cfg::PipelineConfig)::Float64 = Float64(get(cfg.artifact_rejection, "max_amplitude_uv", 70.0))
 
+"""
+    qc_final_decision(amplitude_warning, raw_sigma_uv, bad_ch_non_fp2, ar_threshold_uv,
+                      n_epochs_total, n_epochs_valid, min_epochs)
+        -> (; decision, exclusion_reason, notes, valid_pct)
+
+Regla única de la decisión de QC de una grabación. La usan la tabla
+`qc/qc_decision_table.csv` y el resumen de la terminal. Es una función pura:
+no lee ni escribe nada.
+
+Se aplica la primera regla que se cumple, en este orden (`min_epochs` es
+`segmentation.min_segments` del TOML; `valid_pct` es el porcentaje de épocas
+válidas, redondeado a un decimal):
+
+1. `n_epochs_valid == 0` → `exclude`
+2. `n_epochs_valid < min_epochs` → `exclude`
+3. aviso de amplitud y ≥ 2 canales malos no-Fp2 → `manual_review`
+4. aviso de amplitud y `valid_pct < 50` → `manual_review`
+5. aviso de amplitud o algún canal malo no-Fp2 → `include_with_warning`
+6. en otro caso → `include`
+"""
+function qc_final_decision(amplitude_warning::Bool, raw_sigma_uv::Real,
+                           bad_ch_non_fp2::Vector{String}, ar_threshold_uv::Float64,
+                           n_epochs_total::Int, n_epochs_valid::Int, min_epochs::Int)
     valid_pct = n_epochs_total > 0 ?
         round(100.0 * n_epochs_valid / n_epochs_total, digits=1) : 0.0
 
-    # ── Decisión final ────────────────────────────────────────
     # Exclusión dura: sin epochs utilizables
     exclusion_reason = ""
     notes_list       = String[]
@@ -3731,7 +3815,48 @@ function _update_qc_decision_table(
         "include"
     end
 
-    notes = join(notes_list, "; ")
+    return (decision=final_decision, exclusion_reason=exclusion_reason,
+            notes=join(notes_list, "; "), valid_pct=valid_pct)
+end
+
+"""
+    _update_qc_decision_table(results_dir, ...)
+
+Escribe o actualiza results/qc/qc_decision_table.csv con la decisión
+de inclusión/exclusión de cada grabación procesada.
+
+La decisión (`final_decision`, `exclusion_reason`, `notes`) la da
+`qc_final_decision`, que describe la regla y su orden de precedencia. El
+resumen de la terminal usa la misma función con los mismos parámetros.
+"""
+function _update_qc_decision_table(
+    res_dir        ::String,
+    subject_id     ::String,
+    session_id     ::String,
+    condition      ::String,
+    amplitude_warning ::Bool,
+    raw_sigma_uv   ::Float64,
+    bad_ch_original::Vector{String},
+    bad_ch_non_fp2 ::Vector{String},
+    fp2_excluded   ::Bool,
+    n_ch_analysis  ::Int,
+    ar_threshold_uv::Float64,
+    n_epochs_total ::Int,
+    n_epochs_rejected::Int,
+    n_epochs_valid ::Int,
+    min_epochs     ::Int,
+    log_io         ::IO
+)
+    qc_dir  = joinpath(res_dir, "qc")
+    mkpath(qc_dir)
+    out_path = joinpath(qc_dir, "qc_decision_table.csv")
+
+    rule = qc_final_decision(amplitude_warning, raw_sigma_uv, bad_ch_non_fp2,
+                             ar_threshold_uv, n_epochs_total, n_epochs_valid, min_epochs)
+    final_decision   = rule.decision
+    exclusion_reason = rule.exclusion_reason
+    notes            = rule.notes
+    valid_pct        = rule.valid_pct
 
     new_row = DataFrame(
         subject_id               = [subject_id],

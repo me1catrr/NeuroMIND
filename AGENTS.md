@@ -89,6 +89,26 @@ typed outputs of the stages it consumes (`LoadOutput`, `QCOutput`, `FilterOutput
 own files. Montage and surrogates have no `[k/8]` label of their own in the log. Behaviour is
 unchanged; keep stage bodies in the same order when editing.
 
+**Checkpoints and staged execution (PR 3, since 2026-11-14), off by default.**
+`src/pipeline/Checkpoints.jl` and `src/pipeline/RunStage.jl`. With
+`run_single_subject_pipeline(config; checkpoints=true)` each stage also writes
+`checkpoints/<stage>.jls` + `<stage>.toml` (no clock, no date). `run_stage(stage, config;
+inputs, ica_labels, ica_cache, store)` runs one stage from verified checkpoints and saves its own;
+`stage_key` gives the identity it will record without running anything; `stage_graph()` is the
+single source of what each stage consumes and reads. Rules that matter when editing:
+- **Any change under `src/` or in `Manifest.toml` changes every checkpoint identity.** Machine is
+  not in the checkpoint identity, but it is in the ICA decomposition identity, so a machine
+  change invalidates ICA and everything after it. The finalize identity also hashes the raw TOML
+  bytes (a comment changes it); stages 01–09 do not.
+- **Never deserialize a `.jls` before checking its byte hash**, including referenced files
+  (`cache/ica_result.jls`, null distributions). Paths must stay inside the authorized store: no
+  absolute paths, no `..` leaving it, no symlinks. References and products are relative to the
+  stage folder (the one holding `checkpoints/`); consumed checkpoints are relative to the store
+  root, and `consumed_dirs` gives their effective location if they moved.
+- Stage functions are unchanged: `run_stage` calls the same `stage_*`. Rejection reasons are
+  `INCOMPATIBLE`, `OTRA_CONFIGURACION` and `ALTERADO` (`CheckpointError`); request problems are
+  `StageError`. Both entry points close `pipeline_log.txt` on exceptions and rethrow the original.
+
 ### ICA — custom implementation (no MultivariateStats)
 - File: `src/ica/ICACore.jl`
 - PCA whitening → symmetric FastICA with `tanh` nonlinearity
@@ -260,12 +280,26 @@ If mean raw signal σ̄ > 20 µV → probable recording without online filter ac
 
 ### QC decision table (`results/qc/qc_decision_table.csv`)
 
-| `final_decision` | Condition | Include in group? |
-|------------------|-----------|-------------------|
-| `include` | No alerts, ≥10 valid epochs | ✅ Yes |
-| `include_with_warning` | amplitude_warning or ≥1 bad channel | ✅ With caution |
-| `manual_review` | amplitude_warning + ≥2 bad channels **or** <50% valid epochs | ⚠ Review |
-| `exclude` | 0 valid epochs | ❌ No |
+One rule, `qc_final_decision` (`src/SingleSubjectPipeline.jl`), used by both the table and
+the terminal summary of `run_single_subject_pipeline` (same function, same TOML parameters).
+The first rule that holds wins, in this order (`min_segments` from `[segmentation]`;
+"bad channels" = flagged by dynamic QC, Fp2 not counted; % rounded to one decimal):
+
+| # | Condition | `final_decision` | Include in group? |
+|---|-----------|------------------|-------------------|
+| 1 | 0 valid epochs | `exclude` | ❌ No |
+| 2 | valid epochs < `min_segments` | `exclude` | ❌ No |
+| 3 | amplitude_warning **and** ≥2 bad channels | `manual_review` | ⚠ No (review) |
+| 4 | amplitude_warning **and** <50% valid epochs | `manual_review` | ⚠ No (review) |
+| 5 | amplitude_warning **or** ≥1 bad channel | `include_with_warning` | ✅ With caution |
+| 6 | otherwise | `include` | ✅ Yes |
+
+Group analyses (`Transversal.jl`, `Longitudinal.jl`) include only `include` and
+`include_with_warning`. A recording with **no row** in the table, an **empty**
+`final_decision` cell or an **unrecognised** value is in state **`unknown`** (B-05): it is
+not included, its reason says so (`QC=unknown (…)`, `QC T1=unknown (…)`), and
+`config_snapshot.toml` records `qc_unknown = "not_included"`. Without
+`qc_decision_table.csv` the group analyses stop with an explicit error.
 
 ### wPLI reliability per band (minimum cycles per epoch)
 With epochs of 1.0 s (`profile = eeg_julia`) and `min_cycles_for_wpli = 4.0`:

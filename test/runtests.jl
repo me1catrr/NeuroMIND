@@ -76,11 +76,20 @@
 #      orquestador y las etapas encadenadas dan las mismas salidas; estado de
 #      la ICA (calculada, caché, fallida) y resultado de los surrogates.
 #
+#  Decisión de QC (PR de QC: D-22 y B-05)
+#    · QC_Decision_Rule — oráculo con la copia literal de la regla de la
+#      tabla en 7677710, en una rejilla completa: ningún criterio cambia.
+#    · QC_Decision_Terminal — el resumen de la terminal dice la decisión de
+#      la tabla (caso grave, min_epochs del TOML, reglas 3 y 4).
+#    · QC_Unknown_Rule / _Transversal / _Longitudinal / _Snapshot — una
+#      grabación sin fila de QC, con la celda vacía o con un valor no
+#      reconocido queda en estado desconocido y no entra; sin tabla, error.
+#
 # ───────────────────────────────────────────────────────────────
 #  Fichero     test/runtests.jl
 #  Autor       Rafael Castro Triguero <me1catrr@uco.es>
 #  Creado      21-05-2026
-#  Modificado  12-11-2026
+#  Modificado  15-11-2026
 # ───────────────────────────────────────────────────────────────
 
 using Test
@@ -2714,6 +2723,318 @@ end
             @test occursin("\"manual_labels\": \"not_applicable\"", summary)
             @test occursin("no es aplicable a esta descomposición", read(joinpath(r.ctx.export_dir, "pipeline_log.txt"), String))
         end
+    end
+end
+
+# Checkpoints comunes de las etapas (PR 3, entrega 2f-1)
+include(joinpath(@__DIR__, "checkpoints_tests.jl"))
+include(joinpath(@__DIR__, "run_stage_tests.jl"))
+
+# ═══════════════════════════════════════════════════════════════
+#  Regla de decisión de QC (PR de QC, D-22 y B-05)
+#  Datos sintéticos: solo se pasan recuentos y banderas; no se lee
+#  ninguna grabación.
+# ═══════════════════════════════════════════════════════════════
+
+"""
+Copia literal de la regla de `_update_qc_decision_table` en `7677710`,
+antes del PR de QC. Es el oráculo: la regla del motor debe dar lo mismo
+(decisión, motivo de exclusión, notas y porcentaje) en toda la rejilla.
+No se modifica nunca: si el motor cambia de criterio, esta prueba falla.
+"""
+function qc_rule_oracle(amplitude_warning::Bool, raw_sigma_uv::Float64,
+                        bad_ch_non_fp2::Vector{String}, ar_threshold_uv::Float64,
+                        n_epochs_total::Int, n_epochs_valid::Int, min_epochs::Int)
+    valid_pct = n_epochs_total > 0 ?
+        round(100.0 * n_epochs_valid / n_epochs_total, digits=1) : 0.0
+    exclusion_reason = ""
+    notes_list       = String[]
+    final_decision = if n_epochs_valid == 0
+        exclusion_reason = "0 epochs válidos tras AR ±$(ar_threshold_uv) µV"
+        "exclude"
+    elseif n_epochs_valid < min_epochs
+        exclusion_reason = "$(n_epochs_valid) epochs < mínimo requerido ($(min_epochs))"
+        "exclude"
+    elseif amplitude_warning && length(bad_ch_non_fp2) >= 2
+        push!(notes_list, "amplitude_warning + $(length(bad_ch_non_fp2)) canales malos adicionales")
+        "manual_review"
+    elseif amplitude_warning && valid_pct < 50.0
+        push!(notes_list, "amplitude_warning + solo $(valid_pct)% epochs válidos")
+        "manual_review"
+    elseif amplitude_warning || !isempty(bad_ch_non_fp2)
+        amplitude_warning && push!(notes_list, "amplitude_warning (σ̄=$(round(raw_sigma_uv,digits=1)) µV)")
+        !isempty(bad_ch_non_fp2) && push!(notes_list, "canales malos adicionales: $(join(bad_ch_non_fp2, ", "))")
+        "include_with_warning"
+    else
+        "include"
+    end
+    return (decision=final_decision, exclusion_reason=exclusion_reason,
+            notes=join(notes_list, "; "), valid_pct=valid_pct)
+end
+
+"""Rejilla del plan (apartado 5.1): aviso, canales malos, épocas y mínimo."""
+function qc_rule_grid()
+    cases = NamedTuple[]
+    for amp in (false, true), nbad in 0:3, n_total in (0, 1, 9, 10, 11, 20, 100), min_ep in (1, 10, 40)
+        valids = n_total == 100 ? [0, 1, 2, 9, 10, 11, 39, 40, 41, 49, 50, 51, 99, 100] : collect(0:n_total)
+        for n_valid in valids
+            push!(cases, (amplitude_warning=amp, raw_sigma_uv=amp ? 23.456 : 8.0,
+                          bad_ch_non_fp2=["C$(i)" for i in 1:nbad], ar_threshold_uv=70.0,
+                          n_epochs_total=n_total, n_epochs_valid=n_valid, min_epochs=min_ep))
+        end
+    end
+    return cases
+end
+
+qc_oracle(c) = qc_rule_oracle(c.amplitude_warning, c.raw_sigma_uv, c.bad_ch_non_fp2,
+                              c.ar_threshold_uv, c.n_epochs_total, c.n_epochs_valid, c.min_epochs)
+
+@testset "QC_Decision_Rule" begin
+    grid = qc_rule_grid()
+    @test length(grid) > 1000
+    # Las seis reglas aparecen en la rejilla
+    @test Set(qc_oracle(c).decision for c in grid) ==
+          Set(["include", "include_with_warning", "manual_review", "exclude"])
+
+    @testset "La tabla escrita sigue la regla (rejilla completa)" begin
+        mktempdir() do tmp
+            n_diff = 0
+            for c in grid
+                NeuroMIND._update_qc_decision_table(
+                    tmp, "S01", "T1", "EC", c.amplitude_warning, c.raw_sigma_uv,
+                    vcat(["Fp2"], c.bad_ch_non_fp2), c.bad_ch_non_fp2, false, 30,
+                    c.ar_threshold_uv, c.n_epochs_total,
+                    c.n_epochs_total - c.n_epochs_valid, c.n_epochs_valid, c.min_epochs, devnull)
+                row = CSV.read(joinpath(tmp, "qc", "qc_decision_table.csv"), DataFrame;
+                               types=Dict(:final_decision => String, :exclusion_reason => String,
+                                          :notes => String))[1, :]
+                o = qc_oracle(c)
+                same = string(row.final_decision) == o.decision &&
+                       string(coalesce(row.exclusion_reason, "")) == o.exclusion_reason &&
+                       string(coalesce(row.notes, "")) == o.notes &&
+                       Float64(row.valid_epochs_pct) == o.valid_pct
+                same || (n_diff += 1)
+            end
+            @test n_diff == 0
+        end
+    end
+
+    @testset "qc_final_decision es la regla del oráculo (rejilla completa)" begin
+        n_diff = count(grid) do c
+            r = NeuroMIND.qc_final_decision(c.amplitude_warning, c.raw_sigma_uv, c.bad_ch_non_fp2,
+                                            c.ar_threshold_uv, c.n_epochs_total, c.n_epochs_valid,
+                                            c.min_epochs)
+            r != qc_oracle(c)
+        end
+        @test n_diff == 0
+    end
+
+    @testset "Bordes de cada regla" begin
+        d(amp, nbad, n_total, n_valid, min_ep) = NeuroMIND.qc_final_decision(
+            amp, 25.0, ["C$(i)" for i in 1:nbad], 70.0, n_total, n_valid, min_ep)
+        # Regla 1: cero épocas válidas, también con n_total = 0
+        @test d(false, 0, 0, 0, 10).decision == "exclude"
+        @test d(false, 0, 0, 0, 10).valid_pct == 0.0
+        @test d(false, 0, 20, 0, 1).exclusion_reason == "0 epochs válidos tras AR ±70.0 µV"
+        # Regla 2: el mínimo es min_epochs y no excluye cuando n_valid == min_epochs
+        @test d(false, 0, 100, 10, 10).decision == "include"
+        @test d(false, 0, 100, 9, 10).decision == "exclude"
+        @test d(false, 0, 100, 9, 10).exclusion_reason == "9 epochs < mínimo requerido (10)"
+        @test d(true, 3, 100, 39, 40).decision == "exclude"      # precede a manual_review
+        # Regla 3: aviso y exactamente dos canales malos no-Fp2
+        @test d(true, 2, 100, 100, 10).decision == "manual_review"
+        @test d(true, 1, 100, 100, 10).decision == "include_with_warning"
+        @test d(false, 2, 100, 100, 10).decision == "include_with_warning"
+        # Regla 4: el 50 % exacto no es manual_review; el porcentaje se redondea antes
+        @test d(true, 0, 20, 10, 10).decision == "include_with_warning"
+        @test d(true, 0, 20, 9, 1).decision == "manual_review"
+        @test d(true, 0, 20, 9, 1).notes == "amplitude_warning + solo 45.0% epochs válidos"
+        @test d(true, 0, 10000, 4999, 10).decision == "include_with_warning"   # 49,99 → 50,0
+        @test d(false, 0, 20, 9, 1).decision == "include"                     # sin aviso no aplica
+        # Reglas 5 y 6
+        @test d(true, 0, 100, 100, 10).notes == "amplitude_warning (σ̄=25.0 µV)"
+        @test d(false, 1, 100, 100, 10).notes == "canales malos adicionales: C1"
+        @test d(false, 0, 100, 100, 10) == (decision="include", exclusion_reason="", notes="", valid_pct=100.0)
+    end
+end
+
+"""Decisión que imprime la línea de cabecera del resumen de la terminal."""
+function terminal_decision(c; min_epochs=c.min_epochs)
+    cfg = mock_config()
+    cfg.segmentation["min_epochs"] = min_epochs
+    io = IOBuffer()
+    NeuroMIND._print_final_summary(io, cfg;
+        subject_id="S01", session_id="T1", task="eyesclosed", condition="EC", elapsed=1.0,
+        amplitude_warning=c.amplitude_warning, raw_sigma_uv=c.raw_sigma_uv,
+        bad_ch_non_fp2=c.bad_ch_non_fp2, fp2_excluded=false, n_ch_analysis=30,
+        n_total=c.n_epochs_total, n_valid=c.n_epochs_valid,
+        n_rejected=c.n_epochs_total - c.n_epochs_valid,
+        band_power=Dict(b => [1.0, 2.0] for b in keys(cfg.bands)), surr_results=[])
+    out = String(take!(io))
+    m = match(r"→  (\S+)   \(", out)
+    return (decision=m === nothing ? "" : String(m.captures[1]), text=out)
+end
+
+qc_case(; amp=false, nbad=0, n_total=100, n_valid=100, min_epochs=10) =
+    (amplitude_warning=amp, raw_sigma_uv=amp ? 23.456 : 8.0,
+     bad_ch_non_fp2=["C$(i)" for i in 1:nbad], ar_threshold_uv=70.0,
+     n_epochs_total=n_total, n_epochs_valid=n_valid, min_epochs=min_epochs)
+
+@testset "QC_Decision_Terminal" begin
+    @testset "Formato del resumen" begin
+        t = terminal_decision(qc_case())
+        lines = split(t.text, '\n')
+        @test lines[3] == "  ✅  sub-S01 / ses-T1 / EC  →  include   (1.0 s total)"
+        @test lines[4] == "     Epochs  : 100/100 válidos (100.0%) · rechazados: 0"
+        @test lines[5] == "     Montaje : 30 canales · bad no-Fp2: ninguno"
+        @test occursin("Exportación BIDS: results/subjects/sub-S01/ses-T1/eyesclosed/", t.text)
+    end
+
+    @testset "La terminal dice la decisión de la tabla (rejilla completa)" begin
+        n_diff = count(c -> terminal_decision(c).decision != qc_oracle(c).decision, qc_rule_grid())
+        @test n_diff == 0
+    end
+
+    @testset "Caso grave: pocas épocas sin avisos" begin
+        c = qc_case(n_total=100, n_valid=5, min_epochs=10)
+        @test qc_oracle(c).decision == "exclude"
+        @test terminal_decision(c).decision == "exclude"
+        @test occursin("❌", terminal_decision(c).text)
+    end
+
+    @testset "min_epochs del TOML, no un 10 fijo" begin
+        c40 = qc_case(n_total=100, n_valid=20, min_epochs=40)
+        @test qc_oracle(c40).decision == "exclude"
+        @test terminal_decision(c40).decision == "exclude"
+        c2 = qc_case(amp=true, n_total=5, n_valid=5, min_epochs=2)
+        @test qc_oracle(c2).decision == "include_with_warning"
+        @test terminal_decision(c2).decision == "include_with_warning"
+    end
+
+    @testset "Reglas 3 y 4 de la tabla" begin
+        c3 = qc_case(amp=true, nbad=2, n_total=100, n_valid=100)
+        @test qc_oracle(c3).decision == "manual_review"
+        @test terminal_decision(c3).decision == "manual_review"
+        c4 = qc_case(amp=true, n_total=100, n_valid=40)
+        @test qc_oracle(c4).decision == "manual_review"
+        @test terminal_decision(c4).decision == "manual_review"
+    end
+end
+
+# ─── QC ausente en los análisis de grupo (B-05) ──────────────────
+
+"""Matriz wPLI sintética de tres canales en la carpeta de resultados de `mod`."""
+function qc_fixture_wpli(mod, res_root, sid, sess, cond; band="ALPHA")
+    d = joinpath(mod.export_dir(res_root, sid, sess, cond), "tables", "connectivity")
+    mkpath(d)
+    ch = ["Fz", "Cz", "Pz"]
+    W = [0.0 0.2 0.3; 0.2 0.0 0.4; 0.3 0.4 0.0]
+    df = DataFrame(channel=ch)
+    for (j, c) in enumerate(ch)
+        df[!, c] = W[:, j]
+    end
+    CSV.write(joinpath(d, "wpli_$(band).csv"), df)
+end
+
+"""Tabla de QC sintética escrita como texto, para controlar las celdas vacías."""
+function qc_fixture_table(res_root, rows)
+    mkpath(joinpath(res_root, "qc"))
+    open(joinpath(res_root, "qc", "qc_decision_table.csv"), "w") do io
+        println(io, "subject_id,session_id,condition,final_decision")
+        for (sid, sess, cond, dec) in rows
+            println(io, "$(sid),$(sess),$(cond),$(dec)")
+        end
+    end
+end
+
+@testset "QC_Unknown_Rule" begin
+    for M in (Transversal, Longitudinal)
+        @test M.qc_ok("include")
+        @test M.qc_ok("include_with_warning")
+        @test !M.qc_ok("manual_review")
+        @test !M.qc_ok("exclude")
+        @test !M.qc_ok("unknown")
+        @test M.qc_decision(Dict{Tuple{String,String,String},String}(), "S01", "T1", "EC") == "unknown"
+        @test !M.qc_ok(M.qc_decision(Dict{Tuple{String,String,String},String}(), "S01", "T1", "EC"))
+    end
+end
+
+@testset "QC_Unknown_Transversal" begin
+    mktempdir() do res
+        subjects = ["S01", "S02", "S03", "S04", "S05", "S06", "M9"]
+        for sid in subjects
+            qc_fixture_wpli(Transversal, res, sid, "T1", "eyesclosed")
+        end
+        qc_fixture_table(res, [("S01", "T1", "EC", "include"), ("S02", "T1", "EC", "exclude"),
+                               ("S04", "T1", "EC", ""), ("S05", "T1", "EC", "nan"),
+                               ("S06", "T1", "EC", "manual_review"),
+                               ("M09", "T1", "EC", "include")])
+        qc = Transversal.load_qc_table(res)
+        notes = Transversal.load_qc_notes(res)
+        row(sid) = Transversal.evaluate_inclusion(res, Transversal.SubjT1(sid, "T1", "MS"),
+                                                  "eyesclosed", ["ALPHA"], qc, notes)
+        r = Dict(sid => row(sid) for sid in subjects)
+
+        @test r["S01"].included && r["S01"].qc_decision == "include" && r["S01"].excluded_reason == ""
+        @test !r["S02"].included && r["S02"].excluded_reason == "QC=exclude"
+        @test !r["S06"].included && r["S06"].excluded_reason == "QC=manual_review"
+        # Sin fila
+        @test !r["S03"].included
+        @test r["S03"].qc_decision == "unknown"
+        @test startswith(r["S03"].excluded_reason, "QC=unknown (sin fila en qc_decision_table.csv")
+        # Celda vacía
+        @test !r["S04"].included
+        @test r["S04"].qc_decision == "unknown"
+        @test occursin("celda final_decision vacía", r["S04"].excluded_reason)
+        # Valor no reconocido: hoy ya queda fuera, pero sin el estado desconocido
+        @test !r["S05"].included
+        @test r["S05"].qc_decision == "unknown"
+        @test occursin("valor no reconocido «nan»", r["S05"].excluded_reason)
+        # Alias del código de sujeto (con y sin el cero a la izquierda)
+        @test r["M9"].included && r["M9"].qc_decision == "include"
+    end
+
+    @testset "Sin tabla de QC, error explícito" begin
+        mktempdir() do res
+            @test_throws ErrorException Transversal.load_qc_table(res)
+            err = try Transversal.load_qc_table(res); "" catch e; sprint(showerror, e) end
+            @test occursin("qc_decision_table.csv", err)
+            # Una tabla sin la columna de decisión tampoco permite decidir
+            mkpath(joinpath(res, "qc"))
+            write(joinpath(res, "qc", "qc_decision_table.csv"), "subject_id,session_id,condition\nS01,T1,EC\n")
+            @test_throws ErrorException Transversal.load_qc_table(res)
+        end
+    end
+end
+
+@testset "QC_Unknown_Longitudinal" begin
+    mktempdir() do res
+        for sid in ("P01", "P02"), sess in ("T1", "T2")
+            qc_fixture_wpli(Longitudinal, res, sid, sess, "eyesclosed")
+        end
+        qc_fixture_table(res, [("P01", "T1", "EC", "include"),
+                               ("P02", "T1", "EC", "include"), ("P02", "T2", "EC", "include")])
+        qc = Longitudinal.load_qc_table(res)
+        p1 = Longitudinal.evaluate_inclusion(res, Longitudinal.SubjPair("P01", "T1", "T2", true, true), "eyesclosed", qc)
+        p2 = Longitudinal.evaluate_inclusion(res, Longitudinal.SubjPair("P02", "T1", "T2", true, true), "eyesclosed", qc)
+        @test p2[1] && p2[3] == "include" && p2[4] == "include"
+        @test !p1[1]
+        @test p1[4] == "unknown"
+        @test startswith(p1[2], "QC T2=unknown (sin fila en qc_decision_table.csv")
+    end
+
+    @testset "Sin tabla de QC, error explícito" begin
+        mktempdir() do res
+            @test_throws ErrorException Longitudinal.load_qc_table(res)
+        end
+    end
+end
+
+@testset "QC_Unknown_Snapshot" begin
+    for M in (Transversal, Longitudinal)
+        policy = NeuroMIND.TOML.parse(sprint(M.write_qc_policy))
+        @test policy["qc_allowed"] == ["include", "include_with_warning"]
+        @test get(policy, "qc_unknown", "") == "not_included"
     end
 end
 
