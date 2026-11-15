@@ -1,10 +1,11 @@
 # ───────────────────────────────────────────────────────────────
 #  Fichero    test/run_stage_tests.jl
-#  Modificado 14-11-2026
+#  Modificado 15-11-2026
 # ───────────────────────────────────────────────────────────────
 #
 # Conjuntos de la entrega 2f-2 (plan de 2f, apartado 7.2): ejecución por
-# etapas con `run_stage`, identidad con `stage_key` y grafo de etapas. Datos
+# etapas con `run_stage`, identidad con `stage_key` y grafo de etapas, y el
+# alcance de las exclusiones de la huella de contenido (P-4). Datos
 # sintéticos. Lo incluye runtests.jl después de checkpoints_tests.jl, cuyas
 # ejecuciones compartidas (CK_A, CK_BIDS, …) reutiliza.
 
@@ -400,5 +401,101 @@ end
             run_single_subject_pipeline(joinpath(root, "config", "pipeline.toml"); checkpoints=true)
         end
         @test read(logof(root)) == before
+    end
+end
+
+# ── Checkpoints_Content_Scope (P-4, INS-003) ─────────────────
+
+"Copia de `x` con el campo `f` cambiado por `v`."
+with_field(x::T, f::Symbol, v) where {T} = T((g === f ? v : getfield(x, g) for g in fieldnames(T))...)
+
+@testset "Checkpoints_Content_Scope" begin
+    H = checkpoint_content_sha256
+
+    @testset "Solo dos datos quedan fuera de la huella, por su posición" begin
+        @test CK._EXCLUDED_FIELDS == ((RecordingMeta, :bids_path),)
+        @test CK._EXCLUDED_DICT_KEYS == ((ICAResult, :diagnostics, ("optimize_s",)),)
+        @test !isdefined(CK, :_CLOCK_KEYS)
+    end
+
+    @testset "Las claves de reloj cuentan en cualquier otro diccionario" begin
+        # El mismo `_canon!` de diccionarios da la identidad de las secciones de
+        # configuración: tampoco ahí se excluye ninguna clave por su nombre
+        for k in ("optimize_s", "duration_s", "timestamp", "saved_at", "bids_path")
+            @test H(Dict{String,Any}(k => 1.0)) != H(Dict{String,Any}(k => 2.0))
+            @test H(Dict{String,Any}("x" => 0)) != H(Dict{String,Any}("x" => 0, k => 0))
+            @test H(Dict(Symbol(k) => 1.0)) != H(Dict(Symbol(k) => 2.0))
+            @test H(Dict("a" => Dict{String,Any}(k => 1.0))) != H(Dict("a" => Dict{String,Any}(k => 2.0)))
+            @test H(NamedTuple{(Symbol(k),)}((1.0,))) != H(NamedTuple{(Symbol(k),)}((2.0,)))
+        end
+        # Ni en el diccionario de un tipo del motor que no es la ICA
+        sp = load_checkpoint(ckdir(CK_A), :spectral; store=ckstore(CK_A))
+        for k in ("optimize_s", "duration_s", "timestamp", "saved_at")
+            p1 = merge(sp.params, Dict{String,Any}(k => 1.0)); p2 = merge(sp.params, Dict{String,Any}(k => 2.0))
+            @test H(with_field(sp, :params, p1)) != H(with_field(sp, :params, p2))
+        end
+    end
+
+    @testset "ICAResult.diagnostics: solo optimize_s, y solo en su raíz" begin
+        out = load_checkpoint(ckdir(CK_A), :ica; store=ckstore(CK_A))
+        r = out.result; d = r.diagnostics
+        @test haskey(d, "optimize_s") && !isempty(d["attempts"])
+        with_diag(d2) = with_field(out, :result, with_field(r, :diagnostics, d2))
+        set(k, v) = (d2 = deepcopy(d); d2[k] = v; with_diag(d2))
+        @test H(with_diag(deepcopy(d))) == H(out)
+        @test H(set("optimize_s", d["optimize_s"] + 100.0)) == H(out)
+        @test H(set("n_iter", d["n_iter"] + 1)) != H(out)
+        @test H(set("final_error", d["final_error"] * 2)) != H(out)
+        for k in ("duration_s", "timestamp", "saved_at")
+            @test H(set(k, 1.0)) != H(out)
+        end
+        # Dentro de un intento, `optimize_s` ya no es la clave excluida
+        nested(v) = (d2 = deepcopy(d); d2["attempts"] = [Dict{String,Any}(a) for a in d["attempts"]];
+                     d2["attempts"][1]["optimize_s"] = v; with_diag(d2))
+        @test H(nested(1.0)) != H(nested(2.0))
+        # El mismo diccionario fuera de su sitio entra completo
+        @test H(d) != H(merge(d, Dict{String,Any}("optimize_s" => d["optimize_s"] + 100.0)))
+    end
+
+    @testset "RecordingMeta: solo bids_path queda fuera" begin
+        a = load_checkpoint(ckdir(CK_A), :load; store=ckstore(CK_A))
+        m = a.rec.meta
+        rec(m2) = with_field(a, :rec, with_field(a.rec, :meta, m2))
+        @test H(rec(with_field(m, :bids_path, "/otro/sitio"))) == H(a)
+        @test H(rec(with_field(m, :fs, m.fs + 1))) != H(a)
+        @test H(rec(with_field(m, :subject_id, m.subject_id * "x"))) != H(a)
+        @test H(rec(with_field(m, :channel_names, reverse(m.channel_names)))) != H(a)
+    end
+
+    @testset "bids_path: la ubicación del BIDS no cuenta; su contenido, sí" begin
+        # El mismo conjunto BIDS en otro sitio, las diez etapas con run_stage
+        moved = joinpath(CK_TMP, "bids-trasladado"); cp(CK_BIDS, moved)
+        moved_config(root, _) = synthetic_config(root, moved, SURR20...)
+        dirs = staged_chain(RS_STORE, moved_config; tag="-bids")
+        a = load_checkpoint(RS_DIRS[:load], :load; store=RS_STORE)
+        b = load_checkpoint(dirs[:load], :load; store=RS_STORE)
+        @test a.rec.meta.bids_path != b.rec.meta.bids_path
+        @test occursin("bids-trasladado", b.rec.meta.bids_path)
+        for s in CHECKPOINT_STAGES
+            @test stage_prov(dirs[s], s)["content_sha256"] == stage_prov(RS_DIRS[s], s)["content_sha256"]
+        end
+        # La identidad tampoco cambia, salvo la del cierre, que lleva el texto del TOML
+        for s in CHECKPOINT_STAGES
+            same = stage_prov(dirs[s], s)["key"] == stage_prov(RS_DIRS[s], s)["key"]
+            @test same == (s != :finalize)
+        end
+
+        # Otro contenido en la misma ubicación: otra huella y otra identidad
+        alt = joinpath(CK_TMP, "bids-alterado"); cp(CK_BIDS, alt)
+        alt_config(root, _) = synthetic_config(root, alt, SURR20...)
+        before = staged_chain(RS_STORE, alt_config; stages=(:load,), tag="-bids-antes")[:load]
+        @test stage_prov(before, :load)["content_sha256"] == stage_prov(RS_DIRS[:load], :load)["content_sha256"]
+        eeg = only(joinpath(d, f) for (d, _, fs) in walkdir(alt) for f in fs if endswith(f, ".eeg"))
+        flip_byte!(eeg)
+        after = staged_chain(RS_STORE, alt_config; stages=(:load,), tag="-bids-despues")[:load]
+        @test stage_prov(after, :load)["content_sha256"] != stage_prov(before, :load)["content_sha256"]
+        @test stage_prov(after, :load)["key"] != stage_prov(before, :load)["key"]
+        c = load_checkpoint(after, :load; store=RS_STORE)
+        @test c.rec.meta.bids_path == load_checkpoint(before, :load; store=RS_STORE).rec.meta.bids_path
     end
 end

@@ -1,6 +1,6 @@
 # ───────────────────────────────────────────────────────────────
 #  Fichero    src/pipeline/Checkpoints.jl
-#  Modificado 14-11-2026
+#  Modificado 15-11-2026
 # ───────────────────────────────────────────────────────────────
 #
 # Checkpoints comunes de las etapas del pipeline individual (PR 3, entrega 2f-1).
@@ -110,14 +110,27 @@ _incompatible(stage, msg) = throw(CheckpointError(:INCOMPATIBLE, stage, msg))
 # longitud y bytes UTF-8, todo en little-endian. Cada valor lleva una etiqueta
 # de tipo, así que dos estructuras distintas no se confunden.
 #
-# Fuera de la huella de contenido quedan solo:
-# - `RecordingMeta.bids_path`: dónde estaba la entrada, no lo calculado (la
-#   identidad de la carga ya lleva la huella de los archivos);
-# - las claves de reloj de los diccionarios (`_CLOCK_KEYS`), como
-#   `optimize_s` en los diagnósticos de ICA: dos cálculos iguales las
-#   escriben distintas.
+# Fuera de la huella de contenido quedan solo dos datos, cada uno por su
+# posición en un tipo del motor (P-4, corrección acotada de INS-003):
+# - el campo `RecordingMeta.bids_path`: dónde estaba la entrada, no lo
+#   calculado (la identidad de la carga ya lleva la huella de los archivos);
+# - la clave `"optimize_s"` en la raíz del diccionario `ICAResult.diagnostics`:
+#   el tiempo de reloj de FastICA, distinto en dos cálculos iguales.
+# No hay exclusiones por nombre: cualquier otro diccionario, y cualquier otra
+# clave o nivel de `diagnostics`, entra completo. Las secciones de
+# configuración de la identidad (`checkpoint_key`) tampoco excluyen nada.
 
-const _CLOCK_KEYS = ("optimize_s", "duration_s", "timestamp", "saved_at")
+"Campos de un tipo del motor que no entran en la huella de contenido."
+const _EXCLUDED_FIELDS = ((RecordingMeta, :bids_path),)
+"Claves excluidas de un campo diccionario de un tipo del motor, solo en su primer nivel."
+const _EXCLUDED_DICT_KEYS = ((ICAResult, :diagnostics, ("optimize_s",)),)
+
+function _excluded_keys(T::Type, f::Symbol)
+    for (U, g, ks) in _EXCLUDED_DICT_KEYS
+        T === U && f === g && return ks
+    end
+    return ()
+end
 
 mutable struct _Hasher
     ctx::SHA256_CTX
@@ -174,8 +187,10 @@ function _canon!(h::_Hasher, t::NamedTuple)
     h
 end
 
-function _canon!(h::_Hasher, d::AbstractDict)
-    ks = sort!([string(k) for k in keys(d) if !(string(k) in _CLOCK_KEYS)])
+_canon!(h::_Hasher, d::AbstractDict) = _canon_dict!(h, d, ())
+
+function _canon_dict!(h::_Hasher, d::AbstractDict, skip::Tuple)
+    ks = sort!([string(k) for k in keys(d) if !(string(k) in skip)])
     byname = Dict(string(k) => v for (k, v) in d)
     _tag!(h, "D"); _i64!(h, length(ks))
     for k in ks
@@ -197,8 +212,11 @@ function _canon!(h::_Hasher, x::T) where {T}
     isstructtype(T) || error("Huella canónica: tipo no previsto $(T)")
     _tag!(h, "R"); _str!(h, string(nameof(T))); _i64!(h, fieldcount(T))
     for f in fieldnames(T)
-        T === RecordingMeta && f === :bids_path && continue
-        _str!(h, String(f)); _canon!(h, getfield(x, f))
+        (T, f) in _EXCLUDED_FIELDS && continue
+        _str!(h, String(f))
+        skip = _excluded_keys(T, f)
+        v = getfield(x, f)
+        isempty(skip) ? _canon!(h, v) : _canon_dict!(h, v::AbstractDict, skip)
     end
     h
 end

@@ -28,6 +28,10 @@ los mismos archivos y la misma salida de terminal que antes. Las funciones de et
   `INCOMPATIBLE`, `OTRA_CONFIGURACION` y `ALTERADO`. Las referencias y los productos son relativos
   a la carpeta de la etapa; lo consumido, a la raíz del almacén, con `consumed_dirs` si se ha
   trasladado. Las huellas verifican integridad, no autenticidad.
+- **Huella de contenido.** Compara salidas por su valor, campo a campo. Solo dos datos quedan
+  fuera, cada uno por su posición: `RecordingMeta.bids_path` (dónde estaba la entrada) y la
+  clave `optimize_s` en la raíz de `ICAResult.diagnostics` (tiempo de reloj). Ninguna otra clave
+  se excluye por su nombre, ni en la huella ni en la identidad.
 - **Ejecución por etapas** (`src/pipeline/RunStage.jl`). `run_stage` carga y verifica las
   entradas, llama a la misma función de etapa y guarda el checkpoint. `stage_key` da la identidad
   sin ejecutar nada; es la misma función que usan `run_stage` y el orquestador. `stage_graph()`
@@ -44,7 +48,7 @@ los mismos archivos y la misma salida de terminal que antes. Las funciones de et
   nada se deserializa sin comprobar sus bytes, los tres motivos, perturbación sección a sección,
   ICA, renombrado y `consumed_dirs`) y `test/run_stage_tests.jl` (grafo, identidad, equivalencia
   con un proceso de Julia por etapa frente al orquestador, decisión y caché de ICA, reutilización
-  del cierre y registro ante excepciones). Datos sintéticos.
+  del cierre, registro ante excepciones y alcance de la huella de contenido). Datos sintéticos.
 
 ### 2026-11-12 — Perfil experimental de ICA «estable»: convergencia exigida y repetibilidad por componente
 
