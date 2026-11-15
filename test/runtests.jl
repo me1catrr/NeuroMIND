@@ -76,11 +76,15 @@
 #      orquestador y las etapas encadenadas dan las mismas salidas; estado de
 #      la ICA (calculada, caché, fallida) y resultado de los surrogates.
 #
+#  Decisión de QC (PR de QC: D-22 y B-05)
+#    · QC_Decision_Rule — oráculo con la copia literal de la regla de la
+#      tabla en 7677710, en una rejilla completa: ningún criterio cambia.
+#
 # ───────────────────────────────────────────────────────────────
 #  Fichero     test/runtests.jl
 #  Autor       Rafael Castro Triguero <me1catrr@uco.es>
 #  Creado      21-05-2026
-#  Modificado  12-11-2026
+#  Modificado  15-11-2026
 # ───────────────────────────────────────────────────────────────
 
 using Test
@@ -2713,6 +2717,96 @@ end
             summary = read(joinpath(r.ctx.export_dir, "json", "ica_summary.json"), String)
             @test occursin("\"manual_labels\": \"not_applicable\"", summary)
             @test occursin("no es aplicable a esta descomposición", read(joinpath(r.ctx.export_dir, "pipeline_log.txt"), String))
+        end
+    end
+end
+
+# ═══════════════════════════════════════════════════════════════
+#  Regla de decisión de QC (PR de QC, D-22 y B-05)
+#  Datos sintéticos: solo se pasan recuentos y banderas; no se lee
+#  ninguna grabación.
+# ═══════════════════════════════════════════════════════════════
+
+"""
+Copia literal de la regla de `_update_qc_decision_table` en `7677710`,
+antes del PR de QC. Es el oráculo: la regla del motor debe dar lo mismo
+(decisión, motivo de exclusión, notas y porcentaje) en toda la rejilla.
+No se modifica nunca: si el motor cambia de criterio, esta prueba falla.
+"""
+function qc_rule_oracle(amplitude_warning::Bool, raw_sigma_uv::Float64,
+                        bad_ch_non_fp2::Vector{String}, ar_threshold_uv::Float64,
+                        n_epochs_total::Int, n_epochs_valid::Int, min_epochs::Int)
+    valid_pct = n_epochs_total > 0 ?
+        round(100.0 * n_epochs_valid / n_epochs_total, digits=1) : 0.0
+    exclusion_reason = ""
+    notes_list       = String[]
+    final_decision = if n_epochs_valid == 0
+        exclusion_reason = "0 epochs válidos tras AR ±$(ar_threshold_uv) µV"
+        "exclude"
+    elseif n_epochs_valid < min_epochs
+        exclusion_reason = "$(n_epochs_valid) epochs < mínimo requerido ($(min_epochs))"
+        "exclude"
+    elseif amplitude_warning && length(bad_ch_non_fp2) >= 2
+        push!(notes_list, "amplitude_warning + $(length(bad_ch_non_fp2)) canales malos adicionales")
+        "manual_review"
+    elseif amplitude_warning && valid_pct < 50.0
+        push!(notes_list, "amplitude_warning + solo $(valid_pct)% epochs válidos")
+        "manual_review"
+    elseif amplitude_warning || !isempty(bad_ch_non_fp2)
+        amplitude_warning && push!(notes_list, "amplitude_warning (σ̄=$(round(raw_sigma_uv,digits=1)) µV)")
+        !isempty(bad_ch_non_fp2) && push!(notes_list, "canales malos adicionales: $(join(bad_ch_non_fp2, ", "))")
+        "include_with_warning"
+    else
+        "include"
+    end
+    return (decision=final_decision, exclusion_reason=exclusion_reason,
+            notes=join(notes_list, "; "), valid_pct=valid_pct)
+end
+
+"""Rejilla del plan (apartado 5.1): aviso, canales malos, épocas y mínimo."""
+function qc_rule_grid()
+    cases = NamedTuple[]
+    for amp in (false, true), nbad in 0:3, n_total in (0, 1, 9, 10, 11, 20, 100), min_ep in (1, 10, 40)
+        valids = n_total == 100 ? [0, 1, 2, 9, 10, 11, 39, 40, 41, 49, 50, 51, 99, 100] : collect(0:n_total)
+        for n_valid in valids
+            push!(cases, (amplitude_warning=amp, raw_sigma_uv=amp ? 23.456 : 8.0,
+                          bad_ch_non_fp2=["C$(i)" for i in 1:nbad], ar_threshold_uv=70.0,
+                          n_epochs_total=n_total, n_epochs_valid=n_valid, min_epochs=min_ep))
+        end
+    end
+    return cases
+end
+
+qc_oracle(c) = qc_rule_oracle(c.amplitude_warning, c.raw_sigma_uv, c.bad_ch_non_fp2,
+                              c.ar_threshold_uv, c.n_epochs_total, c.n_epochs_valid, c.min_epochs)
+
+@testset "QC_Decision_Rule" begin
+    grid = qc_rule_grid()
+    @test length(grid) > 1000
+    # Las seis reglas aparecen en la rejilla
+    @test Set(qc_oracle(c).decision for c in grid) ==
+          Set(["include", "include_with_warning", "manual_review", "exclude"])
+
+    @testset "La tabla escrita sigue la regla (rejilla completa)" begin
+        mktempdir() do tmp
+            n_diff = 0
+            for c in grid
+                NeuroMIND._update_qc_decision_table(
+                    tmp, "S01", "T1", "EC", c.amplitude_warning, c.raw_sigma_uv,
+                    vcat(["Fp2"], c.bad_ch_non_fp2), c.bad_ch_non_fp2, false, 30,
+                    c.ar_threshold_uv, c.n_epochs_total,
+                    c.n_epochs_total - c.n_epochs_valid, c.n_epochs_valid, c.min_epochs, devnull)
+                row = CSV.read(joinpath(tmp, "qc", "qc_decision_table.csv"), DataFrame;
+                               types=Dict(:final_decision => String, :exclusion_reason => String,
+                                          :notes => String))[1, :]
+                o = qc_oracle(c)
+                same = string(row.final_decision) == o.decision &&
+                       string(coalesce(row.exclusion_reason, "")) == o.exclusion_reason &&
+                       string(coalesce(row.notes, "")) == o.notes &&
+                       Float64(row.valid_epochs_pct) == o.valid_pct
+                same || (n_diff += 1)
+            end
+            @test n_diff == 0
         end
     end
 end
