@@ -194,6 +194,33 @@ function mock_recording(n_ch=10, n_samp=2000, fs=500.0)
     return EEGRecording(meta, data, times)
 end
 
+# ─── Valores esperados de la regresión de cohorte ─────────────
+#
+# Las regresiones ALPHA–EC comparan los CSV de la cohorte real con valores
+# obtenidos de esos mismos resultados. Son datos derivados de grabaciones
+# reales y el repositorio es público: no se versionan. Se leen de un TOML
+# local, fuera del árbol versionado:
+#
+#   · NEUROMIND_REGRESSION_VALUES, si está definida, o
+#   · results/regression/valores_cohorte.toml (results/ es el enlace a la
+#     carpeta privada de resultados).
+#
+# Secciones: [transversal_alpha_ec] y [longitudinal_alpha_ec]. Las
+# tolerancias y las relaciones estructurales siguen aquí. Sin el archivo, o
+# sin los CSV, la regresión se registra como omitida.
+
+const REGRESSION_VALUES_PATH = get(ENV, "NEUROMIND_REGRESSION_VALUES",
+    joinpath(@__DIR__, "..", "results", "regression", "valores_cohorte.toml"))
+
+"""Sección `section` del TOML local de valores esperados, o `nothing` si no hay archivo."""
+function regression_values(section::String)
+    isfile(REGRESSION_VALUES_PATH) || return nothing
+    values = NeuroMIND.TOML.parsefile(REGRESSION_VALUES_PATH)
+    haskey(values, section) ||
+        error("$(REGRESSION_VALUES_PATH) no tiene la sección [$(section)]")
+    return values[section]
+end
+
 # ─── Tests de tipos ───────────────────────────────────────────
 
 @testset "Types" begin
@@ -832,7 +859,8 @@ end
     end
 
     # Regresión del dataset real ALPHA–EC. `results/` es deliberadamente
-    # gitignored; en un checkout sin derivados se registra como skipped.
+    # gitignored y los valores esperados están en el TOML local
+    # (REGRESSION_VALUES_PATH); sin ellos se registra como skipped.
     reg_dir = joinpath(@__DIR__, "..", "results", "transversal", "eyesclosed", "tables")
     reg_files = [
         joinpath(reg_dir, "global_mean_wpli_statistics.csv"),
@@ -841,7 +869,8 @@ end
         joinpath(reg_dir, "group_statistics_ALPHA.csv"),
         joinpath(reg_dir, "band_power_group_statistics.csv"),
     ]
-    if all(isfile, reg_files)
+    expected = regression_values("transversal_alpha_ec")
+    if all(isfile, reg_files) && expected !== nothing
         global_stats = CSV.read(reg_files[1], DataFrame)
         subject_means = CSV.read(reg_files[2], DataFrame)
         band_stats = CSV.read(reg_files[3], DataFrame)
@@ -861,26 +890,26 @@ end
         @test string(alpha.statistics_source) == Transversal.STATISTICS_SOURCE
         @test string(alpha.quantile_method) == Transversal.QUANTILE_METHOD
         @test string(alpha.rrb_method) == Transversal.RRB_METHOD
-        @test Float64(alpha.effect_rrb) ≈ 1 / 3 atol=1e-12
-        @test Float64(alpha.ms_median) ≈ 0.20864151962518226 atol=1e-14
-        @test Float64(alpha.ctrl_median) ≈ 0.16040136212782588 atol=1e-14
-        @test Float64(alpha.effect_d_pooled) ≈ 0.5480285757786955 atol=1e-13
-        @test Float64(alpha.diff) ≈ 0.06632193175905668 atol=1e-14
+        @test Float64(alpha.effect_rrb) ≈ Float64(expected["effect_rrb"]) atol=1e-12
+        @test Float64(alpha.ms_median) ≈ Float64(expected["ms_median"]) atol=1e-14
+        @test Float64(alpha.ctrl_median) ≈ Float64(expected["ctrl_median"]) atol=1e-14
+        @test Float64(alpha.effect_d_pooled) ≈ Float64(expected["effect_d_pooled"]) atol=1e-13
+        @test Float64(alpha.diff) ≈ Float64(expected["diff"]) atol=1e-14
         @test Float64(alpha.ms_median) == median(ms_values)
         @test Float64(alpha.ctrl_median) == median(ctrl_values)
         @test Float64(alpha.effect_rrb) == recomputed.effect_rrb
         @test Float64(alpha.effect_d_pooled) == recomputed.effect_d_pooled
-        @test Int(alpha.fdr_family_size) == 7
-        @test nrow(edges) == 276
-        @test count(identity, Bool.(edges.is_nominal)) == 86
-        @test count(identity, Bool.(edges.is_fdr)) == 12
+        @test Int(alpha.fdr_family_size) == 7          # las siete bandas del protocolo
+        @test nrow(edges) == Int(expected["n_edges"])
+        @test count(identity, Bool.(edges.is_nominal)) == Int(expected["n_nominal"])
+        @test count(identity, Bool.(edges.is_fdr)) == Int(expected["n_fdr"])
         @test nrow(edges) == Int(alpha_band.n_edges)
         @test nrow(edges) == Int(alpha_band.n_channels) *
                             (Int(alpha_band.n_channels) - 1) ÷ 2
         @test count(identity, Bool.(edges.is_nominal)) == Int(alpha_band.n_nominal)
         @test count(identity, Bool.(edges.is_fdr)) == Int(alpha_band.n_sig)
         @test nrow(top20) == min(20, nrow(edges))
-        @test count(identity, Bool.(top20.is_nominal)) == 20
+        @test count(identity, Bool.(top20.is_nominal)) == Int(expected["top20_nominal"])
         @test count(identity, Bool.(top20.is_nominal)) ==
               Int(alpha_band.top20_nominal_overlap)
         @test sort(Int.(edges.effect_rank_abs_d)) == collect(1:nrow(edges))
@@ -983,7 +1012,8 @@ end
     end
 
     # Regresión del dataset real ALPHA–EC. `results/` es deliberadamente
-    # gitignored; en un checkout sin derivados se registra como skipped.
+    # gitignored y los valores esperados están en el TOML local
+    # (REGRESSION_VALUES_PATH); sin ellos se registra como skipped.
     reg_dir = joinpath(@__DIR__, "..", "results", "transversal", "eyesclosed", "tables")
     reg_files = [
         joinpath(reg_dir, "global_mean_wpli_statistics.csv"),
@@ -992,7 +1022,8 @@ end
         joinpath(reg_dir, "group_statistics_ALPHA.csv"),
         joinpath(reg_dir, "band_power_group_statistics.csv"),
     ]
-    if all(isfile, reg_files)
+    expected = regression_values("transversal_alpha_ec")
+    if all(isfile, reg_files) && expected !== nothing
         global_stats = CSV.read(reg_files[1], DataFrame)
         subject_means = CSV.read(reg_files[2], DataFrame)
         band_stats = CSV.read(reg_files[3], DataFrame)
@@ -1012,26 +1043,26 @@ end
         @test string(alpha.statistics_source) == Transversal.STATISTICS_SOURCE
         @test string(alpha.quantile_method) == Transversal.QUANTILE_METHOD
         @test string(alpha.rrb_method) == Transversal.RRB_METHOD
-        @test Float64(alpha.effect_rrb) ≈ 1 / 3 atol=1e-12
-        @test Float64(alpha.ms_median) ≈ 0.20864151962518226 atol=1e-14
-        @test Float64(alpha.ctrl_median) ≈ 0.16040136212782588 atol=1e-14
-        @test Float64(alpha.effect_d_pooled) ≈ 0.5480285757786955 atol=1e-13
-        @test Float64(alpha.diff) ≈ 0.06632193175905668 atol=1e-14
+        @test Float64(alpha.effect_rrb) ≈ Float64(expected["effect_rrb"]) atol=1e-12
+        @test Float64(alpha.ms_median) ≈ Float64(expected["ms_median"]) atol=1e-14
+        @test Float64(alpha.ctrl_median) ≈ Float64(expected["ctrl_median"]) atol=1e-14
+        @test Float64(alpha.effect_d_pooled) ≈ Float64(expected["effect_d_pooled"]) atol=1e-13
+        @test Float64(alpha.diff) ≈ Float64(expected["diff"]) atol=1e-14
         @test Float64(alpha.ms_median) == median(ms_values)
         @test Float64(alpha.ctrl_median) == median(ctrl_values)
         @test Float64(alpha.effect_rrb) == recomputed.effect_rrb
         @test Float64(alpha.effect_d_pooled) == recomputed.effect_d_pooled
-        @test Int(alpha.fdr_family_size) == 7
-        @test nrow(edges) == 276
-        @test count(identity, Bool.(edges.is_nominal)) == 86
-        @test count(identity, Bool.(edges.is_fdr)) == 12
+        @test Int(alpha.fdr_family_size) == 7          # las siete bandas del protocolo
+        @test nrow(edges) == Int(expected["n_edges"])
+        @test count(identity, Bool.(edges.is_nominal)) == Int(expected["n_nominal"])
+        @test count(identity, Bool.(edges.is_fdr)) == Int(expected["n_fdr"])
         @test nrow(edges) == Int(alpha_band.n_edges)
         @test nrow(edges) == Int(alpha_band.n_channels) *
                             (Int(alpha_band.n_channels) - 1) ÷ 2
         @test count(identity, Bool.(edges.is_nominal)) == Int(alpha_band.n_nominal)
         @test count(identity, Bool.(edges.is_fdr)) == Int(alpha_band.n_sig)
         @test nrow(top20) == min(20, nrow(edges))
-        @test count(identity, Bool.(top20.is_nominal)) == 20
+        @test count(identity, Bool.(top20.is_nominal)) == Int(expected["top20_nominal"])
         @test count(identity, Bool.(top20.is_nominal)) ==
               Int(alpha_band.top20_nominal_overlap)
         @test sort(Int.(edges.effect_rank_abs_d)) == collect(1:nrow(edges))
@@ -1134,7 +1165,8 @@ end
     end
 
     # Regresión del dataset real ALPHA–EC. `results/` es deliberadamente
-    # gitignored; en un checkout sin derivados se registra como skipped.
+    # gitignored y los valores esperados están en el TOML local
+    # (REGRESSION_VALUES_PATH); sin ellos se registra como skipped.
     reg_dir = joinpath(@__DIR__, "..", "results", "longitudinal", "eyesclosed", "tables")
     reg_files = [
         joinpath(reg_dir, "network_global_statistics.csv"),
@@ -1142,7 +1174,8 @@ end
         joinpath(reg_dir, "longitudinal_statistics_ALPHA.csv"),
         joinpath(reg_dir, "band_power_delta_statistics.csv"),
     ]
-    if all(isfile, reg_files)
+    expected = regression_values("longitudinal_alpha_ec")
+    if all(isfile, reg_files) && expected !== nothing
         ng = CSV.read(reg_files[1], DataFrame)
         scores = CSV.read(reg_files[2], DataFrame)
         edges = CSV.read(reg_files[3], DataFrame)
@@ -1153,26 +1186,27 @@ end
         top20 = sort(filter(r -> Int(r.effect_rank_abs_dz) <= 20, edges),
                      :effect_rank_abs_dz)
 
-        @test Float64(alpha.effect_rrb) ≈ -0.1618 atol=5e-5
-        @test Float64(alpha.median_diff_wpli) ≈ -0.0051785 atol=5e-7
+        # Los dos esperados están redondeados: la tolerancia es la del redondeo
+        @test Float64(alpha.effect_rrb) ≈ Float64(expected["effect_rrb"]) atol=5e-5
+        @test Float64(alpha.median_diff_wpli) ≈ Float64(expected["median_diff_wpli"]) atol=5e-7
         @test median(deltas) == Float64(alpha.median_diff_wpli)
         @test Int(alpha.schema_version) == 2
         @test string(alpha.statistics_source) == Longitudinal.STATISTICS_SOURCE
         @test string(alpha.quantile_method) == Longitudinal.QUANTILE_METHOD
         @test string(alpha.rrb_method) == Longitudinal.RRB_METHOD
-        @test nrow(edges) == 351
+        @test nrow(edges) == Int(expected["n_edges"])
         @test nrow(edges) == Int(alpha.n_channels) * (Int(alpha.n_channels) - 1) ÷ 2
-        @test count(identity, Bool.(edges.is_nominal)) == 20
+        @test count(identity, Bool.(edges.is_nominal)) == Int(expected["n_nominal"])
         @test nrow(top20) == 20
-        @test count(identity, Bool.(top20.is_nominal)) == 17
-        @test count(identity, Bool.(edges.is_fdr)) == 0
-        @test sort(Int.(edges.effect_rank_abs_dz)) == collect(1:351)
+        @test count(identity, Bool.(top20.is_nominal)) == Int(expected["top20_nominal"])
+        @test count(identity, Bool.(edges.is_fdr)) == Int(expected["n_fdr"])
+        @test sort(Int.(edges.effect_rank_abs_dz)) == collect(1:nrow(edges))
         @test Float64(alpha.diff) ≈
               (Int(alpha.n_channels) - 1) * Float64(alpha.diff_wpli) atol=1e-4
         for band in unique(String.(power.band))
             sub = filter(r -> string(r.band) == band, power)
-            @test nrow(sub) == 31
-            @test all(Int.(sub.fdr_family_size) .== 31)
+            @test nrow(sub) == Int(expected["n_power_channels"])
+            @test all(Int.(sub.fdr_family_size) .== Int(expected["n_power_channels"]))
         end
     else
         @test_skip false
