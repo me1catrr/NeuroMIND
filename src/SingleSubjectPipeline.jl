@@ -2080,9 +2080,9 @@ function stage_finalize(ctx::PipelineContext, loaded::LoadOutput, qc::QCOutput, 
         results_dir(cfg), sid, sess_id, condition,
         amplitude_warning, raw_sigma_mean,
         bad_ch, bad_ch_non_fp2, fp2_excluded, n_ch_analysis,
-        Float64(get(cfg.artifact_rejection, "max_amplitude_uv", 70.0)),
+        _qc_ar_threshold_uv(cfg),
         n_total, n_rejected, n_valid,
-        Int(get(cfg.segmentation, "min_epochs", 10)),
+        _qc_min_epochs(cfg),
         log_io
     )
     println("✓  tablas · figuras · BIDS export · QC table  ($(round(Dates.value(now()-t_step)/1000,digits=1)) s)")
@@ -2125,7 +2125,32 @@ function run_single_subject_pipeline(config_path::String)
     _log(log_io, "\n✓ Pipeline completado en $(elapsed) s")
     close(log_io)
 
-    # ── Resumen final ──────────────────────────────────────────
+    _print_final_summary(stdout, cfg;
+        subject_id=sid, session_id=sess_id, task=task, condition=condition, elapsed=elapsed,
+        amplitude_warning=amplitude_warning, raw_sigma_uv=qc.raw_sigma_mean,
+        bad_ch_non_fp2=bad_ch_non_fp2, fp2_excluded=fp2_excluded, n_ch_analysis=n_ch_analysis,
+        n_total=n_total, n_valid=n_valid, n_rejected=n_rejected,
+        band_power=spectra.band_power, surr_results=surr_results)
+
+    return (subject_id=sid, session_id=sess_id, task=task,
+            condition=condition, recording=rec, spectra=spectra, connectivity=conn)
+end
+
+"""
+    _print_final_summary(io, cfg; subject_id, session_id, task, condition, elapsed,
+                         amplitude_warning, raw_sigma_uv, bad_ch_non_fp2, fp2_excluded,
+                         n_ch_analysis, n_total, n_valid, n_rejected, band_power, surr_results)
+
+Imprime en `io` el resumen final de `run_single_subject_pipeline`. No escribe
+ningún archivo: la decisión de QC que vale es la de `qc_decision_table.csv`.
+"""
+function _print_final_summary(io::IO, cfg::PipelineConfig;
+                              subject_id, session_id, task, condition, elapsed,
+                              amplitude_warning::Bool, raw_sigma_uv::Real,
+                              bad_ch_non_fp2::Vector{String}, fp2_excluded::Bool, n_ch_analysis::Int,
+                              n_total::Int, n_valid::Int, n_rejected::Int,
+                              band_power, surr_results)
+    sid = subject_id; sess_id = session_id
     _valid_pct_f  = n_total > 0 ? round(100*n_valid/n_total, digits=1) : 0.0
     _qc_decision  = n_valid == 0 ? "exclude" :
                     (amplitude_warning || !isempty(bad_ch_non_fp2)) ?
@@ -2135,25 +2160,23 @@ function run_single_subject_pipeline(config_path::String)
                      _qc_decision == "manual_review" ? "🟠" : "❌"
     _bad_summary  = isempty(bad_ch_non_fp2) ? "ninguno" : join(bad_ch_non_fp2, ", ")
     _warn_flag    = amplitude_warning ? " · ⚠ amplitude_warning" : ""
-    println()
-    println("  " * "─"^60)
-    println("  $(_decision_icon)  sub-$(sid) / ses-$(sess_id) / $(condition)  →  $(_qc_decision)   ($(elapsed) s total)")
-    println("     Epochs  : $(n_valid)/$(n_total) válidos ($(_valid_pct_f)%) · rechazados: $(n_rejected)")
-    println("     Montaje : $(n_ch_analysis) canales$(fp2_excluded ? " (Fp2 excluido)" : "") · bad no-Fp2: $(_bad_summary)$(_warn_flag)")
-    println("     PSD     : " * join(["$(b)=$(round(mean(spectra.band_power[b]),digits=2))" for (b,_) in sort(collect(cfg.bands))], " · ") * " µV²")
+    println(io)
+    println(io, "  " * "─"^60)
+    println(io, "  $(_decision_icon)  sub-$(sid) / ses-$(sess_id) / $(condition)  →  $(_qc_decision)   ($(elapsed) s total)")
+    println(io, "     Epochs  : $(n_valid)/$(n_total) válidos ($(_valid_pct_f)%) · rechazados: $(n_rejected)")
+    println(io, "     Montaje : $(n_ch_analysis) canales$(fp2_excluded ? " (Fp2 excluido)" : "") · bad no-Fp2: $(_bad_summary)$(_warn_flag)")
+    println(io, "     PSD     : " * join(["$(b)=$(round(mean(band_power[b]),digits=2))" for (b,_) in sort(collect(cfg.bands))], " · ") * " µV²")
     if !isempty(surr_results)
         _sig_counts = ["$(sr.band): $(count(sr.sig_mask)÷2)" for sr in surr_results]
-        println("     Sig wPLI: " * join(_sig_counts, " · ") * " pares (FDR 5%)")
+        println(io, "     Sig wPLI: " * join(_sig_counts, " · ") * " pares (FDR 5%)")
     end
-    println("  " * "─"^60)
-    println()
-    println("Resultados principales:")
-    println("  Dashboard:  results/$(sid)/$(sess_id)/")
-    println("  Exportación BIDS: results/subjects/sub-$(sid)/ses-$(sess_id)/$(task)/")
-    println("=" ^ 62)
-
-    return (subject_id=sid, session_id=sess_id, task=task,
-            condition=condition, recording=rec, spectra=spectra, connectivity=conn)
+    println(io, "  " * "─"^60)
+    println(io)
+    println(io, "Resultados principales:")
+    println(io, "  Dashboard:  results/$(sid)/$(sess_id)/")
+    println(io, "  Exportación BIDS: results/subjects/sub-$(sid)/ses-$(sess_id)/$(task)/")
+    println(io, "=" ^ 62)
+    return nothing
 end
 
 # ─── Guardado de resultados ───────────────────────────────────
@@ -3670,6 +3693,71 @@ end
 # ─── Tabla QC global ──────────────────────────────────────────
 
 """
+    _qc_min_epochs(cfg) -> Int
+    _qc_ar_threshold_uv(cfg) -> Float64
+
+Parámetros de la decisión de QC leídos del TOML (`min_segments` y
+`max_amplitude_uv`). La tabla y el resumen de la terminal los toman de aquí,
+para que las dos usen exactamente los mismos valores.
+"""
+_qc_min_epochs(cfg::PipelineConfig)::Int = Int(get(cfg.segmentation, "min_epochs", 10))
+_qc_ar_threshold_uv(cfg::PipelineConfig)::Float64 = Float64(get(cfg.artifact_rejection, "max_amplitude_uv", 70.0))
+
+"""
+    qc_final_decision(amplitude_warning, raw_sigma_uv, bad_ch_non_fp2, ar_threshold_uv,
+                      n_epochs_total, n_epochs_valid, min_epochs)
+        -> (; decision, exclusion_reason, notes, valid_pct)
+
+Regla única de la decisión de QC de una grabación. La usan la tabla
+`qc/qc_decision_table.csv` y el resumen de la terminal. Es una función pura:
+no lee ni escribe nada.
+
+Se aplica la primera regla que se cumple, en este orden (`min_epochs` es
+`segmentation.min_segments` del TOML; `valid_pct` es el porcentaje de épocas
+válidas, redondeado a un decimal):
+
+1. `n_epochs_valid == 0` → `exclude`
+2. `n_epochs_valid < min_epochs` → `exclude`
+3. aviso de amplitud y ≥ 2 canales malos no-Fp2 → `manual_review`
+4. aviso de amplitud y `valid_pct < 50` → `manual_review`
+5. aviso de amplitud o algún canal malo no-Fp2 → `include_with_warning`
+6. en otro caso → `include`
+"""
+function qc_final_decision(amplitude_warning::Bool, raw_sigma_uv::Real,
+                           bad_ch_non_fp2::Vector{String}, ar_threshold_uv::Float64,
+                           n_epochs_total::Int, n_epochs_valid::Int, min_epochs::Int)
+    valid_pct = n_epochs_total > 0 ?
+        round(100.0 * n_epochs_valid / n_epochs_total, digits=1) : 0.0
+
+    # Exclusión dura: sin epochs utilizables
+    exclusion_reason = ""
+    notes_list       = String[]
+
+    final_decision = if n_epochs_valid == 0
+        exclusion_reason = "0 epochs válidos tras AR ±$(ar_threshold_uv) µV"
+        "exclude"
+    elseif n_epochs_valid < min_epochs
+        exclusion_reason = "$(n_epochs_valid) epochs < mínimo requerido ($(min_epochs))"
+        "exclude"
+    elseif amplitude_warning && length(bad_ch_non_fp2) >= 2
+        push!(notes_list, "amplitude_warning + $(length(bad_ch_non_fp2)) canales malos adicionales")
+        "manual_review"
+    elseif amplitude_warning && valid_pct < 50.0
+        push!(notes_list, "amplitude_warning + solo $(valid_pct)% epochs válidos")
+        "manual_review"
+    elseif amplitude_warning || !isempty(bad_ch_non_fp2)
+        amplitude_warning && push!(notes_list, "amplitude_warning (σ̄=$(round(raw_sigma_uv,digits=1)) µV)")
+        !isempty(bad_ch_non_fp2) && push!(notes_list, "canales malos adicionales: $(join(bad_ch_non_fp2, ", "))")
+        "include_with_warning"
+    else
+        "include"
+    end
+
+    return (decision=final_decision, exclusion_reason=exclusion_reason,
+            notes=join(notes_list, "; "), valid_pct=valid_pct)
+end
+
+"""
     _update_qc_decision_table(results_dir, ...)
 
 Escribe o actualiza results/qc/qc_decision_table.csv con la decisión
@@ -3703,35 +3791,12 @@ function _update_qc_decision_table(
     mkpath(qc_dir)
     out_path = joinpath(qc_dir, "qc_decision_table.csv")
 
-    valid_pct = n_epochs_total > 0 ?
-        round(100.0 * n_epochs_valid / n_epochs_total, digits=1) : 0.0
-
-    # ── Decisión final ────────────────────────────────────────
-    # Exclusión dura: sin epochs utilizables
-    exclusion_reason = ""
-    notes_list       = String[]
-
-    final_decision = if n_epochs_valid == 0
-        exclusion_reason = "0 epochs válidos tras AR ±$(ar_threshold_uv) µV"
-        "exclude"
-    elseif n_epochs_valid < min_epochs
-        exclusion_reason = "$(n_epochs_valid) epochs < mínimo requerido ($(min_epochs))"
-        "exclude"
-    elseif amplitude_warning && length(bad_ch_non_fp2) >= 2
-        push!(notes_list, "amplitude_warning + $(length(bad_ch_non_fp2)) canales malos adicionales")
-        "manual_review"
-    elseif amplitude_warning && valid_pct < 50.0
-        push!(notes_list, "amplitude_warning + solo $(valid_pct)% epochs válidos")
-        "manual_review"
-    elseif amplitude_warning || !isempty(bad_ch_non_fp2)
-        amplitude_warning && push!(notes_list, "amplitude_warning (σ̄=$(round(raw_sigma_uv,digits=1)) µV)")
-        !isempty(bad_ch_non_fp2) && push!(notes_list, "canales malos adicionales: $(join(bad_ch_non_fp2, ", "))")
-        "include_with_warning"
-    else
-        "include"
-    end
-
-    notes = join(notes_list, "; ")
+    rule = qc_final_decision(amplitude_warning, raw_sigma_uv, bad_ch_non_fp2,
+                             ar_threshold_uv, n_epochs_total, n_epochs_valid, min_epochs)
+    final_decision   = rule.decision
+    exclusion_reason = rule.exclusion_reason
+    notes            = rule.notes
+    valid_pct        = rule.valid_pct
 
     new_row = DataFrame(
         subject_id               = [subject_id],

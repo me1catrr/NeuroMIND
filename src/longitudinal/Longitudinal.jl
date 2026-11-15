@@ -492,6 +492,16 @@ end
 
 qc_ok(dec::String)::Bool = dec == "missing" || dec in QC_ALLOWED
 
+"""
+    write_qc_policy(io)
+
+Escribe en `config_snapshot.toml` la política de QC con la que se decidió la
+inclusión.
+"""
+function write_qc_policy(io::IO)
+    println(io, "qc_allowed = [\"include\", \"include_with_warning\"]")
+end
+
 function _prop_threshold(W::Matrix{Float64}, density::Float64)::Float64
     vals = sort([W[i,j] for i in 1:size(W,1) for j in (i+1):size(W,1) if W[i,j] > 0.0]; rev=true)
     isempty(vals) && return 0.0
@@ -1241,7 +1251,7 @@ function run(config_path::String)
             println(io, "graph_density = $graph_dens")
             println(io, "graph_threshold_method = \"$graph_meth\"")
             println(io, "n_channels_analysis = $n_ch_mont")
-            println(io, "qc_allowed = [\"include\", \"include_with_warning\"]")
+            write_qc_policy(io)
             println(io, "source_config = \"$config_path\"")
         end
 
