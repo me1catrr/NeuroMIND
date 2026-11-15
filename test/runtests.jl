@@ -2888,32 +2888,32 @@ qc_case(; amp=false, nbad=0, n_total=100, n_valid=100, min_epochs=10) =
 
     @testset "La terminal dice la decisión de la tabla (rejilla completa)" begin
         n_diff = count(c -> terminal_decision(c).decision != qc_oracle(c).decision, qc_rule_grid())
-        @test_broken n_diff == 0
+        @test n_diff == 0
     end
 
     @testset "Caso grave: pocas épocas sin avisos" begin
         c = qc_case(n_total=100, n_valid=5, min_epochs=10)
         @test qc_oracle(c).decision == "exclude"
-        @test_broken terminal_decision(c).decision == "exclude"
-        @test_broken occursin("❌", terminal_decision(c).text)
+        @test terminal_decision(c).decision == "exclude"
+        @test occursin("❌", terminal_decision(c).text)
     end
 
     @testset "min_epochs del TOML, no un 10 fijo" begin
         c40 = qc_case(n_total=100, n_valid=20, min_epochs=40)
         @test qc_oracle(c40).decision == "exclude"
-        @test_broken terminal_decision(c40).decision == "exclude"
+        @test terminal_decision(c40).decision == "exclude"
         c2 = qc_case(amp=true, n_total=5, n_valid=5, min_epochs=2)
         @test qc_oracle(c2).decision == "include_with_warning"
-        @test_broken terminal_decision(c2).decision == "include_with_warning"
+        @test terminal_decision(c2).decision == "include_with_warning"
     end
 
     @testset "Reglas 3 y 4 de la tabla" begin
         c3 = qc_case(amp=true, nbad=2, n_total=100, n_valid=100)
         @test qc_oracle(c3).decision == "manual_review"
-        @test_broken terminal_decision(c3).decision == "manual_review"
+        @test terminal_decision(c3).decision == "manual_review"
         c4 = qc_case(amp=true, n_total=100, n_valid=40)
         @test qc_oracle(c4).decision == "manual_review"
-        @test_broken terminal_decision(c4).decision == "manual_review"
+        @test terminal_decision(c4).decision == "manual_review"
     end
 end
 

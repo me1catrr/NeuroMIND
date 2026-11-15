@@ -2142,7 +2142,9 @@ end
                          n_ch_analysis, n_total, n_valid, n_rejected, band_power, surr_results)
 
 Imprime en `io` el resumen final de `run_single_subject_pipeline`. No escribe
-ningún archivo: la decisión de QC que vale es la de `qc_decision_table.csv`.
+ningún archivo. La decisión de QC sale de `qc_final_decision`, con los mismos
+parámetros del TOML que la tabla `qc/qc_decision_table.csv`, así que dice lo
+mismo que la tabla.
 """
 function _print_final_summary(io::IO, cfg::PipelineConfig;
                               subject_id, session_id, task, condition, elapsed,
@@ -2152,9 +2154,10 @@ function _print_final_summary(io::IO, cfg::PipelineConfig;
                               band_power, surr_results)
     sid = subject_id; sess_id = session_id
     _valid_pct_f  = n_total > 0 ? round(100*n_valid/n_total, digits=1) : 0.0
-    _qc_decision  = n_valid == 0 ? "exclude" :
-                    (amplitude_warning || !isempty(bad_ch_non_fp2)) ?
-                    (n_valid < 10 ? "manual_review" : "include_with_warning") : "include"
+    # Misma regla y mismos parámetros que qc_decision_table.csv (D-22)
+    _qc_decision  = qc_final_decision(amplitude_warning, Float64(raw_sigma_uv), bad_ch_non_fp2,
+                                      _qc_ar_threshold_uv(cfg), n_total, n_valid,
+                                      _qc_min_epochs(cfg)).decision
     _decision_icon = _qc_decision == "include" ? "✅" :
                      _qc_decision == "include_with_warning" ? "🟡" :
                      _qc_decision == "manual_review" ? "🟠" : "❌"
@@ -3763,11 +3766,9 @@ end
 Escribe o actualiza results/qc/qc_decision_table.csv con la decisión
 de inclusión/exclusión de cada grabación procesada.
 
-### Criterios de `final_decision`
-- `include`              — válido sin alertas
-- `include_with_warning` — válido pero con amplitude_warning o canales malos adicionales
-- `manual_review`        — amplitude_warning Y epochs cerca del mínimo, o canales malos graves
-- `exclude`              — 0 epochs válidos o duración insuficiente
+La decisión (`final_decision`, `exclusion_reason`, `notes`) la da
+`qc_final_decision`, que describe la regla y su orden de precedencia. El
+resumen de la terminal usa la misma función con los mismos parámetros.
 """
 function _update_qc_decision_table(
     res_dir        ::String,

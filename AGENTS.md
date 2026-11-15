@@ -260,12 +260,19 @@ If mean raw signal σ̄ > 20 µV → probable recording without online filter ac
 
 ### QC decision table (`results/qc/qc_decision_table.csv`)
 
-| `final_decision` | Condition | Include in group? |
-|------------------|-----------|-------------------|
-| `include` | No alerts, ≥10 valid epochs | ✅ Yes |
-| `include_with_warning` | amplitude_warning or ≥1 bad channel | ✅ With caution |
-| `manual_review` | amplitude_warning + ≥2 bad channels **or** <50% valid epochs | ⚠ Review |
-| `exclude` | 0 valid epochs | ❌ No |
+One rule, `qc_final_decision` (`src/SingleSubjectPipeline.jl`), used by both the table and
+the terminal summary of `run_single_subject_pipeline` (same function, same TOML parameters).
+The first rule that holds wins, in this order (`min_segments` from `[segmentation]`;
+"bad channels" = flagged by dynamic QC, Fp2 not counted; % rounded to one decimal):
+
+| # | Condition | `final_decision` | Include in group? |
+|---|-----------|------------------|-------------------|
+| 1 | 0 valid epochs | `exclude` | ❌ No |
+| 2 | valid epochs < `min_segments` | `exclude` | ❌ No |
+| 3 | amplitude_warning **and** ≥2 bad channels | `manual_review` | ⚠ No (review) |
+| 4 | amplitude_warning **and** <50% valid epochs | `manual_review` | ⚠ No (review) |
+| 5 | amplitude_warning **or** ≥1 bad channel | `include_with_warning` | ✅ With caution |
+| 6 | otherwise | `include` | ✅ Yes |
 
 ### wPLI reliability per band (minimum cycles per epoch)
 With epochs of 1.0 s (`profile = eeg_julia`) and `min_cycles_for_wpli = 4.0`:
