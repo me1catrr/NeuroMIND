@@ -523,12 +523,18 @@ Si σ̄ de la señal cruda > 20 µV → probable grabación sin filtro online ac
 
 ### Tabla de decisión QC (`results/qc/qc_decision_table.csv`)
 
-| `final_decision` | Condición | ¿Incluir en grupo? |
-|------------------|-----------|--------------------|
-| `include` | Sin alertas, ≥10 épocas válidas | ✅ Sí |
-| `include_with_warning` | `amplitude_warning` o ≥1 canal malo | ✅ Con cautela |
-| `manual_review` | `amplitude_warning` + ≥2 canales malos, **o** <50% épocas válidas | ⚠️ Revisar |
-| `exclude` | 0 épocas válidas, o menos de `min_segments` (10) | ❌ No |
+Una sola regla, `qc_final_decision` (`src/SingleSubjectPipeline.jl`), para la tabla y para el resumen de la terminal de `run_single_subject_pipeline`: misma función y mismos parámetros del TOML. Se aplica la primera condición que se cumple, en este orden (`min_segments` de `[segmentation]`; «canales malos» = señalados por el QC dinámico, sin contar Fp2; porcentaje redondeado a un decimal):
+
+| N.º | Condición | `final_decision` | ¿Incluir en grupo? |
+|-----|-----------|------------------|--------------------|
+| 1 | 0 épocas válidas | `exclude` | ❌ No |
+| 2 | épocas válidas < `min_segments` (10) | `exclude` | ❌ No |
+| 3 | `amplitude_warning` **y** ≥2 canales malos | `manual_review` | ⚠️ No (revisar) |
+| 4 | `amplitude_warning` **y** <50 % de épocas válidas | `manual_review` | ⚠️ No (revisar) |
+| 5 | `amplitude_warning` **o** ≥1 canal malo | `include_with_warning` | ✅ Con cautela |
+| 6 | en otro caso | `include` | ✅ Sí |
+
+Los análisis de grupo (`Transversal.jl`, `Longitudinal.jl`) solo incluyen `include` e `include_with_warning`. Una grabación **sin fila** en la tabla, con la celda `final_decision` **vacía** o con un valor **no reconocido** queda en estado **`unknown`** (B-05): no entra, su motivo lo dice (`QC=unknown (…)`, `QC T1=unknown (…)`) y `config_snapshot.toml` registra `qc_unknown = "not_included"`. Sin `qc_decision_table.csv`, los análisis de grupo se detienen con un error explícito.
 
 ---
 

@@ -4,6 +4,47 @@
 > no se cargue en cada sesión de los agentes. Las entradas nuevas van arriba.
 > `AGENTS.md` §13 apunta aquí (y `Report_Pre/chapters/12_espectral.tex` cita esa sección).
 
+### 2026-11-15 — PR de QC: una sola regla de decisión de QC y QC ausente como estado desconocido
+
+**No cambia ningún criterio de QC, umbral ni parámetro**, ni reescribe resultados. Misma
+regla, misma tabla. La revisión del criterio (alternativa C de D-22: `min_segments`, D-14,
+D-19, la regla del 50 %, `manual_review`) queda aplazada de forma expresa hasta el primer
+análisis de grupo (decisión B8).
+
+- **D-22, alternativa B: la terminal dice lo que dice la tabla.** El resumen final de
+  `run_single_subject_pipeline` aplicaba una regla propia (mínimo fijo de 10 épocas y sin
+  las reglas 3 y 4 de la tabla). En el caso grave anunciaba `include` para una grabación que
+  `qc_decision_table.csv` excluye por tener menos de `min_segments` épocas. Ahora la regla
+  vive en una función pura, `qc_final_decision`, que usan la tabla y la terminal con los
+  mismos parámetros del TOML (`_qc_min_epochs`, `_qc_ar_threshold_uv`). El resumen se
+  imprime con `_print_final_summary(io, cfg; …)`. Cambian solo el valor y el icono de la línea
+  de la decisión, y solo donde antes discrepaban; ningún archivo cambia. Docstrings,
+  `AGENTS.md` y `README.md` describen la regla real en su orden de precedencia.
+- **B-05: QC ausente = estado desconocido** (decisión 120.5; B4 y B5). En `Transversal.jl` y
+  `Longitudinal.jl`, una grabación sin fila en la tabla, con la celda `final_decision` vacía o
+  con un valor no reconocido queda en `QC_UNKNOWN = "unknown"`: no entra, con un motivo
+  propio (`QC=unknown (sin fila en qc_decision_table.csv, requiere decisión explícita)`, y en
+  el longitudinal `QC T1=` / `QC T2=` por sesión). Antes, `qc_ok("missing")` era verdadero y
+  esas grabaciones entraban. Sin la tabla (o sin sus columnas de sujeto y decisión), los
+  análisis se detienen con un error explícito en lugar de incluir a toda la cohorte.
+  `config_snapshot.toml` añade `qc_unknown = "not_included"`, que distingue los análisis
+  hechos con la regla nueva. Sin cambios: `QC_ALLOWED`, la resolución de alias del código de
+  sujeto, las columnas de las tablas de inclusión y las versiones de esquema.
+- **Extracciones sin cambio de comportamiento**, para poder probarlo:
+  `Transversal.evaluate_inclusion` (como ya tenía el longitudinal) y `write_qc_policy`.
+- **Pruebas** (datos sintéticos): `QC_Decision_Rule` (oráculo con la copia literal de la regla
+  de `7677710` en una rejilla completa, y bordes de cada regla), `QC_Decision_Terminal`,
+  `QC_Unknown_Rule`, `QC_Unknown_Transversal`, `QC_Unknown_Longitudinal` y
+  `QC_Unknown_Snapshot`.
+- **Prueba dorada** (Lab, raíz aislada, `ref-6a2089e` ampliada con el caso nuevo
+  `pocas-epocas-sin-aviso`, decisión B6, frente a `esperado-pr3.json`): 33 casos, ninguna
+  diferencia de archivos nueva respecto a la base `7677710`. En la terminal, 2 de 33 casos
+  cambian, solo en la línea de la decisión: `pocas-epocas-sin-aviso` (`include` → `exclude`)
+  y `pocas-epocas` (`include_with_warning` → `exclude`).
+- **Histórico.** Las tablas de QC existentes no cambian. Repetir un análisis de grupo sobre
+  resultados antiguos solo cambia la cohorte si alguna grabación no tiene fila, tiene la celda
+  vacía o falta la tabla.
+
 ### 2026-11-14 — Checkpoints de las etapas y ejecución por etapas (PR 3)
 
 Añade checkpoints verificables de las diez etapas y una forma de ejecutarlas una a una.

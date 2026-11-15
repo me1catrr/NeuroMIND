@@ -81,6 +81,11 @@ const POWER_FDR_SCOPE = "available_channels_within_each_band"
 const N_MS_DESIGN   = 44   # Fig. 3.1
 const N_CTRL_DESIGN = 40
 const QC_ALLOWED    = Set(["include", "include_with_warning"])
+# Decisiones que escribe el pipeline individual en qc_decision_table.csv.
+const QC_RECOGNIZED = Set(["include", "include_with_warning", "manual_review", "exclude"])
+# Estado de una grabación sin decisión de QC válida (sin fila, celda vacía o
+# valor no reconocido). No es favorable: no entra en el análisis de grupo (B-05).
+const QC_UNKNOWN    = "unknown"
 
 _ch_xy(ch::AbstractString) = get(CH_POS, uppercase(String(ch)), (0.0, 0.0))
 
@@ -433,19 +438,30 @@ function load_seg_epochs(res_root, subj_id, sess_id, cond)
     return (n_valid, n_total, pct)
 end
 
+"""
+    load_qc_table(res_root) -> Dict{(subject, session, condition), String}
+
+Lee `qc/qc_decision_table.csv`. Cada valor es la celda `final_decision` en
+minúsculas, o `""` si la celda está vacía. Sin la tabla (o sin las columnas
+de sujeto y de decisión) no se puede decidir la inclusión de ninguna
+grabación: lanza un error en lugar de devolver una tabla vacía (B-05).
+"""
 function load_qc_table(res_root)::Dict{Tuple{String,String,String}, String}
     path = joinpath(res_root, "qc", "qc_decision_table.csv")
     out = Dict{Tuple{String,String,String}, String}()
-    isfile(path) || return out
+    isfile(path) || error("No existe la tabla de QC $(path). Sin ella no se puede decidir " *
+                          "la inclusión de ninguna grabación. Se genera al ejecutar el " *
+                          "pipeline individual (etapa de cierre) de cada grabación.")
     df = CSV.read(path, DataFrame)
     rename!(df, Dict(n => Symbol(lowercase(string(n))) for n in names(df)))
     sid_col = hasproperty(df, :subject_id) ? :subject_id : (hasproperty(df, :bids_id) ? :bids_id : nothing)
-    sid_col === nothing && return out
+    (sid_col === nothing || !hasproperty(df, :final_decision)) &&
+        error("La tabla de QC $(path) no tiene las columnas subject_id (o bids_id) y final_decision.")
     for row in eachrow(df)
         sid  = string(row[sid_col])
         sess = string(hasproperty(row, :session_id) ? row.session_id : row.session)
         cond = cond_code(string(row.condition))
-        out[(sid, sess, cond)] = lowercase(string(row.final_decision))
+        out[(sid, sess, cond)] = ismissing(row.final_decision) ? "" : lowercase(string(row.final_decision))
     end
     return out
 end
@@ -487,17 +503,50 @@ function qc_note(notes::Dict, sid::String, sess::String, cond::String)::String
     return ""
 end
 
-function qc_decision(qc::Dict, sid::String, sess::String, cond::String)::String
+function _qc_cell(qc::Dict, sid::String, sess::String, cond::String)::Union{Nothing,String}
     cc = cond_code(cond)
     haskey(qc, (sid, sess, cc)) && return qc[(sid, sess, cc)]
     if startswith(sid, "M") && !startswith(sid, "MC")
         alt = occursin(r"^M\d$", sid) ? "M0"*sid[2:end] : (occursin(r"^M0\d$", sid) ? "M"*sid[3:end] : "")
         !isempty(alt) && haskey(qc, (alt, sess, cc)) && return qc[(alt, sess, cc)]
     end
-    return "missing"
+    return nothing
 end
 
-qc_ok(dec::String)::Bool = dec == "missing" || dec in QC_ALLOWED
+"""
+    qc_state(qc, sid, sess, cond) -> (decision, detail)
+
+Decisión de QC de una grabación. Si no tiene fila, si la celda está vacía o si
+el valor no es una de las cuatro decisiones reconocidas, la decisión es
+`QC_UNKNOWN` y `detail` dice por qué; en otro caso `detail` es `""`.
+"""
+function qc_state(qc::Dict, sid::String, sess::String, cond::String)::Tuple{String,String}
+    cell = _qc_cell(qc, sid, sess, cond)
+    cell === nothing && return (QC_UNKNOWN, "sin fila en qc_decision_table.csv, requiere decisión explícita")
+    isempty(cell)    && return (QC_UNKNOWN, "celda final_decision vacía en qc_decision_table.csv, requiere decisión explícita")
+    cell in QC_RECOGNIZED ||
+        return (QC_UNKNOWN, "valor no reconocido «$(cell)» en qc_decision_table.csv, requiere decisión explícita")
+    return (cell, "")
+end
+
+qc_decision(qc::Dict, sid::String, sess::String, cond::String)::String = qc_state(qc, sid, sess, cond)[1]
+
+"""Texto del motivo de exclusión por QC (`label` es `QC`, `QC T1` o `QC T2`)."""
+qc_reason(label::String, dec::String, detail::String)::String =
+    dec == QC_UNKNOWN ? "$(label)=$(QC_UNKNOWN) ($(detail))" : "$(label)=$(dec)"
+
+qc_ok(dec::String)::Bool = dec in QC_ALLOWED
+
+"""
+    write_qc_policy(io)
+
+Escribe en `config_snapshot.toml` la política de QC con la que se decidió la
+inclusión.
+"""
+function write_qc_policy(io::IO)
+    println(io, "qc_allowed = [\"include\", \"include_with_warning\"]")
+    println(io, "qc_unknown = \"not_included\"")
+end
 
 function _prop_threshold(W::Matrix{Float64}, density::Float64)::Float64
     vals = sort([W[i,j] for i in 1:size(W,1) for j in (i+1):size(W,1) if W[i,j] > 0.0]; rev=true)
@@ -1348,6 +1397,40 @@ struct SubjT1
 end
 
 """
+    evaluate_inclusion(res_root, s, cond, bands, qc_table, qc_notes) -> NamedTuple
+
+Decide si la grabación T1 de `s` entra en el contraste transversal de `cond`
+y devuelve la fila de `subject_inclusion.csv`. Entra si tiene alguna matriz
+wPLI en disco y su decisión de QC está en `QC_ALLOWED`. Con QC desconocido no
+entra, y el motivo lo distingue de un QC desfavorable.
+"""
+function evaluate_inclusion(res_root, s::SubjT1, cond::String, bands, qc_table::Dict, qc_notes::Dict)
+    cl = cond_label(cond)
+    qc_dec, qc_detail = qc_state(qc_table, s.subject_id, s.session_id, cond)
+    ep = load_seg_epochs(res_root, s.subject_id, s.session_id, cond)
+    bands_ok = String[]
+    for band in bands
+        r = load_wpli(res_root, s.subject_id, s.session_id, cond, band)
+        r === nothing || push!(bands_ok, band)
+    end
+    reasons = String[]
+    isempty(bands_ok) && push!(reasons, "Sin datos wPLI ($cl)")
+    qc_ok(qc_dec) || push!(reasons, qc_reason("QC", qc_dec, qc_detail))
+    included = isempty(reasons)
+    warn_txt = ""
+    if included && qc_dec == "include_with_warning"
+        warn_txt = qc_note(qc_notes, s.subject_id, s.session_id, cond)
+        isempty(warn_txt) && (warn_txt = "include_with_warning")
+    end
+    return (schema_version=TRANSVERSAL_SCHEMA_VERSION,
+            statistics_source=STATISTICS_SOURCE,
+            subject_id=s.subject_id, session_id=s.session_id, group=s.group,
+            n_bands_ok=length(bands_ok), included=included,
+            excluded_reason=included ? "" : join(reasons, "; "), qc_decision=qc_dec,
+            warning_reason=warn_txt, n_epochs_valid=ep[1]===missing ? "" : string(ep[1]))
+end
+
+"""
     load_t1_cohort(inventory_path) -> Vector{SubjT1}
 
 Candidatos del contraste transversal: sujetos con alguna grabación T1 válida
@@ -1458,7 +1541,7 @@ function run(config_path::String)
             println(io, "graph_density = $graph_dens")
             println(io, "graph_threshold_method = \"$graph_meth\"")
             println(io, "n_channels_analysis = $n_ch_mont")
-            println(io, "qc_allowed = [\"include\", \"include_with_warning\"]")
+            write_qc_policy(io)
             println(io, "source_config = \"$config_path\"")
         end
 
@@ -1469,29 +1552,9 @@ function run(config_path::String)
         included_subj = SubjT1[]
 
         for s in cohort
-            qc_dec = qc_decision(qc_table, s.subject_id, s.session_id, cond)
-            ep = load_seg_epochs(res_root, s.subject_id, s.session_id, cond)
-            bands_ok = String[]
-            for band in bands
-                r = load_wpli(res_root, s.subject_id, s.session_id, cond, band)
-                r === nothing || push!(bands_ok, band)
-            end
-            reasons = String[]
-            isempty(bands_ok) && push!(reasons, "Sin datos wPLI ($cl)")
-            qc_ok(qc_dec) || push!(reasons, "QC=$(qc_dec)")
-            included = isempty(reasons)
-            warn_txt = ""
-            if included && qc_dec == "include_with_warning"
-                warn_txt = qc_note(qc_notes, s.subject_id, s.session_id, cond)
-                isempty(warn_txt) && (warn_txt = "include_with_warning")
-            end
-            push!(inclusion, (schema_version=TRANSVERSAL_SCHEMA_VERSION,
-                  statistics_source=STATISTICS_SOURCE,
-                  subject_id=s.subject_id, session_id=s.session_id, group=s.group,
-                  n_bands_ok=length(bands_ok), included=included,
-                  excluded_reason=included ? "" : join(reasons, "; "), qc_decision=qc_dec,
-                  warning_reason=warn_txt, n_epochs_valid=ep[1]===missing ? "" : string(ep[1])))
-            included || continue
+            row = evaluate_inclusion(res_root, s, cond, bands, qc_table, qc_notes)
+            push!(inclusion, row)
+            row.included || continue
             push!(included_subj, s)
             for band in bands
                 r = load_wpli(res_root, s.subject_id, s.session_id, cond, band)
