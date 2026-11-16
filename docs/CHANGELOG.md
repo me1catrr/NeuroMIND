@@ -279,7 +279,7 @@ pipeline pueda ejecutarse por etapas (NeuroMIND Lab) con una sola implementació
   raws) y las observaciones de Javier. Las fuentes originales pasan a `data/sourcedata/clinical/anteriores/` (rutas de `audit_full_dataset.jl` actualizadas; salida idéntica). Verificado contra `data/bids/`: 308 combinaciones sujeto/sesión/condición y los 6 tramos de M04/M05/M06 T1 coinciden. Sin fecha de nacimiento ni nombres de archivo originales.
 - **Control de calidad frente a las categorías de Javier** (hoja del 10-09, anterior a la base
   del 28-09): EDSS y D-FIS transversal son coherentes con los valores numéricos; quedan por
-  confirmar M12 (D-FIS longitudinal Baja con T1=18, mediana del subgrupo 18), M12 vs M24 (mismos
+  confirmar M12 (categoría D-FIS longitudinal frente a su valor de T1 y la mediana del subgrupo), M12 vs M24 (mismos
   D-FIS T1/T2, distinta categoría longitudinal) y M18 vs M25 (mismos D-FIS, respuesta Mayor vs
   Menor), además de las edades de M13, M29 y M35.
 - El `.xlsx` se escribe como SpreadsheetML + `zip` del sistema (sin dependencias nuevas).
@@ -399,8 +399,8 @@ pipeline pueda ejecutarse por etapas (NeuroMIND Lab) con una sola implementació
   el visor longitudinal ya no recalcula estadísticos en JavaScript.
 - Mean wPLI se presenta como normalización exacta de mean strength
   (`mean_strength=(n_channels−1)×mean_wPLI`), no como estimando independiente.
-  ALPHA-EC queda fijado por regresión: `r_rb≈−0.1618`, mediana
-  `≈−0.0051785`, 351 aristas, 20 nominales, Top-20 con solapamiento 17 y 0 FDR.
+  ALPHA-EC queda fijado por regresión; los valores esperados se guardan fuera
+  del repositorio (`results/regression/valores_cohorte.toml`).
 - La UI separa recuentos total/nominal/Top-N/FDR, explicita las tres familias
   de corrección, usa −log10(p) con color FDR en el volcano y representa en el
   topograma de potencia la cobertura por canal (BH entre 31 canales/banda).
@@ -426,8 +426,7 @@ pipeline pueda ejecutarse por etapas (NeuroMIND Lab) con una sola implementació
 - Wilcoxon signed-rank exacto condicional mediante programación dinámica para
   N≤30, con fallback asintótico documentado y método registrado en CSV, JSON y
   snapshot. La arista marginal que habría superado FDR al aplicar el exacto
-  sobre el antiguo N=15 deja de hacerlo al recuperar M07: 0 aristas y 0 celdas
-  de potencia superan FDR en EC/EO.
+  sobre el antiguo N=15 deja de hacerlo al recuperar M07.
 - `subject_band_means.csv` y el gráfico pareado usan ahora el mismo montaje
   común que el estimando C (`mean_wpli_equiv`), con 27 canales EC / 28 EO.
   `n_bands_ok` conserva el recuento real también para excluidos, y las tablas
@@ -463,10 +462,8 @@ pipeline pueda ejecutarse por etapas (NeuroMIND Lab) con una sola implementació
   de cada iteración del bucle `for cond in [...]` en vez de dentro del
   bloque `if cond == "eyesclosed"`.
 - Verificado contra datos reales: paridad numérica exacta con el estado
-  previo (mismos p/q/d por banda en EC/EO); interacción ALPHA
-  (ΔEC−EO=0.106 EM vs 0.063 Control) coincide con el hallazgo descriptivo
-  que motivó la petición; ninguna banda sobrevive FDR en la interacción
-  (q mínimo 0.786) — resultado honesto, no forzado.
+  previo (mismos p/q/d por banda en EC/EO); los resultados de la interacción
+  se consultan en los resultados locales, no en este registro.
 
 ### 2026-07-27 — Simplificación radical de la capa de cohorte (auditoría + rediseño)
 
@@ -541,8 +538,8 @@ en detalle — ver historial de git para los pasos intermedios.
   y `results/summary/` a `Report_Pre/figures/plots/`).
 - Verificado extremo a extremo contra los datos reales del dataset (no solo
   sintéticos): ambos lanzadores, paridad numérica exacta con el estado previo
-  a la sesión (ALPHA transversal ctrl=0.196/MS=0.260, 12 sig; longitudinal EC
-  15 pares, asserts de reconstrucción implícitos por construcción), ambos
+  a la sesión (ALPHA transversal y longitudinal EC; los valores, en los
+  resultados locales), asserts de reconstrucción implícitos por construcción), ambos
   visores cargando desde las nuevas rutas.
 
 ### 2026-07-25 (cont.) — Manuscript publication figures (EC)

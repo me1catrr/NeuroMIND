@@ -194,6 +194,50 @@ function mock_recording(n_ch=10, n_samp=2000, fs=500.0)
     return EEGRecording(meta, data, times)
 end
 
+# ─── Valores esperados de la regresión de cohorte ─────────────
+#
+# Las regresiones ALPHA–EC comparan los CSV de la cohorte real con valores
+# obtenidos de esos mismos resultados. Son datos derivados de grabaciones
+# reales y el repositorio es público: no se versionan. Se leen de un TOML
+# local, fuera del árbol versionado:
+#
+#   · NEUROMIND_REGRESSION_VALUES, si está definida, o
+#   · results/regression/valores_cohorte.toml (results/ es el enlace a la
+#     carpeta privada de resultados).
+#
+# Secciones: [transversal_alpha_ec] y [longitudinal_alpha_ec]. Las
+# tolerancias y las relaciones estructurales siguen aquí. Sin el archivo, o
+# sin los CSV, la regresión se registra como omitida.
+
+const REGRESSION_VALUES_PATH = get(ENV, "NEUROMIND_REGRESSION_VALUES",
+    joinpath(@__DIR__, "..", "results", "regression", "valores_cohorte.toml"))
+
+"""Sección `section` del TOML local de valores esperados, o `nothing` si no hay archivo."""
+function regression_values(section::String)
+    isfile(REGRESSION_VALUES_PATH) || return nothing
+    values = NeuroMIND.TOML.parsefile(REGRESSION_VALUES_PATH)
+    haskey(values, section) ||
+        error("$(REGRESSION_VALUES_PATH) no tiene la sección [$(section)]")
+    return values[section]
+end
+
+"""
+Registra como omitida la regresión de cohorte `section` y dice qué falta: el
+TOML local de valores esperados, las tablas de resultados locales o ambos. Una
+regresión omitida no queda validada.
+"""
+function skip_regression(section::String, reg_files::Vector{String}, expected)
+    missing_parts = String[]
+    expected === nothing &&
+        push!(missing_parts, "los valores esperados ($(REGRESSION_VALUES_PATH))")
+    n_missing = count(!isfile, reg_files)
+    n_missing > 0 && push!(missing_parts,
+        "$(n_missing) de $(length(reg_files)) tablas de resultados locales")
+    @warn "Regresión de cohorte [$(section)] omitida: faltan $(join(missing_parts, " y ")). " *
+          "No queda validada."
+    @test_skip false
+end
+
 # ─── Tests de tipos ───────────────────────────────────────────
 
 @testset "Types" begin
@@ -832,7 +876,8 @@ end
     end
 
     # Regresión del dataset real ALPHA–EC. `results/` es deliberadamente
-    # gitignored; en un checkout sin derivados se registra como skipped.
+    # gitignored y los valores esperados están en el TOML local
+    # (REGRESSION_VALUES_PATH); sin ellos se registra como skipped.
     reg_dir = joinpath(@__DIR__, "..", "results", "transversal", "eyesclosed", "tables")
     reg_files = [
         joinpath(reg_dir, "global_mean_wpli_statistics.csv"),
@@ -841,7 +886,9 @@ end
         joinpath(reg_dir, "group_statistics_ALPHA.csv"),
         joinpath(reg_dir, "band_power_group_statistics.csv"),
     ]
-    if all(isfile, reg_files)
+    section = "transversal_alpha_ec"
+    expected = regression_values(section)
+    if all(isfile, reg_files) && expected !== nothing
         global_stats = CSV.read(reg_files[1], DataFrame)
         subject_means = CSV.read(reg_files[2], DataFrame)
         band_stats = CSV.read(reg_files[3], DataFrame)
@@ -861,26 +908,26 @@ end
         @test string(alpha.statistics_source) == Transversal.STATISTICS_SOURCE
         @test string(alpha.quantile_method) == Transversal.QUANTILE_METHOD
         @test string(alpha.rrb_method) == Transversal.RRB_METHOD
-        @test Float64(alpha.effect_rrb) ≈ 1 / 3 atol=1e-12
-        @test Float64(alpha.ms_median) ≈ 0.20864151962518226 atol=1e-14
-        @test Float64(alpha.ctrl_median) ≈ 0.16040136212782588 atol=1e-14
-        @test Float64(alpha.effect_d_pooled) ≈ 0.5480285757786955 atol=1e-13
-        @test Float64(alpha.diff) ≈ 0.06632193175905668 atol=1e-14
+        @test Float64(alpha.effect_rrb) ≈ Float64(expected["effect_rrb"]) atol=1e-12
+        @test Float64(alpha.ms_median) ≈ Float64(expected["ms_median"]) atol=1e-14
+        @test Float64(alpha.ctrl_median) ≈ Float64(expected["ctrl_median"]) atol=1e-14
+        @test Float64(alpha.effect_d_pooled) ≈ Float64(expected["effect_d_pooled"]) atol=1e-13
+        @test Float64(alpha.diff) ≈ Float64(expected["diff"]) atol=1e-14
         @test Float64(alpha.ms_median) == median(ms_values)
         @test Float64(alpha.ctrl_median) == median(ctrl_values)
         @test Float64(alpha.effect_rrb) == recomputed.effect_rrb
         @test Float64(alpha.effect_d_pooled) == recomputed.effect_d_pooled
-        @test Int(alpha.fdr_family_size) == 7
-        @test nrow(edges) == 276
-        @test count(identity, Bool.(edges.is_nominal)) == 86
-        @test count(identity, Bool.(edges.is_fdr)) == 12
+        @test Int(alpha.fdr_family_size) == 7          # las siete bandas del protocolo
+        @test nrow(edges) == Int(expected["n_edges"])
+        @test count(identity, Bool.(edges.is_nominal)) == Int(expected["n_nominal"])
+        @test count(identity, Bool.(edges.is_fdr)) == Int(expected["n_fdr"])
         @test nrow(edges) == Int(alpha_band.n_edges)
         @test nrow(edges) == Int(alpha_band.n_channels) *
                             (Int(alpha_band.n_channels) - 1) ÷ 2
         @test count(identity, Bool.(edges.is_nominal)) == Int(alpha_band.n_nominal)
         @test count(identity, Bool.(edges.is_fdr)) == Int(alpha_band.n_sig)
         @test nrow(top20) == min(20, nrow(edges))
-        @test count(identity, Bool.(top20.is_nominal)) == 20
+        @test count(identity, Bool.(top20.is_nominal)) == Int(expected["top20_nominal"])
         @test count(identity, Bool.(top20.is_nominal)) ==
               Int(alpha_band.top20_nominal_overlap)
         @test sort(Int.(edges.effect_rank_abs_d)) == collect(1:nrow(edges))
@@ -889,7 +936,7 @@ end
             @test all(Int.(sub.fdr_family_size) .== nrow(sub))
         end
     else
-        @test_skip false
+        skip_regression(section, reg_files, expected)
     end
 end
 
@@ -901,7 +948,7 @@ end
     @test method == "exact_conditional_dp"
     @test p ≈ 2.0 / 2.0^15 atol=1e-15
 
-    # W+=1 reproduce el caso sensible C4–FC2: p exacto = 4/2^15.
+    # W+=1 (un solo cambio positivo, el de menor rango): p exacto = 4/2^15.
     after_w1 = vcat(1.0, -Float64.(2:15))
     p_w1, _ = Longitudinal.wilcoxon_p(before, after_w1)
     @test p_w1 ≈ 4.0 / 2.0^15 atol=1e-15
@@ -956,34 +1003,39 @@ end
     end
 
     # Los pares se calculan del inventario (registro único de grabaciones).
-    # M07 no tiene T1 EO: debe conservarse el par EC y descartarse el EO,
-    # porque las condiciones se evalúan por separado.
+    # Inventario sintético: S01 no tiene T1 EO; debe conservarse el par EC y
+    # descartarse el EO, porque las condiciones se evalúan por separado. Los
+    # controles (prefijos C y MC) tienen par completo y deben quedar fuera
+    # por ser controles, no por falta de par.
     mktempdir() do tmp
         tables = joinpath(tmp, "data", "tables")
         mkpath(tables)
-        recs = [("M7", "M07", "T1", "EC"), ("M7", "M07", "T2", "EC"), ("M7", "M07", "T2", "EO"),
-                ("M8", "M08", "T1", "EC"), ("M8", "M08", "T1", "EO"),
-                ("M8", "M08", "T2", "EC"), ("M8", "M08", "T2", "EO"),
-                ("MC1", "MC01", "T1", "EC"), ("MC1", "MC01", "T1", "EO")]
+        recs = [("S1", "S01", "T1", "EC"), ("S1", "S01", "T2", "EC"), ("S1", "S01", "T2", "EO"),
+                ("S2", "S02", "T1", "EC"), ("S2", "S02", "T1", "EO"),
+                ("S2", "S02", "T2", "EC"), ("S2", "S02", "T2", "EO"),
+                ("C1", "C01", "T1", "EC"), ("C1", "C01", "T2", "EC"),
+                ("MC99", "MC99", "T1", "EC"), ("MC99", "MC99", "T2", "EC")]
         CSV.write(joinpath(tables, "inventory.csv"), DataFrame(
             subject_id=[r[1] for r in recs],
             bids_id=[r[2] for r in recs],
-            group=[startswith(r[1], "MC") ? "HC" : "MS" for r in recs],
+            group=[startswith(r[1], "C") || startswith(r[1], "MC") ? "HC" : "MS" for r in recs],
             bids_session=[r[3] for r in recs],
             condition=[r[4] for r in recs],
             excluded=fill(false, length(recs)),
         ))
         pairs = Longitudinal.load_pairs(tmp, joinpath(tmp, "results"), joinpath(tmp, "data", "bids"))
-        @test length(pairs) == 2          # el control no entra
-        m07 = only(filter(p -> p.subject_id == "M07", pairs))
-        @test m07.has_ec
-        @test !m07.has_eo
-        m08 = only(filter(p -> p.subject_id == "M08", pairs))
-        @test m08.has_ec && m08.has_eo
+        @test length(pairs) == 2          # los controles no entran
+        @test sort([p.subject_id for p in pairs]) == ["S01", "S02"]
+        s01 = only(filter(p -> p.subject_id == "S01", pairs))
+        @test s01.has_ec
+        @test !s01.has_eo
+        s02 = only(filter(p -> p.subject_id == "S02", pairs))
+        @test s02.has_ec && s02.has_eo
     end
 
     # Regresión del dataset real ALPHA–EC. `results/` es deliberadamente
-    # gitignored; en un checkout sin derivados se registra como skipped.
+    # gitignored y los valores esperados están en el TOML local
+    # (REGRESSION_VALUES_PATH); sin ellos se registra como skipped.
     reg_dir = joinpath(@__DIR__, "..", "results", "transversal", "eyesclosed", "tables")
     reg_files = [
         joinpath(reg_dir, "global_mean_wpli_statistics.csv"),
@@ -992,7 +1044,9 @@ end
         joinpath(reg_dir, "group_statistics_ALPHA.csv"),
         joinpath(reg_dir, "band_power_group_statistics.csv"),
     ]
-    if all(isfile, reg_files)
+    section = "transversal_alpha_ec"
+    expected = regression_values(section)
+    if all(isfile, reg_files) && expected !== nothing
         global_stats = CSV.read(reg_files[1], DataFrame)
         subject_means = CSV.read(reg_files[2], DataFrame)
         band_stats = CSV.read(reg_files[3], DataFrame)
@@ -1012,26 +1066,26 @@ end
         @test string(alpha.statistics_source) == Transversal.STATISTICS_SOURCE
         @test string(alpha.quantile_method) == Transversal.QUANTILE_METHOD
         @test string(alpha.rrb_method) == Transversal.RRB_METHOD
-        @test Float64(alpha.effect_rrb) ≈ 1 / 3 atol=1e-12
-        @test Float64(alpha.ms_median) ≈ 0.20864151962518226 atol=1e-14
-        @test Float64(alpha.ctrl_median) ≈ 0.16040136212782588 atol=1e-14
-        @test Float64(alpha.effect_d_pooled) ≈ 0.5480285757786955 atol=1e-13
-        @test Float64(alpha.diff) ≈ 0.06632193175905668 atol=1e-14
+        @test Float64(alpha.effect_rrb) ≈ Float64(expected["effect_rrb"]) atol=1e-12
+        @test Float64(alpha.ms_median) ≈ Float64(expected["ms_median"]) atol=1e-14
+        @test Float64(alpha.ctrl_median) ≈ Float64(expected["ctrl_median"]) atol=1e-14
+        @test Float64(alpha.effect_d_pooled) ≈ Float64(expected["effect_d_pooled"]) atol=1e-13
+        @test Float64(alpha.diff) ≈ Float64(expected["diff"]) atol=1e-14
         @test Float64(alpha.ms_median) == median(ms_values)
         @test Float64(alpha.ctrl_median) == median(ctrl_values)
         @test Float64(alpha.effect_rrb) == recomputed.effect_rrb
         @test Float64(alpha.effect_d_pooled) == recomputed.effect_d_pooled
-        @test Int(alpha.fdr_family_size) == 7
-        @test nrow(edges) == 276
-        @test count(identity, Bool.(edges.is_nominal)) == 86
-        @test count(identity, Bool.(edges.is_fdr)) == 12
+        @test Int(alpha.fdr_family_size) == 7          # las siete bandas del protocolo
+        @test nrow(edges) == Int(expected["n_edges"])
+        @test count(identity, Bool.(edges.is_nominal)) == Int(expected["n_nominal"])
+        @test count(identity, Bool.(edges.is_fdr)) == Int(expected["n_fdr"])
         @test nrow(edges) == Int(alpha_band.n_edges)
         @test nrow(edges) == Int(alpha_band.n_channels) *
                             (Int(alpha_band.n_channels) - 1) ÷ 2
         @test count(identity, Bool.(edges.is_nominal)) == Int(alpha_band.n_nominal)
         @test count(identity, Bool.(edges.is_fdr)) == Int(alpha_band.n_sig)
         @test nrow(top20) == min(20, nrow(edges))
-        @test count(identity, Bool.(top20.is_nominal)) == 20
+        @test count(identity, Bool.(top20.is_nominal)) == Int(expected["top20_nominal"])
         @test count(identity, Bool.(top20.is_nominal)) ==
               Int(alpha_band.top20_nominal_overlap)
         @test sort(Int.(edges.effect_rank_abs_d)) == collect(1:nrow(edges))
@@ -1040,7 +1094,7 @@ end
             @test all(Int.(sub.fdr_family_size) .== nrow(sub))
         end
     else
-        @test_skip false
+        skip_regression(section, reg_files, expected)
     end
 end
 
@@ -1052,7 +1106,7 @@ end
     @test method == "exact_conditional_dp"
     @test p ≈ 2.0 / 2.0^15 atol=1e-15
 
-    # W+=1 reproduce el caso sensible C4–FC2: p exacto = 4/2^15.
+    # W+=1 (un solo cambio positivo, el de menor rango): p exacto = 4/2^15.
     after_w1 = vcat(1.0, -Float64.(2:15))
     p_w1, _ = Longitudinal.wilcoxon_p(before, after_w1)
     @test p_w1 ≈ 4.0 / 2.0^15 atol=1e-15
@@ -1107,34 +1161,39 @@ end
     end
 
     # Los pares se calculan del inventario (registro único de grabaciones).
-    # M07 no tiene T1 EO: debe conservarse el par EC y descartarse el EO,
-    # porque las condiciones se evalúan por separado.
+    # Inventario sintético: S01 no tiene T1 EO; debe conservarse el par EC y
+    # descartarse el EO, porque las condiciones se evalúan por separado. Los
+    # controles (prefijos C y MC) tienen par completo y deben quedar fuera
+    # por ser controles, no por falta de par.
     mktempdir() do tmp
         tables = joinpath(tmp, "data", "tables")
         mkpath(tables)
-        recs = [("M7", "M07", "T1", "EC"), ("M7", "M07", "T2", "EC"), ("M7", "M07", "T2", "EO"),
-                ("M8", "M08", "T1", "EC"), ("M8", "M08", "T1", "EO"),
-                ("M8", "M08", "T2", "EC"), ("M8", "M08", "T2", "EO"),
-                ("MC1", "MC01", "T1", "EC"), ("MC1", "MC01", "T1", "EO")]
+        recs = [("S1", "S01", "T1", "EC"), ("S1", "S01", "T2", "EC"), ("S1", "S01", "T2", "EO"),
+                ("S2", "S02", "T1", "EC"), ("S2", "S02", "T1", "EO"),
+                ("S2", "S02", "T2", "EC"), ("S2", "S02", "T2", "EO"),
+                ("C1", "C01", "T1", "EC"), ("C1", "C01", "T2", "EC"),
+                ("MC99", "MC99", "T1", "EC"), ("MC99", "MC99", "T2", "EC")]
         CSV.write(joinpath(tables, "inventory.csv"), DataFrame(
             subject_id=[r[1] for r in recs],
             bids_id=[r[2] for r in recs],
-            group=[startswith(r[1], "MC") ? "HC" : "MS" for r in recs],
+            group=[startswith(r[1], "C") || startswith(r[1], "MC") ? "HC" : "MS" for r in recs],
             bids_session=[r[3] for r in recs],
             condition=[r[4] for r in recs],
             excluded=fill(false, length(recs)),
         ))
         pairs = Longitudinal.load_pairs(tmp, joinpath(tmp, "results"), joinpath(tmp, "data", "bids"))
-        @test length(pairs) == 2          # el control no entra
-        m07 = only(filter(p -> p.subject_id == "M07", pairs))
-        @test m07.has_ec
-        @test !m07.has_eo
-        m08 = only(filter(p -> p.subject_id == "M08", pairs))
-        @test m08.has_ec && m08.has_eo
+        @test length(pairs) == 2          # los controles no entran
+        @test sort([p.subject_id for p in pairs]) == ["S01", "S02"]
+        s01 = only(filter(p -> p.subject_id == "S01", pairs))
+        @test s01.has_ec
+        @test !s01.has_eo
+        s02 = only(filter(p -> p.subject_id == "S02", pairs))
+        @test s02.has_ec && s02.has_eo
     end
 
     # Regresión del dataset real ALPHA–EC. `results/` es deliberadamente
-    # gitignored; en un checkout sin derivados se registra como skipped.
+    # gitignored y los valores esperados están en el TOML local
+    # (REGRESSION_VALUES_PATH); sin ellos se registra como skipped.
     reg_dir = joinpath(@__DIR__, "..", "results", "longitudinal", "eyesclosed", "tables")
     reg_files = [
         joinpath(reg_dir, "network_global_statistics.csv"),
@@ -1142,7 +1201,9 @@ end
         joinpath(reg_dir, "longitudinal_statistics_ALPHA.csv"),
         joinpath(reg_dir, "band_power_delta_statistics.csv"),
     ]
-    if all(isfile, reg_files)
+    section = "longitudinal_alpha_ec"
+    expected = regression_values(section)
+    if all(isfile, reg_files) && expected !== nothing
         ng = CSV.read(reg_files[1], DataFrame)
         scores = CSV.read(reg_files[2], DataFrame)
         edges = CSV.read(reg_files[3], DataFrame)
@@ -1153,29 +1214,30 @@ end
         top20 = sort(filter(r -> Int(r.effect_rank_abs_dz) <= 20, edges),
                      :effect_rank_abs_dz)
 
-        @test Float64(alpha.effect_rrb) ≈ -0.1618 atol=5e-5
-        @test Float64(alpha.median_diff_wpli) ≈ -0.0051785 atol=5e-7
+        # Los dos esperados están redondeados: la tolerancia es la del redondeo
+        @test Float64(alpha.effect_rrb) ≈ Float64(expected["effect_rrb"]) atol=5e-5
+        @test Float64(alpha.median_diff_wpli) ≈ Float64(expected["median_diff_wpli"]) atol=5e-7
         @test median(deltas) == Float64(alpha.median_diff_wpli)
         @test Int(alpha.schema_version) == 2
         @test string(alpha.statistics_source) == Longitudinal.STATISTICS_SOURCE
         @test string(alpha.quantile_method) == Longitudinal.QUANTILE_METHOD
         @test string(alpha.rrb_method) == Longitudinal.RRB_METHOD
-        @test nrow(edges) == 351
+        @test nrow(edges) == Int(expected["n_edges"])
         @test nrow(edges) == Int(alpha.n_channels) * (Int(alpha.n_channels) - 1) ÷ 2
-        @test count(identity, Bool.(edges.is_nominal)) == 20
+        @test count(identity, Bool.(edges.is_nominal)) == Int(expected["n_nominal"])
         @test nrow(top20) == 20
-        @test count(identity, Bool.(top20.is_nominal)) == 17
-        @test count(identity, Bool.(edges.is_fdr)) == 0
-        @test sort(Int.(edges.effect_rank_abs_dz)) == collect(1:351)
+        @test count(identity, Bool.(top20.is_nominal)) == Int(expected["top20_nominal"])
+        @test count(identity, Bool.(edges.is_fdr)) == Int(expected["n_fdr"])
+        @test sort(Int.(edges.effect_rank_abs_dz)) == collect(1:nrow(edges))
         @test Float64(alpha.diff) ≈
               (Int(alpha.n_channels) - 1) * Float64(alpha.diff_wpli) atol=1e-4
         for band in unique(String.(power.band))
             sub = filter(r -> string(r.band) == band, power)
-            @test nrow(sub) == 31
-            @test all(Int.(sub.fdr_family_size) .== 31)
+            @test nrow(sub) == Int(expected["n_power_channels"])
+            @test all(Int.(sub.fdr_family_size) .== Int(expected["n_power_channels"]))
         end
     else
-        @test_skip false
+        skip_regression(section, reg_files, expected)
     end
 end
 
@@ -2990,7 +3052,8 @@ end
         @test !r["S05"].included
         @test r["S05"].qc_decision == "unknown"
         @test occursin("valor no reconocido «nan»", r["S05"].excluded_reason)
-        # Alias del código de sujeto (con y sin el cero a la izquierda)
+        # Alias del código de sujeto (con y sin el cero a la izquierda). El
+        # código solo ejercita el formato M<d>/M0<d>; la decisión es ficticia.
         @test r["M9"].included && r["M9"].qc_decision == "include"
     end
 
