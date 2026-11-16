@@ -221,6 +221,23 @@ function regression_values(section::String)
     return values[section]
 end
 
+"""
+Registra como omitida la regresión de cohorte `section` y dice qué falta: el
+TOML local de valores esperados, las tablas de resultados locales o ambos. Una
+regresión omitida no queda validada.
+"""
+function skip_regression(section::String, reg_files::Vector{String}, expected)
+    missing_parts = String[]
+    expected === nothing &&
+        push!(missing_parts, "los valores esperados ($(REGRESSION_VALUES_PATH))")
+    n_missing = count(!isfile, reg_files)
+    n_missing > 0 && push!(missing_parts,
+        "$(n_missing) de $(length(reg_files)) tablas de resultados locales")
+    @warn "Regresión de cohorte [$(section)] omitida: faltan $(join(missing_parts, " y ")). " *
+          "No queda validada."
+    @test_skip false
+end
+
 # ─── Tests de tipos ───────────────────────────────────────────
 
 @testset "Types" begin
@@ -869,7 +886,8 @@ end
         joinpath(reg_dir, "group_statistics_ALPHA.csv"),
         joinpath(reg_dir, "band_power_group_statistics.csv"),
     ]
-    expected = regression_values("transversal_alpha_ec")
+    section = "transversal_alpha_ec"
+    expected = regression_values(section)
     if all(isfile, reg_files) && expected !== nothing
         global_stats = CSV.read(reg_files[1], DataFrame)
         subject_means = CSV.read(reg_files[2], DataFrame)
@@ -918,7 +936,7 @@ end
             @test all(Int.(sub.fdr_family_size) .== nrow(sub))
         end
     else
-        @test_skip false
+        skip_regression(section, reg_files, expected)
     end
 end
 
@@ -930,7 +948,7 @@ end
     @test method == "exact_conditional_dp"
     @test p ≈ 2.0 / 2.0^15 atol=1e-15
 
-    # W+=1 reproduce el caso sensible C4–FC2: p exacto = 4/2^15.
+    # W+=1 (un solo cambio positivo, el de menor rango): p exacto = 4/2^15.
     after_w1 = vcat(1.0, -Float64.(2:15))
     p_w1, _ = Longitudinal.wilcoxon_p(before, after_w1)
     @test p_w1 ≈ 4.0 / 2.0^15 atol=1e-15
@@ -985,30 +1003,34 @@ end
     end
 
     # Los pares se calculan del inventario (registro único de grabaciones).
-    # M07 no tiene T1 EO: debe conservarse el par EC y descartarse el EO,
-    # porque las condiciones se evalúan por separado.
+    # Inventario sintético: S01 no tiene T1 EO; debe conservarse el par EC y
+    # descartarse el EO, porque las condiciones se evalúan por separado. Los
+    # controles (prefijos C y MC) tienen par completo y deben quedar fuera
+    # por ser controles, no por falta de par.
     mktempdir() do tmp
         tables = joinpath(tmp, "data", "tables")
         mkpath(tables)
-        recs = [("M7", "M07", "T1", "EC"), ("M7", "M07", "T2", "EC"), ("M7", "M07", "T2", "EO"),
-                ("M8", "M08", "T1", "EC"), ("M8", "M08", "T1", "EO"),
-                ("M8", "M08", "T2", "EC"), ("M8", "M08", "T2", "EO"),
-                ("MC1", "MC01", "T1", "EC"), ("MC1", "MC01", "T1", "EO")]
+        recs = [("S1", "S01", "T1", "EC"), ("S1", "S01", "T2", "EC"), ("S1", "S01", "T2", "EO"),
+                ("S2", "S02", "T1", "EC"), ("S2", "S02", "T1", "EO"),
+                ("S2", "S02", "T2", "EC"), ("S2", "S02", "T2", "EO"),
+                ("C1", "C01", "T1", "EC"), ("C1", "C01", "T2", "EC"),
+                ("MC99", "MC99", "T1", "EC"), ("MC99", "MC99", "T2", "EC")]
         CSV.write(joinpath(tables, "inventory.csv"), DataFrame(
             subject_id=[r[1] for r in recs],
             bids_id=[r[2] for r in recs],
-            group=[startswith(r[1], "MC") ? "HC" : "MS" for r in recs],
+            group=[startswith(r[1], "C") || startswith(r[1], "MC") ? "HC" : "MS" for r in recs],
             bids_session=[r[3] for r in recs],
             condition=[r[4] for r in recs],
             excluded=fill(false, length(recs)),
         ))
         pairs = Longitudinal.load_pairs(tmp, joinpath(tmp, "results"), joinpath(tmp, "data", "bids"))
-        @test length(pairs) == 2          # el control no entra
-        m07 = only(filter(p -> p.subject_id == "M07", pairs))
-        @test m07.has_ec
-        @test !m07.has_eo
-        m08 = only(filter(p -> p.subject_id == "M08", pairs))
-        @test m08.has_ec && m08.has_eo
+        @test length(pairs) == 2          # los controles no entran
+        @test sort([p.subject_id for p in pairs]) == ["S01", "S02"]
+        s01 = only(filter(p -> p.subject_id == "S01", pairs))
+        @test s01.has_ec
+        @test !s01.has_eo
+        s02 = only(filter(p -> p.subject_id == "S02", pairs))
+        @test s02.has_ec && s02.has_eo
     end
 
     # Regresión del dataset real ALPHA–EC. `results/` es deliberadamente
@@ -1022,7 +1044,8 @@ end
         joinpath(reg_dir, "group_statistics_ALPHA.csv"),
         joinpath(reg_dir, "band_power_group_statistics.csv"),
     ]
-    expected = regression_values("transversal_alpha_ec")
+    section = "transversal_alpha_ec"
+    expected = regression_values(section)
     if all(isfile, reg_files) && expected !== nothing
         global_stats = CSV.read(reg_files[1], DataFrame)
         subject_means = CSV.read(reg_files[2], DataFrame)
@@ -1071,7 +1094,7 @@ end
             @test all(Int.(sub.fdr_family_size) .== nrow(sub))
         end
     else
-        @test_skip false
+        skip_regression(section, reg_files, expected)
     end
 end
 
@@ -1083,7 +1106,7 @@ end
     @test method == "exact_conditional_dp"
     @test p ≈ 2.0 / 2.0^15 atol=1e-15
 
-    # W+=1 reproduce el caso sensible C4–FC2: p exacto = 4/2^15.
+    # W+=1 (un solo cambio positivo, el de menor rango): p exacto = 4/2^15.
     after_w1 = vcat(1.0, -Float64.(2:15))
     p_w1, _ = Longitudinal.wilcoxon_p(before, after_w1)
     @test p_w1 ≈ 4.0 / 2.0^15 atol=1e-15
@@ -1138,30 +1161,34 @@ end
     end
 
     # Los pares se calculan del inventario (registro único de grabaciones).
-    # M07 no tiene T1 EO: debe conservarse el par EC y descartarse el EO,
-    # porque las condiciones se evalúan por separado.
+    # Inventario sintético: S01 no tiene T1 EO; debe conservarse el par EC y
+    # descartarse el EO, porque las condiciones se evalúan por separado. Los
+    # controles (prefijos C y MC) tienen par completo y deben quedar fuera
+    # por ser controles, no por falta de par.
     mktempdir() do tmp
         tables = joinpath(tmp, "data", "tables")
         mkpath(tables)
-        recs = [("M7", "M07", "T1", "EC"), ("M7", "M07", "T2", "EC"), ("M7", "M07", "T2", "EO"),
-                ("M8", "M08", "T1", "EC"), ("M8", "M08", "T1", "EO"),
-                ("M8", "M08", "T2", "EC"), ("M8", "M08", "T2", "EO"),
-                ("MC1", "MC01", "T1", "EC"), ("MC1", "MC01", "T1", "EO")]
+        recs = [("S1", "S01", "T1", "EC"), ("S1", "S01", "T2", "EC"), ("S1", "S01", "T2", "EO"),
+                ("S2", "S02", "T1", "EC"), ("S2", "S02", "T1", "EO"),
+                ("S2", "S02", "T2", "EC"), ("S2", "S02", "T2", "EO"),
+                ("C1", "C01", "T1", "EC"), ("C1", "C01", "T2", "EC"),
+                ("MC99", "MC99", "T1", "EC"), ("MC99", "MC99", "T2", "EC")]
         CSV.write(joinpath(tables, "inventory.csv"), DataFrame(
             subject_id=[r[1] for r in recs],
             bids_id=[r[2] for r in recs],
-            group=[startswith(r[1], "MC") ? "HC" : "MS" for r in recs],
+            group=[startswith(r[1], "C") || startswith(r[1], "MC") ? "HC" : "MS" for r in recs],
             bids_session=[r[3] for r in recs],
             condition=[r[4] for r in recs],
             excluded=fill(false, length(recs)),
         ))
         pairs = Longitudinal.load_pairs(tmp, joinpath(tmp, "results"), joinpath(tmp, "data", "bids"))
-        @test length(pairs) == 2          # el control no entra
-        m07 = only(filter(p -> p.subject_id == "M07", pairs))
-        @test m07.has_ec
-        @test !m07.has_eo
-        m08 = only(filter(p -> p.subject_id == "M08", pairs))
-        @test m08.has_ec && m08.has_eo
+        @test length(pairs) == 2          # los controles no entran
+        @test sort([p.subject_id for p in pairs]) == ["S01", "S02"]
+        s01 = only(filter(p -> p.subject_id == "S01", pairs))
+        @test s01.has_ec
+        @test !s01.has_eo
+        s02 = only(filter(p -> p.subject_id == "S02", pairs))
+        @test s02.has_ec && s02.has_eo
     end
 
     # Regresión del dataset real ALPHA–EC. `results/` es deliberadamente
@@ -1174,7 +1201,8 @@ end
         joinpath(reg_dir, "longitudinal_statistics_ALPHA.csv"),
         joinpath(reg_dir, "band_power_delta_statistics.csv"),
     ]
-    expected = regression_values("longitudinal_alpha_ec")
+    section = "longitudinal_alpha_ec"
+    expected = regression_values(section)
     if all(isfile, reg_files) && expected !== nothing
         ng = CSV.read(reg_files[1], DataFrame)
         scores = CSV.read(reg_files[2], DataFrame)
@@ -1209,7 +1237,7 @@ end
             @test all(Int.(sub.fdr_family_size) .== Int(expected["n_power_channels"]))
         end
     else
-        @test_skip false
+        skip_regression(section, reg_files, expected)
     end
 end
 
@@ -3024,7 +3052,8 @@ end
         @test !r["S05"].included
         @test r["S05"].qc_decision == "unknown"
         @test occursin("valor no reconocido «nan»", r["S05"].excluded_reason)
-        # Alias del código de sujeto (con y sin el cero a la izquierda)
+        # Alias del código de sujeto (con y sin el cero a la izquierda). El
+        # código solo ejercita el formato M<d>/M0<d>; la decisión es ficticia.
         @test r["M9"].included && r["M9"].qc_decision == "include"
     end
 
