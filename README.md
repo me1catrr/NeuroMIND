@@ -11,6 +11,8 @@ NeuroMIND toma señales EEG de reposo en formato BrainVision, las procesa de pri
 
 > **Cuadernos Pluto (antes NeuroSmart-EEG).** El repositorio NeuroSmart-EEG se ha integrado aquí con su historial, en [`legacy/neurosmart/`](legacy/neurosmart/LEEME_MIGRACION.md), como material histórico que no se publica. El GitHub Pages del proyecto queda reservado para el libro Quarto del informe.
 
+> **Libro interactivo.** El informe del proyecto, adaptado como libro Quarto con simulaciones, está en **<https://me1catrr.github.io/NeuroMIND/>**. Se escribe en un repositorio privado aparte y aquí solo se publica su HTML, en la rama `gh-pages` (sin historia común con `main`; no se edita a mano).
+
 ---
 
 ## Tabla de contenidos
